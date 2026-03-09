@@ -1,4 +1,5 @@
 # ♻️ Content Repurpose — YouTube → Multi-formato
+> Última atualização: 09 de Março de 2026
 
 ## Visão Geral
 

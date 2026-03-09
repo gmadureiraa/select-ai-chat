@@ -1,4 +1,5 @@
 # 📚 Documentação Kaleidos
+> Última atualização: 09 de Março de 2026
 
 ## Índice Geral
 

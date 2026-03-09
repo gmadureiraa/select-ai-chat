@@ -973,7 +973,7 @@ const sections: DocSection[] = [
   },
 ];
 
-export default function Documentation() {
+export default function Documentation({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("export");
   const [searchQuery, setSearchQuery] = useState("");
@@ -983,6 +983,53 @@ export default function Documentation() {
   );
 
   const activeContent = sections.find(s => s.id === activeSection)?.content;
+
+  // Embedded mode: render without header/full-page wrapper
+  if (embedded) {
+    return (
+      <div className="flex gap-6">
+        {/* Sidebar */}
+        <aside className="w-56 flex-shrink-0">
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            
+            <ScrollArea className="h-[calc(100vh-280px)]">
+              <nav className="space-y-1">
+                {filteredSections.map((section) => (
+                  <button
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                      activeSection === section.id
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <section.icon className="h-4 w-4" />
+                    <span className="flex-1 text-left truncate">{section.title}</span>
+                  </button>
+                ))}
+              </nav>
+            </ScrollArea>
+          </div>
+        </aside>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {activeContent}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

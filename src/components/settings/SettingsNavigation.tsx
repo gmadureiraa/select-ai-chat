@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { User, CreditCard, Users, Palette, Bell } from "lucide-react";
+import { User, CreditCard, Users, Palette, Bell, BookOpen } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
-export type SettingsSection = "profile" | "team" | "notifications" | "appearance";
+export type SettingsSection = "profile" | "team" | "notifications" | "appearance" | "docs";
 
 interface SettingsNavigationProps {
   activeSection: SettingsSection;
@@ -16,6 +16,7 @@ const sections = [
   { id: "team" as const, label: "Time", icon: Users, requiresPermission: "team" },
   { id: "notifications" as const, label: "Notificações", icon: Bell },
   { id: "appearance" as const, label: "Aparência", icon: Palette },
+  { id: "docs" as const, label: "Documentação", icon: BookOpen },
 ];
 
 export function SettingsNavigation({ 

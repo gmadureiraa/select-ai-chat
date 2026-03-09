@@ -1,4 +1,5 @@
 # 🎨 Image Generation — Pipeline de Geração de Imagens
+> Última atualização: 09 de Março de 2026
 
 ## Visão Geral
 

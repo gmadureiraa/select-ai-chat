@@ -1,92 +1,56 @@
 
 
-# Plano de Melhoria: Qualidade de Conteúdo + Docs nas Settings + Changelog
+## Diagnóstico: Por que as automações não estão postando
 
-## Diagnóstico dos Problemas
+### Problema 1: LinkedIn - Itens criados mas nunca publicados
+As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
 
-### 1. Geração de Carrossel - Problemas Identificados
-- **Modelo fraco**: Usa `gemini-2.0-flash` (modelo rápido/barato) para TODO conteúdo, incluindo carrosséis que precisam de qualidade superior
-- **maxOutputTokens limitado**: Streaming usa apenas 4096 tokens - insuficiente para 10 slides bem escritos
-- **Regras de formato superficiais**: As format-rules do carrossel têm apenas ~50 linhas; o doc `CARROSSEL.md` tem 347 linhas com muito mais profundidade mas NÃO é injetado no prompt
-- **Parsing frágil**: `parseCarouselFromContent()` usa regex simples que falha se o modelo não seguir exatamente o padrão "Página X:" ou "Slide X:"
-- **Sem validação pós-geração**: Não verifica se cada slide tem <= 30 palavras, se a capa tem <= 8 palavras, etc.
-- **Prompt genérico**: O `buildEnrichedPrompt()` no frontend é básico demais - "Crie um carrossel sobre: [título]"
+### Problema 2: Threads - Nenhuma automação configurada
+As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
 
-### 2. Docs não acessíveis no app
-- Existe `src/pages/Documentation.tsx` com conteúdo hardcoded, mas NÃO está nas Settings
-- Settings tem apenas 4 abas: Perfil, Time, Notificações, Aparência
-- Documentação não tem changelog/datas
+### Problema 3: Bug no retry de imagem
+No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
 
-### 3. Pesquisa de Modelo Ideal para Carrosséis
-Baseado na pesquisa realizada:
-- **Claude Opus 4.5**: Melhor em escrita criativa e nuance, mas não disponível via Lovable AI Gateway
-- **GPT-5.2**: Excelente em raciocínio estruturado e copy - disponível como `openai/gpt-5.2`
-- **Gemini 2.5 Pro**: Bom em contexto longo + multimodal - disponível como `google/gemini-2.5-pro`
-- **Recomendação**: Para carrosséis, usar `openai/gpt-5.2` ou `google/gemini-2.5-pro` (ambos disponíveis no gateway). GPT-5.2 é superior em copywriting estruturado (slides numerados, CTAs, ganchos).
-
-O sistema já usa a Google AI Studio API diretamente. A melhoria é usar um modelo mais forte para formatos complexos.
+### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
+Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
 
 ---
 
-## Implementação
+## Plano de Implementação
 
-### Fase 1: Carrossel Magnífico
+### 1. Corrigir bug do retry de imagem no process-automations
+- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
 
-**1.1 Upgrade de modelo por formato** (`kai-content-agent/index.ts`)
-- Criar mapa de modelos por formato: formatos simples (tweet) → `gemini-2.0-flash`, formatos complexos (carousel, newsletter, blog_post) → `gemini-2.5-pro`
-- Aumentar `maxOutputTokens` para 8192 em streaming para carrosséis
-- Aumentar `temperature` para 0.8 em carrosséis (mais criatividade)
+### 2. Criar sistema de variação para LinkedIn (anti-repetição)
+Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
+- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
+- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
+- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
 
-**1.2 Injetar doc completo do carrossel** (`kai-content-agent/index.ts`)
-- Quando `format === 'carousel'`, carregar o conteúdo completo de `docs/formatos/CARROSSEL.md` via `kai_documentation` ou injetar diretamente as 347 linhas de regras no prompt em vez das 50 linhas atuais
-- Substituir as format-rules hardcoded fracas pelas regras completas
+Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
 
-**1.3 Melhorar format-rules do carrossel** (`format-rules.ts`)
-- Expandir as regras de ~50 para ~150 linhas com:
-  - Exemplos concretos de headlines que funcionam por nicho
-  - Padrão de progressão narrativa (Problema → Agitação → Solução)
-  - Regras de legenda (gancho na 1ª linha, CTA, sem hashtags)
-  - Instruções claras de formatação de saída para parsing confiável
+### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
+Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
+- Incorporar os 5 pilares de conteúdo como rotação temática
+- Usar tom de voz definido: técnico mas didático, direto, visionário
+- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
 
-**1.4 Validação pós-geração** (`contentGeneration.ts`)
-- Adicionar `validateCarouselContent()`:
-  - Verificar <= 30 palavras por slide
-  - Verificar capa <= 8 palavras no headline
-  - Verificar mínimo 7 slides
-  - Verificar presença de legenda
-  - Se falhar, regenerar automaticamente com feedback específico
+### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
+Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
 
-**1.5 Parser mais robusto** (`contentGeneration.ts`)
-- Melhorar `parseCarouselFromContent()` com mais padrões:
-  - "Página X:", "Slide X:", "**X.**", "📍", separadores "---"
-  - Extrair LEGENDA separadamente
-  - Detectar VISUAL RECOMENDADO por slide
+### 5. Criar automações para Threads
+Criar 2-3 automações de Threads para o perfil Madureira:
+- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
+- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
 
-### Fase 2: Documentação nas Settings
-
-**2.1 Nova aba "Documentação" nas Settings** (`SettingsNavigation.tsx` + `Settings.tsx`)
-- Adicionar seção "docs" ao `SettingsSection` type
-- Renderizar conteúdo do `Documentation.tsx` inline nas settings
-- Ícone: `BookOpen`
-
-**2.2 Changelog em cada doc** (todos os `docs/*.md`)
-- Adicionar header com data de última atualização em cada arquivo
-- Formato: `> Última atualização: 09 de Março de 2026`
-
-### Fase 3: Melhorias em outros formatos complexos
-- Aplicar o mesmo upgrade de modelo para Newsletter e Blog Post
-- Manter gemini-2.0-flash para tweets e posts curtos (custo-eficiente)
+### 6. Melhorar geração de imagem para LinkedIn
+- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
+- Enriquecer prompts de imagem com contexto profissional/corporativo
+- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
 
 ---
 
-## Arquivos a modificar
-
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/kai-content-agent/index.ts` | Seleção de modelo por formato, maxOutputTokens dinâmico |
-| `supabase/functions/kai-content-agent/format-rules.ts` | Expandir regras do carrossel para ~150 linhas |
-| `src/lib/contentGeneration.ts` | Parser robusto + validação pós-geração |
-| `src/components/settings/SettingsNavigation.tsx` | Adicionar aba "Documentação" |
-| `src/pages/Settings.tsx` | Renderizar seção de docs |
-| `docs/*.md` (todos ~20 arquivos) | Adicionar changelog com data |
+### Arquivos a modificar
+1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
+2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
 

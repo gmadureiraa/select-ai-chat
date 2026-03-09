@@ -60,14 +60,60 @@ export const FORMAT_RULES: Record<string, string> = {
 `,
 
   carousel: `
-## REGRAS OBRIGATÓRIAS PARA CARROSSEL
+## REGRAS OBRIGATÓRIAS PARA CARROSSEL DE INSTAGRAM
 
-### ESTRUTURA
-- **Slide 1 (CAPA)**: Máximo 8 palavras. Crie dor, urgência ou curiosidade. NÃO eduque.
-- **Slides 2-8**: Máximo 30 palavras por slide. UMA ideia por slide.
-- **Último Slide**: CTA claro (Salve, Compartilhe, Siga)
+### VISÃO GERAL
+- **Número de slides:** 7-10 slides (ideal: 8-10)
+- **Cada slide:** Texto legível em imagem, máximo 30 palavras
+- **Objetivo:** Conteúdo escaneável, salvável e compartilhável
 
-### FORMATO DE ENTREGA
+---
+
+### ESTRUTURA OBRIGATÓRIA POR SLIDE
+
+**PÁGINA 1 — CAPA (Crítico!)**
+- Headline impactante: **MÁXIMO 8 PALAVRAS**
+- Promessa clara do que será entregue
+- Crie DOR, URGÊNCIA ou CURIOSIDADE — NÃO eduque na capa
+- Subtítulo opcional: máximo 10 palavras
+- Visual limpo, texto grande, contraste alto
+
+Exemplos de headlines que funcionam:
+- "5 erros que destroem sua produtividade"
+- "Como dobrar suas vendas em 30 dias"
+- "O que ninguém te conta sobre [tema]"
+- "Pare de fazer isso agora"
+- "[Número] estratégias que mudaram meu [resultado]"
+
+**PÁGINAS 2-8 — CONTEÚDO**
+- **UM ponto por página** (regra inviolável)
+- **Máximo 30 palavras por página**
+- Título do ponto (opcional, curto)
+- Texto principal claro e direto
+- Gancho que cria curiosidade para o próximo slide
+- Progressão narrativa entre slides
+
+Estruturas narrativas recomendadas:
+1. **Problema → Agitação → Solução** (PAS)
+2. **Lista numerada** (5 erros, 7 dicas, 3 passos)
+3. **Antes vs Depois** (contraste de resultados)
+4. **Mito vs Verdade** (desmontar crenças)
+5. **Passo a passo** (tutorial sequencial)
+
+**PÁGINA 9 — RESUMO/CONCLUSÃO**
+- Lista dos pontos principais OU mensagem final forte
+- Reforce o valor entregue
+- Prepare para o CTA
+
+**PÁGINA 10 — CTA + ENGAGEMENT**
+- "Salve este post" (instrução de salvamento)
+- "Manda pra alguém" (instrução de compartilhamento)
+- "Siga @conta" (se aplicável)
+- Visual de fechamento com ícones de ação
+
+---
+
+### FORMATO DE ENTREGA (SIGA EXATAMENTE)
 \`\`\`
 Página 1:
 [Headline impactante - máx 8 palavras]
@@ -81,38 +127,83 @@ Página 2:
 
 ---
 
-[... repetir para cada página ...]
+Página 3:
+[Título do ponto]
+[Texto explicativo - máx 30 palavras]
 
 ---
 
-Página Final:
-SALVE ESTE POST
+[... repetir até Página 9 ou 10 ...]
+
+---
+
+Página [Penúltima]:
+RECAPITULANDO:
+1. [Ponto 1]
+2. [Ponto 2]
+3. [Ponto 3]
+[...]
+
+---
+
+Página [Última]:
+SALVE ESTE POST 📌
 Para consultar depois
 
-COMPARTILHE
+COMPARTILHE 📤
 Com quem precisa ver isso
 
 ---
 
 LEGENDA:
-[Texto da legenda com gancho forte na primeira linha]
+[Primeira linha = gancho que para o scroll — OBRIGATÓRIO]
+
+[2-3 parágrafos curtos com valor adicional]
+
+[Pergunta para gerar comentários]
+
+[CTA: Salve, compartilhe, siga]
 \`\`\`
+
+**ATENÇÃO:** Use EXATAMENTE "Página X:" como separador. Cada página separada por "---". A LEGENDA vem por último, separada por "---".
+
+---
+
+### REGRAS DA LEGENDA
+- Primeira linha = gancho irresistível (aparece antes do "ver mais")
+- Resumo do valor do carrossel
+- Pergunta para gerar comentários
+- Instrução para salvar/compartilhar
+- **ZERO hashtags** (são datadas e spam)
+- Máximo 2.200 caracteres
+
+---
 
 ### PROIBIÇÕES ABSOLUTAS
 - ❌ Emojis nos slides de conteúdo (apenas no CTA final, máx 2)
 - ❌ Frases genéricas: "Entenda", "Aprenda", "Vamos falar sobre", "Descubra"
 - ❌ Entregar o conteúdo na capa (apenas ganchos)
-- ❌ Ultrapassar 30 palavras por slide
+- ❌ Ultrapassar 30 palavras por slide (CRÍTICO)
+- ❌ Ultrapassar 8 palavras no headline da capa (CRÍTICO)
 - ❌ Mais de 1 ideia por slide
-- ❌ HASHTAGS (nunca use)
+- ❌ Menos de 7 slides no total
+- ❌ HASHTAGS (nunca use — PROIBIÇÃO ABSOLUTA)
+- ❌ Fonte pequena ou ilegível (indicar texto grande)
+- ❌ Inconsistência visual entre páginas
+- ❌ Página final sem CTA claro
+- ❌ Legenda sem gancho na primeira linha
 
 ### TÉCNICAS QUE FUNCIONAM
 - ✅ Números específicos: "4,5% ao ano" em vez de "vários por cento"
 - ✅ Contraste: Antes vs Depois
-- ✅ Dor + Solução
+- ✅ Dor + Solução (abra com problema, feche com resposta)
 - ✅ Perguntas provocativas na capa
 - ✅ Listas numeradas (1., 2., 3.)
-- ✅ Progressão lógica entre slides
+- ✅ Progressão lógica entre slides (cada um leva ao próximo)
+- ✅ Dados e estatísticas reais
+- ✅ Afirmações polêmicas que geram debate
+- ✅ Storytelling: abra com história, feche com lição
+- ✅ Gancho entre páginas ("Mas o pior vem agora...", "E tem mais...")
 `,
 
   newsletter: `

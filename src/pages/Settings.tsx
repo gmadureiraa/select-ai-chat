@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { User, Sun, Moon, Palette, Key, Loader2 } from "lucide-react";
+import { User, Sun, Moon, Palette, Key, Loader2, BookOpen } from "lucide-react";
+import Documentation from "@/pages/Documentation";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "next-themes";
 import { TeamManagement } from "@/components/settings/TeamManagement";
@@ -54,7 +55,7 @@ export default function Settings() {
   
   // Initialize section from URL tab parameter
   const tabParam = searchParams.get("tab");
-  const validSections: SettingsSection[] = ["profile", "team", "notifications", "appearance"];
+  const validSections: SettingsSection[] = ["profile", "team", "notifications", "appearance", "docs"];
   const initialSection = validSections.includes(tabParam as SettingsSection) 
     ? (tabParam as SettingsSection) 
     : "profile";
@@ -367,6 +368,8 @@ export default function Settings() {
         return renderNotificationsSection();
       case "appearance":
         return renderAppearanceSection();
+      case "docs":
+        return <Documentation embedded />;
       default:
         return renderProfileSection();
     }

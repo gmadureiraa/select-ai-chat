@@ -1,4 +1,5 @@
 # 🎠 Guia Completo: Como Escrever Carrossel para Instagram/LinkedIn
+> Última atualização: 09 de Março de 2026
 
 **Uso:** Este documento deve ser usado pelos agentes quando criarem conteúdo do tipo Carrossel.
 

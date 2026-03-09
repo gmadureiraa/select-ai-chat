@@ -262,63 +262,141 @@ export function parseThreadFromContent(content: string): TweetItem[] | null {
 
 /**
  * Parse carousel content into individual slides
+ * Supports multiple patterns: "Página X:", "Slide X:", "**X.**", numbered lists
  */
 export function parseCarouselFromContent(content: string): SlideItem[] | null {
   if (!content) return null;
 
-  const slides: SlideItem[] = [];
-  
-  // Try to find slide markers
-  const slidePatterns = [
-    /(?:^|\n)(?:Slide\s*\d+[:.]\s*)/gi,
-    /(?:^|\n)(?:\*\*Slide\s*\d+\*\*[:.]\s*)/gi,
-    /(?:^|\n)(?:📍\s*|\[Slide\s*\d+\])/gi,
-  ];
+  // First, separate LEGENDA from slide content
+  let slideContent = content;
+  const legendaMatch = content.match(/\n---\s*\n\s*(?:LEGENDA|Legenda|legenda)\s*:\s*\n([\s\S]*?)$/i);
+  if (legendaMatch) {
+    slideContent = content.substring(0, legendaMatch.index || content.length);
+  }
 
+  const slides: SlideItem[] = [];
   let parts: string[] = [];
+
+  // Pattern 1: "Página X:" (primary - matches our format rules)
+  const paginaPattern = /(?:^|\n)\s*(?:Página|Pagina)\s+(\d+)\s*:\s*/gi;
+  const paginaSplit = slideContent.split(paginaPattern).filter(p => p.trim());
   
-  for (const pattern of slidePatterns) {
-    const split = content.split(pattern).filter(p => p.trim());
-    if (split.length >= 5) {
-      parts = split;
-      break;
+  if (paginaSplit.length >= 5) {
+    // paginaSplit alternates: [content-before, "1", content1, "2", content2, ...]
+    // Skip first element if it's not a number
+    let startIdx = 0;
+    if (!/^\d+$/.test(paginaSplit[0]?.trim())) startIdx = 1;
+    
+    for (let i = startIdx; i < paginaSplit.length - 1; i += 2) {
+      const slideText = paginaSplit[i + 1]?.trim();
+      if (slideText) parts.push(slideText);
     }
   }
 
-  // Fallback: use double newlines
-  if (parts.length < 5) {
-    parts = content.split(/\n{2,}/).filter(p => p.trim() && p.length > 10);
+  // Pattern 2: "Slide X:" 
+  if (parts.length < 3) {
+    const slidePattern = /(?:^|\n)\s*(?:Slide|slide)\s+(\d+)\s*[:.]\s*/gi;
+    const slideSplit = slideContent.split(slidePattern).filter(p => p.trim());
+    if (slideSplit.length >= 5) {
+      parts = [];
+      let startIdx = /^\d+$/.test(slideSplit[0]?.trim()) ? 0 : 1;
+      for (let i = startIdx; i < slideSplit.length - 1; i += 2) {
+        const slideText = slideSplit[i + 1]?.trim();
+        if (slideText) parts.push(slideText);
+      }
+    }
   }
 
+  // Pattern 3: "**X.**" bold numbered
+  if (parts.length < 3) {
+    const boldPattern = /(?:^|\n)\s*\*\*\d+\.\*\*\s*/gi;
+    const boldSplit = slideContent.split(boldPattern).filter(p => p.trim());
+    if (boldSplit.length >= 5) {
+      parts = boldSplit;
+    }
+  }
+
+  // Pattern 4: separator "---"
+  if (parts.length < 3) {
+    const separatorSplit = slideContent.split(/\n\s*---\s*\n/).filter(p => p.trim() && p.length > 10);
+    if (separatorSplit.length >= 5) {
+      parts = separatorSplit;
+    }
+  }
+
+  // Pattern 5: double newlines fallback
+  if (parts.length < 3) {
+    parts = slideContent.split(/\n{2,}/).filter(p => p.trim() && p.length > 10);
+  }
+
+  // Clean and parse each part
   parts.forEach((part, index) => {
-    const cleanedPart = part
-      .replace(/^(?:Slide\s*\d+[:.]\s*|\*\*Slide\s*\d+\*\*[:.]\s*)/i, '')
+    let cleanedPart = part
+      .replace(/^(?:Página|Pagina|Slide)\s*\d+\s*[:.]\s*/i, '')
+      .replace(/^(?:VISUAL RECOMENDADO|Visual recomendado)\s*:\s*.*$/gim, '')
       .trim();
     
     if (cleanedPart.length >= 5) {
-      // Try to extract title (first line or bold text)
-      const lines = cleanedPart.split('\n');
+      const lines = cleanedPart.split('\n').filter(l => l.trim());
       let title: string | undefined;
-      let slideContent = cleanedPart;
+      let finalContent = cleanedPart;
       
+      // Extract title from bold text
       const boldMatch = cleanedPart.match(/^\*\*([^*]+)\*\*/);
       if (boldMatch) {
         title = boldMatch[1];
-        slideContent = cleanedPart.replace(/^\*\*[^*]+\*\*\s*/, '');
-      } else if (lines[0].length < 60) {
-        title = lines[0];
-        slideContent = lines.slice(1).join('\n').trim();
+        finalContent = cleanedPart.replace(/^\*\*[^*]+\*\*\s*\n?/, '').trim();
+      } else if (lines[0] && lines[0].length < 60 && lines.length > 1) {
+        title = lines[0].replace(/^#+\s*/, '');
+        finalContent = lines.slice(1).join('\n').trim();
       }
 
       slides.push({
         id: `slide-${index + 1}`,
         title,
-        content: slideContent || title || ""
+        content: finalContent || title || ""
       });
     }
   });
 
   return slides.length >= 3 ? slides : null;
+}
+
+/**
+ * Validate carousel content against quality rules
+ */
+export function validateCarouselContent(slides: SlideItem[]): {
+  valid: boolean;
+  issues: string[];
+} {
+  const issues: string[] = [];
+
+  if (slides.length < 7) {
+    issues.push(`Apenas ${slides.length} slides (mínimo 7)`);
+  }
+
+  // Check cover headline
+  if (slides[0]) {
+    const coverText = slides[0].title || slides[0].content.split('\n')[0] || '';
+    const coverWords = coverText.trim().split(/\s+/).length;
+    if (coverWords > 10) {
+      issues.push(`Capa com ${coverWords} palavras (máx 8)`);
+    }
+  }
+
+  // Check word count per slide
+  slides.forEach((slide, i) => {
+    if (i === 0) return; // Skip cover
+    const words = slide.content.trim().split(/\s+/).length;
+    if (words > 40) {
+      issues.push(`Slide ${i + 1} com ${words} palavras (máx 30)`);
+    }
+  });
+
+  return {
+    valid: issues.length === 0,
+    issues
+  };
 }
 
 // ============= Image Distribution =============

@@ -1,4 +1,5 @@
 # API Edge Functions — Documentação
+> Última atualização: 09 de Março de 2026
 
 Este documento descreve as Edge Functions disponíveis no sistema Kaleidos.
 

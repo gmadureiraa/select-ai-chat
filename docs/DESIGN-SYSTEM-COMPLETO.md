@@ -1,4 +1,5 @@
 # 🎨 Design System Completo
+> Última atualização: 09 de Março de 2026
 
 **Base:** shadcn/ui + Tailwind CSS  
 **Estilo:** Moderno, minimalista, clean
