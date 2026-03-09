@@ -310,7 +310,15 @@ export function YouTubeDashboard({ clientId, videos, isLoading }: YouTubeDashboa
               <Button 
                 variant="outline" 
                 className="border-border/50"
-                onClick={() => setShowApiFetch(!showApiFetch)}
+                onClick={() => { setShowApifyFetch(!showApifyFetch); setShowApiFetch(false); }}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Sincronizar Canal
+              </Button>
+              <Button 
+                variant="outline" 
+                className="border-border/50"
+                onClick={() => { setShowApiFetch(!showApiFetch); setShowApifyFetch(false); }}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Buscar via API
