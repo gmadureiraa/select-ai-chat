@@ -7,6 +7,7 @@ export interface SourcesUsed {
   format_rules?: string;
   voice_profile?: boolean;
   global_knowledge?: boolean;
+  content_guidelines?: boolean;
 }
 
 export interface ValidationResult {

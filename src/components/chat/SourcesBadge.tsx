@@ -86,6 +86,11 @@ export function SourcesBadge({ sources, className, variant = "inline" }: Sources
         label="Knowledge Base"
         active={sources.global_knowledge}
       />
+      <SourceItem
+        icon={BookOpen}
+        label="Guia de Criação"
+        active={sources.content_guidelines}
+      />
     </>
   );
 
