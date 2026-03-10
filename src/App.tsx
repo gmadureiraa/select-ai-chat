@@ -10,6 +10,7 @@ import { ThemeProvider } from "next-themes";
 import Login from "./pages/Login";
 import SimpleSignup from "./pages/SimpleSignup";
 import NotFound from "./pages/NotFound";
+import ExportMadureira from "./pages/ExportMadureira";
 import NoWorkspacePage from "./pages/NoWorkspacePage";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { WorkspaceRouter } from "@/components/WorkspaceRouter";
