@@ -1496,6 +1496,7 @@ serve(async (req) => {
               console.log(`Passing ${imageInputs.length - 1} visual reference images to generate-content-v2`);
             }
             
+            const isLinkedIn = derivedPlatform === 'linkedin';
             const imageResponse = await fetch(`${supabaseUrl}/functions/v1/generate-content-v2`, {
               method: 'POST',
               headers: {
