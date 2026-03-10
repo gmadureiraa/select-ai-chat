@@ -536,7 +536,7 @@ function getLinkedInVariation(automationName: string, variationIndex: number): {
 }
 
 // Build enriched prompt with context when template is empty or simple
-function buildEnrichedPrompt(
+async function buildEnrichedPrompt(
   template: string | null,
   data: RSSItem | null,
   automation: PlanningAutomation,
