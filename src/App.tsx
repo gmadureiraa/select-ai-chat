@@ -10,6 +10,7 @@ import { ThemeProvider } from "next-themes";
 import Login from "./pages/Login";
 import SimpleSignup from "./pages/SimpleSignup";
 import NotFound from "./pages/NotFound";
+import ExportMadureira from "./pages/ExportMadureira";
 import NoWorkspacePage from "./pages/NoWorkspacePage";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { WorkspaceRouter } from "@/components/WorkspaceRouter";
@@ -49,6 +50,8 @@ const App = () => (
                     <Route path="/:slug" element={<Navigate to="/kaleidos" replace />} />
                     <Route path="/:slug/*" element={<Navigate to="/kaleidos" replace />} />
                     
+                    {/* Export temp */}
+                    <Route path="/export-madureira" element={<ExportMadureira />} />
                     {/* 404 */}
                     <Route path="/404" element={<NotFound />} />
                     <Route path="*" element={<NotFound />} />
