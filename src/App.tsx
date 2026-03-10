@@ -49,6 +49,8 @@ const App = () => (
                     <Route path="/:slug" element={<Navigate to="/kaleidos" replace />} />
                     <Route path="/:slug/*" element={<Navigate to="/kaleidos" replace />} />
                     
+                    {/* Export temp */}
+                    <Route path="/export-madureira" element={<ExportMadureira />} />
                     {/* 404 */}
                     <Route path="/404" element={<NotFound />} />
                     <Route path="*" element={<NotFound />} />
