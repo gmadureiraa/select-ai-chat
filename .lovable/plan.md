@@ -1,56 +1,47 @@
 
 
-## Diagnóstico: Por que as automações não estão postando
+# Melhorar Tweets do Madureira: Referências + Prompts
 
-### Problema 1: LinkedIn - Itens criados mas nunca publicados
-As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
+## Diagnóstico
 
-### Problema 2: Threads - Nenhuma automação configurada
-As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
+Os tweets atuais são genéricos porque:
+1. **A biblioteca de referências tem conteúdo errado** — as refs existentes são artigos longos sobre Web3 marketing, não exemplos de tweets virais no estilo desejado
+2. **Os prompts pedem estilo "professor/educacional"** — mas os exemplos que você mostrou são conversacionais, provocativos, com listas e perguntas ao leitor
+3. **O knowledge-loader já injeta referências** (limit 5) mas as refs atuais não refletem o tom certo
 
-### Problema 3: Bug no retry de imagem
-No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
+## Plano
 
-### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
-Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
+### 1. Adicionar 5 referências de tweet na biblioteca do Madureira
 
----
+Inserir via SQL os exemplos que você enviou como `reference_type: 'tweet'`:
+- "Sistema de criação diária" (processo Kaleidos)
+- "Profissões do digital" (lista com salários)
+- "IPVA imposto sobre imposto" (opinião provocativa curta)
+- "iPhone vs petróleo" (comparação financeira com tabela)
+- "Seu carro e sua casa não são seus" (provocação + pergunta)
+- "Prioridade quando o dinheiro entra" (lista prática + pergunta)
 
-## Plano de Implementação
+### 2. Atualizar os prompts das automações de Twitter
 
-### 1. Corrigir bug do retry de imagem no process-automations
-- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
+Reescrever os prompts de **3 automações** para refletir o estilo real dos exemplos:
 
-### 2. Criar sistema de variação para LinkedIn (anti-repetição)
-Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
-- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
-- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
-- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
+| Automação | Mudança no prompt |
+|-----------|-------------------|
+| 🧠 Tweet Insight Diário | Trocar tom "professor" por conversacional/provocativo. Formatos: lista, comparação, opinião forte + pergunta |
+| Tweet — Dica & Ferramenta | Expandir para incluir listas práticas, dados financeiros, comparações do dia-a-dia |
+| 🎯 Tweet Marketing & Growth | Incluir formatos de opinião, provocação e listas — não só educacional |
 
-Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
+Cada prompt terá instrução explícita: **"USE as referências da biblioteca como MODELO DE ESTILO E FORMATO. Replique a estrutura, tom e engajamento desses exemplos."**
 
-### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
-Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
-- Incorporar os 5 pilares de conteúdo como rotação temática
-- Usar tom de voz definido: técnico mas didático, direto, visionário
-- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
+### 3. Aumentar peso das referências no knowledge-loader
 
-### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
-Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
+Mudar a instrução de `"NÃO copie — reinterprete"` para algo mais direto: **"REPLIQUE o formato e tom desses exemplos. Use a mesma estrutura (listas, perguntas, provocações) adaptando o tema."**
 
-### 5. Criar automações para Threads
-Criar 2-3 automações de Threads para o perfil Madureira:
-- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
-- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
+## Arquivos
 
-### 6. Melhorar geração de imagem para LinkedIn
-- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
-- Enriquecer prompts de imagem com contexto profissional/corporativo
-- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
-
----
-
-### Arquivos a modificar
-1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
-2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
+| Arquivo | Mudança |
+|---------|---------|
+| Database | INSERT 6 referências na `client_reference_library` |
+| Database | UPDATE prompt_template de 3 automações |
+| `supabase/functions/_shared/knowledge-loader.ts` | Reforçar instrução de uso das referências como modelo de estilo |
 
