@@ -1,56 +1,49 @@
 
 
-## Diagnóstico: Por que as automações não estão postando
+# Criar Cliente Jornal Cripto + 2 Automações
 
-### Problema 1: LinkedIn - Itens criados mas nunca publicados
-As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
+## 1. Criar Cliente "Jornal Cripto"
 
-### Problema 2: Threads - Nenhuma automação configurada
-As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
+Vou criar o perfil programaticamente no banco de dados com todas as informações extraídas do site e do README existente:
 
-### Problema 3: Bug no retry de imagem
-No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
+- **Nome**: Jornal Cripto
+- **Descrição**: Portal de notícias, análises e educação sobre criptomoedas e mercado cripto. Desenvolvido pela Kaleidos, com +5.000 leitores e cobertura de Bitcoin, DeFi, NFTs e Macro.
+- **Website**: https://jornalcripto.com/
+- **Tags**: Segmento: Cripto/Blockchain, Tom: Informativo e educativo, Público: Investidores e entusiastas cripto
+- **Social Media**: website: https://jornalcripto.com/
 
-### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
-Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
+Após criação, vou salvar a análise AI com os dados do README (tom de voz, público-alvo, temas).
 
----
+## 2. Automação RSS — Novas Notícias
 
-## Plano de Implementação
+Criar automação com:
+- **Nome**: Notícia Nova
+- **Trigger**: RSS Feed (`https://fqmzonmgkshcajuhmepl.supabase.co/functions/v1/rss-feed`)
+- **Plataformas**: Twitter/X, LinkedIn, Threads
+- **Geração IA**: Ativada — adapta o título/resumo da notícia para cada plataforma
+- **Prompt template**: Contexto de notícia cripto, incluir link da matéria, tom informativo
+- **Auto-publish**: Ativado (após você fazer as conexões)
 
-### 1. Corrigir bug do retry de imagem no process-automations
-- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
+## 3. Automação Diária — Preço do Bitcoin
 
-### 2. Criar sistema de variação para LinkedIn (anti-repetição)
-Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
-- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
-- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
-- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
+Criar automação com:
+- **Nome**: Preço do Bitcoin
+- **Trigger**: Schedule diário às 07:00
+- **Plataformas**: Twitter/X, LinkedIn, Threads
+- **Geração IA**: Ativada — buscar preço do Bitcoin via API pública e gerar texto contextualizado
+- **Geração de Imagem**: Ativada — imagem com preço atualizado
+- **Prompt template**: Incluir variável `{{time_of_day}}`, preço do BTC, variação 24h
+- **Auto-publish**: Ativado
 
-Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
+### Nota técnica sobre preço do Bitcoin
+O `process-automations` precisará buscar o preço do Bitcoin em tempo real via API pública (CoinGecko) no prompt template. Vou incluir instruções no prompt para que a IA busque dados atualizados via grounding/web search, ou posso adicionar uma chamada direta à API do CoinGecko no edge function para injetar o preço no contexto.
 
-### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
-Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
-- Incorporar os 5 pilares de conteúdo como rotação temática
-- Usar tom de voz definido: técnico mas didático, direto, visionário
-- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
+## Arquivos Afetados
 
-### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
-Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
+| Arquivo | Ação |
+|---------|------|
+| `supabase/functions/process-automations/index.ts` | Adicionar suporte a variável `{{btc_price}}` que busca preço via CoinGecko API para automações schedule |
+| Banco de dados | INSERT do cliente + 2 automações via código |
 
-### 5. Criar automações para Threads
-Criar 2-3 automações de Threads para o perfil Madureira:
-- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
-- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
-
-### 6. Melhorar geração de imagem para LinkedIn
-- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
-- Enriquecer prompts de imagem com contexto profissional/corporativo
-- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
-
----
-
-### Arquivos a modificar
-1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
-2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
+O cliente e as automações serão criados via mutations existentes no código (useClients + usePlanningAutomations), executados pelo frontend ao carregar. Alternativamente, posso inserir diretamente no banco via SQL.
 
