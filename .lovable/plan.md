@@ -1,56 +1,33 @@
 
 
-## Diagnóstico: Por que as automações não estão postando
+# Fix: Duas Variáveis Indefinidas Quebrando Automações
 
-### Problema 1: LinkedIn - Itens criados mas nunca publicados
-As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
+Os logs mostram dois `ReferenceError` que impedem a automação "GM Diário Defiverso" de completar:
 
-### Problema 2: Threads - Nenhuma automação configurada
-As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
+## Bug 1: `formatContract is not defined` — `unified-content-api`
 
-### Problema 3: Bug no retry de imagem
-No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
+**Causa**: `buildFormatContract` é importado mas nunca chamado. A variável `formatContract` é usada nos steps 4 (Repair) e 5 (Review) sem existir.
 
-### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
-Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
+**Fix**: Após obter o `normalizedFormat` (linha ~208), declarar:
+```typescript
+const formatContract = buildFormatContract(normalizedFormat);
+```
 
----
+## Bug 2: `isLinkedIn is not defined` — `process-automations`
 
-## Plano de Implementação
+**Causa**: `isLinkedIn` é usada 12 vezes na seção de geração de imagem (linhas ~1509-1548) mas nunca declarada. `derivedPlatform` já existe e contém a plataforma correta.
 
-### 1. Corrigir bug do retry de imagem no process-automations
-- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
+**Fix**: No início do bloco de geração de imagem (antes da linha 1499), declarar:
+```typescript
+const isLinkedIn = derivedPlatform === 'linkedin';
+```
 
-### 2. Criar sistema de variação para LinkedIn (anti-repetição)
-Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
-- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
-- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
-- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
+## Arquivos
 
-Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
+| Arquivo | Mudança |
+|---------|---------|
+| `supabase/functions/unified-content-api/index.ts` | Adicionar `const formatContract = buildFormatContract(normalizedFormat)` após linha 208 |
+| `supabase/functions/process-automations/index.ts` | Adicionar `const isLinkedIn = derivedPlatform === 'linkedin'` antes do bloco de image generation |
 
-### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
-Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
-- Incorporar os 5 pilares de conteúdo como rotação temática
-- Usar tom de voz definido: técnico mas didático, direto, visionário
-- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
-
-### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
-Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
-
-### 5. Criar automações para Threads
-Criar 2-3 automações de Threads para o perfil Madureira:
-- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
-- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
-
-### 6. Melhorar geração de imagem para LinkedIn
-- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
-- Enriquecer prompts de imagem com contexto profissional/corporativo
-- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
-
----
-
-### Arquivos a modificar
-1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
-2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
+Ambos são fixes de uma linha que desbloqueiam o pipeline inteiro.
 
