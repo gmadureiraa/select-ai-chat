@@ -377,8 +377,37 @@ async function checkRSSTrigger(
   };
 }
 
+// Fetch Bitcoin price from CoinGecko (free, no API key needed)
+async function fetchBTCPrice(): Promise<string> {
+  try {
+    const response = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,brl&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true',
+      { headers: { 'Accept': 'application/json' } }
+    );
+    if (!response.ok) {
+      console.warn(`[BTC] CoinGecko API error: ${response.status}`);
+      return 'Dados do Bitcoin indisponíveis no momento.';
+    }
+    const data = await response.json();
+    const btc = data.bitcoin;
+    const priceUSD = btc.usd?.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    const priceBRL = btc.brl?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const change24h = btc.usd_24h_change?.toFixed(2);
+    const direction = parseFloat(change24h) >= 0 ? '📈' : '📉';
+    const marketCap = btc.usd_market_cap ? `$${(btc.usd_market_cap / 1e9).toFixed(1)}B` : 'N/A';
+    
+    return `${direction} Bitcoin (BTC)
+- Preço: ${priceUSD} / ${priceBRL}
+- Variação 24h: ${change24h}%
+- Market Cap: ${marketCap}`;
+  } catch (error) {
+    console.error('[BTC] Error fetching price:', error);
+    return 'Dados do Bitcoin indisponíveis no momento.';
+  }
+}
+
 // Replace template variables in prompt
-function replaceTemplateVariables(template: string, data: RSSItem | null, automationName: string): string {
+async function replaceTemplateVariables(template: string, data: RSSItem | null, automationName: string): Promise<string> {
   if (!template) return '';
   
   let prompt = template;
@@ -389,6 +418,13 @@ function replaceTemplateVariables(template: string, data: RSSItem | null, automa
   if (hour >= 5 && hour < 12) timeOfDay = 'manhã';
   else if (hour >= 12 && hour < 18) timeOfDay = 'tarde';
   
+  // Fetch BTC price if template uses it
+  let btcPrice = '';
+  if (template.includes('{{btc_price}}')) {
+    btcPrice = await fetchBTCPrice();
+    console.log('[BTC] Price data fetched for template injection');
+  }
+  
   const variables: Record<string, string> = {
     '{{title}}': data?.title || automationName,
     '{{description}}': data?.description?.replace(/<[^>]*>/g, '').substring(0, 500) || '',
@@ -398,6 +434,7 @@ function replaceTemplateVariables(template: string, data: RSSItem | null, automa
       ? `${data!.allImages!.length} imagens disponíveis do conteúdo original`
       : 'Sem imagens disponíveis',
     '{{time_of_day}}': timeOfDay,
+    '{{btc_price}}': btcPrice,
   };
   
   for (const [key, value] of Object.entries(variables)) {
