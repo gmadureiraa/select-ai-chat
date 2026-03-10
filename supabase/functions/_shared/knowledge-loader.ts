@@ -707,8 +707,8 @@ export async function getFullContentContext(params: FullContentContextParams & {
       .limit(5);
     
     if (references && references.length > 0) {
-      context += `## 🔬 MATERIAL DE REFERÊNCIA — USE COMO INSPIRAÇÃO CRIATIVA\n`;
-      context += `*Estes são artigos, estudos e referências curados pelo cliente. EXTRAIA insights, dados e perspectivas originais deles. NÃO copie — reinterprete com a voz do cliente.*\n\n`;
+      context += `## 🔬 MATERIAL DE REFERÊNCIA — REPLIQUE O FORMATO E TOM\n`;
+      context += `*Estes são exemplos curados pelo cliente que representam o ESTILO DESEJADO. REPLIQUE o formato, estrutura e tom desses exemplos. Use a mesma abordagem (listas, perguntas, provocações, dados concretos) adaptando o tema. Esses exemplos são o PADRÃO DE QUALIDADE — seu output deve parecer que foi escrito pela mesma pessoa.*\n\n`;
       
       for (const ref of references) {
         context += `**${ref.title}** (${ref.reference_type})${ref.source_url ? ` — [fonte](${ref.source_url})` : ''}\n`;
