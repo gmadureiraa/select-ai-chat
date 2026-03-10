@@ -468,7 +468,15 @@ function AutomationCard({
 }: AutomationCardProps) {
   const TriggerIcon = triggerIcons[automation.trigger_type];
   const contentLabel = contentTypeLabels[automation.content_type] || automation.content_type;
-  
+  const displayName = cleanAutomationName(automation.name);
+
+  // Collect all platforms to display
+  const allPlatforms: string[] = automation.platforms?.length
+    ? automation.platforms
+    : automation.platform
+      ? [automation.platform]
+      : [];
+
   return (
     <div
       className={cn(
@@ -489,19 +497,33 @@ function AutomationCard({
         
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="font-medium text-sm truncate">{automation.name}</h4>
+            <h4 className="font-medium text-sm truncate">{displayName}</h4>
             <Badge variant="outline" className="text-xs shrink-0">
               {contentLabel}
             </Badge>
-            {automation.platform && (
-              <Badge variant="outline" className="text-xs capitalize shrink-0">
-                {automation.platform}
-              </Badge>
-            )}
+            {/* Platform icons with brand colors */}
+            {allPlatforms.map((p) => {
+              const PIcon = platformLucideIcons[p] || Globe;
+              const brandColor = PLATFORM_COLOR_MAP[p];
+              return (
+                <span
+                  key={p}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-medium shrink-0"
+                  style={{
+                    backgroundColor: brandColor ? `color-mix(in srgb, ${brandColor} 15%, transparent)` : undefined,
+                    color: brandColor || undefined,
+                    border: `1px solid color-mix(in srgb, ${brandColor || 'currentColor'} 30%, transparent)`,
+                  }}
+                >
+                  <PIcon className="h-3 w-3" />
+                  {ALL_PUBLISH_PLATFORMS.find(pp => pp.value === p)?.label || p}
+                </span>
+              );
+            })}
             {automation.auto_generate_content && (
               <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600 border-purple-500/30 shrink-0">IA</Badge>
             )}
-            {(automation as any).auto_publish && (
+            {automation.auto_publish && (
               <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30 shrink-0">
                 Auto-publish
               </Badge>
