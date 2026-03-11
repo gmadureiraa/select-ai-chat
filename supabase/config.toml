@@ -215,3 +215,6 @@ verify_jwt = false
 
 [functions.research-newsletter-topic]
 verify_jwt = true
+
+[functions.mcp-reader]
+verify_jwt = false

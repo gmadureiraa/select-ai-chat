@@ -1,67 +1,56 @@
-Dê acesso para o MCP claude code conseguir além de ver as tabelas, ter acesso ao kai completo, tanto para editar, melhorar ele, quanto para trabalhar em programar conteúdos, criar novos conteúdos, analisar dados e afins, tudo integrado para ele ter total acesso
 
-# Dar acesso ao banco de dados para Claude Code local
 
-## Opções disponíveis
+## Diagnóstico: Por que as automações não estão postando
 
-### Opção 1: MCP Server (Recomendada)
+### Problema 1: LinkedIn - Itens criados mas nunca publicados
+As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
 
-Criar um **edge function que funciona como MCP Server** — o Claude Code já suporta MCP nativamente. Assim ele pode consultar tabelas, listar dados, buscar conteúdo, tudo via protocolo padrão.
+### Problema 2: Threads - Nenhuma automação configurada
+As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
 
-- Você adiciona o MCP server nas configs do Claude Code
-- Ele consegue fazer queries de leitura em qualquer tabela
-- Controle granular: você define quais tabelas/operações são permitidas
-- Sem expor credenciais sensíveis diretamente
+### Problema 3: Bug no retry de imagem
+No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
 
-**Implementação:** Uma edge function com `mcp-lite` que expõe tools como `list_tables`, `query_table`, `get_client_data`, etc.
-
-### Opção 2: API REST read-only
-
-Criar uma edge function simples que aceita queries de leitura (SELECT) em tabelas específicas, autenticada por uma chave. O Claude Code chamaria via `curl` ou fetch.
-
-### Opção 3: Export completo periódico
-
-Gerar dumps JSON/CSV de todas as tabelas relevantes e salvar em arquivos que o Claude Code pode ler localmente. Menos dinâmico, mas zero risco.
+### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
+Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
 
 ---
 
-## Recomendação: Opção 1 (MCP Server)
+## Plano de Implementação
 
-O Claude Code já tem suporte nativo a MCP. Criaria uma edge function que expõe:
+### 1. Corrigir bug do retry de imagem no process-automations
+- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
 
+### 2. Criar sistema de variação para LinkedIn (anti-repetição)
+Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
+- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
+- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
+- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
 
-| Tool MCP              | Descrição                                   |
-| --------------------- | ------------------------------------------- |
-| `list_tables`         | Lista todas as tabelas disponíveis          |
-| `query_table`         | Consulta uma tabela com filtros (read-only) |
-| `get_client`          | Dados completos de um cliente               |
-| `get_content_library` | Biblioteca de conteúdo de um cliente        |
-| `get_references`      | Referências de um cliente                   |
-| `get_metrics`         | Métricas de um cliente                      |
-| `get_automations`     | Automações de um cliente                    |
-| `get_planning`        | Items de planejamento                       |
-| `search_knowledge`    | Busca na base de conhecimento               |
+Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
 
+### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
+Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
+- Incorporar os 5 pilares de conteúdo como rotação temática
+- Usar tom de voz definido: técnico mas didático, direto, visionário
+- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
 
-Autenticação via service role key no header. Só operações de leitura.
+### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
+Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
 
-No Claude Code, você adicionaria ao `claude_desktop_config.json`:
+### 5. Criar automações para Threads
+Criar 2-3 automações de Threads para o perfil Madureira:
+- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
+- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
 
-```text
-{
-  "mcpServers": {
-    "kaleidos": {
-      "url": "https://<project-url>/functions/v1/mcp-reader"
-    }
-  }
-}
-```
+### 6. Melhorar geração de imagem para LinkedIn
+- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
+- Enriquecer prompts de imagem com contexto profissional/corporativo
+- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
 
-## Execução
+---
 
+### Arquivos a modificar
+1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
+2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
 
-| Ação                    | Detalhe                                               |
-| ----------------------- | ----------------------------------------------------- |
-| Edge Function           | `supabase/functions/mcp-reader/index.ts` com mcp-lite |
-| Config                  | `verify_jwt = false` + autenticação por service key   |
-| Nenhum arquivo frontend | Só backend                                            |
