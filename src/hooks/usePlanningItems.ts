@@ -413,14 +413,14 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
 
   const getItemsByDate = (date: Date) => 
     items.filter(item => {
-      const itemDate = item.due_date || item.scheduled_at;
+      const itemDate = item.due_date || item.scheduled_at || item.published_at;
       if (!itemDate) return false;
       const d = new Date(itemDate);
       return d.toDateString() === date.toDateString();
     });
 
   const getItemsForCalendar = () => 
-    items.filter(item => item.due_date || item.scheduled_at);
+    items.filter(item => item.due_date || item.scheduled_at || item.published_at);
 
   const getFailedItems = () => 
     items.filter(item => item.status === 'failed');

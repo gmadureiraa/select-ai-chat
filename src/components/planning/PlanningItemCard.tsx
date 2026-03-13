@@ -86,7 +86,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   const PlatformIcon = platformIcons[primaryPlatform] || FileText;
   const dotColor = platformDotColors[primaryPlatform] || 'bg-muted-foreground';
 
-  const displayDate = item.scheduled_at || item.due_date;
+  const displayDate = item.scheduled_at || item.published_at || item.due_date;
   const isFailed = item.status === 'failed';
   const isPublished = item.status === 'published';
 

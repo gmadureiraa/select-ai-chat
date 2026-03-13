@@ -275,13 +275,13 @@ export function CalendarView({
 
   const getItemsForDay = useCallback((day: Date) => {
     return items.filter(item => {
-      const itemDate = item.scheduled_at || item.due_date;
+      const itemDate = item.scheduled_at || item.published_at || item.due_date;
       if (!itemDate) return false;
       const parsedDate = typeof itemDate === 'string' ? parseISO(itemDate) : itemDate;
       return isSameDay(parsedDate, day);
     }).sort((a, b) => {
-      const timeA = a.scheduled_at ? parseISO(a.scheduled_at).getTime() : 0;
-      const timeB = b.scheduled_at ? parseISO(b.scheduled_at).getTime() : 0;
+      const timeA = (a.scheduled_at || a.published_at) ? parseISO(a.scheduled_at || a.published_at!).getTime() : 0;
+      const timeB = (b.scheduled_at || b.published_at) ? parseISO(b.scheduled_at || b.published_at!).getTime() : 0;
       return timeA - timeB;
     });
   }, [items]);
