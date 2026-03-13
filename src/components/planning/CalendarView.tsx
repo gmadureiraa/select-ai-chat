@@ -205,10 +205,10 @@ function CalendarCard({
                 {item.platform.charAt(0).toUpperCase() + item.platform.slice(1)}
               </span>
             )}
-            {item.scheduled_at && (
-              <span className="flex items-center gap-1 text-orange-600">
+            {(item.scheduled_at || item.published_at) && (
+              <span className={cn("flex items-center gap-1", item.published_at && !item.scheduled_at ? "text-emerald-600" : "text-orange-600")}>
                 <Clock className="h-3 w-3" />
-                {format(parseISO(item.scheduled_at), "dd/MM HH:mm")}
+                {format(parseISO((item.scheduled_at || item.published_at)!), "dd/MM HH:mm")}
               </span>
             )}
           </div>
