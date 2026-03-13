@@ -15,6 +15,7 @@ function getAdminClient() {
 const mcpServer = new McpServer({
   name: "kaleidos-mcp",
   version: "1.0.0",
+  schemaAdapter: (schema: any) => schema,
 });
 
 // ---------- READ TOOLS ----------
