@@ -398,6 +398,70 @@ export function checkHashtags(content: string): string[] {
 /**
  * Universal output rules that apply to ALL content
  */
+/**
+ * Check if content contains structural AI patterns
+ */
+export function checkStructuralPatterns(content: string): Array<{ name: string; description: string }> {
+  const found: Array<{ name: string; description: string }> = [];
+  
+  for (const { pattern, name, description } of STRUCTURAL_AI_PATTERNS) {
+    if (pattern.test(content)) {
+      found.push({ name, description });
+    }
+  }
+  
+  return found;
+}
+
+/**
+ * Analyze content structure to detect repetitive patterns
+ * Returns detected structural patterns for anti-example injection
+ */
+export function detectContentStructure(content: string): string[] {
+  const patterns: string[] = [];
+  
+  // Check for opening with question
+  if (/^[^\n]{0,5}[?¿]/.test(content.trim()) || /^.{5,80}\?/m.test(content.split('\n')[0])) {
+    patterns.push('Abertura com pergunta');
+  }
+  
+  // Check for bullet/list-heavy structure
+  const bulletCount = (content.match(/^[\s]*[-•●▸]\s/gm) || []).length;
+  if (bulletCount >= 3) {
+    patterns.push(`Lista com bullets (${bulletCount}x)`);
+  }
+  
+  // Check for contrast pattern (X vs Y, fazem/não fazem)
+  if (/(?:fazem|faz|usam?|têm)[\s\S]{5,50}(?:não fazem|não faz|não usam?|não têm)/i.test(content)) {
+    patterns.push('Lista de contrastes "fazem X / não fazem Y"');
+  }
+  
+  // Check for rhetorical question at end
+  const lines = content.trim().split('\n').filter(l => l.trim());
+  const lastLine = lines[lines.length - 1] || '';
+  if (lastLine.includes('?')) {
+    patterns.push('Pergunta retórica no final');
+  }
+  
+  // Check for name + achievement opener
+  if (/^(?:um |uma |o |a )?(?:\w+)\s+(?:criou|fez|construiu|lançou|vendeu|gerou|faturou)/i.test(content.trim())) {
+    patterns.push('Abertura com nome de pessoa + feito impressionante');
+  }
+  
+  // Check for numbered list structure
+  const numberedCount = (content.match(/^\d+[\.\)]\s/gm) || []).length;
+  if (numberedCount >= 3) {
+    patterns.push(`Lista numerada (${numberedCount} itens)`);
+  }
+  
+  // Check for "bold statement → explanation" pattern
+  if (/^[^\n]{10,60}\.\n\n[^\n]{20,}/m.test(content)) {
+    patterns.push('Afirmação bold + parágrafo de explicação');
+  }
+  
+  return patterns;
+}
+
 export const UNIVERSAL_OUTPUT_RULES = `
 ## ⚠️ REGRAS CRÍTICAS DE OUTPUT
 
@@ -414,11 +478,34 @@ export const UNIVERSAL_OUTPUT_RULES = `
 ### REGRA #3: TOM AUTÊNTICO
 - ❌ NUNCA use frases robóticas de IA
 - ❌ PROIBIDO: "certamente", "é importante notar", "vamos explorar"
+- ❌ PROIBIDO aberturas: "Hot take:", "Unpopular opinion:", "A verdade é que..."
+- ❌ PROIBIDO: "O que founders/marketers não falam/sabem"
+- ❌ PROIBIDO: "Aqui está o que funciona/aprendi/importa"
 - ✅ Use linguagem natural e direta
 - ✅ Soe como uma pessoa real, não como ChatGPT
+- ✅ VARIE a estrutura: NÃO use sempre o mesmo padrão (afirmação → bullets → pergunta)
 
 ### REGRA #4: VALOR REAL
 - ❌ Sem preenchimento ou floreios
 - ✅ Cada frase deve agregar valor
 - ✅ Números específicos > adjetivos vagos
+
+### REGRA #5: DADOS REAIS OU NENHUM
+- ❌ NUNCA invente números, métricas ou estatísticas
+- ❌ NUNCA cite "300+ empresas", "92% dos founders" ou similares sem fonte REAL
+- ❌ NUNCA cite empresas/pessoas fazendo algo específico sem fonte verificável
+- ✅ Se não tem dado real, use experiência pessoal: "na minha experiência", "o que vi na prática"
+- ✅ Se usar número, seja específico E realista (não arredonde para impressionar)
+- ✅ Prefira insights qualitativos a dados quantitativos inventados
+
+### REGRA #6: VARIEDADE ESTRUTURAL
+- ❌ NUNCA use a mesma estrutura em posts consecutivos
+- ❌ Evite o padrão repetitivo: afirmação bold → lista → insight → pergunta retórica
+- ✅ Alterne entre: narrativa, provocação, dado concreto, metáfora, confissão, análise
+- ✅ Varie as aberturas: uma vez comece pelo meio da história, outra pelo resultado, outra pela dúvida
+
+### REGRA #7: ZERO LINKS
+- ❌ NUNCA inclua links ou URLs no conteúdo do post
+- ❌ Nem link da fonte, nem link para "saiba mais"
+- ✅ O conteúdo deve ser autossuficiente
 `;
