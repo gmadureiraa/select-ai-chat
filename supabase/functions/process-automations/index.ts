@@ -1279,12 +1279,11 @@ serve(async (req) => {
 - Parágrafos de 1-2 linhas máximo (leitura mobile)
 - Espaço entre CADA parágrafo
 - 1.200-1.500 caracteres ideal (máximo 3.000)
-- Termine SEMPRE com pergunta que gera comentários
-- Máximo 3 hashtags relevantes no final
-- Tom: técnico mas didático, direto, visionário, provocador
-- Posicionamento: "O Estrategista Full-Stack para Marcas Web3"
+- ZERO hashtags (hashtags são spam)
+- ZERO links
 - NUNCA use emojis em excesso (máximo 2)
-- Use quebras de linha generosas para respiro visual`,
+- Use quebras de linha generosas para respiro visual
+- NÃO termine SEMPRE com pergunta — varie: CTA, provocação, frase seca, silêncio`,
                 recentTweets: recentPosts,
               };
               
