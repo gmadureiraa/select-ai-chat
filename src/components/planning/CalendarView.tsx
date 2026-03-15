@@ -265,6 +265,7 @@ export function CalendarView({
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draggedItem, setDraggedItem] = useState<PlanningItem | null>(null);
   const [dragOverDay, setDragOverDay] = useState<Date | null>(null);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
   const days = useMemo(() => {
     const monthStart = startOfMonth(currentDate);
