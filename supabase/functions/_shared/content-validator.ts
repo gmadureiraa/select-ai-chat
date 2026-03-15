@@ -226,7 +226,18 @@ export function validateContent(
     });
   }
   
-  // Check client-specific avoid words
+  // Check for structural AI patterns
+  const structuralPatterns = checkStructuralPatterns(fullContent);
+  if (structuralPatterns.length > 0) {
+    violations.push({
+      field: "_global",
+      rule: "structural_pattern",
+      message: `Padrões estruturais de IA detectados: ${structuralPatterns.map(p => p.description).join('; ')}. Reescreva com estrutura mais natural e variada.`,
+      value: structuralPatterns.map(p => p.name).join(', '),
+      severity: "warning"
+    });
+  }
+  
   if (clientAvoidWords && clientAvoidWords.length > 0) {
     const clientForbidden: string[] = [];
     const lowerContent = fullContent.toLowerCase();
