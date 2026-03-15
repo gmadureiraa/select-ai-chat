@@ -26,6 +26,7 @@ import {
 
 import {
   getClientAvoidList,
+  getStructuredVoice,
   normalizeFormatKey,
 } from "../_shared/knowledge-loader.ts";
 
@@ -36,6 +37,7 @@ import {
 // Centralized prompt builder
 import {
   buildWriterSystemPrompt,
+  getTemperatureForFormat,
 } from "../_shared/prompt-builder.ts";
 
 // Centralized LLM module with retry + fallback
@@ -277,10 +279,12 @@ serve(async (req) => {
     let writerResult;
     let usedProvider = "google";
     
+    const dynamicTemp = getTemperatureForFormat(normalizedFormat);
+    
     try {
       writerResult = await callLLM(writerMessages, {
         maxTokens: 8192,
-        temperature: 0.7,
+        temperature: dynamicTemp,
       });
       usedProvider = writerResult.provider;
     } catch (error) {
@@ -371,6 +375,15 @@ serve(async (req) => {
       stepsCompleted.push("reviewer_started");
 
       const reviewerChecklist = buildReviewerChecklist();
+      
+      // Load voice profile to prevent reviewer from flattening authentic voice
+      let voiceSection = '';
+      try {
+        const vp = await getStructuredVoice(client_id);
+        if (vp) voiceSection = vp;
+      } catch (e) {
+        console.warn("[UNIFIED-API] Could not load voice profile for reviewer:", e);
+      }
 
       const reviewerSystemPrompt = `# VOCÊ É UM REVISOR DE QUALIDADE
 
@@ -382,11 +395,20 @@ ${reviewerChecklist}
 
 ${formatContract}
 
+${voiceSection ? `## VOZ DO CLIENTE (PRESERVE RIGOROSAMENTE)
+${voiceSection}
+
+⚠️ REGRA CRÍTICA: Preserve rigorosamente o tom e as expressões do cliente. 
+NÃO "melhore" linguagem que faz parte da voz autêntica.
+NÃO substitua gírias, expressões informais ou tom casual que fazem parte do voice profile.
+` : ''}
+
 ## REGRAS
 1. NÃO adicione explicações ou notas
 2. NÃO altere o que já está bom
 3. Corrija apenas problemas reais do checklist
 4. Mantenha o mesmo formato de entrega
+5. PRESERVE a voz e personalidade do cliente — não uniformize
 `;
 
       const reviewerMessages: LLMMessage[] = [

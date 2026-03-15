@@ -70,6 +70,23 @@ const COMPLEX_FORMATS = [
   'x_article', 'case_study', 'email_marketing',
 ];
 
+// Temperature by format category — creative formats need more randomness
+const CREATIVE_FORMATS = ['tweet', 'thread', 'social_post', 'short_video', 'stories'];
+const PROFESSIONAL_FORMATS = ['linkedin_post', 'linkedin'];
+const FACTUAL_FORMATS = ['btc_price', 'crypto_update'];
+
+/**
+ * Get dynamic temperature based on format type
+ */
+export function getTemperatureForFormat(format: string): number {
+  const normalized = normalizeFormatKey(format);
+  if (FACTUAL_FORMATS.includes(normalized)) return 0.6;
+  if (COMPLEX_FORMATS.includes(normalized)) return 0.8;
+  if (PROFESSIONAL_FORMATS.includes(normalized)) return 0.8;
+  if (CREATIVE_FORMATS.includes(normalized)) return 0.9;
+  return 0.7; // default
+}
+
 /**
  * Select the best model + config based on format complexity
  */
@@ -79,7 +96,7 @@ export function selectModelForFormat(format: string): ModelConfig {
 
   return {
     model: isComplex ? 'gemini-2.5-pro-preview-06-05' : 'gemini-2.5-flash',
-    temperature: isComplex ? 0.8 : 0.7,
+    temperature: getTemperatureForFormat(normalized),
     maxTokens: isComplex ? 8192 : 4096,
   };
 }
@@ -170,7 +187,7 @@ export async function buildWriterSystemPrompt(params: PromptBuilderParams): Prom
     if (variationContext.recentPosts.length > 0) {
       variationBlock += `\n### 🚫 ANTI-EXEMPLOS (NÃO repita estes padrões):\n`;
       variationContext.recentPosts.forEach((post, i) => {
-        variationBlock += `${i + 1}. "${post.substring(0, 200)}"\n`;
+        variationBlock += `${i + 1}. "${post.substring(0, 300)}"\n`;
       });
       variationBlock += `\n⚠️ Seu conteúdo DEVE ser fundamentalmente DIFERENTE dos exemplos acima.\n`;
     }

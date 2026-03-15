@@ -1,75 +1,56 @@
 
 
-# Melhorias Adicionais na Qualidade do Conteúdo
+## Diagnóstico: Por que as automações não estão postando
 
-Após revisar todo o pipeline (quality-rules → prompt-builder → unified-content-api → process-automations → knowledge-loader), identifiquei 6 melhorias concretas que podem fazer diferença real:
+### Problema 1: LinkedIn - Itens criados mas nunca publicados
+As 3 automações de LinkedIn (Artigo de Opinião, Building in Public, Case & Prova Social) estão **funcionando corretamente** na geração de conteúdo e imagens. O problema é que todas estão com `auto_publish: false`. Os itens são criados com status "idea" no planejamento e ficam lá esperando publicação manual. Nenhum deles jamais é publicado automaticamente.
 
----
+### Problema 2: Threads - Nenhuma automação configurada
+As credenciais do Threads (conta `madureira0x`) estão válidas, mas **não existe nenhuma automação** direcionada ao Threads.
 
-## 1. Temperatura dinâmica por tipo de conteúdo
+### Problema 3: Bug no retry de imagem
+No `process-automations`, linha ~1322, o retry de geração de imagem referencia a variável `resolvedImagePrompt` que **não existe** no escopo (o nome correto é `fullImagePrompt`). Isso faz o retry falhar silenciosamente.
 
-**Problema:** O writer usa temperatura fixa 0.7 para formatos simples. Tweets e threads que precisam de personalidade ficam "seguros demais".
-
-**Solução:** Ajustar `selectModelForFormat()` em `prompt-builder.ts`:
-- Tweets/Threads/Social: **0.9** (mais criativo, mais ousado)
-- LinkedIn: **0.8** (profissional mas com personalidade)
-- Newsletter/Blog: **0.7** (informativo, preciso)
-- BTC Price updates: **0.6** (factual, pouca variação criativa)
+### Problema 4: Qualidade do conteúdo LinkedIn repetitivo
+Os posts gerados para LinkedIn estão todos girando em torno do mesmo tema ("clareza vs complexidade em Web3"). Falta diversidade temática e o sistema de variação (que existe para tweets) não está implementado para LinkedIn.
 
 ---
 
-## 2. Reviewer recebe Voice Profile do cliente
+## Plano de Implementação
 
-**Problema crítico:** O reviewer em `unified-content-api` NÃO recebe o voice profile do cliente. Ele pode "corrigir" conteúdo autêntico de volta para tom genérico — desfazendo o trabalho do writer.
+### 1. Corrigir bug do retry de imagem no process-automations
+- Substituir `resolvedImagePrompt` por `fullImagePrompt` na linha do retry
 
-**Solução:** Passar o voice profile para o reviewer system prompt, com instrução: "Preserve rigorosamente o tom e as expressões do cliente. NÃO 'melhore' linguagem que faz parte da voz autêntica."
+### 2. Criar sistema de variação para LinkedIn (anti-repetição)
+Adicionar categorias editoriais para LinkedIn similares ao `GM_VARIATION_CATEGORIES` dos tweets:
+- **Artigo de Opinião**: Análise contrarian de tendência, dados concretos, framework próprio
+- **Building in Public**: Bastidores reais, números, aprendizados honestos, erros
+- **Case & Prova Social**: Resultados de clientes, métricas antes/depois, processo
 
----
+Cada automação LinkedIn receberá um `variation_index` rotativo com sub-temas específicos para evitar repetição.
 
-## 3. Rotação aleatória com cooldown (em vez de sequencial)
+### 3. Melhorar prompts LinkedIn com estratégia de conteúdo
+Enriquecer os prompts usando o guia de conteúdo do Madureira (`public/clients/madureira/guia-conteudo.md`):
+- Incorporar os 5 pilares de conteúdo como rotação temática
+- Usar tom de voz definido: técnico mas didático, direto, visionário
+- Adicionar instruções de formatação específicas para LinkedIn (quebras de linha, storytelling, CTA)
 
-**Problema:** As categorias de variação rotam sequencialmente (0, 1, 2, 3...). Isso cria padrões previsíveis — se há 8 categorias, a cada 8 posts o ciclo se repete identicamente.
+### 4. Habilitar auto_publish para LinkedIn (com revisão inteligente)
+Alterar as 3 automações de LinkedIn para `auto_publish: true` para que os posts sejam publicados automaticamente após geração.
 
-**Solução:** Usar seleção aleatória ponderada com cooldown dos últimos 3 índices usados. Guardar `recent_variation_indices: [5, 2, 7]` no trigger_config e excluir esses da próxima seleção.
+### 5. Criar automações para Threads
+Criar 2-3 automações de Threads para o perfil Madureira:
+- **Threads Diário** (daily): Repurpose do melhor tweet do dia ou insight rápido
+- **Threads Semanal** (weekly): Versão expandida de um tweet de alta performance
 
----
-
-## 4. Variação de comprimento do conteúdo
-
-**Problema:** Todos os tweets/posts tendem ao mesmo tamanho porque o prompt não instrui variação. Resultado: monotonia visual no feed.
-
-**Solução:** Adicionar instrução de comprimento na variação editorial:
-- 30% das vezes: "Máximo 2 frases. Brevidade é poder."
-- 40% das vezes: tamanho normal
-- 30% das vezes: "Desenvolva com 4-5 frases. Use detalhes."
-
-Implementar como modificador adicional no `variationContext`.
-
----
-
-## 5. Tracking de hooks de abertura
-
-**Problema:** O `detectContentStructure()` analisa padrões gerais mas não rastreia as primeiras palavras dos posts. Se 5 dos últimos 7 posts começam com "Eu...", o sistema não detecta.
-
-**Solução:** Adicionar detecção de padrão de abertura no anti-exemplo:
-- Extrair as primeiras 3-5 palavras dos últimos 10 posts
-- Agrupar por padrão ("Eu + verbo", "Pergunta", "Número", "Nome próprio", "Imperativo")
-- Injetar no prompt: "Seus últimos posts abriram com: 'Eu fiz...', 'Eu percebi...', 'Eu testei...'. COMECE de forma diferente."
+### 6. Melhorar geração de imagem para LinkedIn
+- Ajustar o aspect ratio para LinkedIn: `1.91:1` (landscape) em vez de `1:1`
+- Enriquecer prompts de imagem com contexto profissional/corporativo
+- Usar modelo `google/gemini-3-pro-image-preview` para maior qualidade nas imagens de LinkedIn
 
 ---
 
-## 6. Aumentar anti-exemplos de 7 para 12
-
-**Problema:** 7 anti-exemplos é pouco para clientes com 2-3 posts/dia. Em 2-3 dias já reciclou tudo.
-
-**Solução:** Aumentar para 12 anti-exemplos nos queries de `twitter_posts` e `planning_items`, com substring maior (300 chars em vez de 200) para capturar melhor a estrutura completa.
-
----
-
-## Arquivos a modificar
-
-1. **`supabase/functions/_shared/prompt-builder.ts`** — Temperatura dinâmica por formato
-2. **`supabase/functions/unified-content-api/index.ts`** — Injetar voice profile no reviewer
-3. **`supabase/functions/process-automations/index.ts`** — Rotação aleatória com cooldown + variação de comprimento + aumentar anti-exemplos para 12
-4. **`supabase/functions/_shared/quality-rules.ts`** — Adicionar `detectOpeningPatterns()` para tracking de hooks
+### Arquivos a modificar
+1. `supabase/functions/process-automations/index.ts` - Fix retry bug, adicionar variação LinkedIn, melhorar prompts
+2. Database: Atualizar `planning_automations` para habilitar auto_publish nas automações LinkedIn e criar novas automações Threads
 

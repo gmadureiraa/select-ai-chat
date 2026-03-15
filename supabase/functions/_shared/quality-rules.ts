@@ -462,6 +462,51 @@ export function detectContentStructure(content: string): string[] {
   return patterns;
 }
 
+/**
+ * Detect opening patterns from recent posts to prevent hook repetition.
+ * Groups openings by type: "Eu + verbo", "Pergunta", "Número", "Nome próprio", "Imperativo", etc.
+ */
+export function detectOpeningPatterns(recentPosts: string[]): { pattern: string; count: number; examples: string[] }[] {
+  const patternMap: Record<string, string[]> = {};
+  
+  for (const post of recentPosts) {
+    const firstLine = post.trim().split('\n')[0]?.trim() || '';
+    if (!firstLine) continue;
+    
+    const firstWords = firstLine.substring(0, 60);
+    let patternName = 'Outro';
+    
+    // Classify the opening pattern
+    if (/^(eu |eu,|meu |minha |me )/i.test(firstLine)) {
+      patternName = 'Eu + verbo (primeira pessoa)';
+    } else if (/^(você |sua |seu |te )/i.test(firstLine)) {
+      patternName = 'Você (segunda pessoa)';
+    } else if (/^[^\n]{0,80}\?/.test(firstLine)) {
+      patternName = 'Abertura com pergunta';
+    } else if (/^\d/.test(firstLine)) {
+      patternName = 'Abertura com número';
+    } else if (/^(a maioria|todo mundo|ninguém|poucos|muitos)/i.test(firstLine)) {
+      patternName = 'Generalização (A maioria, Todo mundo...)';
+    } else if (/^(se |quando |enquanto |antes de)/i.test(firstLine)) {
+      patternName = 'Condicional/temporal (Se, Quando...)';
+    } else if (/^(não |nunca |pare |esqueça|evite|cuidado)/i.test(firstLine)) {
+      patternName = 'Negação/Imperativo negativo';
+    } else if (/^(ontem|hoje|essa semana|semana passada|na última|em \d{4})/i.test(firstLine)) {
+      patternName = 'Temporal (Ontem, Hoje, Essa semana...)';
+    } else if (/^[A-Z][a-záéíóú]+ [a-záéíóú]+ (é|são|foi|era|será|tem|não)/i.test(firstLine)) {
+      patternName = 'Afirmação declarativa';
+    }
+    
+    if (!patternMap[patternName]) patternMap[patternName] = [];
+    patternMap[patternName].push(firstWords);
+  }
+  
+  return Object.entries(patternMap)
+    .map(([pattern, examples]) => ({ pattern, count: examples.length, examples }))
+    .filter(p => p.count >= 2)
+    .sort((a, b) => b.count - a.count);
+}
+
 export const UNIVERSAL_OUTPUT_RULES = `
 ## ⚠️ REGRAS CRÍTICAS DE OUTPUT
 
