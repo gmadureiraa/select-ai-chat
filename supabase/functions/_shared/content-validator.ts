@@ -8,7 +8,8 @@ import {
   GLOBAL_FORBIDDEN_PHRASES, 
   checkForbiddenPhrases, 
   checkMetaText, 
-  checkHashtags 
+  checkHashtags,
+  checkStructuralPatterns,
 } from "./quality-rules.ts";
 
 // =====================================================
