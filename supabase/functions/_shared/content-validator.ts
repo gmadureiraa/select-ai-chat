@@ -18,7 +18,7 @@ import {
 
 export interface Violation {
   field: string;
-  rule: "max_length" | "min_length" | "required" | "prohibited_word" | "hashtag" | "meta_text" | "forbidden_phrase";
+  rule: "max_length" | "min_length" | "required" | "prohibited_word" | "hashtag" | "meta_text" | "forbidden_phrase" | "structural_pattern";
   message: string;
   value?: string;
   severity: "error" | "warning";
