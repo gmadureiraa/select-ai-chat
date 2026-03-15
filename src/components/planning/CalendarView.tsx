@@ -265,6 +265,7 @@ export function CalendarView({
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draggedItem, setDraggedItem] = useState<PlanningItem | null>(null);
   const [dragOverDay, setDragOverDay] = useState<Date | null>(null);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
   const days = useMemo(() => {
     const monthStart = startOfMonth(currentDate);
@@ -488,8 +489,11 @@ export function CalendarView({
                 </div>
 
                 {/* Items */}
-                <div className="space-y-0.5 overflow-hidden" style={{ maxHeight: 'calc(100% - 24px)' }}>
-                  {dayItems.slice(0, 3).map(item => (
+                <div className={cn(
+                  "space-y-0.5",
+                  expandedDay === format(day, 'yyyy-MM-dd') ? "overflow-y-auto" : "overflow-hidden"
+                )} style={{ maxHeight: expandedDay === format(day, 'yyyy-MM-dd') ? 'calc(100% - 24px)' : 'calc(100% - 24px)' }}>
+                  {(expandedDay === format(day, 'yyyy-MM-dd') ? dayItems : dayItems.slice(0, 3)).map(item => (
                     <CalendarCard
                       key={item.id}
                       item={item}
@@ -501,12 +505,21 @@ export function CalendarView({
                     />
                   ))}
                   
-                  {dayItems.length > 3 && (
+                  {dayItems.length > 3 && expandedDay !== format(day, 'yyyy-MM-dd') && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); onEditItem(dayItems[3]); }}
+                      onClick={(e) => { e.stopPropagation(); setExpandedDay(format(day, 'yyyy-MM-dd')); }}
                       className="w-full text-[9px] text-center py-0.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
                     >
                       +{dayItems.length - 3} mais
+                    </button>
+                  )}
+                  
+                  {dayItems.length > 3 && expandedDay === format(day, 'yyyy-MM-dd') && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setExpandedDay(null); }}
+                      className="w-full text-[9px] text-center py-0.5 text-primary hover:text-primary/80 hover:bg-muted/50 rounded transition-colors font-medium"
+                    >
+                      ver menos
                     </button>
                   )}
                 </div>
