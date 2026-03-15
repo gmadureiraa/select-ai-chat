@@ -462,61 +462,127 @@ function getImageStyleModifier(style: string | null): string {
   }
 }
 
-// GM Tweet variation categories for anti-repetition
+// GM Tweet variation categories for anti-repetition — with CONCRETE structural examples
 const GM_VARIATION_CATEGORIES = [
-  { name: 'Provocação', instruction: 'Use um tom provocativo e desafiador. Questione uma crença comum do nicho. Seja bold e contrarian.' },
-  { name: 'Insight técnico', instruction: 'Compartilhe um insight técnico ou dado específico do nicho. Mostre profundidade de conhecimento.' },
-  { name: 'Pergunta', instruction: 'Faça uma pergunta poderosa que gere reflexão. Não responda - deixe o leitor pensar.' },
-  { name: 'Storytelling micro', instruction: 'Conte uma micro-história em 1-2 frases. Use narrativa pessoal ou metáfora.' },
-  { name: 'Call-to-action', instruction: 'Termine com uma chamada para ação clara. Peça opinião, RT, ou ação concreta.' },
-  { name: 'Dado/Métrica', instruction: 'Use um número, estatística ou dado concreto como gancho principal. Seja específico.' },
-  { name: 'Humor/Ironia', instruction: 'Use humor inteligente ou ironia sutil. Seja espirituoso sem ser genérico.' },
-  { name: 'Observação aguda', instruction: 'Faça uma observação perspicaz sobre o mercado/nicho que poucos percebem.' },
+  { name: 'Provocação', instruction: `Escreva como se estivesse respondendo um tweet que te irritou. Formato: frase curta + ponto final + uma segunda frase que explica por quê.
+Exemplo de ESTRUTURA (NÃO copie o conteúdo): "Todo mundo quer escalar. Ninguém quer simplificar primeiro."
+NÃO use listas, bullets, formato "X vs Y" ou perguntas retóricas.` },
+  { name: 'Confissão', instruction: `Comece com uma frase vulnerável. Revele algo que você fez errado ou que mudou de opinião. Tom pessoal e honesto.
+Exemplo de ESTRUTURA: "Passei 2 anos fazendo X achando que era o caminho. Estava errado. O que mudou tudo foi [insight específico]."
+NÃO use bullets nem listas numeradas.` },
+  { name: 'Observação afiada', instruction: `Faça uma observação curta e perspicaz sobre algo que está acontecendo no mercado AGORA. Máximo 2 frases. Sem explicação, sem contexto excessivo.
+Exemplo de ESTRUTURA: "O mercado está premiando quem executa rápido e punindo quem planeja demais."
+NÃO faça perguntas retóricas no final.` },
+  { name: 'Micro-storytelling', instruction: `Conte uma história em 3 frases: situação → virada → lição. Use detalhes concretos (nomes de ferramentas, valores, datas).
+Exemplo de ESTRUTURA: "Semana passada perdi um cliente de R$8k/mês. Motivo: demorei 3 dias pra responder. Velocidade > perfeição."
+NÃO generalize. Use SUA experiência específica.` },
+  { name: 'Dado concreto', instruction: `Abra com um número REAL e específico da sua experiência. Não invente estatísticas. Use dados do seu negócio, dos seus clientes, do seu dia.
+Exemplo de ESTRUTURA: "Testei 4 CTAs diferentes na última semana. O que converteu 3x mais? O mais curto — 3 palavras."
+NÃO use "X% dos founders" ou números inventados.` },
+  { name: 'Metáfora', instruction: `Use uma analogia inesperada para explicar um conceito do seu nicho. Conecte algo do cotidiano com business/tech.
+Exemplo de ESTRUTURA: "Criar conteúdo sem estratégia é como dirigir de noite sem farol: você avança, mas não sabe pra onde."
+NÃO use clichês (maratona não sprint, construir avião voando, etc).` },
+  { name: 'Contrarian rápido', instruction: `Discorde de algo popular em 1-2 frases sem justificar muito. Tom ousado. Deixe as pessoas discordarem nos comentários.
+Exemplo de ESTRUTURA: "Newsletter não é canal de aquisição. É canal de retenção. A maioria usa errado."
+NÃO abra com "Hot take:" nem "Unpopular opinion:"` },
+  { name: 'Pergunta poderosa', instruction: `Faça UMA única pergunta que force reflexão genuína. Sem respondê-la. Sem contextualizar demais. A pergunta É o tweet.
+Exemplo de ESTRUTURA: "Se você não pudesse postar nas redes por 30 dias, seu negócio sobreviveria?"
+NÃO faça múltiplas perguntas nem perguntas retóricas óbvias.` },
 ];
 
 // Threads editorial variation categories for anti-repetition
 const THREADS_VARIATION_CATEGORIES = [
-  { name: 'Reflexão Profunda', instruction: 'Comece com uma reflexão profunda sobre um tema do nicho. Tom contemplativo, filosófico. Leve o leitor a repensar algo que dá por certo.' },
-  { name: 'Pergunta Retórica', instruction: 'Abra com uma pergunta poderosa que gere reflexão. Não dê a resposta — deixe o leitor chegar lá sozinho. Tom provocativo.' },
-  { name: 'Insight Rápido', instruction: 'Compartilhe um insight técnico ou de mercado em formato conciso. Vá direto ao ponto. Uma frase que muda a perspectiva.' },
-  { name: 'Hot Take', instruction: 'Dê uma opinião controversa mas bem fundamentada. Desafie o status quo. Tom ousado, assertivo.' },
-  { name: 'Storytelling Micro', instruction: 'Conte uma micro-história em 2-3 frases. Pode ser pessoal, de um cliente ou metáfora. Finalize com a moral/lição.' },
-  { name: 'Dado/Métrica', instruction: 'Use um número, estatística ou dado real como gancho. Contextualize com uma análise breve. Seja específico, não genérico.' },
-  { name: 'Behind the Scenes', instruction: 'Revele algo dos bastidores: processo de trabalho, decisão, ferramenta. Tom autêntico e raw, não polido.' },
-  { name: 'Provocação', instruction: 'Provoque o leitor com uma afirmação bold. Questione uma crença popular. Gere desconforto produtivo.' },
+  { name: 'Reflexão Curta', instruction: `Escreva um pensamento contemplativo em 2-3 frases. Não resolva, não conclua. Deixe em aberto para o leitor refletir.
+Exemplo de ESTRUTURA: "A maioria dos conselhos de negócio que recebi foram úteis... 3 anos depois do momento certo. Timing é tudo — mas ninguém ensina a ter timing."
+NÃO use listas nem bullets.` },
+  { name: 'Insight Rápido', instruction: `Compartilhe algo que aprendeu recentemente em 1-2 frases CURTAS. Direto ao ponto. Sem floreios.
+Exemplo de ESTRUTURA: "Reduzi meu tempo de criação de conteúdo pela metade. O segredo não foi uma ferramenta — foi cortar 80% das etapas."
+NÃO explique o processo inteiro.` },
+  { name: 'Bastidores', instruction: `Revele algo real dos seus bastidores: uma ferramenta, um processo, um erro. Tom cru e autêntico.
+Exemplo de ESTRUTURA: "Hoje de manhã apaguei 3 posts prontos porque percebi que estavam todos iguais. Voltei pro zero. Às vezes o melhor conteúdo é o que você joga fora."
+NÃO faça parecer polido demais.` },
+  { name: 'Provocação Leve', instruction: `Questione algo aceito como verdade no seu nicho. Tom amigável mas firme. Sem ser agressivo.
+Exemplo de ESTRUTURA: "Engajamento alto nem sempre significa conteúdo bom. Às vezes significa que você acertou o ego da audiência."
+NÃO comece com "Hot take:" nem use formato de lista.` },
+  { name: 'Opinião Direta', instruction: `Dê sua opinião sobre algo em 1-2 frases SEM justificar. A brevidade é o poder.
+Exemplo de ESTRUTURA: "Marca pessoal não é postar todo dia. É ter algo que valha a pena dizer."
+NÃO use bullets, listas ou explicações longas.` },
+  { name: 'Aprendizado do Dia', instruction: `Compartilhe algo que aprendeu HOJE ou esta semana. Use detalhes temporais para dar autenticidade.
+Exemplo de ESTRUTURA: "Ontem um prospect me disse que já acompanha meu conteúdo há 6 meses. Nem sabia que ele existia. Consistência funciona mesmo quando você não vê."
+NÃO generalize. Conte o caso específico.` },
+  { name: 'Analogia', instruction: `Use uma comparação inesperada para iluminar um conceito. Conecte mundos diferentes.
+Exemplo de ESTRUTURA: "Algoritmo é como um barman: ele serve mais do que o público pede. Se pedem polêmica, ele entrega polêmica."
+NÃO use analogias batidas (maratona, avião, etc).` },
+  { name: 'Confissão', instruction: `Admita algo com vulnerabilidade. Pode ser um erro, uma mudança de opinião, uma insegurança.
+Exemplo de ESTRUTURA: "Passei meses evitando vídeos porque tinha vergonha da minha voz. Quando finalmente gravei, percebi que ninguém se importa com sua voz — se importam com o que você diz."
+NÃO force uma moral. Deixe a história falar.` },
 ];
 
 // Blog editorial variation categories for anti-repetition
 const BLOG_VARIATION_CATEGORIES = [
-  { name: 'Framework/Tutorial', instruction: 'Crie um guia passo-a-passo ou framework prático. Estrutura clara com etapas numeradas. Tom didático e aplicável imediatamente.' },
-  { name: 'Análise de Tendência', instruction: 'Analise uma tendência emergente do mercado. Conecte dados com previsões. Posicione-se como visionário que antecipa movimentos.' },
-  { name: 'Opinião Contrarian', instruction: 'Desafie uma crença amplamente aceita no mercado. Argumente com dados e experiência real. Tom provocativo mas fundamentado.' },
-  { name: 'Deep Dive Técnico', instruction: 'Mergulhe profundamente em um tópico técnico. Explique conceitos complexos de forma acessível. Use analogias e exemplos práticos.' },
-  { name: 'Guia Prático', instruction: 'Crie um guia completo e actionable. Inclua exemplos reais, templates ou checklists. O leitor deve sair com algo para aplicar hoje.' },
+  { name: 'Framework Prático', instruction: `Crie um guia com etapas claras e numeradas. Cada etapa deve ter uma ação concreta que o leitor pode fazer HOJE.
+NÃO use introduções longas. Vá direto para o framework.` },
+  { name: 'Análise de Tendência', instruction: `Analise algo que está mudando no mercado AGORA. Conecte dados reais (não inventados) com sua visão do futuro.
+NÃO invente estatísticas. Use observações qualitativas se não tiver dados.` },
+  { name: 'Opinião Contrarian', instruction: `Escolha uma crença popular e argumente contra ela com experiência REAL. Use casos do seu dia a dia.
+NÃO use dados inventados. Baseie-se na sua prática.` },
+  { name: 'Deep Dive', instruction: `Mergulhe profundamente em UM conceito específico. Use analogias para tornar o complexo acessível.
+NÃO tente cobrir tudo. Prefira profundidade a amplitude.` },
+  { name: 'Guia Definitivo', instruction: `Crie um recurso completo e prático. Inclua exemplos reais, templates ou checklists.
+O leitor deve sair com algo CONCRETO para aplicar imediatamente.` },
 ];
 
 
 // LinkedIn editorial variation categories for anti-repetition
 const LINKEDIN_VARIATION_CATEGORIES: Record<string, Array<{ name: string; instruction: string }>> = {
   'opinion': [
-    { name: 'Contrarian Take', instruction: 'Desafie uma crença popular do mercado Web3/marketing com argumentos sólidos. Comece com "Todo mundo fala X, mas a verdade é Y". Tom provocativo mas fundamentado.' },
-    { name: 'Dados & Análise', instruction: 'Use dados concretos, números e métricas como base do argumento. Cite fontes ou experiências mensuráveis. Framework analítico.' },
-    { name: 'Framework Próprio', instruction: 'Apresente um framework, modelo mental ou metodologia própria para resolver um problema do mercado. Use nomenclatura original.' },
-    { name: 'Tendência Emergente', instruction: 'Analise uma tendência emergente em cripto/IA/marketing que poucos estão falando. Posicione-se sobre o futuro com visão de quem constrói.' },
-    { name: 'Lição do Fracasso', instruction: 'Comece com um erro real, investimento perdido ou decisão errada. Extraia a lição profunda. Vulnerabilidade + insight = conexão.' },
+    { name: 'Contrarian com Dados', instruction: `Discorde de algo popular usando experiência REAL (não dados inventados). Comece com a crença popular e depois desmonte com sua vivência.
+Exemplo de ESTRUTURA: Frase que todo mundo concorda → "Mas na prática..." → Sua experiência específica → O que realmente funciona.
+NÃO invente números. NÃO use "300+ empresas" ou "92% dos founders". Use SUA experiência.
+NÃO use formato de lista com bullets.` },
+    { name: 'Análise em Primeira Pessoa', instruction: `Analise algo que você VIVEU esta semana/mês. Use detalhes temporais e específicos.
+Exemplo de ESTRUTURA: "Na última terça..." ou "Essa semana percebi que..." → O que aconteceu → O que isso significa para o mercado.
+NÃO generalize. NÃO faça parecer que é sobre "o mercado" — é sobre SUA experiência.` },
+    { name: 'Framework Original', instruction: `Apresente um modelo mental SEU para resolver um problema. Dê um nome para o framework. Explique em 3-4 frases como funciona.
+NÃO copie frameworks conhecidos. Crie algo da sua prática.
+NÃO use mais de 5 bullets no total.` },
+    { name: 'Previsão Ousada', instruction: `Faça uma previsão sobre o futuro do seu nicho. Seja específico sobre QUANDO e O QUE vai acontecer. Aceite que pode estar errado.
+Exemplo de ESTRUTURA: "Em 12 meses, X vai acontecer. Por quê? [3 sinais que já estou vendo]. Posso estar errado — mas aposto nisso."
+NÃO use "tendência" como palavra. Fale do futuro com convicção.` },
+    { name: 'Lição do Erro', instruction: `Comece com um erro real que você cometeu. Dê detalhes: quando, quanto custou, o que fez de errado. Depois extraia a lição.
+Exemplo de ESTRUTURA: "Em [data], fiz [erro específico]. Custou [consequência real]. O que aprendi: [lição em 1-2 frases]."
+NÃO minimize o erro. Seja honesto sobre o impacto.` },
   ],
   'building_in_public': [
-    { name: 'Bastidores Reais', instruction: 'Mostre o dia-a-dia real da Kaleidos: reuniões, decisões difíceis, processos internos. Seja raw e autêntico, não polido.' },
-    { name: 'Números Abertos', instruction: 'Compartilhe uma métrica real do negócio: faturamento, crescimento, churn, leads. Contextualize o número com a jornada.' },
-    { name: 'Aprendizado Honesto', instruction: 'Revele algo que aprendeu recentemente na prática que contradiz a teoria. "Na teoria X, na prática Y". Tom confessional.' },
-    { name: 'Ferramenta/Stack', instruction: 'Revele uma ferramenta, automação ou processo interno que usa na Kaleidos. Explique por que e como implementou. Prático e replicável.' },
-    { name: 'Decisão Difícil', instruction: 'Conte sobre uma decisão recente que foi difícil: demitir, pivotar, recusar cliente, investir. Mostre o processo de decisão.' },
+    { name: 'Bastidores Crus', instruction: `Mostre algo REAL do seu dia: uma decisão, uma reunião, um processo. Tom não-polido, como se estivesse contando para um amigo.
+NÃO tente parecer inspirador. Seja real e específico.
+NÃO use bullets. Escreva em parágrafos curtos narrativos.` },
+    { name: 'Número Aberto', instruction: `Compartilhe UMA métrica real do seu negócio. Não precisa ser impressionante. Contextualize: por que esse número importa?
+Exemplo de ESTRUTURA: "Faturamento de [mês]: R$[valor]. [Comparação com mês anterior]. [O que fiz diferente ou O que deu errado]."
+NÃO invente números. Se não quer revelar o real, não poste sobre isso.` },
+    { name: 'Ferramenta/Stack', instruction: `Revele UMA ferramenta, automação ou processo que usa. Explique: por que essa e não outra? Quanto tempo/dinheiro economiza?
+NÃO faça lista de ferramentas. Foque em UMA e vá fundo.
+Inclua um detalhe prático de implementação.` },
+    { name: 'Decisão Difícil', instruction: `Conte sobre uma decisão recente que te tirou o sono. Qual era o dilema? O que pesou? O que decidiu?
+NÃO resolva com "e no final deu tudo certo". Aceite a ambiguidade.
+Tom: confessional, não triunfante.` },
+    { name: 'Aprendizado Contra-Intuitivo', instruction: `Revele algo que aprendeu na prática que contradiz a teoria ou o conselho comum.
+Exemplo de ESTRUTURA: "Na teoria: [conselho popular]. Na prática: [o que realmente funciona]. O que mudou minha visão: [experiência específica]."
+NÃO generalize. Fale do SEU caso.` },
   ],
   'case_study': [
-    { name: 'Resultados & Métricas', instruction: 'Apresente resultados concretos de um cliente da Kaleidos: antes vs depois, ROI, crescimento. Use números reais ou realistas.' },
-    { name: 'Processo Revelado', instruction: 'Mostre o passo-a-passo de como resolveu um problema de um cliente. Framework de diagnóstico → estratégia → execução → resultado.' },
-    { name: 'Transformação do Cliente', instruction: 'Conte a história de transformação: onde o cliente estava, o desafio, a virada, onde está agora. Formato storytelling.' },
-    { name: 'Erro que Virou Acerto', instruction: 'Comece com algo que deu errado num projeto de cliente. Mostre como corrigiu e o resultado final superou as expectativas.' },
+    { name: 'Antes e Depois', instruction: `Apresente um resultado REAL de cliente: onde estava antes, o que fizeram, onde está agora. Use números reais.
+Exemplo de ESTRUTURA: "Cliente chegou com [problema]. Em [tempo], [ação que tomamos]. Resultado: [métrica antes] → [métrica depois]."
+NÃO invente números. Se o cliente não autorizou, generalize sem inventar.` },
+    { name: 'Processo Revelado', instruction: `Mostre o passo-a-passo de como resolveu UM problema específico de um cliente. Foco no COMO, não no resultado.
+NÃO faça parecer fácil. Mostre as dificuldades do processo.
+Máximo 4 etapas — profundidade > quantidade.` },
+    { name: 'Erro que Virou Acerto', instruction: `Comece com algo que deu errado num projeto real. Mostre o pivô e como corrigiu. O resultado final pode ou não ser melhor que o esperado.
+NÃO force um final feliz se não houve.
+Tom: narrativo e honesto.` },
+    { name: 'Transformação', instruction: `Conte a jornada de transformação de um cliente como uma história. Início → desafio → virada → estado atual.
+NÃO use formato de lista. Escreva como narrativa.
+Inclua uma fala ou reação real do cliente se possível.` },
   ],
 };
 
