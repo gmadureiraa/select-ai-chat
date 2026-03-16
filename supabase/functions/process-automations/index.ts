@@ -1793,152 +1793,43 @@ serve(async (req) => {
           }
         }
 
-        // Auto publish if enabled
+        // ========== TELEGRAM APPROVAL GATE ==========
+        // All content goes to review. If auto_publish is enabled, it will only
+        // publish AFTER Telegram approval (approve button click).
+        // We store the auto_publish intent in metadata so telegram-poll knows
+        // to trigger publishing when the item is approved.
         if (automation.auto_publish && automation.client_id && generatedContent) {
-          // Determine target platforms: use metadata.target_platforms, automation.platforms[], or fallback to derived
           const itemMeta0 = (newItem.metadata as any) || {};
           const targetPlatforms: string[] = 
             itemMeta0.target_platforms?.length > 0 ? itemMeta0.target_platforms :
             (automation as any).platforms?.length > 0 ? (automation as any).platforms :
             (derivedPlatform ? [derivedPlatform] : []);
 
-          for (const targetPlatform of targetPlatforms) {
-            try {
-              console.log(`Auto-publishing item ${newItem.id} to ${targetPlatform}...`);
-              
-              const { data: credentials } = await supabase
-                .from('client_social_credentials')
-                .select('metadata')
-                .eq('client_id', automation.client_id)
-                .eq('platform', targetPlatform === 'twitter' ? 'twitter' : targetPlatform)
-                .maybeSingle();
+          // Get review column
+          const { data: reviewColumn } = await supabase
+            .from('kanban_columns')
+            .select('id')
+            .eq('workspace_id', automation.workspace_id)
+            .eq('column_type', 'review')
+            .single();
 
-              const lateProfileId = (credentials?.metadata as any)?.late_profile_id;
+          await supabase
+            .from('planning_items')
+            .update({
+              status: 'idea',
+              column_id: reviewColumn?.id || columnId,
+              metadata: {
+                ...itemMeta0,
+                pending_telegram_approval: true,
+                auto_publish_on_approve: true,
+                target_platforms: targetPlatforms,
+                automation_id: automation.id,
+                automation_name: automation.name,
+              },
+            })
+            .eq('id', newItem.id);
 
-              if (lateProfileId) {
-                // Build publish body with proper structured data for threads/carousels/videos
-                const publishBody: Record<string, unknown> = {
-                  clientId: automation.client_id,
-                  platform: targetPlatform,
-                  content: generatedContent,
-                  planningItemId: newItem.id,
-                };
-
-                // Reload the latest item metadata (may have been updated with thread_tweets/carousel_slides)
-                const { data: latestItem } = await supabase
-                  .from('planning_items')
-                  .select('metadata')
-                  .eq('id', newItem.id)
-                  .single();
-                const itemMeta = (latestItem?.metadata as any) || {};
-
-                // Threads: send threadItems so late-post publishes as a proper thread
-                if (automation.content_type === 'thread' && itemMeta.thread_tweets?.length > 0) {
-                  publishBody.threadItems = itemMeta.thread_tweets.map((t: any) => ({
-                    text: t.text,
-                    media_urls: t.media_urls || [],
-                  }));
-                  console.log(`Sending ${itemMeta.thread_tweets.length} threadItems to late-post`);
-                }
-
-                // Carousel: send mediaItems with correct order for Instagram carousel
-                if (automation.content_type === 'carousel' && itemMeta.carousel_slides?.length > 0) {
-                  const carouselMedia: { url: string; type: string }[] = [];
-                  for (const slide of itemMeta.carousel_slides) {
-                    if (slide.media_urls?.length > 0) {
-                      for (const url of slide.media_urls) {
-                        carouselMedia.push({ url, type: url.match(/\.(mp4|mov|webm)$/i) ? 'video' : 'image' });
-                      }
-                    }
-                  }
-                  if (carouselMedia.length > 0) {
-                    publishBody.mediaItems = carouselMedia;
-                    console.log(`Sending ${carouselMedia.length} carousel mediaItems to late-post`);
-                  }
-                }
-
-                // For non-thread, non-carousel: send mediaItems with type detection
-                if (!publishBody.threadItems && !publishBody.mediaItems && mediaUrls.length > 0) {
-                  publishBody.mediaItems = mediaUrls.map((url: string) => ({
-                    url,
-                    type: url.match(/\.(mp4|mov|webm)$/i) ? 'video' : 'image',
-                  }));
-                }
-
-                const publishResponse = await fetch(`${supabaseUrl}/functions/v1/late-post`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${supabaseKey}`,
-                  },
-                  body: JSON.stringify(publishBody),
-                });
-
-                if (publishResponse.ok) {
-                  const publishResult = await publishResponse.json();
-                  console.log(`Publish response for item ${newItem.id} on ${targetPlatform}:`, JSON.stringify(publishResult));
-                  
-                  const externalPostId = publishResult.externalId || publishResult.postId;
-                  
-                  if (publishResult.success && externalPostId) {
-                    console.log(`✅ Successfully published item ${newItem.id} to ${targetPlatform} with externalId: ${externalPostId}`);
-                    
-                    await supabase
-                      .from('planning_items')
-                      .update({ 
-                        status: 'published',
-                        external_post_id: externalPostId,
-                        metadata: {
-                          ...itemMeta,
-                          auto_published: true,
-                          published_at: new Date().toISOString(),
-                          late_post_id: externalPostId,
-                          late_response: publishResult,
-                          published_platforms: [...(itemMeta.published_platforms || []), targetPlatform],
-                        }
-                      })
-                      .eq('id', newItem.id);
-                  } else {
-                    const publishError = publishResult.error || publishResult.message || 'Late API did not confirm successful publication';
-                    console.warn(`⚠️ Late API returned OK but no success confirmation for item ${newItem.id} on ${targetPlatform}:`, publishResult);
-                    
-                    await supabase
-                      .from('planning_items')
-                      .update({ 
-                        status: 'failed',
-                        error_message: publishError,
-                        metadata: {
-                          ...itemMeta,
-                          auto_publish_attempted: true,
-                          auto_publish_error: publishError,
-                          late_response: publishResult,
-                        }
-                      })
-                      .eq('id', newItem.id);
-                  }
-                } else {
-                  const errorText = await publishResponse.text();
-                  console.error(`❌ Failed to publish item ${newItem.id} to ${targetPlatform}:`, errorText);
-                  
-                  await supabase
-                    .from('planning_items')
-                    .update({ 
-                      status: 'failed',
-                      metadata: {
-                        ...itemMeta,
-                        auto_publish_attempted: true,
-                        auto_publish_error: errorText,
-                      }
-                    })
-                    .eq('id', newItem.id);
-                }
-              } else {
-                console.log(`No Late API credentials found for ${targetPlatform}`);
-              }
-            } catch (publishError) {
-              console.error(`Error auto-publishing to ${targetPlatform} for ${automation.name}:`, publishError);
-            }
-          }
+          console.log(`📋 Item ${newItem.id} sent to review — awaiting Telegram approval before publishing to [${targetPlatforms.join(', ')}]`);
         }
 
         // Update automation tracking

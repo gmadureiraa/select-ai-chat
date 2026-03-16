@@ -150,7 +150,7 @@ async function handleCallback(
     case 'approve': {
       const { data: item } = await supabase
         .from('planning_items')
-        .select('workspace_id, title, status')
+        .select('workspace_id, title, status, client_id, content, body, media_urls, metadata, content_type, platform')
         .eq('id', itemId)
         .single();
 
@@ -176,7 +176,107 @@ async function handleCallback(
         .update(updateData)
         .eq('id', itemId);
 
-      await editMessage(chatId, messageId, `✅ <b>Aprovado!</b>\n"${item.title}"`, headers);
+      const itemMeta = (item.metadata as any) || {};
+
+      // If this item was flagged for auto-publish on approve, trigger publishing now
+      if (itemMeta.auto_publish_on_approve && item.client_id) {
+        await editMessage(chatId, messageId, `✅ <b>Aprovado!</b> Publicando...\n"${item.title}"`, headers);
+
+        const targetPlatforms: string[] = itemMeta.target_platforms || [item.platform].filter(Boolean);
+        const generatedContent = item.content || item.body || '';
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        let publishSuccess = false;
+
+        for (const targetPlatform of targetPlatforms) {
+          try {
+            const publishBody: Record<string, unknown> = {
+              clientId: item.client_id,
+              platform: targetPlatform,
+              content: generatedContent,
+              planningItemId: itemId,
+            };
+
+            // Add thread items if available
+            if (item.content_type === 'thread' && itemMeta.thread_tweets?.length > 0) {
+              publishBody.threadItems = itemMeta.thread_tweets.map((t: any) => ({
+                text: t.text,
+                media_urls: t.media_urls || [],
+              }));
+            }
+
+            // Add carousel media if available
+            if (item.content_type === 'carousel' && itemMeta.carousel_slides?.length > 0) {
+              const carouselMedia: { url: string; type: string }[] = [];
+              for (const slide of itemMeta.carousel_slides) {
+                if (slide.media_urls?.length > 0) {
+                  for (const url of slide.media_urls) {
+                    carouselMedia.push({ url, type: url.match(/\.(mp4|mov|webm)$/i) ? 'video' : 'image' });
+                  }
+                }
+              }
+              if (carouselMedia.length > 0) publishBody.mediaItems = carouselMedia;
+            }
+
+            // Regular media
+            if (!publishBody.threadItems && !publishBody.mediaItems && item.media_urls?.length > 0) {
+              publishBody.mediaItems = item.media_urls.map((url: string) => ({
+                url,
+                type: url.match(/\.(mp4|mov|webm)$/i) ? 'video' : 'image',
+              }));
+            }
+
+            const publishResponse = await fetch(`${supabaseUrl}/functions/v1/late-post`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${serviceKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(publishBody),
+            });
+
+            if (publishResponse.ok) {
+              const publishResult = await publishResponse.json();
+              const externalPostId = publishResult.externalId || publishResult.postId;
+
+              if (publishResult.success && externalPostId) {
+                publishSuccess = true;
+                await supabase
+                  .from('planning_items')
+                  .update({
+                    status: 'published',
+                    external_post_id: externalPostId,
+                    metadata: {
+                      ...itemMeta,
+                      auto_published: true,
+                      published_at: new Date().toISOString(),
+                      late_post_id: externalPostId,
+                      pending_telegram_approval: false,
+                      published_platforms: [...(itemMeta.published_platforms || []), targetPlatform],
+                    },
+                  })
+                  .eq('id', itemId);
+
+                const postUrl = publishResult.postUrl || publishResult.url || '';
+                const urlText = postUrl ? `\n🔗 ${postUrl}` : '';
+                await sendReply(chatId, `📤 <b>Publicado em ${targetPlatform}!</b>${urlText}`, headers);
+              } else {
+                await sendReply(chatId, `⚠️ ${targetPlatform}: ${publishResult.error || 'Falha na publicação'}`, headers);
+              }
+            } else {
+              const errText = await publishResponse.text();
+              await sendReply(chatId, `❌ ${targetPlatform}: ${errText.substring(0, 200)}`, headers);
+            }
+          } catch (err) {
+            await sendReply(chatId, `❌ ${targetPlatform}: ${err instanceof Error ? err.message : 'erro'}`, headers);
+          }
+        }
+
+        if (!publishSuccess) {
+          await sendReply(chatId, `⚠️ Aprovado mas publicação falhou. Tente via /pendentes ou pelo painel.`, headers);
+        }
+      } else {
+        await editMessage(chatId, messageId, `✅ <b>Aprovado!</b>\n"${item.title}"`, headers);
+      }
       break;
     }
 
