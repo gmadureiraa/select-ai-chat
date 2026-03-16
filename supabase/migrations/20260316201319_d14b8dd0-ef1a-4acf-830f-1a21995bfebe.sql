@@ -1,0 +1,1 @@
+ALTER TABLE public.telegram_bot_config ADD COLUMN IF NOT EXISTS active_client_id uuid REFERENCES public.clients(id) ON DELETE SET NULL;

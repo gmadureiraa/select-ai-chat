@@ -1489,30 +1489,46 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Validate auth
+    const body = await req.json() as RequestBody & { internalServiceAuth?: boolean; userId?: string; stream?: boolean };
+
+    // Validate auth - support internal service auth for Telegram bot
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Não autorizado" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    let userId: string;
+
+    if (body.internalServiceAuth && body.userId) {
+      // Internal service auth: validate that the auth header is the service role key
+      const expectedServiceAuth = `Bearer ${supabaseKey}`;
+      if (authHeader !== expectedServiceAuth) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized internal call" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      userId = body.userId;
+    } else {
+      if (!authHeader) {
+        return new Response(
+          JSON.stringify({ error: "Não autorizado" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const { data: { user }, error: authError } = await supabase.auth.getUser(
+        authHeader.replace("Bearer ", "")
       );
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ error: "Token inválido" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      userId = user.id;
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Token inválido" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const body = await req.json() as RequestBody;
+    const shouldStream = body.stream !== false;
     const { message, clientId, imageUrls, citations, history, materialContext, materialTitle } = body;
 
     console.log("[kai-simple-chat] Request:", { 
-      userId: user.id, clientId, 
+      userId, clientId, internalServiceAuth: !!body.internalServiceAuth, stream: shouldStream,
       imageUrlsCount: imageUrls?.length, citationsCount: citations?.length,
       historyCount: history?.length, messageLength: message?.length 
     });
@@ -1601,7 +1617,7 @@ serve(async (req) => {
       }
       
       try {
-        const cards = await generatePlanningCards(supabase, client, clientId, client.workspace_id, user.id, planningIntent, authHeader, userInstructions);
+        const cards = await generatePlanningCards(supabase, client, clientId, client.workspace_id, userId, planningIntent, authHeader || '', userInstructions);
         const successMessage = buildPlanningSuccessMessage(cards, planningIntent);
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
@@ -1887,7 +1903,7 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: gatewayMessages,
-        stream: true,
+        stream: shouldStream,
       }),
     });
 
@@ -1905,6 +1921,15 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
       }
       return new Response(JSON.stringify({ error: "Erro ao gerar resposta." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (!shouldStream) {
+      // Non-streaming mode: return full response as JSON
+      const data = await gatewayResponse.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      return new Response(JSON.stringify({ content }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Stream response directly (already in OpenAI SSE format)

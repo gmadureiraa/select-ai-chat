@@ -526,9 +526,58 @@ async function handleMessage(
       .eq('id', 1);
 
     await sendReply(chatId, 
-      `👋 <b>kAI Bot ativado!</b>\n\nSeu chat_id (${chatId}) foi salvo.\n\nComandos:\n/pendentes — Ver itens pendentes com ações\n/status — Status geral\n/aprovar_todos — Aprovar todos pendentes\n\n💬 Envie qualquer mensagem para conversar com a IA!`, 
+      `👋 <b>kAI Bot ativado!</b>\n\nSeu chat_id (${chatId}) foi salvo.\n\nComandos:\n/pendentes — Ver itens pendentes\n/status — Status geral\n/aprovar_todos — Aprovar todos pendentes\n/clientes — Listar e trocar cliente ativo\n\n💬 Envie qualquer mensagem para conversar com o kAI!`, 
       headers
     );
+    return;
+  }
+
+  // /clientes command — list and switch active client
+  if (text === '/clientes' || text?.startsWith('/cliente ')) {
+    if (text.startsWith('/cliente ')) {
+      const clientName = text.replace('/cliente ', '').trim();
+      const { data: clients } = await supabase
+        .from('clients')
+        .select('id, name')
+        .ilike('name', `%${clientName}%`)
+        .limit(1);
+
+      if (clients && clients.length > 0) {
+        await supabase
+          .from('telegram_bot_config')
+          .update({ active_client_id: clients[0].id, updated_at: new Date().toISOString() })
+          .eq('id', 1);
+        await sendReply(chatId, `✅ Cliente ativo: <b>${escapeHtml(clients[0].name)}</b>`, headers);
+      } else {
+        await sendReply(chatId, `❌ Cliente "${escapeHtml(clientName)}" não encontrado.`, headers);
+      }
+      return;
+    }
+
+    const { data: clients } = await supabase
+      .from('clients')
+      .select('id, name')
+      .order('name')
+      .limit(20);
+
+    const { data: config } = await supabase
+      .from('telegram_bot_config')
+      .select('active_client_id')
+      .eq('id', 1)
+      .single();
+
+    if (!clients || clients.length === 0) {
+      await sendReply(chatId, '❌ Nenhum cliente cadastrado.', headers);
+      return;
+    }
+
+    let msg = '📋 <b>Clientes disponíveis:</b>\n\n';
+    for (const c of clients) {
+      const active = config?.active_client_id === c.id ? ' ✅' : '';
+      msg += `• <b>${escapeHtml(c.name)}</b>${active}\n`;
+    }
+    msg += '\n💡 Use <code>/cliente Nome</code> para trocar.';
+    await sendReply(chatId, msg, headers);
     return;
   }
 
@@ -546,7 +595,6 @@ async function handleMessage(
       return;
     }
 
-    // Send each item as a separate message with action buttons
     await sendReply(chatId, `📋 <b>${items.length} itens pendentes:</b>`, headers);
 
     for (const item of items) {
@@ -583,7 +631,6 @@ async function handleMessage(
       return;
     }
 
-    // Get workspace's approved column
     const workspaceId = items[0].workspace_id;
     const { data: approvedColumn } = await supabase
       .from('kanban_columns')
@@ -631,150 +678,68 @@ async function handleMessage(
   }
 
   // =====================================================
-  // Content creation by text (intent detection)
-  // =====================================================
-  const createMatch = text.match(/^(?:cria|gera|escreve|faz|monte)\s+(?:um\s+)?(?:post|tweet|carrossel|reels?|conteúdo|texto)\s+(?:sobre\s+)?(.+?)(?:\s+para\s+(?:o\s+)?(.+))?$/i);
-  
-  if (createMatch) {
-    const topic = createMatch[1]?.trim();
-    const clientName = createMatch[2]?.trim();
-
-    await sendReply(chatId, `🔄 <b>Criando conteúdo...</b>\n"${escapeHtml(topic)}"`, headers);
-
-    try {
-      let clientId: string | null = null;
-      
-      if (clientName) {
-        const { data: clients } = await supabase
-          .from('clients')
-          .select('id, name')
-          .ilike('name', `%${clientName}%`)
-          .limit(1);
-        
-        if (clients && clients.length > 0) {
-          clientId = clients[0].id;
-        }
-      }
-
-      // If no client found, get first available
-      if (!clientId) {
-        const { data: firstClient } = await supabase
-          .from('clients')
-          .select('id')
-          .limit(1)
-          .single();
-        clientId = firstClient?.id;
-      }
-
-      if (!clientId) {
-        await sendReply(chatId, '❌ Nenhum cliente encontrado.', headers);
-        return;
-      }
-
-      // Call unified-content-api to generate
-      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      
-      const genResponse = await fetch(`${supabaseUrl}/functions/v1/unified-content-api`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${serviceKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          brief: topic,
-          clientId,
-          formatType: 'post',
-        }),
-      });
-
-      if (genResponse.ok) {
-        const result = await genResponse.json();
-        const content = result.content || result.text;
-
-        if (content) {
-          // Get workspace_id from client
-          const { data: client } = await supabase
-            .from('clients')
-            .select('workspace_id, name')
-            .eq('id', clientId)
-            .single();
-
-          // Get idea column
-          const { data: ideaColumn } = await supabase
-            .from('kanban_columns')
-            .select('id')
-            .eq('workspace_id', client.workspace_id)
-            .eq('column_type', 'idea')
-            .single();
-
-          // Create planning item
-          const { data: newItem } = await supabase
-            .from('planning_items')
-            .insert({
-              title: topic,
-              content,
-              status: 'idea',
-              client_id: clientId,
-              workspace_id: client.workspace_id,
-              column_id: ideaColumn?.id,
-              content_type: 'post',
-              metadata: { source: 'telegram' },
-            })
-            .select('id')
-            .single();
-
-          const preview = content.substring(0, 800);
-          await sendReply(
-            chatId,
-            `✨ <b>Conteúdo criado!</b>\n👤 ${escapeHtml(client.name)}\n\n<pre>${escapeHtml(preview)}</pre>`,
-            headers,
-            {
-              inline_keyboard: [
-                [
-                  { text: '✅ Aprovar', callback_data: `approve:${newItem?.id}` },
-                  { text: '❌ Reprovar', callback_data: `reject:${newItem?.id}` },
-                ],
-                [
-                  { text: '🔄 Regenerar', callback_data: `regen:${newItem?.id}` },
-                  { text: '📝 Publicar', callback_data: `publish:${newItem?.id}` },
-                ],
-              ],
-            }
-          );
-        } else {
-          await sendReply(chatId, '⚠️ Geração retornou sem conteúdo.', headers);
-        }
-      } else {
-        await sendReply(chatId, '❌ Erro ao gerar conteúdo.', headers);
-      }
-    } catch (err) {
-      await sendReply(chatId, `❌ Erro: ${err instanceof Error ? err.message : 'desconhecido'}`, headers);
-    }
-    return;
-  }
-
-  // =====================================================
-  // AI response for free text (via Lovable AI Gateway)
+  // Route ALL free text through kai-simple-chat (full kAI)
   // =====================================================
   try {
     await sendChatAction(chatId, 'typing', headers);
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      await sendReply(chatId, '⚠️ IA não configurada.', headers);
+    // Resolve active client
+    const { data: botConfig } = await supabase
+      .from('telegram_bot_config')
+      .select('active_client_id')
+      .eq('id', 1)
+      .single();
+
+    let clientId = botConfig?.active_client_id;
+
+    if (!clientId) {
+      // Default to first client
+      const { data: firstClient } = await supabase
+        .from('clients')
+        .select('id')
+        .limit(1)
+        .single();
+      clientId = firstClient?.id;
+    }
+
+    if (!clientId) {
+      await sendReply(chatId, '❌ Nenhum cliente configurado. Use /clientes para selecionar.', headers);
       return;
     }
 
-    // Get recent message history for context
+    // Get workspace owner as userId for internal auth
+    const { data: client } = await supabase
+      .from('clients')
+      .select('workspace_id')
+      .eq('id', clientId)
+      .single();
+
+    let ownerUserId: string | null = null;
+    if (client?.workspace_id) {
+      const { data: owner } = await supabase
+        .from('workspace_members')
+        .select('user_id')
+        .eq('workspace_id', client.workspace_id)
+        .eq('role', 'owner')
+        .limit(1)
+        .single();
+      ownerUserId = owner?.user_id || null;
+    }
+
+    if (!ownerUserId) {
+      await sendReply(chatId, '❌ Erro: workspace sem owner configurado.', headers);
+      return;
+    }
+
+    // Build chat history from recent telegram messages
     const { data: recentMessages } = await supabase
       .from('telegram_messages')
       .select('message_text, raw_update')
       .eq('chat_id', chatId)
       .order('update_id', { ascending: false })
-      .limit(6);
+      .limit(10);
 
-    const history = (recentMessages || [])
+    const chatHistory = (recentMessages || [])
       .reverse()
       .filter((m: any) => m.message_text)
       .map((m: any) => ({
@@ -782,65 +747,57 @@ async function handleMessage(
         content: m.message_text,
       }));
 
-    const aiResponse = await fetch(AI_GATEWAY_URL, {
+    // Call kai-simple-chat with internal service auth (non-streaming)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    const kaiResponse = await fetch(`${supabaseUrl}/functions/v1/kai-simple-chat`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${serviceKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: `Você é o kAI, assistente de marketing e conteúdo digital. Responda de forma concisa e útil em português brasileiro. 
-Você pode ajudar com:
-- Ideias de conteúdo
-- Copywriting
-- Estratégia de marketing
-- Dúvidas sobre redes sociais
-- Análise de tendências
-
-Comandos disponíveis que o usuário pode usar:
-/pendentes - Ver itens pendentes
-/status - Status geral
-/aprovar_todos - Aprovar todos pendentes
-
-Para criar conteúdo, o usuário pode dizer "cria um post sobre X para o [cliente]".
-
-Seja direto, criativo e profissional. Use emojis moderadamente.`,
-          },
-          ...history,
-          { role: 'user', content: text },
-        ],
+        message: text,
+        clientId,
+        history: chatHistory,
+        internalServiceAuth: true,
+        userId: ownerUserId,
         stream: false,
       }),
     });
 
-    if (aiResponse.ok) {
-      const aiData = await aiResponse.json();
-      const reply = aiData.choices?.[0]?.message?.content;
-      
-      if (reply) {
-        // Telegram HTML: strip markdown, keep simple
-        const cleanReply = reply
-          .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
-          .replace(/\*(.*?)\*/g, '<i>$1</i>')
-          .replace(/```[\s\S]*?```/g, (m: string) => `<pre>${escapeHtml(m.replace(/```\w*\n?/g, '').replace(/```/g, ''))}</pre>`)
-          .replace(/`(.*?)`/g, '<code>$1</code>');
+    if (kaiResponse.ok) {
+      const kaiData = await kaiResponse.json();
+      const reply = kaiData.content || kaiData.error || '🤔 Sem resposta.';
 
-        await sendReply(chatId, cleanReply.substring(0, 4000), headers);
+      // Convert markdown to Telegram HTML
+      const cleanReply = reply
+        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+        .replace(/\*(.*?)\*/g, '<i>$1</i>')
+        .replace(/```[\s\S]*?```/g, (m: string) => `<pre>${escapeHtml(m.replace(/```\w*\n?/g, '').replace(/```/g, ''))}</pre>`)
+        .replace(/`(.*?)`/g, '<code>$1</code>');
+
+      // Telegram has a 4096 char limit per message
+      const maxLen = 4000;
+      if (cleanReply.length > maxLen) {
+        const parts = cleanReply.match(/.{1,4000}/gs) || [cleanReply];
+        for (const part of parts) {
+          await sendReply(chatId, part, headers);
+        }
       } else {
-        await sendReply(chatId, '🤔 Não consegui gerar uma resposta. Tente novamente!', headers);
+        await sendReply(chatId, cleanReply, headers);
       }
     } else {
-      const status = aiResponse.status;
+      const status = kaiResponse.status;
       if (status === 429) {
         await sendReply(chatId, '⏳ Muitas requisições. Tente novamente em alguns segundos.', headers);
       } else if (status === 402) {
         await sendReply(chatId, '⚠️ Créditos de IA esgotados.', headers);
       } else {
-        await sendReply(chatId, '❌ Erro ao consultar IA.', headers);
+        const errText = await kaiResponse.text().catch(() => '');
+        console.error('[telegram-poll] kai-simple-chat error:', status, errText);
+        await sendReply(chatId, '❌ Erro ao consultar kAI.', headers);
       }
     }
   } catch (err) {

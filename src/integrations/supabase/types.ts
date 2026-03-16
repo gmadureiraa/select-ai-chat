@@ -3168,6 +3168,7 @@ export type Database = {
       }
       telegram_bot_config: {
         Row: {
+          active_client_id: string | null
           chat_id: number | null
           id: number
           is_active: boolean
@@ -3176,6 +3177,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active_client_id?: string | null
           chat_id?: number | null
           id: number
           is_active?: boolean
@@ -3184,6 +3186,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active_client_id?: string | null
           chat_id?: number | null
           id?: number
           is_active?: boolean
@@ -3191,7 +3194,15 @@ export type Database = {
           update_offset?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "telegram_bot_config_active_client_id_fkey"
+            columns: ["active_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       telegram_messages: {
         Row: {
