@@ -402,7 +402,7 @@ async function handleCallback(
         .from('planning_items')
         .select('*, client:clients(name)')
         .eq('id', itemId)
-        .single();
+        .maybeSingle();
 
       if (!item) {
         await sendReply(chatId, '❌ Item não encontrado.', headers);
