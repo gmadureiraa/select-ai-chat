@@ -202,9 +202,9 @@ export function AutomationsTab() {
     const sortAutomations = (list: PlanningAutomation[]) => {
       return [...list].sort((a, b) => {
         if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
-        const aTime = a.last_triggered_at ? new Date(a.last_triggered_at).getTime() : 0;
-        const bTime = b.last_triggered_at ? new Date(b.last_triggered_at).getTime() : 0;
-        return bTime - aTime;
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return aTime - bTime;
       });
     };
     const groups: Record<string, PlanningAutomation[]> = {};
