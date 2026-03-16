@@ -41,6 +41,19 @@ serve(async () => {
     return new Response(JSON.stringify({ ok: true, skipped: true, reason: 'Bot inactive' }));
   }
 
+  // Delete any existing webhook to avoid 409 conflict with getUpdates
+  try {
+    const webhookRes = await fetch(`${GATEWAY_URL}/deleteWebhook`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ drop_pending_updates: false }),
+    });
+    const webhookData = await webhookRes.json();
+    console.log('[telegram-poll] deleteWebhook result:', JSON.stringify(webhookData));
+  } catch (e) {
+    console.warn('[telegram-poll] deleteWebhook failed:', e);
+  }
+
   let currentOffset = state.update_offset;
 
   while (true) {
