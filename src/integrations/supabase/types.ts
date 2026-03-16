@@ -3171,6 +3171,7 @@ export type Database = {
           chat_id: number | null
           id: number
           is_active: boolean
+          pending_rejection_item_id: string | null
           update_offset: number
           updated_at: string
         }
@@ -3178,6 +3179,7 @@ export type Database = {
           chat_id?: number | null
           id: number
           is_active?: boolean
+          pending_rejection_item_id?: string | null
           update_offset?: number
           updated_at?: string
         }
@@ -3185,6 +3187,7 @@ export type Database = {
           chat_id?: number | null
           id?: number
           is_active?: boolean
+          pending_rejection_item_id?: string | null
           update_offset?: number
           updated_at?: string
         }

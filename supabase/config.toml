@@ -224,3 +224,6 @@ verify_jwt = false
 
 [functions.telegram-poll]
 verify_jwt = false
+
+[functions.telegram-daily-report]
+verify_jwt = false

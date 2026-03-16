@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/telegram';
+const AI_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const MAX_RUNTIME_MS = 55_000;
 const MIN_REMAINING_MS = 5_000;
 
@@ -26,7 +27,6 @@ serve(async () => {
 
   let totalProcessed = 0;
 
-  // Read initial offset
   const { data: state, error: stateErr } = await supabase
     .from('telegram_bot_config')
     .select('update_offset, chat_id, is_active')
@@ -43,7 +43,6 @@ serve(async () => {
 
   let currentOffset = state.update_offset;
 
-  // Poll continuously until time runs out
   while (true) {
     const elapsed = Date.now() - startTime;
     const remainingMs = MAX_RUNTIME_MS - elapsed;
@@ -100,7 +99,6 @@ serve(async () => {
           .upsert(rows, { onConflict: 'update_id' });
       }
 
-      // Advance offset
       const newOffset = Math.max(...updates.map((u: any) => u.update_id)) + 1;
       await supabase
         .from('telegram_bot_config')
@@ -150,7 +148,6 @@ async function handleCallback(
 
   switch (action) {
     case 'approve': {
-      // Get the approved column for this item's workspace
       const { data: item } = await supabase
         .from('planning_items')
         .select('workspace_id, title, status')
@@ -162,7 +159,6 @@ async function handleCallback(
         return;
       }
 
-      // Find the "approved" column
       const { data: approvedColumn } = await supabase
         .from('kanban_columns')
         .select('id')
@@ -191,19 +187,38 @@ async function handleCallback(
         .eq('id', itemId)
         .single();
 
+      // Ask for feedback with forceReply
+      await editMessage(chatId, messageId, `❌ <b>Reprovado.</b>\n"${item?.title || itemId}"`, headers);
+
+      // Store pending rejection to capture feedback
+      await supabase
+        .from('telegram_bot_config')
+        .update({ 
+          pending_rejection_item_id: itemId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', 1);
+
+      await sendReply(
+        chatId, 
+        `📝 Qual o motivo da reprovação de "<b>${escapeHtml(item?.title || 'item')}</b>"?\n\n<i>Responda com o feedback ou envie /pular para reprovar sem motivo.</i>`,
+        headers,
+        undefined,
+        { force_reply: true, selective: true }
+      );
+
+      // Mark as rejected immediately
       await supabase
         .from('planning_items')
         .update({ status: 'rejected' })
         .eq('id', itemId);
 
-      await editMessage(chatId, messageId, `❌ <b>Reprovado.</b>\n"${item?.title || itemId}"`, headers);
       break;
     }
 
     case 'regen': {
       await editMessage(chatId, messageId, `🔄 <b>Regenerando conteúdo...</b>`, headers);
 
-      // Get item details for regeneration
       const { data: item } = await supabase
         .from('planning_items')
         .select('*, client:clients(name)')
@@ -216,7 +231,6 @@ async function handleCallback(
       }
 
       try {
-        // Call unified-content-api to regenerate
         const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const regenResponse = await fetch(`${supabaseUrl}/functions/v1/unified-content-api`, {
           method: 'POST',
@@ -238,13 +252,9 @@ async function handleCallback(
           if (newContent) {
             await supabase
               .from('planning_items')
-              .update({ 
-                body: newContent,
-                status: 'idea',
-              })
+              .update({ body: newContent, status: 'idea' })
               .eq('id', itemId);
 
-            // Send new preview
             const preview = newContent.substring(0, 800);
             await sendReply(chatId, 
               `🔄 <b>Conteúdo regenerado!</b>\n\n<pre>${escapeHtml(preview)}</pre>`, 
@@ -314,7 +324,9 @@ async function handleCallback(
         if (publishResponse.ok) {
           const result = await publishResponse.json();
           if (result.success) {
-            await sendReply(chatId, `✅ <b>Publicado com sucesso!</b> Plataforma: ${platform}`, headers);
+            const postUrl = result.postUrl || result.url || '';
+            const urlText = postUrl ? `\n🔗 ${postUrl}` : '';
+            await sendReply(chatId, `✅ <b>Publicado com sucesso!</b> Plataforma: ${platform}${urlText}`, headers);
           } else {
             await sendReply(chatId, `⚠️ Late API retornou: ${result.error || JSON.stringify(result).substring(0, 200)}`, headers);
           }
@@ -346,7 +358,52 @@ async function handleMessage(
 
   if (!text) return;
 
-  // /start command — save chat_id
+  // Check for pending rejection feedback
+  const { data: config } = await supabase
+    .from('telegram_bot_config')
+    .select('pending_rejection_item_id')
+    .eq('id', 1)
+    .single();
+
+  if (config?.pending_rejection_item_id && text !== '/pular') {
+    const itemId = config.pending_rejection_item_id;
+    
+    // Save feedback to planning item metadata
+    const { data: item } = await supabase
+      .from('planning_items')
+      .select('metadata')
+      .eq('id', itemId)
+      .single();
+
+    const currentMetadata = (item?.metadata as Record<string, unknown>) || {};
+    await supabase
+      .from('planning_items')
+      .update({ 
+        metadata: { ...currentMetadata, rejection_reason: text, rejected_at: new Date().toISOString() },
+      })
+      .eq('id', itemId);
+
+    // Clear pending
+    await supabase
+      .from('telegram_bot_config')
+      .update({ pending_rejection_item_id: null, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+
+    await sendReply(chatId, `📝 Feedback salvo! Obrigado.`, headers);
+    return;
+  }
+
+  // Clear pending rejection on /pular
+  if (text === '/pular' && config?.pending_rejection_item_id) {
+    await supabase
+      .from('telegram_bot_config')
+      .update({ pending_rejection_item_id: null, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    await sendReply(chatId, `✅ Reprovado sem feedback.`, headers);
+    return;
+  }
+
+  // /start command
   if (text === '/start') {
     await supabase
       .from('telegram_bot_config')
@@ -354,17 +411,17 @@ async function handleMessage(
       .eq('id', 1);
 
     await sendReply(chatId, 
-      `👋 <b>kAI Bot ativado!</b>\n\nSeu chat_id (${chatId}) foi salvo. Agora você receberá notificações de automações aqui.\n\nComandos:\n/pendentes — Ver itens pendentes\n/status — Status geral`, 
+      `👋 <b>kAI Bot ativado!</b>\n\nSeu chat_id (${chatId}) foi salvo.\n\nComandos:\n/pendentes — Ver itens pendentes com ações\n/status — Status geral\n/aprovar_todos — Aprovar todos pendentes\n\n💬 Envie qualquer mensagem para conversar com a IA!`, 
       headers
     );
     return;
   }
 
-  // /pendentes command
+  // /pendentes command — now with inline buttons
   if (text === '/pendentes') {
     const { data: items } = await supabase
       .from('planning_items')
-      .select('id, title, platform, content_type, created_at')
+      .select('id, title, platform, content_type, created_at, client:clients(name)')
       .eq('status', 'idea')
       .order('created_at', { ascending: false })
       .limit(10);
@@ -374,12 +431,62 @@ async function handleMessage(
       return;
     }
 
-    let msg = `📋 <b>${items.length} itens pendentes:</b>\n\n`;
+    // Send each item as a separate message with action buttons
+    await sendReply(chatId, `📋 <b>${items.length} itens pendentes:</b>`, headers);
+
     for (const item of items) {
-      msg += `• <b>${item.title?.substring(0, 60) || 'Sem título'}</b> (${item.platform || item.content_type})\n`;
+      const clientName = (item.client as any)?.name || '';
+      const platformLabel = item.platform || item.content_type || '';
+      const title = item.title?.substring(0, 80) || 'Sem título';
+
+      await sendReply(
+        chatId,
+        `📌 <b>${escapeHtml(title)}</b>\n${clientName ? `👤 ${escapeHtml(clientName)} · ` : ''}${platformLabel}`,
+        headers,
+        {
+          inline_keyboard: [
+            [
+              { text: '✅ Aprovar', callback_data: `approve:${item.id}` },
+              { text: '❌ Reprovar', callback_data: `reject:${item.id}` },
+            ],
+          ],
+        }
+      );
+    }
+    return;
+  }
+
+  // /aprovar_todos command
+  if (text === '/aprovar_todos') {
+    const { data: items } = await supabase
+      .from('planning_items')
+      .select('id, title, workspace_id')
+      .eq('status', 'idea');
+
+    if (!items || items.length === 0) {
+      await sendReply(chatId, '✅ Nenhum item pendente para aprovar!', headers);
+      return;
     }
 
-    await sendReply(chatId, msg, headers);
+    // Get workspace's approved column
+    const workspaceId = items[0].workspace_id;
+    const { data: approvedColumn } = await supabase
+      .from('kanban_columns')
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .eq('column_type', 'approved')
+      .single();
+
+    const updateData: Record<string, unknown> = { status: 'approved' };
+    if (approvedColumn) updateData.column_id = approvedColumn.id;
+
+    const ids = items.map((i: any) => i.id);
+    await supabase
+      .from('planning_items')
+      .update(updateData)
+      .in('id', ids);
+
+    await sendReply(chatId, `✅ <b>${items.length} itens aprovados em lote!</b>`, headers);
     return;
   }
 
@@ -408,11 +515,223 @@ async function handleMessage(
     return;
   }
 
-  // Default: echo that commands are limited for now
-  await sendReply(chatId, 
-    `🤖 Comandos disponíveis:\n/start — Ativar bot\n/pendentes — Ver pendentes\n/status — Status geral\n\nRespostas por IA em breve! 🚀`,
-    headers
-  );
+  // =====================================================
+  // Content creation by text (intent detection)
+  // =====================================================
+  const createMatch = text.match(/^(?:cria|gera|escreve|faz|monte)\s+(?:um\s+)?(?:post|tweet|carrossel|reels?|conteúdo|texto)\s+(?:sobre\s+)?(.+?)(?:\s+para\s+(?:o\s+)?(.+))?$/i);
+  
+  if (createMatch) {
+    const topic = createMatch[1]?.trim();
+    const clientName = createMatch[2]?.trim();
+
+    await sendReply(chatId, `🔄 <b>Criando conteúdo...</b>\n"${escapeHtml(topic)}"`, headers);
+
+    try {
+      let clientId: string | null = null;
+      
+      if (clientName) {
+        const { data: clients } = await supabase
+          .from('clients')
+          .select('id, name')
+          .ilike('name', `%${clientName}%`)
+          .limit(1);
+        
+        if (clients && clients.length > 0) {
+          clientId = clients[0].id;
+        }
+      }
+
+      // If no client found, get first available
+      if (!clientId) {
+        const { data: firstClient } = await supabase
+          .from('clients')
+          .select('id')
+          .limit(1)
+          .single();
+        clientId = firstClient?.id;
+      }
+
+      if (!clientId) {
+        await sendReply(chatId, '❌ Nenhum cliente encontrado.', headers);
+        return;
+      }
+
+      // Call unified-content-api to generate
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      
+      const genResponse = await fetch(`${supabaseUrl}/functions/v1/unified-content-api`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          brief: topic,
+          clientId,
+          formatType: 'post',
+        }),
+      });
+
+      if (genResponse.ok) {
+        const result = await genResponse.json();
+        const content = result.content || result.text;
+
+        if (content) {
+          // Get workspace_id from client
+          const { data: client } = await supabase
+            .from('clients')
+            .select('workspace_id, name')
+            .eq('id', clientId)
+            .single();
+
+          // Get idea column
+          const { data: ideaColumn } = await supabase
+            .from('kanban_columns')
+            .select('id')
+            .eq('workspace_id', client.workspace_id)
+            .eq('column_type', 'idea')
+            .single();
+
+          // Create planning item
+          const { data: newItem } = await supabase
+            .from('planning_items')
+            .insert({
+              title: topic,
+              body: content,
+              status: 'idea',
+              client_id: clientId,
+              workspace_id: client.workspace_id,
+              column_id: ideaColumn?.id,
+              content_type: 'post',
+              source: 'telegram',
+            })
+            .select('id')
+            .single();
+
+          const preview = content.substring(0, 800);
+          await sendReply(
+            chatId,
+            `✨ <b>Conteúdo criado!</b>\n👤 ${escapeHtml(client.name)}\n\n<pre>${escapeHtml(preview)}</pre>`,
+            headers,
+            {
+              inline_keyboard: [
+                [
+                  { text: '✅ Aprovar', callback_data: `approve:${newItem?.id}` },
+                  { text: '❌ Reprovar', callback_data: `reject:${newItem?.id}` },
+                ],
+                [
+                  { text: '🔄 Regenerar', callback_data: `regen:${newItem?.id}` },
+                  { text: '📝 Publicar', callback_data: `publish:${newItem?.id}` },
+                ],
+              ],
+            }
+          );
+        } else {
+          await sendReply(chatId, '⚠️ Geração retornou sem conteúdo.', headers);
+        }
+      } else {
+        await sendReply(chatId, '❌ Erro ao gerar conteúdo.', headers);
+      }
+    } catch (err) {
+      await sendReply(chatId, `❌ Erro: ${err instanceof Error ? err.message : 'desconhecido'}`, headers);
+    }
+    return;
+  }
+
+  // =====================================================
+  // AI response for free text (via Lovable AI Gateway)
+  // =====================================================
+  try {
+    await sendChatAction(chatId, 'typing', headers);
+
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      await sendReply(chatId, '⚠️ IA não configurada.', headers);
+      return;
+    }
+
+    // Get recent message history for context
+    const { data: recentMessages } = await supabase
+      .from('telegram_messages')
+      .select('message_text, raw_update')
+      .eq('chat_id', chatId)
+      .order('update_id', { ascending: false })
+      .limit(6);
+
+    const history = (recentMessages || [])
+      .reverse()
+      .filter((m: any) => m.message_text)
+      .map((m: any) => ({
+        role: 'user' as const,
+        content: m.message_text,
+      }));
+
+    const aiResponse = await fetch(AI_GATEWAY_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: `Você é o kAI, assistente de marketing e conteúdo digital. Responda de forma concisa e útil em português brasileiro. 
+Você pode ajudar com:
+- Ideias de conteúdo
+- Copywriting
+- Estratégia de marketing
+- Dúvidas sobre redes sociais
+- Análise de tendências
+
+Comandos disponíveis que o usuário pode usar:
+/pendentes - Ver itens pendentes
+/status - Status geral
+/aprovar_todos - Aprovar todos pendentes
+
+Para criar conteúdo, o usuário pode dizer "cria um post sobre X para o [cliente]".
+
+Seja direto, criativo e profissional. Use emojis moderadamente.`,
+          },
+          ...history,
+          { role: 'user', content: text },
+        ],
+        stream: false,
+      }),
+    });
+
+    if (aiResponse.ok) {
+      const aiData = await aiResponse.json();
+      const reply = aiData.choices?.[0]?.message?.content;
+      
+      if (reply) {
+        // Telegram HTML: strip markdown, keep simple
+        const cleanReply = reply
+          .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+          .replace(/\*(.*?)\*/g, '<i>$1</i>')
+          .replace(/```[\s\S]*?```/g, (m: string) => `<pre>${escapeHtml(m.replace(/```\w*\n?/g, '').replace(/```/g, ''))}</pre>`)
+          .replace(/`(.*?)`/g, '<code>$1</code>');
+
+        await sendReply(chatId, cleanReply.substring(0, 4000), headers);
+      } else {
+        await sendReply(chatId, '🤔 Não consegui gerar uma resposta. Tente novamente!', headers);
+      }
+    } else {
+      const status = aiResponse.status;
+      if (status === 429) {
+        await sendReply(chatId, '⏳ Muitas requisições. Tente novamente em alguns segundos.', headers);
+      } else if (status === 402) {
+        await sendReply(chatId, '⚠️ Créditos de IA esgotados.', headers);
+      } else {
+        await sendReply(chatId, '❌ Erro ao consultar IA.', headers);
+      }
+    }
+  } catch (err) {
+    console.error('AI response error:', err);
+    await sendReply(chatId, '❌ Erro ao processar sua mensagem.', headers);
+  }
 }
 
 // =====================================================
@@ -423,6 +742,7 @@ async function sendReply(
   text: string,
   headers: Record<string, string>,
   replyMarkup?: any,
+  forceReplyMarkup?: any,
 ) {
   const body: Record<string, unknown> = {
     chat_id: chatId,
@@ -431,6 +751,8 @@ async function sendReply(
   };
   if (replyMarkup) {
     body.reply_markup = replyMarkup;
+  } else if (forceReplyMarkup) {
+    body.reply_markup = forceReplyMarkup;
   }
 
   const response = await fetch(`${GATEWAY_URL}/sendMessage`, {
@@ -466,6 +788,18 @@ async function editMessage(
     console.error('editMessage failed:', data);
   }
   return data;
+}
+
+async function sendChatAction(
+  chatId: number | string,
+  action: string,
+  headers: Record<string, string>,
+) {
+  await fetch(`${GATEWAY_URL}/sendChatAction`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ chat_id: chatId, action }),
+  }).catch(() => {});
 }
 
 function escapeHtml(text: string): string {
