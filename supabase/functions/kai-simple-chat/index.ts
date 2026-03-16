@@ -1617,7 +1617,7 @@ serve(async (req) => {
       }
       
       try {
-        const cards = await generatePlanningCards(supabase, client, clientId, client.workspace_id, user.id, planningIntent, authHeader, userInstructions);
+        const cards = await generatePlanningCards(supabase, client, clientId, client.workspace_id, userId, planningIntent, authHeader || '', userInstructions);
         const successMessage = buildPlanningSuccessMessage(cards, planningIntent);
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
