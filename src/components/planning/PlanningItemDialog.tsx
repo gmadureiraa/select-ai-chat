@@ -225,7 +225,7 @@ export function PlanningItemDialog({
       setSelectedClientId(effectiveItem.client_id || '');
       setColumnId(effectiveItem.column_id || '');
       setPriority(effectiveItem.priority);
-      setDueDate(effectiveItem.due_date ? parseISO(effectiveItem.due_date) : undefined);
+      setScheduledAt(effectiveItem.due_date ? parseISO(effectiveItem.due_date) : undefined);
       const parsedScheduledAt = effectiveItem.scheduled_at ? parseISO(effectiveItem.scheduled_at) : undefined;
       setScheduledAt(parsedScheduledAt);
       setScheduledTime(parsedScheduledAt ? format(parsedScheduledAt, 'HH:mm') : '09:00');
