@@ -66,6 +66,14 @@ serve(async (req: Request) => {
 
     // STRATEGY: Each client gets their OWN Late profile for complete isolation
     // This prevents account mixing between clients
+
+    // Fetch client name for profile naming
+    const { data: clientData } = await supabaseAdmin
+      .from('clients')
+      .select('name')
+      .eq('id', clientId)
+      .single();
+    const clientName = clientData?.name || clientId.substring(0, 8);
     
     // Check if this CLIENT already has a Late profile
     const { data: clientProfile } = await supabaseAdmin
@@ -128,8 +136,9 @@ serve(async (req: Request) => {
       }
 
       // Check if there's already a profile for this client (by name pattern)
-      const clientProfileName = `kai-${clientId.substring(0, 8)}`;
-      const existingClientProfile = existingProfiles.find(p => p.name === clientProfileName);
+      const clientProfileName = clientName;
+      const legacyProfileName = `kai-${clientId.substring(0, 8)}`;
+      const existingClientProfile = existingProfiles.find(p => p.name === clientProfileName || p.name === legacyProfileName);
       
       if (existingClientProfile) {
         profileId = existingClientProfile._id;
