@@ -42,10 +42,10 @@ serve(async (req) => {
     }
 
     const { url, clientId, uploadToStorage } = await req.json();
-    const apifyApiKey = Deno.env.get('APIFY_API_KEY');
+    const apifyApiKey = Deno.env.get('APIFY_API_KEY_INSTAGRAM') || Deno.env.get('APIFY_API_KEY');
 
     if (!apifyApiKey) {
-      throw new Error('APIFY_API_KEY not configured');
+      throw new Error('APIFY_API_KEY_INSTAGRAM not configured');
     }
 
     if (!url) {
