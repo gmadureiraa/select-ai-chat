@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { CalendarIcon, Loader2, Wand2, ChevronDown, Image, User, Settings2, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check } from 'lucide-react';
+import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check } from 'lucide-react';
+
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { usePlanningImageGeneration } from '@/hooks/usePlanningImageGeneration';
@@ -91,7 +91,7 @@ export function PlanningItemDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
-  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  
   const [freshItem, setFreshItem] = useState<PlanningItem | null>(null);
   const [isFetchingItem, setIsFetchingItem] = useState(false);
   
@@ -138,7 +138,7 @@ export function PlanningItemDialog({
   const [columnId, setColumnId] = useState<string>('');
   const [contentType, setContentType] = useState<ContentTypeKey>('tweet');
   const [priority, setPriority] = useState<PlanningPriority>('medium');
-  const [dueDate, setDueDate] = useState<Date | undefined>();
+  
   const [scheduledAt, setScheduledAt] = useState<Date | undefined>();
   const [scheduledTime, setScheduledTime] = useState<string>('09:00');
   const [isSchedulingToLate, setIsSchedulingToLate] = useState(false);
@@ -225,8 +225,9 @@ export function PlanningItemDialog({
       setSelectedClientId(effectiveItem.client_id || '');
       setColumnId(effectiveItem.column_id || '');
       setPriority(effectiveItem.priority);
-      setDueDate(effectiveItem.due_date ? parseISO(effectiveItem.due_date) : undefined);
-      const parsedScheduledAt = effectiveItem.scheduled_at ? parseISO(effectiveItem.scheduled_at) : undefined;
+      const parsedScheduledAt = effectiveItem.scheduled_at 
+        ? parseISO(effectiveItem.scheduled_at) 
+        : effectiveItem.due_date ? parseISO(effectiveItem.due_date) : undefined;
       setScheduledAt(parsedScheduledAt);
       setScheduledTime(parsedScheduledAt ? format(parsedScheduledAt, 'HH:mm') : '09:00');
       setAssignedTo(effectiveItem.assigned_to || '');
@@ -274,7 +275,7 @@ export function PlanningItemDialog({
       setColumnId(defaultColumnId || columns[0]?.id || '');
       setContentType('tweet');
       setPriority('medium');
-      setDueDate(defaultDate);
+      setScheduledAt(defaultDate);
       setScheduledAt(undefined);
       setScheduledTime('09:00');
       setIsSchedulingToLate(false);
@@ -284,7 +285,7 @@ export function PlanningItemDialog({
       setSelectedPlatforms([]);
       setReferenceInput('');
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
-      setShowMoreOptions(false);
+      
     }
   }, [effectiveItem, item, defaultColumnId, defaultDate, defaultClientId, columns, open]);
 
@@ -326,7 +327,7 @@ export function PlanningItemDialog({
         platform: platform || undefined,
         priority,
         status: finalScheduledAt ? targetStatus : undefined,
-        due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
+        due_date: finalScheduledAt ? format(finalScheduledAt, 'yyyy-MM-dd') : undefined,
         scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
         media_urls: mediaItems.map(m => m.url),
         assigned_to: assignedTo || undefined,
@@ -707,142 +708,115 @@ export function PlanningItemDialog({
             />
           </div>
 
-          {/* Date + Assigned Row */}
-          <div className="grid grid-cols-2 gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn("justify-start h-9", !dueDate && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dueDate ? format(dueDate, 'dd/MM/yyyy') : 'Data'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={dueDate} onSelect={setDueDate} initialFocus />
-              </PopoverContent>
-            </Popover>
+          {/* Date/Time + Assigned Row */}
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex gap-1.5">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className={cn("flex-1 justify-start h-9", !scheduledAt && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {scheduledAt ? format(scheduledAt, 'dd/MM/yyyy') : 'Data'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={scheduledAt} onSelect={setScheduledAt} initialFocus className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3 text-muted-foreground" />
+                  <Input
+                    type="time"
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
+                    className="h-9 w-24 text-sm"
+                    disabled={!scheduledAt}
+                  />
+                </div>
+              </div>
 
-            <Select value={assignedTo || 'none'} onValueChange={(val) => setAssignedTo(val === 'none' ? '' : val)}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Responsável">
-                  {assignedTo ? (
-                    <span className="flex items-center gap-2">
-                      <User className="h-3 w-3" />
-                      {members.find(m => m.user_id === assignedTo)?.profile?.full_name || 'Membro'}
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2 text-muted-foreground">
-                      <User className="h-3 w-3" />
-                      Responsável
-                    </span>
-                  )}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Nenhum</SelectItem>
-                {members.filter(m => m.user_id).map(member => (
-                  <SelectItem key={member.user_id} value={member.user_id}>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-5 w-5">
-                        <AvatarFallback className="text-[10px]">
-                          {(member.profile?.full_name?.[0] || '?').toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      {member.profile?.full_name || member.profile?.email || 'Membro'}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={assignedTo || 'none'} onValueChange={(val) => setAssignedTo(val === 'none' ? '' : val)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Responsável">
+                    {assignedTo ? (
+                      <span className="flex items-center gap-2">
+                        <User className="h-3 w-3" />
+                        {members.find(m => m.user_id === assignedTo)?.profile?.full_name || 'Membro'}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <User className="h-3 w-3" />
+                        Responsável
+                      </span>
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {members.filter(m => m.user_id).map(member => (
+                    <SelectItem key={member.user_id} value={member.user_id}>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="text-[10px]">
+                            {(member.profile?.full_name?.[0] || '?').toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        {member.profile?.full_name || member.profile?.email || 'Membro'}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {scheduledAt && publishablePlatforms.length > 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                ✓ Será enviado a {publishablePlatforms.length} plataforma(s) automaticamente em {format(scheduledAt, 'dd/MM')} às {scheduledTime}
+              </p>
+            )}
           </div>
 
-          {/* More Options - Collapsible */}
-          <Collapsible open={showMoreOptions} onOpenChange={setShowMoreOptions}>
-            <CollapsibleTrigger asChild>
-              <Button type="button" variant="ghost" size="sm" className="w-full justify-between h-8 text-muted-foreground">
-                <span className="flex items-center gap-2">
-                  <Settings2 className="h-4 w-4" />
-                  Mais opções
-                </span>
-                <ChevronDown className={cn("h-4 w-4 transition-transform", showMoreOptions && "rotate-180")} />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-3 pt-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">Coluna</Label>
-                  <Select value={columnId} onValueChange={setColumnId}>
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue placeholder="Selecionar" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {columns.map(col => (
-                        <SelectItem key={col.id} value={col.id}>{col.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Prioridade</Label>
-                  <Select value={priority} onValueChange={(v) => setPriority(v as PlanningPriority)}>
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {priorities.map(p => (
-                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+          {/* Column + Priority */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Coluna</Label>
+              <Select value={columnId} onValueChange={setColumnId}>
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue placeholder="Selecionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {columns.map(col => (
+                    <SelectItem key={col.id} value={col.id}>{col.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Prioridade</Label>
+              <Select value={priority} onValueChange={(v) => setPriority(v as PlanningPriority)}>
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorities.map(p => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-              {/* Scheduling with time */}
-              <div className="space-y-2">
-                <Label className="text-xs">Agendamento</Label>
-                <div className="flex gap-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className={cn("flex-1 justify-start h-8 text-sm", !scheduledAt && "text-muted-foreground")}>
-                        <CalendarIcon className="mr-2 h-3 w-3" />
-                        {scheduledAt ? format(scheduledAt, 'dd/MM/yyyy') : 'Data'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={scheduledAt} onSelect={setScheduledAt} initialFocus />
-                    </PopoverContent>
-                  </Popover>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 text-muted-foreground" />
-                    <Input
-                      type="time"
-                      value={scheduledTime}
-                      onChange={(e) => setScheduledTime(e.target.value)}
-                      className="h-8 w-24 text-sm"
-                      disabled={!scheduledAt}
-                    />
-                  </div>
-                </div>
-                {scheduledAt && publishablePlatforms.length > 0 && (
-                  <p className="text-[10px] text-muted-foreground">
-                    ✓ Será enviado a {publishablePlatforms.length} plataforma(s) automaticamente
-                  </p>
-                )}
-              </div>
+          {/* Recurrence */}
+          <RecurrenceConfig
+            value={recurrenceConfig}
+            onChange={setRecurrenceConfig}
+          />
 
-              {/* Recurrence */}
-              <RecurrenceConfig
-                value={recurrenceConfig}
-                onChange={setRecurrenceConfig}
-              />
-
-              {/* Comments (only in edit mode) */}
-              {item && (
-                <div className="pt-2 border-t">
-                  <PlanningItemComments planningItemId={item.id} />
-                </div>
-              )}
-            </CollapsibleContent>
-          </Collapsible>
+          {/* Comments (only in edit mode) */}
+          {item && (
+            <div className="pt-2 border-t">
+              <PlanningItemComments planningItemId={item.id} />
+            </div>
+          )}
 
           {/* Submit */}
           <div className="flex justify-end gap-2 pt-2">
