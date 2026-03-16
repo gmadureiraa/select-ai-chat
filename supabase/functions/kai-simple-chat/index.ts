@@ -1528,7 +1528,7 @@ serve(async (req) => {
     const { message, clientId, imageUrls, citations, history, materialContext, materialTitle } = body;
 
     console.log("[kai-simple-chat] Request:", { 
-      userId: user.id, clientId, 
+      userId, clientId, internalServiceAuth: !!body.internalServiceAuth, stream: shouldStream,
       imageUrlsCount: imageUrls?.length, citationsCount: citations?.length,
       historyCount: history?.length, messageLength: message?.length 
     });
