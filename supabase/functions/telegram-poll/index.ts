@@ -41,14 +41,39 @@ serve(async () => {
     return new Response(JSON.stringify({ ok: true, skipped: true, reason: 'Bot inactive' }));
   }
 
+  // Delete any existing webhook to avoid 409 conflict with getUpdates
+  try {
+    const webhookRes = await fetch(`${GATEWAY_URL}/deleteWebhook`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ drop_pending_updates: false }),
+    });
+    const webhookData = await webhookRes.json();
+    console.log('[telegram-poll] deleteWebhook result:', JSON.stringify(webhookData));
+  } catch (e) {
+    console.warn('[telegram-poll] deleteWebhook failed:', e);
+  }
+
   let currentOffset = state.update_offset;
+
+  // First, do a short non-blocking poll (timeout=0) to clear any stale connections
+  try {
+    await fetch(`${GATEWAY_URL}/getUpdates`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ offset: currentOffset, timeout: 0 }),
+    });
+  } catch (_) { /* ignore */ }
+
+  // Small delay to let Telegram release the connection
+  await new Promise(r => setTimeout(r, 1000));
 
   while (true) {
     const elapsed = Date.now() - startTime;
     const remainingMs = MAX_RUNTIME_MS - elapsed;
     if (remainingMs < MIN_REMAINING_MS) break;
 
-    const timeout = Math.min(50, Math.floor(remainingMs / 1000) - 5);
+    const timeout = Math.min(25, Math.floor(remainingMs / 1000) - 5);
     if (timeout < 1) break;
 
     try {
@@ -64,6 +89,11 @@ serve(async () => {
 
       const data = await response.json();
       if (!response.ok) {
+        if (data?.error_code === 409) {
+          console.warn('[telegram-poll] 409 conflict, waiting 3s and retrying...');
+          await new Promise(r => setTimeout(r, 3000));
+          continue;
+        }
         console.error('getUpdates failed:', data);
         break;
       }
