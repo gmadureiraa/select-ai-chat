@@ -427,7 +427,7 @@ async function handleCallback(
           body: JSON.stringify({
             clientId: item.client_id,
             platform,
-            content: item.body,
+            content: item.content,
             planningItemId: itemId,
             mediaItems: item.media_urls?.map((url: string) => ({
               url,
