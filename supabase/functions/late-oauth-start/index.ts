@@ -136,8 +136,9 @@ serve(async (req: Request) => {
       }
 
       // Check if there's already a profile for this client (by name pattern)
-      const clientProfileName = `kai-${clientId.substring(0, 8)}`;
-      const existingClientProfile = existingProfiles.find(p => p.name === clientProfileName);
+      const clientProfileName = clientName;
+      const legacyProfileName = `kai-${clientId.substring(0, 8)}`;
+      const existingClientProfile = existingProfiles.find(p => p.name === clientProfileName || p.name === legacyProfileName);
       
       if (existingClientProfile) {
         profileId = existingClientProfile._id;
