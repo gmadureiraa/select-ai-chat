@@ -198,7 +198,7 @@ async function handleCallback(
         await editMessage(chatId, messageId, `✅ <b>Aprovado!</b> Publicando...\n"${item.title}"`, headers);
 
         const targetPlatforms: string[] = itemMeta.target_platforms || [item.platform].filter(Boolean);
-        const generatedContent = item.content || item.body || '';
+        const generatedContent = item.content || '';
         const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         let publishSuccess = false;
 
