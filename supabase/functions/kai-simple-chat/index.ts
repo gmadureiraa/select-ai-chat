@@ -1903,7 +1903,7 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: gatewayMessages,
-        stream: true,
+        stream: shouldStream,
       }),
     });
 
@@ -1921,6 +1921,15 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
       }
       return new Response(JSON.stringify({ error: "Erro ao gerar resposta." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (!shouldStream) {
+      // Non-streaming mode: return full response as JSON
+      const data = await gatewayResponse.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      return new Response(JSON.stringify({ content }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Stream response directly (already in OpenAI SSE format)
