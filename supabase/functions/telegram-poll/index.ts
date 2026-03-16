@@ -128,9 +128,16 @@ async function handleCallback(
   const chatId = callback.message?.chat?.id;
   const messageId = callback.message?.message_id;
 
+  console.log(`[telegram-poll] Callback received: data="${data}", chatId=${chatId}, messageId=${messageId}`);
+
   if (!data) return;
 
-  const [action, itemId] = data.split(':');
+  // Support both "action:uuid" format - split only on first ':'
+  const colonIndex = data.indexOf(':');
+  const action = colonIndex > -1 ? data.substring(0, colonIndex) : data;
+  const itemId = colonIndex > -1 ? data.substring(colonIndex + 1) : null;
+
+  console.log(`[telegram-poll] Parsed action="${action}", itemId="${itemId}"`);
 
   // Answer callback to remove loading state
   await fetch(`${GATEWAY_URL}/answerCallbackQuery`, {
@@ -139,8 +146,8 @@ async function handleCallback(
     body: JSON.stringify({ callback_query_id: callback.id }),
   }).then(r => r.text());
 
-  if (!itemId) {
-    await sendReply(chatId, '❌ ID do item não encontrado.', headers);
+  if (!itemId || itemId === 'undefined' || itemId === 'null') {
+    await sendReply(chatId, '❌ ID do item não encontrado no botão. Tente via /pendentes.', headers);
     return;
   }
 
@@ -148,14 +155,17 @@ async function handleCallback(
 
   switch (action) {
     case 'approve': {
-      const { data: item } = await supabase
+      console.log(`[telegram-poll] Querying planning_items for id="${itemId}"`);
+      const { data: item, error: itemError } = await supabase
         .from('planning_items')
         .select('workspace_id, title, status, client_id, content, body, media_urls, metadata, content_type, platform')
         .eq('id', itemId)
-        .single();
+        .maybeSingle();
+
+      console.log(`[telegram-poll] Query result: item=${item ? 'found' : 'null'}, error=${itemError ? JSON.stringify(itemError) : 'none'}`);
 
       if (!item) {
-        await sendReply(chatId, '❌ Item não encontrado.', headers);
+        await sendReply(chatId, `❌ Item não encontrado (ID: ${itemId.substring(0, 8)}...). Pode ter sido excluído.`, headers);
         return;
       }
 
