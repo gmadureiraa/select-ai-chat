@@ -76,7 +76,7 @@ serve(async (req) => {
     const isPublished = body.published === true;
     const headerText = isPublished
       ? `${emoji} <b>✅ Conteúdo publicado automaticamente</b>`
-      : `${emoji} <b>Nova automação executada</b>`;
+      : `${emoji} <b>📋 Novo conteúdo para revisão</b>`;
 
     const publishedUrlsText = body.published_urls
       ? Object.entries(body.published_urls as Record<string, string>)
@@ -96,10 +96,8 @@ serve(async (req) => {
       ``,
       `<pre>${escapeHtml(contentPreview)}</pre>`,
       publishedUrlsText ? `\n${publishedUrlsText}` : '',
+      !isPublished ? `\n⬇️ <i>Escolha uma ação abaixo:</i>` : '',
     ].filter(Boolean).join('\n');
-
-    // Check if already published (informational mode) or pending review
-    const isPublished = body.published === true;
 
     // Inline keyboard — always show feedback buttons for published content
     const inlineKeyboard = isPublished

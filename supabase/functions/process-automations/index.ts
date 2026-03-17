@@ -1625,6 +1625,37 @@ serve(async (req) => {
                   .eq('id', newItem.id);
                   
                 console.log(`Content saved to item ${newItem.id}`);
+
+                // ========== NON-AUTO-PUBLISH: Move to "Revisão" for Telegram approval ==========
+                if (!automation.auto_publish && generatedContent) {
+                  try {
+                    const { data: reviewColumn } = await supabase
+                      .from('kanban_columns')
+                      .select('id')
+                      .eq('workspace_id', automation.workspace_id)
+                      .eq('column_type', 'review')
+                      .single();
+
+                    if (reviewColumn) {
+                      await supabase
+                        .from('planning_items')
+                        .update({
+                          column_id: reviewColumn.id,
+                          status: 'review',
+                          metadata: {
+                            ...updatedMetadata,
+                            pending_telegram_approval: true,
+                            auto_publish_on_approve: true,
+                          },
+                        })
+                        .eq('id', newItem.id);
+
+                      console.log(`Item ${newItem.id} moved to Revisão for Telegram approval`);
+                    }
+                  } catch (reviewErr) {
+                    console.warn('Could not move to review column:', reviewErr);
+                  }
+                }
               }
             } else {
               const errorText = await response.text();
