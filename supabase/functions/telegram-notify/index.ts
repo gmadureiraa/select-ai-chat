@@ -73,6 +73,7 @@ serve(async (req) => {
     const emoji = platformEmoji[platform || ''] || '📋';
     const contentPreview = content ? content.substring(0, 800) : 'Sem conteúdo';
     
+    const isPublished = body.published === true;
     const headerText = isPublished
       ? `${emoji} <b>✅ Conteúdo publicado automaticamente</b>`
       : `${emoji} <b>Nova automação executada</b>`;
