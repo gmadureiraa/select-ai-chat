@@ -2003,6 +2003,15 @@ serve(async (req) => {
             clientName = clientData?.name || 'N/A';
           }
 
+          // Check if item was auto-published by looking at its current metadata
+          const { data: currentItem } = await supabase
+            .from('planning_items')
+            .select('metadata, status')
+            .eq('id', newItem.id)
+            .single();
+          const currentMeta = (currentItem?.metadata as any) || {};
+          const wasPublished = currentItem?.status === 'published';
+
           const telegramPayload = {
             item_id: newItem.id,
             title: itemTitle,
@@ -2012,6 +2021,9 @@ serve(async (req) => {
             client_name: clientName,
             automation_name: automation.name,
             content_type: automation.content_type,
+            published: wasPublished,
+            published_urls: currentMeta.published_urls || null,
+            published_platforms: currentMeta.published_platforms || null,
           };
 
           fetch(`${supabaseUrl}/functions/v1/telegram-notify`, {
