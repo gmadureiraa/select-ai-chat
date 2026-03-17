@@ -479,6 +479,7 @@ export function InstagramPostsTableAdvanced({ posts, isLoading, clientId }: Inst
                       permalink={post.permalink}
                       caption={post.caption}
                       contentSyncedAt={(post as any).content_synced_at}
+                      fullContent={(post as any).full_content}
                     />
                   </TableCell>
                 )}

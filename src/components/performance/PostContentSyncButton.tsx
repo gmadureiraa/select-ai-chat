@@ -13,6 +13,7 @@ interface PostContentSyncButtonProps {
   permalink: string | null;
   caption: string | null;
   contentSyncedAt: string | null;
+  fullContent?: string | null;
   postType?: string | null;
   onSyncComplete?: () => void;
 }
@@ -23,6 +24,7 @@ export const PostContentSyncButton = ({
   permalink,
   caption,
   contentSyncedAt,
+  fullContent,
   postType,
   onSyncComplete,
 }: PostContentSyncButtonProps) => {
@@ -196,7 +198,10 @@ export const PostContentSyncButton = ({
     }
   };
 
-  if (contentSyncedAt) {
+  // Consider synced if content_synced_at is set OR full_content exists
+  const isSynced = !!contentSyncedAt || (!!fullContent && fullContent.length > 0);
+
+  if (isSynced) {
     const isVideo = isVideoPost();
     return (
       <Badge 

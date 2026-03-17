@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trigger_enqueue_notification_email ON public.notifications;
