@@ -484,6 +484,184 @@ async function handleCallback(
       break;
     }
 
+    // =====================================================
+    // FEEDBACK CALLBACKS: 👍/👎/🗑️ on published content
+    // =====================================================
+    case 'fb_like': {
+      const { data: item } = await supabase
+        .from('planning_items')
+        .select('title, content, client_id, platform, content_type, metadata')
+        .eq('id', itemId)
+        .maybeSingle();
+
+      if (!item) {
+        await sendReply(chatId, '❌ Item não encontrado.', headers);
+        return;
+      }
+
+      // Store positive feedback
+      await supabase.from('automation_content_feedback').insert({
+        planning_item_id: itemId,
+        automation_id: (item.metadata as any)?.automation_id || null,
+        client_id: item.client_id,
+        feedback_type: 'like',
+        content_snapshot: item.content?.substring(0, 2000) || null,
+        platform: item.platform,
+        content_type: item.content_type,
+      });
+
+      // Also mark as favorite in content library if linked
+      if (item.client_id && item.content) {
+        await supabase
+          .from('client_content_library')
+          .update({ is_favorite: true })
+          .eq('client_id', item.client_id)
+          .eq('content', item.content);
+      }
+
+      await editMessage(chatId, messageId, `👍 <b>Feedback salvo: Gostei!</b>\n"${escapeHtml(item.title || '')}"`, headers);
+      break;
+    }
+
+    case 'fb_dislike': {
+      const { data: item } = await supabase
+        .from('planning_items')
+        .select('title, content, client_id, platform, content_type, metadata')
+        .eq('id', itemId)
+        .maybeSingle();
+
+      if (!item) {
+        await sendReply(chatId, '❌ Item não encontrado.', headers);
+        return;
+      }
+
+      // Store negative feedback
+      await supabase.from('automation_content_feedback').insert({
+        planning_item_id: itemId,
+        automation_id: (item.metadata as any)?.automation_id || null,
+        client_id: item.client_id,
+        feedback_type: 'dislike',
+        content_snapshot: item.content?.substring(0, 2000) || null,
+        platform: item.platform,
+        content_type: item.content_type,
+      });
+
+      // Ask for reason
+      await supabase
+        .from('telegram_bot_config')
+        .update({ pending_feedback_item_id: itemId, updated_at: new Date().toISOString() })
+        .eq('id', 1);
+
+      await editMessage(chatId, messageId, `👎 <b>Feedback salvo: Não gostei</b>\n"${escapeHtml(item.title || '')}"`, headers);
+      await sendReply(
+        chatId,
+        `📝 O que não gostou nesse conteúdo? Responda para ajudar a IA a melhorar.\n\n<i>Envie /pular para registrar sem motivo.</i>`,
+        headers,
+        undefined,
+        { force_reply: true, selective: true }
+      );
+      break;
+    }
+
+    case 'fb_delete': {
+      const { data: item } = await supabase
+        .from('planning_items')
+        .select('*, client:clients(name)')
+        .eq('id', itemId)
+        .maybeSingle();
+
+      if (!item) {
+        await sendReply(chatId, '❌ Item não encontrado.', headers);
+        return;
+      }
+
+      // Store delete feedback
+      await supabase.from('automation_content_feedback').insert({
+        planning_item_id: itemId,
+        automation_id: (item.metadata as any)?.automation_id || null,
+        client_id: item.client_id,
+        feedback_type: 'delete',
+        content_snapshot: item.content?.substring(0, 2000) || null,
+        platform: item.platform,
+        content_type: item.content_type,
+      });
+
+      await editMessage(chatId, messageId, `🗑️ <b>Apagando e regenerando...</b>`, headers);
+
+      // Delete from content library
+      if (item.client_id && item.content) {
+        await supabase
+          .from('client_content_library')
+          .delete()
+          .eq('client_id', item.client_id)
+          .eq('content', item.content);
+      }
+
+      // Regenerate content
+      try {
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const regenResponse = await fetch(`${supabaseUrl}/functions/v1/unified-content-api`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            brief: item.title,
+            clientId: item.client_id,
+            formatType: item.content_type || 'tweet',
+          }),
+        });
+
+        if (regenResponse.ok) {
+          const result = await regenResponse.json();
+          const newContent = result.content || result.text;
+
+          if (newContent) {
+            // Update existing item with new content
+            await supabase
+              .from('planning_items')
+              .update({ 
+                content: newContent, 
+                status: 'idea',
+                metadata: {
+                  ...(item.metadata as any || {}),
+                  regenerated_from_feedback: true,
+                  previous_content_deleted: true,
+                }
+              })
+              .eq('id', itemId);
+
+            const preview = newContent.substring(0, 800);
+            await sendReply(chatId,
+              `🔄 <b>Conteúdo regenerado!</b>\n\n<pre>${escapeHtml(preview)}</pre>`,
+              headers,
+              {
+                inline_keyboard: [
+                  [
+                    { text: '👍 Gostei', callback_data: `fb_like:${itemId}` },
+                    { text: '👎 Não gostei', callback_data: `fb_dislike:${itemId}` },
+                  ],
+                  [
+                    { text: '📝 Publicar agora', callback_data: `publish:${itemId}` },
+                    { text: '🗑️ Apagar + Refazer', callback_data: `fb_delete:${itemId}` },
+                  ],
+                ],
+              }
+            );
+          } else {
+            await sendReply(chatId, '⚠️ Regeneração retornou sem conteúdo.', headers);
+          }
+        } else {
+          const errText = await regenResponse.text();
+          await sendReply(chatId, `⚠️ Erro ao regenerar: ${errText.substring(0, 200)}`, headers);
+        }
+      } catch (err) {
+        await sendReply(chatId, `⚠️ Erro: ${err instanceof Error ? err.message : 'desconhecido'}`, headers);
+      }
+      break;
+    }
+
     default:
       await sendReply(chatId, `❓ Ação desconhecida: ${action}`, headers);
   }
