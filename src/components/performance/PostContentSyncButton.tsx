@@ -196,7 +196,7 @@ export const PostContentSyncButton = ({
     }
   };
 
-  if (contentSyncedAt || caption) {
+  if (contentSyncedAt) {
     const isVideo = isVideoPost();
     return (
       <Badge 
