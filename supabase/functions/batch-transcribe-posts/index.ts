@@ -82,39 +82,35 @@ serve(async (req) => {
           continue;
         }
 
-        // Call transcribe-images function
-        const transcribeResponse = await fetch(
-          `${supabaseUrl}/functions/v1/transcribe-images`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${supabaseServiceKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              imageUrls: images,
-              startIndex: 0,
-              userId: 'batch-process',
-              clientId,
-            }),
+        // Transcribe images one at a time (API limit: 1 per request)
+        const transcriptions: string[] = [];
+        for (let i = 0; i < images.length; i++) {
+          const transcribeResponse = await fetch(
+            `${supabaseUrl}/functions/v1/transcribe-images`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                imageUrls: [images[i]],
+                startIndex: i,
+                userId: 'batch-process',
+                clientId,
+              }),
+            }
+          );
+
+          if (transcribeResponse.ok) {
+            const data = await transcribeResponse.json();
+            if (data.transcription) transcriptions.push(data.transcription);
+          } else {
+            console.warn(`[batch-transcribe] Image ${i+1}/${images.length} failed for ${post.id}`);
           }
-        );
-
-        if (!transcribeResponse.ok) {
-          const errText = await transcribeResponse.text();
-          console.error(`[batch-transcribe] Transcription failed for ${post.id}:`, errText);
-          results.push({ id: post.id, success: false, error: errText });
-          continue;
         }
 
-        const transcribeData = await transcribeResponse.json();
-        
-        if (transcribeData.error) {
-          results.push({ id: post.id, success: false, error: transcribeData.error });
-          continue;
-        }
-
-        const transcription = transcribeData.transcription || '';
+        const transcription = transcriptions.join('\n\n---\n\n') || post.caption || '[Sem conteúdo]';
 
         // Update the post with transcription
         const { error: updateError } = await adminClient
