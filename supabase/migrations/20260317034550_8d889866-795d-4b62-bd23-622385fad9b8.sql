@@ -1,0 +1,1 @@
+ALTER TABLE public.telegram_bot_config ADD COLUMN IF NOT EXISTS pending_feedback_item_id UUID;
