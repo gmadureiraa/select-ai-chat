@@ -73,6 +73,7 @@ serve(async (req) => {
     const emoji = platformEmoji[platform || ''] || '📋';
     const contentPreview = content ? content.substring(0, 800) : 'Sem conteúdo';
     
+    const isPublished = body.published === true;
     const headerText = isPublished
       ? `${emoji} <b>✅ Conteúdo publicado automaticamente</b>`
       : `${emoji} <b>Nova automação executada</b>`;
@@ -100,10 +101,15 @@ serve(async (req) => {
     // Check if already published (informational mode) or pending review
     const isPublished = body.published === true;
 
-    // Inline keyboard — only show action buttons if NOT already published
+    // Inline keyboard — always show feedback buttons for published content
     const inlineKeyboard = isPublished
       ? {
           inline_keyboard: [
+            [
+              { text: '👍 Gostei', callback_data: `fb_like:${item_id}` },
+              { text: '👎 Não gostei', callback_data: `fb_dislike:${item_id}` },
+              { text: '🗑️ Apagar + Refazer', callback_data: `fb_delete:${item_id}` },
+            ],
             [
               { text: '📋 Ver no painel', callback_data: `view:${item_id}` },
             ],

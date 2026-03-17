@@ -76,6 +76,67 @@ export type Database = {
           },
         ]
       }
+      automation_content_feedback: {
+        Row: {
+          automation_id: string | null
+          client_id: string | null
+          content_snapshot: string | null
+          content_type: string | null
+          created_at: string
+          feedback_reason: string | null
+          feedback_type: string
+          id: string
+          planning_item_id: string
+          platform: string | null
+        }
+        Insert: {
+          automation_id?: string | null
+          client_id?: string | null
+          content_snapshot?: string | null
+          content_type?: string | null
+          created_at?: string
+          feedback_reason?: string | null
+          feedback_type: string
+          id?: string
+          planning_item_id: string
+          platform?: string | null
+        }
+        Update: {
+          automation_id?: string | null
+          client_id?: string | null
+          content_snapshot?: string | null
+          content_type?: string | null
+          created_at?: string
+          feedback_reason?: string | null
+          feedback_type?: string
+          id?: string
+          planning_item_id?: string
+          platform?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_content_feedback_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "planning_automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_content_feedback_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_content_feedback_planning_item_id_fkey"
+            columns: ["planning_item_id"]
+            isOneToOne: false
+            referencedRelation: "planning_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_runs: {
         Row: {
           automation_id: string | null
@@ -3172,6 +3233,7 @@ export type Database = {
           chat_id: number | null
           id: number
           is_active: boolean
+          pending_feedback_item_id: string | null
           pending_rejection_item_id: string | null
           update_offset: number
           updated_at: string
@@ -3181,6 +3243,7 @@ export type Database = {
           chat_id?: number | null
           id: number
           is_active?: boolean
+          pending_feedback_item_id?: string | null
           pending_rejection_item_id?: string | null
           update_offset?: number
           updated_at?: string
@@ -3190,6 +3253,7 @@ export type Database = {
           chat_id?: number | null
           id?: number
           is_active?: boolean
+          pending_feedback_item_id?: string | null
           pending_rejection_item_id?: string | null
           update_offset?: number
           updated_at?: string
