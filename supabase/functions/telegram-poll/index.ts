@@ -683,9 +683,49 @@ async function handleMessage(
   // Check for pending rejection feedback
   const { data: config } = await supabase
     .from('telegram_bot_config')
-    .select('pending_rejection_item_id')
+    .select('pending_rejection_item_id, pending_feedback_item_id')
     .eq('id', 1)
     .single();
+
+  // Check for pending feedback reason (from fb_dislike)
+  if (config?.pending_feedback_item_id && text !== '/pular') {
+    const feedbackItemId = config.pending_feedback_item_id;
+
+    // Update the most recent dislike feedback with the reason
+    const { data: feedbacks } = await supabase
+      .from('automation_content_feedback')
+      .select('id')
+      .eq('planning_item_id', feedbackItemId)
+      .eq('feedback_type', 'dislike')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (feedbacks && feedbacks.length > 0) {
+      await supabase
+        .from('automation_content_feedback')
+        .update({ feedback_reason: text })
+        .eq('id', feedbacks[0].id);
+    }
+
+    // Clear pending
+    await supabase
+      .from('telegram_bot_config')
+      .update({ pending_feedback_item_id: null, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+
+    await sendReply(chatId, `📝 Feedback detalhado salvo! A IA vai usar isso para melhorar.`, headers);
+    return;
+  }
+
+  // Clear pending feedback on /pular
+  if (text === '/pular' && config?.pending_feedback_item_id) {
+    await supabase
+      .from('telegram_bot_config')
+      .update({ pending_feedback_item_id: null, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    await sendReply(chatId, `✅ Feedback registrado sem motivo.`, headers);
+    return;
+  }
 
   if (config?.pending_rejection_item_id && text !== '/pular') {
     const itemId = config.pending_rejection_item_id;
