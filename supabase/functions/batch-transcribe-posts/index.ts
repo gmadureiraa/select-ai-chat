@@ -74,7 +74,10 @@ serve(async (req) => {
           // No images to transcribe, set caption as content
           await adminClient
             .from('instagram_posts')
-            .update({ full_content: post.caption || '[Sem conteúdo visual]' })
+            .update({ 
+              full_content: post.caption || '[Sem conteúdo visual]',
+              content_synced_at: new Date().toISOString(),
+            })
             .eq('id', post.id);
           
           results.push({ id: post.id, success: true });
