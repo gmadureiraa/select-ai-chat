@@ -91,7 +91,18 @@ serve(async (req) => {
         if (!extractResponse.ok) {
           const errText = await extractResponse.text();
           console.warn(`[batch-sync] ${post.id}: Extract failed: ${errText}`);
-          results.push({ id: post.id, success: false, error: `Extract: ${extractResponse.status}` });
+          
+          // Mark as synced with caption-only so the queue advances
+          const fallbackContent = post.caption || '[Sem conteúdo - extração falhou]';
+          await adminClient
+            .from('instagram_posts')
+            .update({
+              full_content: fallbackContent,
+              content_synced_at: new Date().toISOString(),
+            })
+            .eq('id', post.id);
+          
+          results.push({ id: post.id, success: false, error: `Extract: ${extractResponse.status} (marked with caption)` });
           continue;
         }
 
