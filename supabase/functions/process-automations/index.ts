@@ -1215,6 +1215,56 @@ serve(async (req) => {
             }
             
             // ===================================================
+            // FEEDBACK LOOP: Load negative feedback as anti-examples
+            // ===================================================
+            try {
+              const { data: negativeFeedback } = await supabase
+                .from('automation_content_feedback')
+                .select('content_snapshot, feedback_reason, feedback_type')
+                .eq('client_id', automation.client_id!)
+                .in('feedback_type', ['dislike', 'delete'])
+                .order('created_at', { ascending: false })
+                .limit(5);
+              
+              if (negativeFeedback && negativeFeedback.length > 0) {
+                let feedbackSection = `\n\n🚫 FEEDBACK NEGATIVO DO USUÁRIO (NÃO repita estes padrões):\n`;
+                feedbackSection += `O usuário avaliou negativamente os seguintes conteúdos gerados anteriormente. EVITE replicar o estilo, tom ou abordagem desses exemplos:\n\n`;
+                
+                for (const fb of negativeFeedback) {
+                  const snippet = fb.content_snapshot?.substring(0, 300) || '[conteúdo não disponível]';
+                  const reason = fb.feedback_reason ? ` | Motivo: "${fb.feedback_reason}"` : '';
+                  const action = fb.feedback_type === 'delete' ? '🗑️ APAGADO' : '👎 NÃO GOSTOU';
+                  feedbackSection += `- [${action}${reason}]: "${snippet}"\n`;
+                }
+                
+                feedbackSection += `\n⚠️ Produza conteúdo com abordagem DIFERENTE dos exemplos acima.\n`;
+                enrichedContext += feedbackSection;
+                console.log(`Feedback loop injected: ${negativeFeedback.length} negative examples`);
+              }
+              
+              // Also load positive feedback as "do more like this"
+              const { data: positiveFeedback } = await supabase
+                .from('automation_content_feedback')
+                .select('content_snapshot')
+                .eq('client_id', automation.client_id!)
+                .eq('feedback_type', 'like')
+                .order('created_at', { ascending: false })
+                .limit(3);
+              
+              if (positiveFeedback && positiveFeedback.length > 0) {
+                let positiveSection = `\n\n✅ CONTEÚDOS APROVADOS PELO USUÁRIO (use como referência de qualidade):\n`;
+                for (const fb of positiveFeedback) {
+                  const snippet = fb.content_snapshot?.substring(0, 300) || '';
+                  if (snippet) positiveSection += `- "${snippet}"\n`;
+                }
+                enrichedContext += positiveSection;
+                console.log(`Positive feedback injected: ${positiveFeedback.length} liked examples`);
+              }
+            } catch (fbError) {
+              console.warn('Could not load feedback context:', fbError);
+            }
+            
+            // ===================================================
             // DEEP RESEARCH: Para newsletters, buscar dados em tempo real
             // ===================================================
             let researchBriefing = "";
