@@ -849,6 +849,9 @@ export function InstagramDashboard({
         avgEngagement={kpis.avgEngagement}
       />
 
+      {/* Post Averages Trend Chart */}
+      <PostAveragesTrendChart posts={filteredPosts} />
+
       {/* Secondary Metrics - Removido: dados duplicados com a seção BestPostsByMetric acima */}
 
 
