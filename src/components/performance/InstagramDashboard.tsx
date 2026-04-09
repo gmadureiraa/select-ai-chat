@@ -836,21 +836,17 @@ export function InstagramDashboard({
         />
       )}
 
-      {/* Post Averages Section - Temporariamente desativado
-         Motivo: Os cálculos estão incorretos porque totalReach usa métricas da conta inteira
-         (stories, reels, etc) mas divide pelo número de posts do feed apenas.
-         Correção: Usar apenas totalReachFromPosts para médias por post.
+      {/* Post Averages Section - uses post-level data only */}
       <PostAveragesSection
         totalPosts={filteredPosts.length}
         totalLikes={kpis.totalLikes}
         totalComments={kpis.totalComments}
         totalShares={kpis.totalShares}
         totalSaves={kpis.totalSaves}
-        totalReach={kpis.totalReach}
+        totalReach={filteredPosts.reduce((sum, p) => sum + (p.reach || 0), 0)}
         totalImpressions={filteredPosts.reduce((sum, p) => sum + (p.impressions || 0), 0)}
         avgEngagement={kpis.avgEngagement}
       />
-      */}
 
       {/* Secondary Metrics - Removido: dados duplicados com a seção BestPostsByMetric acima */}
 
