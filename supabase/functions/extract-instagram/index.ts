@@ -90,11 +90,15 @@ serve(async (req) => {
     if (!apifyResponse.ok) {
       const errorText = await apifyResponse.text();
       console.error('Apify API error:', apifyResponse.status, errorText);
+      
+      const isLimitExceeded = errorText.includes('hard limit exceeded') || apifyResponse.status === 403;
+      const errorMessage = isLimitExceeded 
+        ? 'Limite de uso da API de extração atingido. Tente novamente mais tarde.'
+        : 'Erro ao extrair imagens do Instagram. Tente novamente.';
+      
       return new Response(
-        JSON.stringify({ 
-          error: 'Erro ao extrair imagens do Instagram. Tente novamente.' 
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: errorMessage, fallback: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
