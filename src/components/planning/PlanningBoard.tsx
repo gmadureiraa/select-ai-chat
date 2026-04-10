@@ -363,6 +363,12 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
         onSave={handleCreateItem}
         onUpdate={handleUpdateItem}
       />
+
+      {/* ClickUp Import */}
+      <ClickUpImportDialog
+        open={showClickUpImport}
+        onOpenChange={setShowClickUpImport}
+      />
     </div>
   );
 }
