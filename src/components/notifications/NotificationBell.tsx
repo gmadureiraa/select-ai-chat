@@ -130,7 +130,12 @@ function NotificationList({
   );
 }
 
-export function NotificationBell() {
+interface NotificationBellProps {
+  variant?: 'default' | 'sidebar';
+  collapsed?: boolean;
+}
+
+export function NotificationBell({ variant = 'default', collapsed = false }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const { workspace } = useWorkspace();
@@ -151,7 +156,27 @@ export function NotificationBell() {
     }
   };
 
-  const bellButton = (
+  const bellButton = variant === 'sidebar' ? (
+    <Button
+      variant="ghost"
+      size="sm"
+      className={cn(
+        "w-full flex items-center gap-3 text-muted-foreground hover:text-foreground relative",
+        collapsed ? "justify-center px-2" : "justify-start"
+      )}
+    >
+      <Bell className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+      {!collapsed && <span className="text-sm">Notificações</span>}
+      {unreadCount > 0 && (
+        <span className={cn(
+          "h-4 min-w-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-medium",
+          collapsed ? "absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] text-[9px]" : "ml-auto"
+        )}>
+          {unreadCount > 9 ? '9+' : unreadCount}
+        </span>
+      )}
+    </Button>
+  ) : (
     <Button variant="ghost" size="icon" className="relative">
       <Bell className="h-5 w-5" />
       {unreadCount > 0 && (
@@ -192,7 +217,7 @@ export function NotificationBell() {
       <PopoverTrigger asChild>
         {bellButton}
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
+      <PopoverContent className="w-80 p-0" align={variant === 'sidebar' ? 'start' : 'end'} side={variant === 'sidebar' ? 'right' : 'bottom'}>
         <NotificationList
           notifications={notifications}
           isLoading={isLoading}
