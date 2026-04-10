@@ -13,7 +13,9 @@ const columnConfig: Record<string, {
   review: { dotColor: 'bg-amber-500' },
   approved: { dotColor: 'bg-emerald-500' },
   scheduled: { dotColor: 'bg-orange-500' },
+  publishing: { dotColor: 'bg-orange-400' },
   published: { dotColor: 'bg-slate-400' },
+  failed: { dotColor: 'bg-red-500' },
 };
 
 interface VirtualizedKanbanColumnProps {
