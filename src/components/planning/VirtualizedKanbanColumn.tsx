@@ -146,7 +146,7 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
             
             <div 
               ref={scrollRef}
-              className="px-1 pb-2 space-y-1.5 overflow-y-auto scrollbar-thin" 
+              className="px-1 pb-2 space-y-2 overflow-y-auto scrollbar-thin" 
               style={{ maxHeight: listHeight }}
             >
               {items.map(item => (
