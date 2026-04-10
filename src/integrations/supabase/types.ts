@@ -2497,6 +2497,13 @@ export type Database = {
             referencedRelation: "planning_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "planning_item_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       planning_item_versions: {

@@ -1,0 +1,1 @@
+ALTER TABLE public.planning_item_comments ADD CONSTRAINT planning_item_comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
