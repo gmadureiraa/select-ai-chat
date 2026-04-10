@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Loader2, Zap, Eye, Keyboard } from 'lucide-react';
+import { Plus, Loader2, Zap, Eye, Keyboard, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -21,6 +21,7 @@ import { useWorkspace } from '@/hooks/useWorkspace';
 import { useMemberClientAccess } from '@/hooks/useMemberClientAccess';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { PlanningAutomations } from './PlanningAutomations';
+import { ClickUpImportDialog } from './ClickUpImportDialog';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -39,6 +40,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
   const [defaultColumnId, setDefaultColumnId] = useState<string | undefined>();
   const [showAutomations, setShowAutomations] = useState(false);
+  const [showClickUpImport, setShowClickUpImport] = useState(false);
   const { settings, setSettings } = useViewSettings();
   
   const { isViewer, workspace } = useWorkspace();
