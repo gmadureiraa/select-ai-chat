@@ -88,7 +88,7 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
       className={cn(
         "flex-shrink-0 bg-transparent rounded-lg flex flex-col",
         "transition-all duration-150",
-        !className && "w-72",
+        !className && "w-80",
         className,
         isDropTarget && "bg-primary/5"
       )}
@@ -146,7 +146,7 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
             
             <div 
               ref={scrollRef}
-              className="px-1 pb-2 space-y-1.5 overflow-y-auto scrollbar-thin" 
+              className="px-1 pb-2 space-y-2 overflow-y-auto scrollbar-thin" 
               style={{ maxHeight: listHeight }}
             >
               {items.map(item => (

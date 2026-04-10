@@ -118,51 +118,54 @@ function CalendarCard({
           draggable={canEdit}
           onDragStart={(e) => onDragStart?.(e, item)}
           className={cn(
-            "group/card relative px-2 py-1 rounded-md border transition-all duration-200",
-            "hover:shadow-sm hover:scale-[1.02]",
+            "group/card relative px-2.5 py-2 rounded-lg border transition-all duration-200",
+            "hover:shadow-md hover:scale-[1.01]",
             config.bg, config.text, config.border,
             isDragging && "opacity-50 scale-95",
             canEdit && "cursor-grab active:cursor-grabbing"
           )}
           onClick={(e) => { e.stopPropagation(); if (canEdit) onEdit(); }}
         >
-          <div className="flex items-center gap-1.5">
-            {/* Status dot */}
-            <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", config.dot)} />
-            
-            {/* Platform icon */}
-            {item.platform && (
-              <span className="text-[10px] shrink-0">{platformIcons[item.platform] || '📱'}</span>
-            )}
-            
-            {/* Title */}
-            <span className="text-[10px] font-medium truncate flex-1 leading-tight">
-              {item.title}
-            </span>
-            
-            {/* Time badge */}
-            {scheduledTime && (
-              <span className="text-[8px] bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded shrink-0 font-medium tabular-nums">
-                {scheduledTime}
-              </span>
-            )}
-            
-            {/* Status icons */}
-            {item.status === 'failed' && onRetry && (
-              <button 
-                onClick={(e) => { e.stopPropagation(); onRetry(); }}
-                className="shrink-0 hover:scale-110 transition-transform"
-              >
-                <RefreshCw className="h-2.5 w-2.5 text-red-500" />
-              </button>
-            )}
-            {item.status === 'published' && <CheckCircle2 className="h-2.5 w-2.5 shrink-0 text-green-500" />}
-            
-            {/* Auto indicator */}
-            {isAutoPublish && item.status === 'scheduled' && (
-              <Bot className="h-2.5 w-2.5 shrink-0 text-primary/60" />
-            )}
+          {/* Row 1: Platform + Time */}
+          <div className="flex items-center justify-between gap-1 mb-1">
+            <div className="flex items-center gap-1.5">
+              <span className={cn("w-2 h-2 rounded-full shrink-0", config.dot)} />
+              {item.platform && (
+                <span className="text-xs shrink-0">{platformIcons[item.platform] || '📱'}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {scheduledTime && (
+                <span className="text-[10px] bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded-md shrink-0 font-semibold tabular-nums">
+                  {scheduledTime}
+                </span>
+              )}
+              {item.status === 'failed' && onRetry && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onRetry(); }}
+                  className="shrink-0 hover:scale-110 transition-transform"
+                >
+                  <RefreshCw className="h-3 w-3 text-red-500" />
+                </button>
+              )}
+              {item.status === 'published' && <CheckCircle2 className="h-3 w-3 shrink-0 text-green-500" />}
+              {isAutoPublish && item.status === 'scheduled' && (
+                <Bot className="h-3 w-3 shrink-0 text-primary/60" />
+              )}
+            </div>
           </div>
+          
+          {/* Row 2: Title */}
+          <span className="text-[11px] font-semibold truncate block leading-snug">
+            {item.title}
+          </span>
+          
+          {/* Row 3: Client */}
+          {item.clients && (
+            <span className="text-[10px] text-muted-foreground truncate block mt-0.5">
+              {item.clients.name}
+            </span>
+          )}
         </div>
       </HoverCardTrigger>
       <HoverCardContent side="right" align="start" className="w-72 p-0 overflow-hidden">
@@ -433,7 +436,7 @@ export function CalendarView({
         </div>
 
         {/* Days Grid */}
-        <div className="grid grid-cols-7 flex-1" style={{ gridAutoRows: 'minmax(100px, 1fr)' }}>
+        <div className="grid grid-cols-7 flex-1" style={{ gridAutoRows: 'minmax(120px, 1fr)' }}>
           {days.map((day, i) => {
             const dayItems = getItemsForDay(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
@@ -448,7 +451,7 @@ export function CalendarView({
               <div
                 key={i}
                 className={cn(
-                  "relative p-1 transition-all duration-150 group",
+                  "relative p-1.5 transition-all duration-150 group",
                   col < 6 && "border-r border-border/30",
                   !isLastRow && "border-b border-border/30",
                   !isCurrentMonth && "bg-muted/5",
