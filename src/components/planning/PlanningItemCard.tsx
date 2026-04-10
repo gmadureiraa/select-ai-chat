@@ -24,7 +24,7 @@ import {
 import { cn } from '@/lib/utils';
 import { PublicationStatusBadge } from './PublicationStatusBadge';
 import { useClientPlatformStatus } from '@/hooks/useClientPlatformStatus';
-import { PLATFORM_COLOR_MAP } from '@/types/contentTypes';
+import { PLATFORM_COLOR_MAP, getContentTypeLabel } from '@/types/contentTypes';
 import type { PlanningItem } from '@/hooks/usePlanningItems';
 
 interface PlanningItemCardProps {
@@ -92,6 +92,8 @@ export const PlanningItemCard = memo(function PlanningItemCard({
     : [platform];
   const primaryPlatform = targetPlatforms[0] || platform;
   const dotColor = PLATFORM_COLOR_MAP[primaryPlatform] || '#888';
+  const contentType = metadata.content_type || (item as any).content_type;
+  const contentTypeLabel = contentType ? getContentTypeLabel(contentType) : null;
 
   const displayDate = item.scheduled_at || item.published_at || item.due_date;
   const isFailed = item.status === 'failed';
@@ -143,8 +145,17 @@ export const PlanningItemCard = memo(function PlanningItemCard({
       )}
 
       <div className="p-3.5">
-        {/* Row 1: Platform badges */}
-        <div className="flex items-center gap-1.5 mb-2">
+        {/* Row 1: Platform badges + content type */}
+        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+          {/* Content type badge */}
+          {contentTypeLabel && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20">
+              <span className="text-[10px] font-semibold text-primary">
+                {contentTypeLabel}
+              </span>
+            </div>
+          )}
+
           {targetPlatforms.slice(0, 3).map((tp) => {
             const Icon = platformIcons[tp] || FileText;
             const color = PLATFORM_COLOR_MAP[tp];
