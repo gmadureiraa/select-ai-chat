@@ -436,7 +436,7 @@ export function CalendarView({
         </div>
 
         {/* Days Grid */}
-        <div className="grid grid-cols-7 flex-1" style={{ gridAutoRows: 'minmax(100px, 1fr)' }}>
+        <div className="grid grid-cols-7 flex-1" style={{ gridAutoRows: 'minmax(120px, 1fr)' }}>
           {days.map((day, i) => {
             const dayItems = getItemsForDay(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
@@ -451,7 +451,7 @@ export function CalendarView({
               <div
                 key={i}
                 className={cn(
-                  "relative p-1 transition-all duration-150 group",
+                  "relative p-1.5 transition-all duration-150 group",
                   col < 6 && "border-r border-border/30",
                   !isLastRow && "border-b border-border/30",
                   !isCurrentMonth && "bg-muted/5",
