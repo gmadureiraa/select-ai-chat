@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check } from 'lucide-react';
+import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check, Flag } from 'lucide-react';
 
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
@@ -514,327 +514,370 @@ export function PlanningItemDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(
-        "max-h-[90vh] overflow-y-auto",
-        isMobile ? "max-w-full w-full h-full max-h-full rounded-none" : "max-w-xl"
-      )}>
-        <DialogHeader>
-          <DialogTitle>
-            {readOnly ? 'Visualizar Card' : (item ? 'Editar Card' : 'Novo Card')}
-          </DialogTitle>
-          {readOnly && (
-            <p className="text-sm text-muted-foreground">Modo visualização - você não tem permissão para editar.</p>
-          )}
-        </DialogHeader>
-
+      <DialogContent 
+        className={cn(
+          "max-h-[90vh] overflow-hidden p-0",
+          isMobile ? "max-w-full w-full h-full max-h-full rounded-none" : "max-w-4xl"
+        )}
+        hideCloseButton={false}
+      >
         {isFetchingItem && item ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Title */}
-          <div>
-            <Label htmlFor="title">Título *</Label>
-            <MentionableInput
-              value={title}
-              onChange={readOnly ? () => {} : setTitle}
-              clientId={selectedClientId}
-              placeholder="Título do conteúdo (use @ para refs)"
-              disabled={readOnly}
-            />
+        <form onSubmit={handleSubmit} className="flex flex-col max-h-[90vh]">
+          {/* Header - Title inline editable */}
+          <div className="px-6 pt-5 pb-3 border-b border-border/40">
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Título do conteúdo..."
+                disabled={readOnly}
+                className="flex-1 text-lg font-semibold bg-transparent border-none outline-none placeholder:text-muted-foreground/50 text-foreground"
+              />
+              {readOnly && (
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">Somente leitura</span>
+              )}
+            </div>
           </div>
 
-          {/* Client + Format row */}
-          <div className="grid grid-cols-2 gap-2">
-            <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients?.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={contentType} onValueChange={(v) => setContentType(v as ContentTypeKey)}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Formato" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(groupedContentTypes).map(([category, items]) => (
-                  <SelectGroup key={category}>
-                    <SelectLabel className="text-xs text-muted-foreground">{category}</SelectLabel>
-                    {items.map(item => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Platform Selection - Chip style */}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Publicar em:</Label>
-            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3">
-              {ALL_PUBLISH_PLATFORMS.map((p) => {
-                const status = getPlatformStatus(p.value as any);
-                const isConnected = status?.hasApi && status?.isValid;
-                const isSelected = selectedPlatforms.includes(p.value);
-                const IconComponent = platformLucideIcons[p.value];
-                return (
-                  <button
-                    key={p.value}
+          {/* Two-column body */}
+          <div className={cn(
+            "flex-1 overflow-y-auto",
+            isMobile ? "flex flex-col" : "grid grid-cols-[1fr_320px]"
+          )}>
+            {/* LEFT: Content area */}
+            <div className="p-6 space-y-4 overflow-y-auto border-r border-border/30">
+              {/* Reference / AI generation */}
+              <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-dashed border-border/50">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Wand2 className="h-3 w-3" />
+                  Gerar a partir de... (link, @referência ou descrição)
+                </Label>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <MentionableInput
+                      value={referenceInput}
+                      onChange={setReferenceInput}
+                      clientId={selectedClientId}
+                      placeholder="Cole link, use @referência, ou descreva..."
+                      multiline
+                      rows={2}
+                    />
+                  </div>
+                  <Button
                     type="button"
-                    onClick={() => togglePlatform(p.value)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-all duration-150",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      isSelected
-                        ? "border-primary/50 bg-primary/10 text-foreground shadow-sm"
-                        : "border-border/60 bg-card text-muted-foreground hover:border-border hover:bg-accent/50",
-                      !isConnected && "opacity-40"
-                    )}
-                    style={isSelected ? { borderColor: p.brandColor, backgroundColor: `${p.brandColor}15` } : undefined}
+                    size="sm"
+                    onClick={handleGenerateContent}
+                    disabled={!canGenerateContent || isGeneratingContent || isFetchingReference}
+                    className="shrink-0 gap-1.5 h-9"
                   >
-                    {IconComponent && (
-                      <IconComponent
-                        className="h-3.5 w-3.5 shrink-0"
-                        style={isSelected ? { color: p.brandColor } : undefined}
-                      />
+                    {isGeneratingContent || isFetchingReference ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Wand2 className="h-3.5 w-3.5" />
                     )}
-                    <span className="truncate">{p.label}</span>
-                    {isSelected && (
-                      <Check className="h-3 w-3 ml-auto shrink-0 text-primary" style={{ color: p.brandColor }} />
-                    )}
-                    {!isSelected && isConnected && (
-                      <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            {selectedPlatforms.length > 0 && (
-              <p className="text-[10px] text-muted-foreground">
-                {publishablePlatforms.length} de {selectedPlatforms.length} conectada(s)
-              </p>
-            )}
-            {selectedPlatforms.includes('threads') && content.length > 500 && (
-              <p className="text-[10px] text-amber-500 font-medium">
-                ⚠️ Threads tem limite de 500 caracteres ({content.length}/500). O texto será truncado automaticamente.
-              </p>
-            )}
-          </div>
-
-          {/* Reference Input with @mentions + Generate */}
-          <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-dashed">
-            <Label className="text-xs text-muted-foreground">
-              Gerar a partir de... (link, @referência ou descrição)
-            </Label>
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <MentionableInput
-                  value={referenceInput}
-                  onChange={setReferenceInput}
-                  clientId={selectedClientId}
-                  placeholder="Cole link, use @referência, ou descreva..."
-                  multiline
-                  rows={2}
-                />
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleGenerateContent}
-                disabled={!canGenerateContent || isGeneratingContent || isFetchingReference}
-                className="shrink-0 gap-1.5 h-9"
-              >
-                {isGeneratingContent || isFetchingReference ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Wand2 className="h-3.5 w-3.5" />
-                )}
-                {hasReference ? 'Gerar' : 'Escrever'}
-              </Button>
-            </div>
-          </div>
-
-          {/* Content Editor */}
-          <div className="space-y-2">
-            {isTwitterThread ? (
-              <ThreadEditor
-                value={threadTweets}
-                onChange={setThreadTweets}
-                clientId={selectedClientId}
-              />
-            ) : (
-              <RichContentEditor
-                value={content}
-                onChange={setContent}
-                placeholder="Escreva seu conteúdo aqui..."
-                minRows={10}
-                clientId={selectedClientId}
-              />
-            )}
-          </div>
-
-
-          {/* Media Section */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="flex items-center gap-2 text-sm">
-                <Image className="h-4 w-4" />
-                Mídia ({mediaItems.length})
-              </Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowImageModal(true)}
-                disabled={!canGenerateImage}
-                className="h-7 text-xs gap-1"
-              >
-                <Wand2 className="h-3 w-3" />
-                Gerar imagem
-              </Button>
-            </div>
-            <MediaUploader
-              value={mediaItems}
-              onChange={setMediaItems}
-              maxItems={platform === 'twitter' ? 4 : 10}
-              clientId={selectedClientId}
-            />
-          </div>
-
-          {/* Date/Time + Assigned Row */}
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex gap-1.5">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className={cn("flex-1 justify-start h-9", !scheduledAt && "text-muted-foreground")}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {scheduledAt ? format(scheduledAt, 'dd/MM/yyyy') : 'Data'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={scheduledAt} onSelect={setScheduledAt} initialFocus className="p-3 pointer-events-auto" />
-                  </PopoverContent>
-                </Popover>
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3 text-muted-foreground" />
-                  <Input
-                    type="time"
-                    value={scheduledTime}
-                    onChange={(e) => setScheduledTime(e.target.value)}
-                    className="h-9 w-24 text-sm"
-                    disabled={!scheduledAt}
-                  />
+                    {hasReference ? 'Gerar' : 'Escrever'}
+                  </Button>
                 </div>
               </div>
 
-              <Select value={assignedTo || 'none'} onValueChange={(val) => setAssignedTo(val === 'none' ? '' : val)}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Responsável">
-                    {assignedTo ? (
-                      <span className="flex items-center gap-2">
-                        <User className="h-3 w-3" />
-                        {members.find(m => m.user_id === assignedTo)?.profile?.full_name || 'Membro'}
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-2 text-muted-foreground">
-                        <User className="h-3 w-3" />
-                        Responsável
-                      </span>
-                    )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  {members.filter(m => m.user_id).map(member => (
-                    <SelectItem key={member.user_id} value={member.user_id}>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-5 w-5">
-                          <AvatarFallback className="text-[10px]">
-                            {(member.profile?.full_name?.[0] || '?').toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        {member.profile?.full_name || member.profile?.email || 'Membro'}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Content Editor */}
+              <div className="space-y-2">
+                {isTwitterThread ? (
+                  <ThreadEditor
+                    value={threadTweets}
+                    onChange={setThreadTweets}
+                    clientId={selectedClientId}
+                  />
+                ) : (
+                  <RichContentEditor
+                    value={content}
+                    onChange={setContent}
+                    placeholder="Escreva seu conteúdo aqui..."
+                    minRows={isMobile ? 8 : 14}
+                    clientId={selectedClientId}
+                  />
+                )}
+              </div>
+
+              {/* Media Section */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2 text-sm font-medium">
+                    <Image className="h-4 w-4" />
+                    Mídia ({mediaItems.length})
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowImageModal(true)}
+                    disabled={!canGenerateImage}
+                    className="h-7 text-xs gap-1"
+                  >
+                    <Wand2 className="h-3 w-3" />
+                    Gerar imagem
+                  </Button>
+                </div>
+                <MediaUploader
+                  value={mediaItems}
+                  onChange={setMediaItems}
+                  maxItems={platform === 'twitter' ? 4 : 10}
+                  clientId={selectedClientId}
+                />
+              </div>
+
+              {/* Comments (only in edit mode) */}
+              {item && (
+                <div className="pt-3 border-t border-border/30">
+                  <PlanningItemComments planningItemId={item.id} />
+                </div>
+              )}
             </div>
-            {scheduledAt && publishablePlatforms.length > 0 && (
-              <p className="text-[10px] text-muted-foreground">
-                ✓ Será enviado a {publishablePlatforms.length} plataforma(s) automaticamente em {format(scheduledAt, 'dd/MM')} às {scheduledTime}
-              </p>
-            )}
+
+            {/* RIGHT: Properties sidebar */}
+            <div className={cn(
+              "p-5 space-y-4 bg-muted/10 overflow-y-auto",
+              isMobile && "border-t border-border/30"
+            )}>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Propriedades</h4>
+
+              {/* Client */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <User className="h-3 w-3" />
+                  Cliente
+                </Label>
+                <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Selecionar cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients?.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Format */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <FileText className="h-3 w-3" />
+                  Formato
+                </Label>
+                <Select value={contentType} onValueChange={(v) => setContentType(v as ContentTypeKey)}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Formato" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(groupedContentTypes).map(([category, items]) => (
+                      <SelectGroup key={category}>
+                        <SelectLabel className="text-xs text-muted-foreground">{category}</SelectLabel>
+                        {items.map(item => (
+                          <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Platforms */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Publicar em</Label>
+                <div className="grid grid-cols-2 gap-1">
+                  {ALL_PUBLISH_PLATFORMS.map((p) => {
+                    const status = getPlatformStatus(p.value as any);
+                    const isConnected = status?.hasApi && status?.isValid;
+                    const isSelected = selectedPlatforms.includes(p.value);
+                    const IconComponent = platformLucideIcons[p.value];
+                    return (
+                      <button
+                        key={p.value}
+                        type="button"
+                        onClick={() => togglePlatform(p.value)}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2 py-1.5 rounded-md border text-[11px] font-medium transition-all",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          isSelected
+                            ? "border-primary/50 bg-primary/10 text-foreground shadow-sm"
+                            : "border-border/60 bg-card text-muted-foreground hover:border-border hover:bg-accent/50",
+                          !isConnected && "opacity-40"
+                        )}
+                        style={isSelected ? { borderColor: p.brandColor, backgroundColor: `${p.brandColor}15` } : undefined}
+                      >
+                        {IconComponent && (
+                          <IconComponent
+                            className="h-3 w-3 shrink-0"
+                            style={isSelected ? { color: p.brandColor } : undefined}
+                          />
+                        )}
+                        <span className="truncate">{p.label}</span>
+                        {isSelected && (
+                          <Check className="h-2.5 w-2.5 ml-auto shrink-0" style={{ color: p.brandColor }} />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedPlatforms.length > 0 && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {publishablePlatforms.length} de {selectedPlatforms.length} conectada(s)
+                  </p>
+                )}
+                {selectedPlatforms.includes('threads') && content.length > 500 && (
+                  <p className="text-[10px] text-amber-500 font-medium">
+                    ⚠️ Threads: {content.length}/500 caracteres
+                  </p>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-border/30" />
+
+              {/* Date/Time */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <CalendarIcon className="h-3 w-3" />
+                  Data e hora
+                </Label>
+                <div className="flex gap-1.5">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className={cn("flex-1 justify-start h-8 text-xs", !scheduledAt && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-1.5 h-3 w-3" />
+                        {scheduledAt ? format(scheduledAt, 'dd/MM/yyyy') : 'Sem data'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={scheduledAt} onSelect={setScheduledAt} initialFocus className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <Input
+                      type="time"
+                      value={scheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                      className="h-8 w-[80px] text-xs"
+                      disabled={!scheduledAt}
+                    />
+                  </div>
+                </div>
+                {scheduledAt && publishablePlatforms.length > 0 && (
+                  <p className="text-[10px] text-muted-foreground">
+                    ✓ Auto-publicar em {publishablePlatforms.length} plataforma(s) às {scheduledTime}
+                  </p>
+                )}
+              </div>
+
+              {/* Assignee */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <User className="h-3 w-3" />
+                  Responsável
+                </Label>
+                <Select value={assignedTo || 'none'} onValueChange={(val) => setAssignedTo(val === 'none' ? '' : val)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Nenhum">
+                      {assignedTo ? (
+                        <span className="flex items-center gap-1.5">
+                          <Avatar className="h-4 w-4">
+                            <AvatarFallback className="text-[8px]">
+                              {(members.find(m => m.user_id === assignedTo)?.profile?.full_name?.[0] || '?').toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          {members.find(m => m.user_id === assignedTo)?.profile?.full_name || 'Membro'}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Nenhum</span>
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {members.filter(m => m.user_id).map(member => (
+                      <SelectItem key={member.user_id} value={member.user_id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-5 w-5">
+                            <AvatarFallback className="text-[10px]">
+                              {(member.profile?.full_name?.[0] || '?').toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          {member.profile?.full_name || member.profile?.email || 'Membro'}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Column */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Coluna</Label>
+                <Select value={columnId} onValueChange={setColumnId}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Selecionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {columns.map(col => (
+                      <SelectItem key={col.id} value={col.id}>{col.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Priority */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Flag className="h-3 w-3" />
+                  Prioridade
+                </Label>
+                <Select value={priority} onValueChange={(v) => setPriority(v as PlanningPriority)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priorities.map(p => (
+                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Recurrence */}
+              <div className="space-y-1.5">
+                <RecurrenceConfig
+                  value={recurrenceConfig}
+                  onChange={setRecurrenceConfig}
+                />
+              </div>
+            </div>
           </div>
 
-          {/* Column + Priority */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Coluna</Label>
-              <Select value={columnId} onValueChange={setColumnId}>
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue placeholder="Selecionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {columns.map(col => (
-                    <SelectItem key={col.id} value={col.id}>{col.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Prioridade</Label>
-              <Select value={priority} onValueChange={(v) => setPriority(v as PlanningPriority)}>
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {priorities.map(p => (
-                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Recurrence */}
-          <RecurrenceConfig
-            value={recurrenceConfig}
-            onChange={setRecurrenceConfig}
-          />
-
-          {/* Comments (only in edit mode) */}
-          {item && (
-            <div className="pt-2 border-t">
-              <PlanningItemComments planningItemId={item.id} />
-            </div>
-          )}
-
-          {/* Submit */}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          {/* Footer - Actions */}
+          <div className="px-6 py-3 border-t border-border/40 flex justify-end gap-2 bg-background">
+            <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
               {readOnly ? 'Fechar' : 'Cancelar'}
             </Button>
             {!readOnly && canPublishNow && (
               <Button 
                 type="button" 
                 variant="secondary"
+                size="sm"
                 onClick={handlePublishNow}
                 disabled={isPublishing || isSubmitting}
                 className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {isPublishing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Send className="h-3.5 w-3.5" />
+                  <Send className="h-3 w-3" />
                 )}
                 Publicar
                 {publishablePlatforms.length > 1 && (
@@ -843,16 +886,13 @@ export function PlanningItemDialog({
                       const Icon = platformLucideIcons[pp];
                       return Icon ? <Icon key={pp} className="h-3 w-3 opacity-80" /> : null;
                     })}
-                    {publishablePlatforms.length > 3 && (
-                      <span className="text-[10px] opacity-80">+{publishablePlatforms.length - 3}</span>
-                    )}
                   </span>
                 )}
               </Button>
             )}
             {!readOnly && (
-              <Button type="submit" disabled={isSubmitting || !title.trim()}>
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              <Button type="submit" size="sm" disabled={isSubmitting || !title.trim()}>
+                {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
                 {item ? 'Salvar' : 'Criar'}
               </Button>
             )}

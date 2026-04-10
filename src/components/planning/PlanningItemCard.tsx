@@ -126,7 +126,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
     >
       {/* Media thumbnail preview */}
       {isImage && firstMediaUrl && (
-        <div className="relative w-full h-28 bg-muted/30 overflow-hidden">
+        <div className="relative w-full h-32 bg-muted/30 overflow-hidden">
           <img
             src={firstMediaUrl}
             alt=""
@@ -142,7 +142,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         </div>
       )}
 
-      <div className="p-3">
+      <div className="p-3.5">
         {/* Row 1: Platform badges */}
         <div className="flex items-center gap-1.5 mb-2">
           {targetPlatforms.slice(0, 3).map((tp) => {
@@ -207,7 +207,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         </div>
 
         {/* Row 2: Title */}
-        <h4 className="font-semibold text-[13px] leading-snug line-clamp-2 text-foreground group-hover:text-primary transition-colors mb-1">
+        <h4 className="font-semibold text-sm leading-snug line-clamp-2 text-foreground group-hover:text-primary transition-colors mb-1.5">
           {item.title}
         </h4>
 

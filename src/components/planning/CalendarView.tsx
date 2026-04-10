@@ -436,7 +436,7 @@ export function CalendarView({
         </div>
 
         {/* Days Grid */}
-        <div className="grid grid-cols-7 flex-1" style={{ gridAutoRows: 'minmax(120px, 1fr)' }}>
+        <div className="grid grid-cols-7 flex-1" style={{ gridAutoRows: 'minmax(140px, 1fr)' }}>
           {days.map((day, i) => {
             const dayItems = getItemsForDay(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
