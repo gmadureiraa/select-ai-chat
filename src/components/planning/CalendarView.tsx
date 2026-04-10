@@ -24,51 +24,51 @@ interface CalendarViewProps {
 
 const statusConfig: Record<string, { bg: string; text: string; border: string; dot: string }> = {
   idea: { 
-    bg: 'bg-purple-50 dark:bg-purple-950/30', 
-    text: 'text-purple-700 dark:text-purple-300',
-    border: 'border-purple-200/50 dark:border-purple-800/50',
+    bg: 'bg-purple-100 dark:bg-purple-900/50', 
+    text: 'text-purple-800 dark:text-purple-200',
+    border: 'border-purple-300 dark:border-purple-700',
     dot: 'bg-purple-500'
   },
   draft: { 
-    bg: 'bg-blue-50 dark:bg-blue-950/30', 
-    text: 'text-blue-700 dark:text-blue-300',
-    border: 'border-blue-200/50 dark:border-blue-800/50',
+    bg: 'bg-blue-100 dark:bg-blue-900/50', 
+    text: 'text-blue-800 dark:text-blue-200',
+    border: 'border-blue-300 dark:border-blue-700',
     dot: 'bg-blue-500'
   },
   review: { 
-    bg: 'bg-amber-50 dark:bg-amber-950/30', 
-    text: 'text-amber-700 dark:text-amber-300',
-    border: 'border-amber-200/50 dark:border-amber-800/50',
+    bg: 'bg-amber-100 dark:bg-amber-900/50', 
+    text: 'text-amber-800 dark:text-amber-200',
+    border: 'border-amber-300 dark:border-amber-700',
     dot: 'bg-amber-500'
   },
   approved: { 
-    bg: 'bg-emerald-50 dark:bg-emerald-950/30', 
-    text: 'text-emerald-700 dark:text-emerald-300',
-    border: 'border-emerald-200/50 dark:border-emerald-800/50',
+    bg: 'bg-emerald-100 dark:bg-emerald-900/50', 
+    text: 'text-emerald-800 dark:text-emerald-200',
+    border: 'border-emerald-300 dark:border-emerald-700',
     dot: 'bg-emerald-500'
   },
   scheduled: { 
-    bg: 'bg-orange-50 dark:bg-orange-950/30', 
-    text: 'text-orange-700 dark:text-orange-300',
-    border: 'border-orange-200/50 dark:border-orange-800/50',
+    bg: 'bg-orange-100 dark:bg-orange-900/50', 
+    text: 'text-orange-800 dark:text-orange-200',
+    border: 'border-orange-300 dark:border-orange-700',
     dot: 'bg-orange-500'
   },
   publishing: { 
-    bg: 'bg-orange-50 dark:bg-orange-950/30', 
-    text: 'text-orange-600 dark:text-orange-300',
-    border: 'border-orange-200/50 dark:border-orange-800/50',
+    bg: 'bg-orange-100 dark:bg-orange-900/50', 
+    text: 'text-orange-700 dark:text-orange-200',
+    border: 'border-orange-300 dark:border-orange-700',
     dot: 'bg-orange-400 animate-pulse'
   },
   published: { 
-    bg: 'bg-slate-50 dark:bg-slate-900/30', 
-    text: 'text-slate-600 dark:text-slate-300',
-    border: 'border-slate-200/50 dark:border-slate-700/50',
-    dot: 'bg-slate-400'
+    bg: 'bg-green-100 dark:bg-green-900/50', 
+    text: 'text-green-800 dark:text-green-200',
+    border: 'border-green-300 dark:border-green-700',
+    dot: 'bg-green-500'
   },
   failed: { 
-    bg: 'bg-red-50 dark:bg-red-950/30', 
-    text: 'text-red-700 dark:text-red-300',
-    border: 'border-red-200/50 dark:border-red-800/50',
+    bg: 'bg-red-100 dark:bg-red-900/50', 
+    text: 'text-red-800 dark:text-red-200',
+    border: 'border-red-300 dark:border-red-700',
     dot: 'bg-red-500 animate-pulse'
   },
 };
@@ -118,7 +118,7 @@ function CalendarCard({
           draggable={canEdit}
           onDragStart={(e) => onDragStart?.(e, item)}
           className={cn(
-            "group/card relative px-2.5 py-2 rounded-lg border transition-all duration-200",
+            "group/card relative px-2.5 py-2 rounded-md border-l-[3px] border transition-all duration-200",
             "hover:shadow-md hover:scale-[1.01]",
             config.bg, config.text, config.border,
             isDragging && "opacity-50 scale-95",
