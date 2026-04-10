@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { parseMentions } from "@/lib/mentionParser";
 
 export interface PlanningComment {
   id: string;
@@ -21,6 +23,7 @@ export function usePlanningComments(planningItemId: string | undefined) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { workspace } = useWorkspaceContext();
 
   const { data: comments = [], isLoading } = useQuery({
     queryKey: ["planning-comments", planningItemId],
@@ -57,6 +60,35 @@ export function usePlanningComments(planningItemId: string | undefined) {
         .single();
 
       if (error) throw error;
+
+      // Create notifications for mentioned users
+      if (workspace?.id) {
+        const mentions = parseMentions(content);
+        const userMentions = mentions.filter(m => m.type === 'user');
+
+        if (userMentions.length > 0) {
+          const notifications = userMentions
+            .filter(m => m.id !== user.id) // Don't notify self
+            .map(m => ({
+              user_id: m.id,
+              workspace_id: workspace.id,
+              type: 'mention' as const,
+              title: 'Você foi mencionado em um comentário',
+              message: `${user.user_metadata?.full_name || user.email?.split('@')[0] || 'Alguém'} mencionou você em um comentário`,
+              entity_type: 'planning_item',
+              entity_id: planningItemId,
+              metadata: {
+                comment_id: data.id,
+                planning_item_id: planningItemId
+              }
+            }));
+
+          if (notifications.length > 0) {
+            await supabase.from("notifications").insert(notifications);
+          }
+        }
+      }
+
       return data;
     },
     onSuccess: () => {

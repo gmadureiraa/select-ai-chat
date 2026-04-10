@@ -3,17 +3,19 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Send, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePlanningComments, PlanningComment } from "@/hooks/usePlanningComments";
 import { useAuth } from "@/hooks/useAuth";
+import { MentionableInput } from "./MentionableInput";
+import { MentionRenderer } from "./MentionRenderer";
 
 interface PlanningItemCommentsProps {
   planningItemId: string | undefined;
+  clientId?: string;
 }
 
-export function PlanningItemComments({ planningItemId }: PlanningItemCommentsProps) {
+export function PlanningItemComments({ planningItemId, clientId }: PlanningItemCommentsProps) {
   const [newComment, setNewComment] = useState("");
   const { comments, isLoading, addComment, deleteComment, isAdding } = usePlanningComments(planningItemId);
   const { user } = useAuth();
@@ -59,14 +61,18 @@ export function PlanningItemComments({ planningItemId }: PlanningItemCommentsPro
         )}
       </ScrollArea>
 
-      <form onSubmit={handleSubmit} className="flex gap-2 mt-4 pt-4 border-t">
-        <Input
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          placeholder="Adicionar comentário..."
-          className="flex-1"
-        />
-        <Button type="submit" size="icon" disabled={!newComment.trim() || isAdding}>
+      <form onSubmit={handleSubmit} className="flex gap-2 mt-4 pt-4 border-t items-end">
+        <div className="flex-1">
+          <MentionableInput
+            value={newComment}
+            onChange={setNewComment}
+            clientId={clientId}
+            placeholder="Comente ou mencione alguém com @..."
+            multiline={false}
+            disabled={isAdding}
+          />
+        </div>
+        <Button type="submit" size="icon" disabled={!newComment.trim() || isAdding} className="shrink-0">
           {isAdding ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
@@ -115,9 +121,9 @@ function CommentItem({
             </Button>
           )}
         </div>
-        <p className="text-sm text-foreground/80 mt-0.5 whitespace-pre-wrap">
-          {comment.content}
-        </p>
+        <div className="text-sm text-foreground/80 mt-0.5">
+          <MentionRenderer text={comment.content} />
+        </div>
       </div>
     </div>
   );

@@ -636,7 +636,7 @@ export function PlanningItemDialog({
               {/* Comments (only in edit mode) */}
               {item && (
                 <div className="pt-3 border-t border-border/30">
-                  <PlanningItemComments planningItemId={item.id} />
+                  <PlanningItemComments planningItemId={item.id} clientId={selectedClientId} />
                 </div>
               )}
             </div>
