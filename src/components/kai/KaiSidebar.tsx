@@ -41,6 +41,7 @@ import { ClientDialog } from "@/components/clients/ClientDialog";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -387,6 +388,9 @@ export function KaiSidebar({
             {!collapsed && <span className="text-sm">Configurações</span>}
           </Button>
         )}
+
+        {/* Notifications */}
+        <NotificationBell variant="sidebar" collapsed={collapsed} />
 
         {/* Collapse Toggle */}
         {!isMobile && (
