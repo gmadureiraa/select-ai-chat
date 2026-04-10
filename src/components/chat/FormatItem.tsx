@@ -121,6 +121,14 @@ export const contentFormats: FormatItem[] = [
     description: "Artigo longo otimizado para SEO",
     icon: BookOpen,
   },
+  {
+    id: "format_email_marketing",
+    name: "Email Marketing",
+    type: "format",
+    category: "email_marketing",
+    description: "E-mail persuasivo com CTA e segmentação",
+    icon: Mail,
+  },
 ];
 
 // Helper to get format by category

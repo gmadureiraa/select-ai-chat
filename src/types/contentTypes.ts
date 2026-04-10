@@ -23,6 +23,7 @@ export const CONTENT_TYPES = {
   // Long-form
   newsletter: { label: "Newsletter", category: "long_form" },
   blog_post: { label: "Blog Post", category: "long_form" },
+  email_marketing: { label: "Email Marketing", category: "long_form" },
   
   // Documents & Studies
   case_study: { label: "Estudo de Caso", category: "document" },
@@ -54,6 +55,7 @@ export const CONTENT_TYPE_OPTIONS: { value: ContentTypeKey; label: string; categ
   // Long-form
   { value: "newsletter", label: "Newsletter", category: "Escrita" },
   { value: "blog_post", label: "Blog Post", category: "Escrita" },
+  { value: "email_marketing", label: "Email Marketing", category: "Escrita" },
   // Documents
   { value: "case_study", label: "Estudo de Caso", category: "Documentos" },
   { value: "report", label: "Relatório", category: "Documentos" },
@@ -81,6 +83,7 @@ export const CONTENT_TO_PLATFORM: Record<ContentTypeKey, string> = {
   long_video: 'youtube',
   newsletter: 'newsletter',
   blog_post: 'blog',
+  email_marketing: 'email',
   case_study: 'document',
   report: 'document',
   document: 'document',
