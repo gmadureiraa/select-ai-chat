@@ -35,12 +35,12 @@ async function clickupFetch(path: string, token: string) {
 function inferPlatform(tags: string[], listName: string, folderName: string): string | null {
   const all = [...tags.map(t => t.toLowerCase()), listName.toLowerCase(), folderName.toLowerCase()].join(" ");
   if (all.includes("instagram") || all.includes("reels") || all.includes("carrossel") || all.includes("stories")) return "instagram";
-  if (all.includes("twitter") || all.includes("tweet") || all.includes("thread") || all.includes("x ")) return "twitter";
+  if (all.includes("twitter") || all.includes("tweet") || all.includes("thread") || all.includes("x ") || all.includes("alfredp2p")) return "twitter";
   if (all.includes("linkedin")) return "linkedin";
   if (all.includes("tiktok")) return "tiktok";
   if (all.includes("youtube")) return "youtube";
   if (all.includes("newsletter") || all.includes("email")) return "newsletter";
-  if (all.includes("blog")) return "blog";
+  if (all.includes("blog") || all.includes("news")) return "blog";
   if (all.includes("facebook")) return "facebook";
   if (all.includes("threads")) return "threads";
   return null;
@@ -51,12 +51,14 @@ function inferContentType(tags: string[], listName: string): string | null {
   if (all.includes("stories") || all.includes("story")) return "stories";
   if (all.includes("reels") || all.includes("reel")) return "reels";
   if (all.includes("carrossel") || all.includes("carousel")) return "carousel";
-  if (all.includes("feed") || all.includes("post")) return "feed";
-  if (all.includes("thread")) return "thread";
+  if (all.includes("twitter") || all.includes("tweet") || all.includes("alfredp2p")) return "tweet";
+  if (all.includes("linkedin")) return "linkedin_post";
+  if (all.includes("blog") || all.includes("news") || all.includes("artigo")) return "blog_post";
   if (all.includes("newsletter") || all.includes("email marketing")) return "newsletter";
-  if (all.includes("tweet")) return "tweet";
-  if (all.includes("blog") || all.includes("artigo")) return "article";
-  if (all.includes("vídeo") || all.includes("video")) return "video";
+  if (all.includes("feed") || all.includes("post") || all.includes("instagram")) return "feed";
+  if (all.includes("thread")) return "thread";
+  if (all.includes("vídeo") || all.includes("video") || all.includes("youtube") || all.includes("edição")) return "video";
+  if (all.includes("campanha") || all.includes("estratégia")) return "strategy";
   return null;
 }
 
@@ -82,6 +84,45 @@ function mapStatusToColumnType(status: string): string {
   return "idea";
 }
 
+async function uploadAttachmentToStorage(
+  supabase: any,
+  attachment: { url: string; title: string; extension: string },
+  taskId: string,
+  token: string
+): Promise<string | null> {
+  try {
+    const res = await fetch(attachment.url, {
+      headers: { Authorization: token },
+    });
+    if (!res.ok) return null;
+    
+    const blob = await res.blob();
+    const ext = attachment.extension || 'png';
+    const fileName = `clickup/${taskId}/${Date.now()}_${attachment.title || 'file'}.${ext}`;
+    
+    const { data, error } = await supabase.storage
+      .from('planning-media')
+      .upload(fileName, blob, {
+        contentType: blob.type || 'application/octet-stream',
+        upsert: true,
+      });
+    
+    if (error) {
+      console.error(`Upload error for ${attachment.title}:`, error.message);
+      return null;
+    }
+    
+    const { data: urlData } = supabase.storage
+      .from('planning-media')
+      .getPublicUrl(fileName);
+    
+    return urlData?.publicUrl || null;
+  } catch (e) {
+    console.error(`Attachment download failed: ${e.message}`);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -95,7 +136,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -120,35 +160,29 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
-    // ACTION: discover - list teams and spaces
+    // ACTION: discover
     if (action === "discover") {
       const teamsRes = await clickupFetch("/team", CLICKUP_TOKEN);
       const teams = teamsRes.teams || [];
       
-      const result: { team_id: string; team_name: string; spaces: { id: string; name: string; lists: { id: string; name: string; folder: string | null }[] }[] }[] = [];
-
+      const result: any[] = [];
       for (const team of teams) {
         const spacesRes = await clickupFetch(`/team/${team.id}/space?archived=false`, CLICKUP_TOKEN);
         const spaces = spacesRes.spaces || [];
-        const spaceData: typeof result[0]["spaces"] = [];
+        const spaceData: any[] = [];
 
         for (const space of spaces) {
-          const lists: { id: string; name: string; folder: string | null }[] = [];
-          
-          // Folderless lists
+          const lists: any[] = [];
           const folderlessRes = await clickupFetch(`/space/${space.id}/list?archived=false`, CLICKUP_TOKEN);
           for (const list of folderlessRes.lists || []) {
             lists.push({ id: list.id, name: list.name, folder: null });
           }
-
-          // Folders and their lists
           const foldersRes = await clickupFetch(`/space/${space.id}/folder?archived=false`, CLICKUP_TOKEN);
           for (const folder of foldersRes.folders || []) {
             for (const list of folder.lists || []) {
               lists.push({ id: list.id, name: list.name, folder: folder.name });
             }
           }
-
           spaceData.push({ id: space.id, name: space.name, lists });
         }
         result.push({ team_id: team.id, team_name: team.name, spaces: spaceData });
@@ -159,13 +193,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ACTION: import - fetch tasks and insert
+    // ACTION: import
     if (action === "import") {
       const body = await req.json();
-      const { workspace_id, mappings, since_date } = body as {
+      const { workspace_id, mappings, since_date, fetch_attachments } = body as {
         workspace_id: string;
         mappings: { list_id: string; client_id: string; space_name: string; folder_name: string }[];
         since_date?: string;
+        fetch_attachments?: boolean;
       };
 
       if (!workspace_id || !mappings?.length) {
@@ -174,7 +209,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Get kanban columns for this workspace
       const { data: columns } = await supabase
         .from("kanban_columns")
         .select("id, column_type")
@@ -189,9 +223,9 @@ Deno.serve(async (req) => {
 
       let imported = 0;
       let skipped = 0;
+      let attachmentsUploaded = 0;
       let errors: string[] = [];
 
-      // Pre-fetch all existing clickup_task_ids for dedup
       const { data: existingItems } = await supabase
         .from("planning_items")
         .select("metadata")
@@ -203,7 +237,6 @@ Deno.serve(async (req) => {
         const meta = item.metadata as any;
         if (meta?.clickup_task_id) existingTaskIds.add(meta.clickup_task_id);
       }
-
 
       for (const mapping of mappings) {
         let page = 0;
@@ -217,17 +250,11 @@ Deno.serve(async (req) => {
             );
 
             const tasks: ClickUpTask[] = tasksRes.tasks || [];
-            if (tasks.length === 0) {
-              hasMore = false;
-              break;
-            }
+            if (tasks.length === 0) { hasMore = false; break; }
 
             for (const task of tasks) {
               try {
-                if (existingTaskIds.has(task.id)) {
-                  skipped++;
-                  continue;
-                }
+                if (existingTaskIds.has(task.id)) { skipped++; continue; }
 
                 const tagNames = task.tags.map(t => t.name);
                 const listName = task.list?.name || "";
@@ -238,17 +265,28 @@ Deno.serve(async (req) => {
                 const statusColumnType = mapStatusToColumnType(task.status.status);
                 const columnId = columnMap.get(statusColumnType) || columnMap.get("idea") || null;
 
-                // Skip attachment downloads for speed - store clickup attachment URLs in metadata
+                // Handle attachments if requested
                 let mediaUrls: string[] = [];
+                if (fetch_attachments) {
+                  try {
+                    const taskDetail = await clickupFetch(`/task/${task.id}`, CLICKUP_TOKEN);
+                    const attachments = taskDetail.attachments || [];
+                    for (const att of attachments.slice(0, 5)) {
+                      const publicUrl = await uploadAttachmentToStorage(supabase, att, task.id, CLICKUP_TOKEN);
+                      if (publicUrl) {
+                        mediaUrls.push(publicUrl);
+                        attachmentsUploaded++;
+                      }
+                    }
+                  } catch (e) {
+                    // Continue without attachments
+                  }
+                }
 
-                // Parse dates
                 let scheduledAt: string | null = null;
-                let dueDate: string | null = null;
                 if (task.due_date) {
                   const d = new Date(parseInt(task.due_date));
-                  if (!isNaN(d.getTime())) {
-                    scheduledAt = d.toISOString();
-                  }
+                  if (!isNaN(d.getTime())) scheduledAt = d.toISOString();
                 }
 
                 const { error: insertErr } = await supabase
@@ -261,7 +299,6 @@ Deno.serve(async (req) => {
                     platform: platform as any,
                     content_type: contentType,
                     scheduled_at: scheduledAt,
-                    due_date: dueDate,
                     status: statusColumnType === "published" ? "published" : "idea",
                     priority: priority as any,
                     labels: tagNames,
@@ -281,6 +318,7 @@ Deno.serve(async (req) => {
                   errors.push(`Task "${task.name}": ${insertErr.message}`);
                 } else {
                   imported++;
+                  existingTaskIds.add(task.id);
                 }
               } catch (e) {
                 errors.push(`Task "${task.name}": ${e.message}`);
@@ -296,12 +334,60 @@ Deno.serve(async (req) => {
         }
       }
 
-      return new Response(JSON.stringify({ imported, skipped, errors: errors.slice(0, 20) }), {
+      return new Response(JSON.stringify({ imported, skipped, attachmentsUploaded, errors: errors.slice(0, 20) }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action. Use ?action=discover or ?action=import" }), {
+    // ACTION: fetch-attachments - fetch attachments for existing items
+    if (action === "fetch-attachments") {
+      const body = await req.json();
+      const { workspace_id, limit = 20 } = body as { workspace_id: string; limit?: number };
+
+      const { data: items } = await supabase
+        .from("planning_items")
+        .select("id, metadata, media_urls")
+        .eq("workspace_id", workspace_id)
+        .not("metadata", "is", null)
+        .or("media_urls.is.null,media_urls.eq.{}")
+        .limit(limit);
+
+      let updated = 0;
+      let errors: string[] = [];
+
+      for (const item of items || []) {
+        const meta = item.metadata as any;
+        if (!meta?.clickup_task_id) continue;
+
+        try {
+          const taskDetail = await clickupFetch(`/task/${meta.clickup_task_id}`, CLICKUP_TOKEN);
+          const attachments = taskDetail.attachments || [];
+          if (attachments.length === 0) continue;
+
+          const mediaUrls: string[] = [];
+          for (const att of attachments.slice(0, 5)) {
+            const publicUrl = await uploadAttachmentToStorage(supabase, att, meta.clickup_task_id, CLICKUP_TOKEN);
+            if (publicUrl) mediaUrls.push(publicUrl);
+          }
+
+          if (mediaUrls.length > 0) {
+            await supabase
+              .from("planning_items")
+              .update({ media_urls: mediaUrls })
+              .eq("id", item.id);
+            updated++;
+          }
+        } catch (e) {
+          errors.push(`Item ${item.id}: ${e.message}`);
+        }
+      }
+
+      return new Response(JSON.stringify({ updated, errors: errors.slice(0, 20) }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Unknown action. Use ?action=discover, ?action=import, or ?action=fetch-attachments" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
