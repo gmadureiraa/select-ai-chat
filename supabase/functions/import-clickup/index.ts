@@ -191,10 +191,19 @@ Deno.serve(async (req) => {
       let skipped = 0;
       let errors: string[] = [];
 
-      const serviceSupabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
+      // Pre-fetch all existing clickup_task_ids for dedup
+      const { data: existingItems } = await supabase
+        .from("planning_items")
+        .select("metadata")
+        .eq("workspace_id", workspace_id)
+        .not("metadata", "is", null);
+      
+      const existingTaskIds = new Set<string>();
+      for (const item of existingItems || []) {
+        const meta = item.metadata as any;
+        if (meta?.clickup_task_id) existingTaskIds.add(meta.clickup_task_id);
+      }
+
 
       for (const mapping of mappings) {
         let page = 0;
