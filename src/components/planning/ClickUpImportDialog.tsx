@@ -32,16 +32,16 @@ export function ClickUpImportDialog({ open, onOpenChange, onImportComplete }: Cl
       setStep('connect');
       setSelectedLists(new Map());
       // Load clients
-      if (currentWorkspace?.id) {
+      if (workspace?.id) {
         supabase
           .from('clients')
           .select('id, name')
-          .eq('workspace_id', currentWorkspace.id)
+          .eq('workspace_id', workspace.id)
           .order('name')
           .then(({ data }) => setClients(data || []));
       }
     }
-  }, [open, currentWorkspace?.id]);
+  }, [open, workspace?.id]);
 
   const handleDiscover = async () => {
     try {
@@ -81,10 +81,10 @@ export function ClickUpImportDialog({ open, onOpenChange, onImportComplete }: Cl
   const selectedCount = selectedLists.size;
 
   const handleImport = async () => {
-    if (!currentWorkspace?.id) return;
+    if (!workspace?.id) return;
     setStep('importing');
     try {
-      await importTasks(currentWorkspace.id, Array.from(selectedLists.values()));
+      await importTasks(workspace.id, Array.from(selectedLists.values()));
       setStep('done');
     } catch {
       setStep('confirm');
