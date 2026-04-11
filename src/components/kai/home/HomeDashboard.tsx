@@ -335,7 +335,7 @@ export function HomeDashboard({ onNavigate, onOpenItem, selectedClientId }: Home
             variant="outline"
             size="sm"
             className="gap-1.5 hidden md:flex"
-            onClick={() => onOpenItem?.(item.id)}
+            onClick={() => onNavigate("planning")}
           >
             <CalendarDays className="h-3.5 w-3.5" />
             Ver planejamento
