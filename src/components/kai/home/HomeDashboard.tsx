@@ -50,6 +50,7 @@ import { ptBR } from "date-fns/locale";
 
 interface HomeDashboardProps {
   onNavigate: (tab: string) => void;
+  onOpenItem?: (itemId: string) => void;
   selectedClientId?: string;
 }
 
@@ -108,7 +109,7 @@ function getTimeGreeting(): string {
   return "Boa noite";
 }
 
-export function HomeDashboard({ onNavigate, selectedClientId }: HomeDashboardProps) {
+export function HomeDashboard({ onNavigate, onOpenItem, selectedClientId }: HomeDashboardProps) {
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { clients } = useClients();
