@@ -50,6 +50,7 @@ import { ptBR } from "date-fns/locale";
 
 interface HomeDashboardProps {
   onNavigate: (tab: string) => void;
+  onOpenItem?: (itemId: string) => void;
   selectedClientId?: string;
 }
 
@@ -108,7 +109,7 @@ function getTimeGreeting(): string {
   return "Boa noite";
 }
 
-export function HomeDashboard({ onNavigate, selectedClientId }: HomeDashboardProps) {
+export function HomeDashboard({ onNavigate, onOpenItem, selectedClientId }: HomeDashboardProps) {
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { clients } = useClients();
@@ -485,7 +486,7 @@ export function HomeDashboard({ onNavigate, selectedClientId }: HomeDashboardPro
                         <div
                           key={item.id}
                           className="flex items-center gap-3 py-2.5 px-1 hover:bg-muted/20 rounded-md transition-colors cursor-pointer -mx-1"
-                          onClick={() => onNavigate("planning")}
+                          onClick={() => onOpenItem?.(item.id)}
                         >
                           <div
                             className={cn(
@@ -566,7 +567,7 @@ export function HomeDashboard({ onNavigate, selectedClientId }: HomeDashboardPro
                     <div
                       key={item.id}
                       className="flex items-center gap-3 p-2 rounded-md hover:bg-destructive/5 transition-colors cursor-pointer"
-                      onClick={() => onNavigate("planning")}
+                      onClick={() => onOpenItem?.(item.id)}
                     >
                       <div className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
                       <div className="flex-1 min-w-0">
@@ -636,7 +637,7 @@ export function HomeDashboard({ onNavigate, selectedClientId }: HomeDashboardPro
                       <div
                         key={item.id}
                         className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/30 transition-colors cursor-pointer group"
-                        onClick={() => onNavigate("planning")}
+                        onClick={() => onOpenItem?.(item.id)}
                       >
                         <div
                           className={cn(
@@ -972,7 +973,7 @@ export function HomeDashboard({ onNavigate, selectedClientId }: HomeDashboardPro
                                     "flex items-center gap-1.5 px-1.5 py-1 rounded text-[11px] cursor-pointer transition-colors",
                                     "hover:bg-muted/30"
                                   )}
-                                  onClick={() => onNavigate("planning")}
+                                  onClick={() => onOpenItem?.(item.id)}
                                 >
                                   <div
                                     className={cn(
