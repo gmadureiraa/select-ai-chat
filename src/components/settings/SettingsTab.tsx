@@ -21,7 +21,7 @@ import { SettingsNavigation, SettingsSection } from "@/components/settings/Setti
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import Documentation from "@/pages/Documentation";
-
+import { AIUsageSettings } from "@/components/settings/AIUsageSettings";
 
 export function SettingsTab() {
   const { user, signOut } = useAuth();
@@ -42,7 +42,7 @@ export function SettingsTab() {
   
   // Initialize section from URL section parameter
   const sectionParam = searchParams.get("section");
-  const validSections: SettingsSection[] = ["profile", "team", "notifications", "appearance", "docs"];
+  const validSections: SettingsSection[] = ["profile", "team", "notifications", "appearance", "docs", "ai-usage"];
   const initialSection = validSections.includes(sectionParam as SettingsSection) 
     ? (sectionParam as SettingsSection) 
     : "profile";
@@ -334,6 +334,8 @@ export function SettingsTab() {
         return renderAppearanceSection();
       case "docs":
         return <Documentation />;
+      case "ai-usage":
+        return <AIUsageSettings />;
       default:
         return renderProfileSection();
     }
