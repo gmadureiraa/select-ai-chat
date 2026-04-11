@@ -1,78 +1,74 @@
 
 
-# Avaliação do Kai + Oportunidades de Melhoria
+# Overview Completo do Kai — Revisão Técnica
 
-## Pontuação Geral: 8/10
+## Estado Geral: Muito Bom (8.5/10)
 
-O Kai é uma ferramenta **completa e funcional** para gestão de conteúdo multi-cliente. Cobre o ciclo inteiro: planejamento → criação com IA → revisão → publicação → métricas. Poucas ferramentas no mercado oferecem isso integrado.
-
----
-
-## Pontos Fortes
-- Pipeline editorial completo (2.100+ items, 11 clientes)
-- Chat IA contextual com conhecimento do cliente
-- 70+ Edge Functions cobrindo todo o backend
-- Publicação direta multi-plataforma
-- Automações e recorrência
-- Workspace multi-team com permissões
-
-## Gaps e Oportunidades de Melhoria
-
-### 1. Dashboard Home / Visão Geral (ALTO IMPACTO)
-Hoje o "Home" é só um hero com input. Falta um **dashboard operacional** mostrando:
-- Cards vencidos / para hoje / esta semana
-- Status por cliente (quantos items pendentes)
-- Últimas publicações e performance rápida
-- Atividade recente do time
-
-### 2. Fluxo de Aprovação Estruturado (ALTO IMPACTO)
-O status "review" existe mas não há um fluxo de aprovação real:
-- Notificação para aprovador quando item entra em revisão
-- Botões "Aprovar" / "Pedir ajustes" com comentário
-- Histórico de aprovações
-- Aprovação por cliente externo (link público)
-
-### 3. Relatórios e Exportação (MÉDIO IMPACTO)
-- Relatório mensal automático por cliente (PDF/apresentação)
-- Export de calendário editorial
-- Relatório de produtividade do time
-
-### 4. Melhoria no Onboarding
-O modal de onboarding aparece mesmo para usuários existentes (como vi no screenshot). Precisa:
-- Verificar se usuário já completou onboarding
-- Não mostrar para admins que já têm clientes
-
-### 5. Templates de Conteúdo Reutilizáveis
-- Salvar prompts/conteúdos que funcionaram como templates
-- Biblioteca de templates por formato e nicho
-- "Usar como base" a partir de posts com alta performance
-
-### 6. Refinamentos de UX
-- O sidebar tem "Tema" como item solto — integrar nas Configurações
-- Ledger aparece como cliente selecionado mas tem 0 items
-- Redirect de tabs removidas ainda aponta para "canvas" em alguns lugares (linhas 66-67, 72-73 do Kai.tsx)
-
-### 7. Métricas Comparativas
-- Benchmark entre clientes
-- Evolução mês a mês por cliente
-- ROI estimado (custo IA vs engagement gerado)
+O sistema está funcional e bem estruturado. A maioria dos fluxos principais (chat, planejamento, publicação, métricas, automações) estão operando corretamente. Abaixo listo tudo que encontrei, organizado por severidade.
 
 ---
 
-## O que eu recomendo priorizar
+## Problemas Encontrados
 
-| Prioridade | Item | Esforço |
-|------------|------|---------|
-| 1 | Dashboard Home operacional | Médio |
-| 2 | Corrigir bugs (onboarding, redirects, Tema solto) | Baixo |
-| 3 | Fluxo de aprovação | Médio |
-| 4 | Relatório mensal por cliente | Médio |
-| 5 | Templates reutilizáveis | Baixo |
+### 1. QUERY SEM FILTRO DE WORKSPACE (Bug Crítico)
+O `HomeDashboard.tsx` (linha 144) busca **todos** os planning_items sem filtrar por `workspace_id`:
+```
+.from("planning_items").select(...).order("scheduled_at")
+```
+Isso pode trazer dados de outros workspaces (RLS protege, mas depende 100% de RLS). Precisa adicionar filtro `.eq("workspace_id", workspaceId)`. Também está sujeito ao limite de 1000 rows do Supabase — com 2100+ itens, parte dos dados é invisível.
 
-## Arquivos afetados (se aprovar)
-1. `src/components/kai/GradientHero.tsx` → Transformar em dashboard operacional
-2. `src/pages/Kai.tsx` → Corrigir redirects (linhas 66-67, 72-73)
-3. `src/components/onboarding/` → Adicionar check de conclusão
-4. `src/components/kai/KaiSidebar.tsx` → Remover "Tema" como item separado
-5. Novos componentes para aprovação e relatórios
+### 2. QUERY SEM LIMITE (Performance)
+A mesma query do dashboard não tem `.limit()`. Com o crescimento dos dados, isso vai ficar cada vez mais lento.
+
+### 3. Canvas — Código Morto (Limpeza)
+A pasta `src/components/kai/canvas/` inteira (~15 arquivos) ainda existe mas não é referenciada por nenhuma rota. São centenas de linhas de código morto que aumentam o bundle. Pode ser removida.
+
+### 4. GradientHero — Código Morto (Limpeza)
+`src/components/kai/GradientHero.tsx` não é mais usado em lugar nenhum (foi substituído pelo HomeDashboard). Pode ser removido.
+
+### 5. Publicados Recentemente — Não Clicável
+Na seção "Publicados recentemente" (linha 694), os itens **não** têm `onClick={() => onOpenItem?.(item.id)}`, diferente de todas as outras listas. Inconsistência de UX.
+
+### 6. Default fallback para HomeDashboard duplicado (Minor)
+No `Kai.tsx` linha 207-212, o `default` case do switch renderiza `HomeDashboard` sem passar `onOpenItem`, então clicar em tarefas nesse fallback não funciona.
+
+### 7. Tema já integrado nas Configurações ✅
+Confirmado — "Aparência" está na SettingsNavigation e não há mais item "Tema" solto no sidebar. Resolvido.
+
+### 8. Onboarding check funcional ✅
+O `useOnboarding.ts` verifica se o usuário já tem clientes e pula automaticamente. Resolvido.
+
+### 9. Approval workflow funcional ✅
+Botões "Aprovar" e "Pedir ajustes" aparecem no footer do PlanningItemDialog quando status é `review`. Funcional.
+
+---
+
+## Plano de Correção
+
+### Passo 1: Corrigir query do Dashboard (Crítico)
+- `HomeDashboard.tsx`: Adicionar filtro `workspace_id` e aumentar limit para cobrir todos os itens, ou paginar
+- Passar `workspaceId` via props ou context
+
+### Passo 2: Tornar "Publicados recentemente" clicável
+- Adicionar `onClick={() => onOpenItem?.(item.id)}` nos itens da seção
+
+### Passo 3: Corrigir fallback do Kai.tsx
+- Passar `onOpenItem` no default case ou redirecionar para "home"
+
+### Passo 4: Remover código morto
+- Deletar pasta `src/components/kai/canvas/` inteira
+- Deletar `src/components/kai/GradientHero.tsx`
+
+---
+
+## Resumo do que já está perfeito
+- Sidebar limpa, sem Canvas, sem Tema solto
+- Roteamento com redirects corretos para tabs removidas
+- Permissões por role (viewer/member/admin/owner)
+- Dashboard interativo com filtros, timeline semanal, deep linking
+- Fluxo de aprovação operacional
+- Onboarding inteligente
+- Notificações in-app + push
+- Publicação multi-plataforma via Late API
+- Automações com voice profile
 
