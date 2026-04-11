@@ -92,6 +92,11 @@ export async function logAIUsage(
     const estimatedCost = estimateCost(model, inputTokens, outputTokens);
     const provider = getProvider(model);
 
+    // Extract client_id from metadata if provided
+    const clientId = metadata.client_id || null;
+    const cleanMetadata = { ...metadata };
+    delete cleanMetadata.client_id;
+
     const { error } = await supabase.from("ai_usage_logs").insert({
       user_id: userId,
       model_name: model,
@@ -101,13 +106,14 @@ export async function logAIUsage(
       output_tokens: outputTokens,
       total_tokens: totalTokens,
       estimated_cost_usd: estimatedCost,
-      metadata,
+      client_id: clientId,
+      metadata: Object.keys(cleanMetadata).length > 0 ? cleanMetadata : null,
     });
 
     if (error) {
       console.error(`[AI-USAGE] Failed to log for ${edgeFunction}:`, error);
     } else {
-      console.log(`[AI-USAGE] ${edgeFunction}: ${model} - ${totalTokens} tokens - $${estimatedCost.toFixed(6)}`);
+      console.log(`[AI-USAGE] ${edgeFunction}: ${model} - ${totalTokens} tokens - $${estimatedCost.toFixed(6)}${clientId ? ` (client: ${clientId})` : ""}`);
     }
   } catch (error) {
     console.error(`[AI-USAGE] Error logging for ${edgeFunction}:`, error);
