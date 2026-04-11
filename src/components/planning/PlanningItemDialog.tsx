@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check, Flag } from 'lucide-react';
+import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check, Flag, CheckCircle2, MessageSquare, XCircle } from 'lucide-react';
 
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
@@ -863,41 +863,88 @@ export function PlanningItemDialog({
           </div>
 
           {/* Footer - Actions */}
-          <div className="px-6 py-3 border-t border-border/40 flex justify-end gap-2 bg-background">
-            <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-              {readOnly ? 'Fechar' : 'Cancelar'}
-            </Button>
-            {!readOnly && canPublishNow && (
-              <Button 
-                type="button" 
-                variant="secondary"
-                size="sm"
-                onClick={handlePublishNow}
-                disabled={isPublishing || isSubmitting}
-                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {isPublishing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Send className="h-3 w-3" />
-                )}
-                Publicar
-                {publishablePlatforms.length > 1 && (
-                  <span className="flex items-center gap-0.5 ml-0.5">
-                    {publishablePlatforms.slice(0, 3).map(pp => {
-                      const Icon = platformLucideIcons[pp];
-                      return Icon ? <Icon key={pp} className="h-3 w-3 opacity-80" /> : null;
-                    })}
-                  </span>
-                )}
+          <div className="px-6 py-3 border-t border-border/40 flex items-center justify-between gap-2 bg-background">
+            {/* Left: Approval actions when in review */}
+            <div className="flex items-center gap-2">
+              {!readOnly && effectiveItem?.status === 'review' && onUpdate && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-green-500/30 text-green-600 hover:bg-green-500/10 hover:text-green-600"
+                    onClick={async () => {
+                      const approvedColumn = columns.find(c => c.column_type === 'approved');
+                      await onUpdate(effectiveItem.id, { 
+                        status: 'approved',
+                        ...(approvedColumn ? { column_id: approvedColumn.id } : {})
+                      });
+                      toast.success('Item aprovado!');
+                      onOpenChange(false);
+                    }}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Aprovar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-orange-500/30 text-orange-600 hover:bg-orange-500/10 hover:text-orange-600"
+                    onClick={async () => {
+                      const draftColumn = columns.find(c => c.column_type === 'draft');
+                      await onUpdate(effectiveItem.id, { 
+                        status: 'draft',
+                        ...(draftColumn ? { column_id: draftColumn.id } : {})
+                      });
+                      toast.info('Item devolvido para ajustes');
+                      onOpenChange(false);
+                    }}
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    Pedir ajustes
+                  </Button>
+                </>
+              )}
+            </div>
+
+            {/* Right: Standard actions */}
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+                {readOnly ? 'Fechar' : 'Cancelar'}
               </Button>
-            )}
-            {!readOnly && (
-              <Button type="submit" size="sm" disabled={isSubmitting || !title.trim()}>
-                {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
-                {item ? 'Salvar' : 'Criar'}
-              </Button>
-            )}
+              {!readOnly && canPublishNow && (
+                <Button 
+                  type="button" 
+                  variant="secondary"
+                  size="sm"
+                  onClick={handlePublishNow}
+                  disabled={isPublishing || isSubmitting}
+                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {isPublishing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Send className="h-3 w-3" />
+                  )}
+                  Publicar
+                  {publishablePlatforms.length > 1 && (
+                    <span className="flex items-center gap-0.5 ml-0.5">
+                      {publishablePlatforms.slice(0, 3).map(pp => {
+                        const Icon = platformLucideIcons[pp];
+                        return Icon ? <Icon key={pp} className="h-3 w-3 opacity-80" /> : null;
+                      })}
+                    </span>
+                  )}
+                </Button>
+              )}
+              {!readOnly && (
+                <Button type="submit" size="sm" disabled={isSubmitting || !title.trim()}>
+                  {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                  {item ? 'Salvar' : 'Criar'}
+                </Button>
+              )}
+            </div>
           </div>
         </form>
         )}
