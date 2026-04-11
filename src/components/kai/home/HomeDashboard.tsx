@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useClients } from "@/hooks/useClients";
 import { useAuth } from "@/hooks/useAuth";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -113,6 +114,8 @@ export function HomeDashboard({ onNavigate, onOpenItem, selectedClientId }: Home
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { clients } = useClients();
+  const { workspace } = useWorkspaceContext();
+  const workspaceId = workspace?.id;
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
 
   const { data: userProfile } = useQuery({
@@ -139,16 +142,20 @@ export function HomeDashboard({ onNavigate, onOpenItem, selectedClientId }: Home
   );
 
   const { data: planningItems } = useQuery({
-    queryKey: ["home-dashboard-items"],
+    queryKey: ["home-dashboard-items", workspaceId],
     queryFn: async () => {
+      if (!workspaceId) return [];
       const { data } = await supabase
         .from("planning_items")
         .select(
           "id, title, status, scheduled_at, client_id, platform, assigned_to, updated_at, content_type, priority"
         )
-        .order("scheduled_at", { ascending: true });
+        .eq("workspace_id", workspaceId)
+        .order("scheduled_at", { ascending: true })
+        .limit(2000);
       return data || [];
     },
+    enabled: !!workspaceId,
   });
 
   const now = new Date();
@@ -691,7 +698,8 @@ export function HomeDashboard({ onNavigate, onOpenItem, selectedClientId }: Home
                   {recentlyPublished.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/20 transition-colors"
+                      className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/20 transition-colors cursor-pointer"
+                      onClick={() => onOpenItem?.(item.id)}
                     >
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/50 shrink-0" />
                       <div className="flex-1 min-w-0">
