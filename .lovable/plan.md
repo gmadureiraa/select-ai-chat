@@ -1,61 +1,45 @@
 
 
-# Plano: Corrigir Importacao ClickUp + Novos Clientes + Deduplicacao + Anexos
+# Plano: Dashboard de Custos de IA nas Configurações
 
-## Problemas Identificados
+## Dados Atuais
 
-1. **77 clickup_task_ids duplicados** no banco (387 items totais, muitos triplicados)
-2. **Formato/plataforma incorreto**: items com `content_type=null` ou mapeamento errado (ex: tweets na lista "Twitter/X" sem content_type definido, items do blog com formato errado)
-3. **Clientes faltando**: Paradigma Education, Hugo Doria, Ledger nao existem no Kai
-4. **Conteudos do space Growth/Kaleidos** nao foram importados
-5. **Anexos nao foram puxados** (media_urls vazio em todos os items)
+O sistema tem **606 logs de uso** desde Dez/2025, mas **nenhum está associado a um client_id** — todos são NULL. O custo total acumulado é ~**R$ 24.50** (~$4.30 USD), distribuído assim:
 
-## Etapas
+| Função | Chamadas | Custo (R$) |
+|--------|----------|------------|
+| Multi-agent Writer | 72 | R$ 10.53 |
+| Multi-agent Editor | 58 | R$ 7.74 |
+| Multi-agent Researcher | 61 | R$ 1.61 |
+| Chat response | 146 | R$ 0.98 |
+| CSV validation | 39 | R$ 1.16 |
+| Geração de imagem | 17 | R$ 0.49 |
+| Outros | ~170 | R$ 1.99 |
+| **Total** | **606** | **~R$ 24.50** |
 
-### 1. Limpar Duplicatas
-- SQL para manter apenas 1 registro por `clickup_task_id`, deletando os extras (manter o mais antigo)
-- Sao 77 task_ids duplicados a corrigir
+## O que será feito
 
-### 2. Criar 3 Novos Clientes
-- Criar Paradigma Education, Hugo Doria e Ledger no workspace existente
+### 1. Nova seção "Uso de IA" nas Configurações
+Adicionar tab "Uso de IA" no `SettingsNavigation.tsx` com:
+- **Resumo geral**: custo total do mês, chamadas totais, tokens consumidos
+- **Breakdown por função**: tabela com chat, geração de conteúdo, imagens, CSV, etc.
+- **Breakdown por modelo**: gemini-2.5-flash vs pro vs lite
+- **Gráfico de evolução mensal**: barras ou linha mostrando custo/mês
+- **Projeção**: baseado no uso dos últimos 30 dias, projetar custo mensal
 
-### 3. Corrigir Mapeamento de Formato
-Atualizar a edge function `import-clickup`:
-- `inferContentType`: adicionar deteccao por nome da lista (ex: "Twitter/X" -> tweet, "Blog e News" -> blog_post, "LinkedIn" -> linkedin_post)
-- `inferPlatform`: ja funciona bem, mas precisa cobrir mais casos
-- Rodar UPDATE em batch nos items existentes que tem `content_type=null` baseado no `clickup_list` salvo no metadata
+### 2. Associar client_id nos logs futuros
+Atualizar o `kai-simple-chat` edge function para salvar `client_id` no `ai_usage_logs` quando o chat está no contexto de um cliente. Isso permitirá breakdown por cliente no futuro.
 
-### 4. Atualizar Edge Function para Baixar Anexos
-- Adicionar logica para buscar attachments via `/task/{id}?include_subtasks=true` (attachments vem no task detail)
-- Download de cada arquivo e upload para bucket `planning-media`
-- Salvar URLs no campo `media_urls`
-- Processar em batches de 5 para nao dar timeout
+### 3. Componente `AIUsageSettings.tsx`
+Novo componente com:
+- Cards de KPI no topo (custo total mês, chamadas, tokens, projeção)
+- Tabela detalhada por edge_function com custo em BRL e USD
+- Tabela por modelo
+- Histórico mensal (últimos 6 meses)
 
-### 5. Importar Conteudos Faltantes
-- Chamar a edge function para importar listas de:
-  - **Paradigma Education** (mapear para novo client_id)
-  - **Hugo Doria** (mapear para novo client_id)
-  - **Ledger** (mapear para novo client_id)
-  - **Space Growth** -> conteudos Kaleidos (mapear para client Kaleidos existente)
-
-### 6. Atualizar content_type dos Items Existentes
-- UPDATE em batch baseado no metadata `clickup_list`:
-  - "Twitter/X%" -> content_type='tweet', platform='twitter'
-  - "Blog e News" -> content_type='blog_post', platform='blog'
-  - "D-sec LinkedIn" -> content_type='linkedin_post', platform='linkedin'
-  - "Newsletter%" -> content_type='newsletter', platform='newsletter'
-  - "Stories%" -> content_type='stories', platform='instagram'
-  - "Instagram%" sem content_type -> content_type='instagram_post'
-
-## Arquivos a Modificar
-1. `supabase/functions/import-clickup/index.ts` - melhorar inferencia + adicionar download de anexos
-2. Migrations/inserts para criar clientes e limpar duplicatas
-
-## Ordem de Execucao
-1. Deletar duplicatas (SQL)
-2. Criar clientes novos (SQL)
-3. Corrigir content_type dos existentes (SQL UPDATE)
-4. Atualizar edge function (anexos + melhor inferencia)
-5. Rodar importacao dos clientes/spaces faltantes
-6. Verificar resultado final
+## Arquivos a criar/modificar
+1. **`src/components/settings/AIUsageSettings.tsx`** — Novo componente com dashboard de custos
+2. **`src/components/settings/SettingsNavigation.tsx`** — Adicionar seção "Uso de IA"
+3. **`src/components/settings/SettingsTab.tsx`** — Renderizar nova seção
+4. **`supabase/functions/kai-simple-chat/index.ts`** — Passar client_id ao logAIUsage
 
