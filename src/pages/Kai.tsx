@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { KaiSidebar } from "@/components/kai/KaiSidebar";
 import { MobileHeader } from "@/components/kai/MobileHeader";
-import { GradientHero } from "@/components/kai/GradientHero";
+import { HomeDashboard } from "@/components/kai/home/HomeDashboard";
 import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
 
@@ -194,11 +194,9 @@ export default function Kai() {
     switch (tab) {
       case "home":
         return (
-          <GradientHero 
-            onSubmit={handleSendMessage}
-            onQuickAction={handleQuickAction}
-            clientName={selectedClient.name}
-            clientId={selectedClient.id}
+          <HomeDashboard 
+            onNavigate={handleTabChange}
+            selectedClientId={selectedClient?.id}
           />
         );
       
@@ -218,10 +216,9 @@ export default function Kai() {
       
       default:
         return (
-          <GradientHero 
-            onSubmit={handleSendMessage}
-            onQuickAction={handleQuickAction}
-            clientName={selectedClient.name}
+          <HomeDashboard 
+            onNavigate={handleTabChange}
+            selectedClientId={selectedClient?.id}
           />
         );
     }
