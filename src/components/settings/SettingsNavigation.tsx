@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { User, CreditCard, Users, Palette, Bell, BookOpen, Activity } from "lucide-react";
+import { User, Users, Palette, Bell, BookOpen, Activity } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 export type SettingsSection = "profile" | "team" | "notifications" | "appearance" | "docs" | "ai-usage";
