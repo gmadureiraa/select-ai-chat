@@ -1928,13 +1928,57 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
       // Non-streaming mode: return full response as JSON
       const data = await gatewayResponse.json();
       const content = data.choices?.[0]?.message?.content || "";
+      
+      // Log usage
+      const inputTokens = estimateTokens(JSON.stringify(gatewayMessages));
+      const outputTokens = estimateTokens(content);
+      logAIUsage(supabase, userId, "google/gemini-2.5-flash", "kai-simple-chat", inputTokens, outputTokens, { client_id: clientId }).catch(() => {});
+      
       return new Response(JSON.stringify({ content }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Stream response directly (already in OpenAI SSE format)
-    return new Response(gatewayResponse.body, {
+    // Stream response: tee the stream to log usage after completion
+    const inputTokens = estimateTokens(JSON.stringify(gatewayMessages));
+    const reader = gatewayResponse.body!.getReader();
+    const decoder = new TextDecoder();
+    let outputText = "";
+
+    const stream = new ReadableStream({
+      async pull(controller) {
+        try {
+          const { done, value } = await reader.read();
+          if (done) {
+            controller.close();
+            // Log usage after stream completes
+            const outputTokens = estimateTokens(outputText);
+            logAIUsage(supabase, userId, "google/gemini-2.5-flash", "kai-simple-chat", inputTokens, outputTokens, { client_id: clientId }).catch(() => {});
+            return;
+          }
+          // Extract text content from SSE for token estimation
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n");
+          for (const line of lines) {
+            if (line.startsWith("data: ") && line !== "data: [DONE]") {
+              try {
+                const parsed = JSON.parse(line.slice(6));
+                const delta = parsed.choices?.[0]?.delta?.content;
+                if (delta) outputText += delta;
+              } catch {}
+            }
+          }
+          controller.enqueue(value);
+        } catch (e) {
+          controller.error(e);
+        }
+      },
+      cancel() {
+        reader.cancel();
+      }
+    });
+
+    return new Response(stream, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
     });
 
