@@ -103,15 +103,6 @@ export default function Kai() {
     }
   }, [clientId, clients]);
 
-  const handleSendMessage = (content: string, contentType?: string) => {
-    setPendingMessage(content);
-    setPendingContentType(contentType || null);
-    handleTabChange("planning");
-  };
-
-  const handleQuickAction = (action: string) => {
-    handleTabChange(action);
-  };
 
   const renderContent = () => {
     if (isLoadingClients) {
