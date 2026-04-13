@@ -272,12 +272,12 @@ Deno.serve(async (req) => {
       account_name: result.accountName || null,
       account_id: result.accountId || null,
       ...(platform === 'twitter' ? {
-        api_key: credentials.apiKey?.trim(),
-        api_secret: credentials.apiSecret?.trim(),
-        access_token: credentials.accessToken?.trim(),
-        access_token_secret: credentials.accessTokenSecret?.trim(),
+        api_key_encrypted: credentials.apiKey?.trim(),
+        api_secret_encrypted: credentials.apiSecret?.trim(),
+        access_token_encrypted: credentials.accessToken?.trim(),
+        access_token_secret_encrypted: credentials.accessTokenSecret?.trim(),
       } : {
-        oauth_access_token: credentials.oauthAccessToken?.trim(),
+        oauth_access_token_encrypted: credentials.oauthAccessToken?.trim(),
       }),
     };
 
