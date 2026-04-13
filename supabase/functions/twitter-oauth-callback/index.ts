@@ -239,8 +239,8 @@ Deno.serve(async (req) => {
         validation_error: null,
         account_name: accountName,
         account_id: accountId,
-        oauth_access_token: tokens.access_token,
-        oauth_refresh_token: tokens.refresh_token || null,
+        oauth_access_token_encrypted: tokens.access_token,
+        oauth_refresh_token_encrypted: tokens.refresh_token || null,
         expires_at: expiresAt,
         metadata: {
           scope: tokens.scope,

@@ -105,7 +105,7 @@ serve(async (req) => {
       .upsert({
         client_id: clientId,
         platform: 'linkedin',
-        oauth_access_token: accessToken,
+        oauth_access_token_encrypted: accessToken,
         expires_at: expiresAt,
         account_id: accountId,
         account_name: accountName,
