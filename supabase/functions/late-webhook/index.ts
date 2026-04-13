@@ -16,10 +16,49 @@ interface LateWebhookEvent {
   platformPostUrl?: string;
   error?: string;
   timestamp?: string;
-  // Account event data
   socialAccountId?: string;
   socialPlatform?: string;
   accountName?: string;
+}
+
+async function verifyWebhookSignature(req: Request): Promise<{ valid: boolean; body: string }> {
+  const signature = req.headers.get("x-late-signature");
+  const secret = Deno.env.get("LATE_WEBHOOK_SECRET");
+
+  const body = await req.text();
+
+  // If no secret is configured, reject all requests
+  if (!secret) {
+    console.error("LATE_WEBHOOK_SECRET not configured — rejecting webhook");
+    return { valid: false, body };
+  }
+
+  // If no signature provided, reject
+  if (!signature) {
+    console.error("Missing x-late-signature header");
+    return { valid: false, body };
+  }
+
+  // Verify HMAC-SHA256
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
+  const expected = Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  if (signature !== expected) {
+    console.error("Invalid webhook signature");
+    return { valid: false, body };
+  }
+
+  return { valid: true, body };
 }
 
 serve(async (req: Request) => {
@@ -28,14 +67,23 @@ serve(async (req: Request) => {
   }
 
   try {
+    // Verify webhook signature before processing
+    const { valid, body } = await verifyWebhookSignature(req);
+    if (!valid) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // Parse webhook payload
-    const event: LateWebhookEvent = await req.json();
+    const event: LateWebhookEvent = JSON.parse(body);
     
-    console.log("Late webhook received:", event);
+    console.log("Late webhook received:", event.type);
 
     // Handle account events first
     if (event.type === 'account.disconnected' || event.type === 'account.expired') {
@@ -45,7 +93,6 @@ serve(async (req: Request) => {
       console.log("Account event:", event.type, { accountId, platform });
 
       if (accountId) {
-        // Find and delete/invalidate credentials with this Late account ID
         const { data: credentials, error: findError } = await supabase
           .from("client_social_credentials")
           .select("id, client_id, platform, metadata")
@@ -54,11 +101,9 @@ serve(async (req: Request) => {
         if (!findError && credentials && credentials.length > 0) {
           for (const cred of credentials) {
             if (event.type === 'account.disconnected') {
-              // Delete the credential
               console.log("Deleting credential for disconnected account:", cred.id);
               await supabase.from("client_social_credentials").delete().eq("id", cred.id);
             } else if (event.type === 'account.expired') {
-              // Mark as invalid
               console.log("Marking credential as invalid for expired account:", cred.id);
               await supabase
                 .from("client_social_credentials")
@@ -76,7 +121,6 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ 
         success: true,
         eventType: event.type,
-        accountId,
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -85,7 +129,6 @@ serve(async (req: Request) => {
 
     // For post events, postId is required
     if (!event.postId) {
-      // Not necessarily an error - could be an account event we don't handle
       console.log("No postId in event, skipping:", event.type);
       return new Response(JSON.stringify({ success: true, message: "Event skipped - no postId" }), {
         status: 200,
@@ -102,7 +145,6 @@ serve(async (req: Request) => {
 
     if (findError || !planningItem) {
       console.log("Planning item not found for postId:", event.postId);
-      // Not an error - might be a post created outside our system
       return new Response(JSON.stringify({ 
         success: true, 
         message: "No matching planning item found" 
@@ -112,14 +154,12 @@ serve(async (req: Request) => {
       });
     }
 
-    console.log("Found planning item:", planningItem.id, planningItem.title);
+    console.log("Found planning item:", planningItem.id);
 
     // Handle different event types
     if (event.type === 'post.published') {
-      // Update planning item to published status
       const existingMetadata = (planningItem.metadata as Record<string, unknown>) || {};
       
-      // Find the published column for this workspace
       let publishedColumnId = planningItem.column_id;
       if (planningItem.workspace_id) {
         const { data: publishedColumn } = await supabase
@@ -193,7 +233,6 @@ serve(async (req: Request) => {
       console.log("Planning item updated to published:", planningItem.id);
 
     } else if (event.type === 'post.failed') {
-      // Update planning item to failed status
       const { error: updateError } = await supabase
         .from("planning_items")
         .update({
@@ -211,7 +250,6 @@ serve(async (req: Request) => {
       console.log("Planning item marked as failed:", planningItem.id);
 
     } else if (event.type === 'post.scheduled') {
-      // Confirm that post was scheduled successfully
       const existingMetadata = (planningItem.metadata as Record<string, unknown>) || {};
       
       const { error: updateError } = await supabase
@@ -237,7 +275,6 @@ serve(async (req: Request) => {
 
     return new Response(JSON.stringify({ 
       success: true,
-      planningItemId: planningItem.id,
       eventType: event.type,
     }), {
       status: 200,
@@ -246,9 +283,7 @@ serve(async (req: Request) => {
 
   } catch (error) {
     console.error("Erro em late-webhook:", error);
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : "Erro desconhecido" 
-    }), {
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
