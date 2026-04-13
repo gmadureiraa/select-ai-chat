@@ -352,7 +352,7 @@ export function CalendarView({
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   return (
-    <div className="h-full flex flex-col gap-3">
+    <div className="h-full flex flex-col gap-3 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-3">
@@ -419,7 +419,7 @@ export function CalendarView({
       </div>
 
       {/* Calendar Grid */}
-      <div className="flex-1 border border-border/50 rounded-xl overflow-hidden bg-card/50 backdrop-blur-sm">
+      <div className="flex-1 border border-border/50 rounded-xl overflow-auto bg-card/50 backdrop-blur-sm min-h-0">
         {/* Week Header */}
         <div className="grid grid-cols-7 border-b border-border/50 bg-muted/30">
           {weekDays.map((day, i) => (
@@ -436,7 +436,7 @@ export function CalendarView({
         </div>
 
         {/* Days Grid */}
-        <div className="grid grid-cols-7 flex-1" style={{ gridAutoRows: 'minmax(140px, 1fr)' }}>
+        <div className="grid grid-cols-7" style={{ gridAutoRows: 'minmax(140px, auto)' }}>
           {days.map((day, i) => {
             const dayItems = getItemsForDay(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
