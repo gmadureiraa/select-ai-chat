@@ -352,7 +352,7 @@ export function CalendarView({
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   return (
-    <div className="h-full flex flex-col gap-3 overflow-hidden">
+    <div className="h-full min-h-0 flex flex-col gap-3 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-3">
@@ -494,8 +494,8 @@ export function CalendarView({
                 {/* Items */}
                 <div className={cn(
                   "space-y-0.5",
-                  expandedDay === format(day, 'yyyy-MM-dd') ? "overflow-y-auto" : "overflow-hidden"
-                )} style={{ maxHeight: expandedDay === format(day, 'yyyy-MM-dd') ? 'calc(100% - 24px)' : 'calc(100% - 24px)' }}>
+                  expandedDay === format(day, 'yyyy-MM-dd') ? "overflow-visible" : "overflow-hidden"
+                )}>
                   {(expandedDay === format(day, 'yyyy-MM-dd') ? dayItems : dayItems.slice(0, 3)).map(item => (
                     <CalendarCard
                       key={item.id}
