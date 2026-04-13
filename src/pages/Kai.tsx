@@ -167,7 +167,7 @@ export default function Kai() {
     // Planning tab - available for all users, publishing is Enterprise only
     if (tab === "planning") {
       return (
-        <div className={cn("h-full overflow-hidden", isMobile ? "p-2" : "p-6")}>
+        <div className={cn("h-full min-h-0 overflow-hidden", isMobile ? "p-2" : "p-6")}>
           <PlanningBoard 
             clientId={selectedClient?.id} 
             isEnterprise={true}
@@ -263,7 +263,7 @@ export default function Kai() {
       )}
 
       <main className={cn(
-        "flex-1 overflow-hidden",
+        "flex-1 min-h-0 overflow-hidden",
         isMobile && "pt-14" // Space for mobile header
       )}>
         {renderContent()}
