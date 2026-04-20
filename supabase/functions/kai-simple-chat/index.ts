@@ -1027,22 +1027,44 @@ async function performWebSearch(query: string, authHeader: string): Promise<stri
 // ============================================
 
 async function generateImage(prompt: string, clientName: string): Promise<{ imageData?: string; text?: string; error?: string }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return { error: "Chave de API não configurada" };
+  const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+  if (!GOOGLE_API_KEY) return { error: "GOOGLE_AI_STUDIO_API_KEY não configurada" };
   try {
     const enhancedPrompt = `Create a professional, high-quality image for ${clientName}. The image should be: ${prompt} Style: Modern, clean, professional. No text or watermarks.`;
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-2.5-flash-image", messages: [{ role: "user", content: enhancedPrompt }], modalities: ["image", "text"] }),
-    });
-    if (!response.ok) return { error: "Erro ao gerar imagem. Tente novamente." };
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: enhancedPrompt }] }],
+          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+        }),
+      }
+    );
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("[kai-simple-chat] Gemini image error:", response.status, errText);
+      return { error: "Erro ao gerar imagem. Tente novamente." };
+    }
     const data = await response.json();
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    const text = data.choices?.[0]?.message?.content || "Imagem gerada! 🎨";
-    if (!imageUrl) return { error: "Não foi possível gerar a imagem." };
-    return { imageData: imageUrl, text };
-  } catch { return { error: "Erro ao gerar imagem. Tente novamente." }; }
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    let imageData: string | undefined;
+    let text = "";
+    for (const p of parts) {
+      if (p.inlineData?.data) {
+        const mime = p.inlineData.mimeType || "image/png";
+        imageData = `data:${mime};base64,${p.inlineData.data}`;
+      } else if (p.text) {
+        text += p.text;
+      }
+    }
+    if (!imageData) return { error: "Não foi possível gerar a imagem." };
+    return { imageData, text: text || "Imagem gerada! 🎨" };
+  } catch (e) {
+    console.error("[kai-simple-chat] Image gen exception:", e);
+    return { error: "Erro ao gerar imagem. Tente novamente." };
+  }
 }
 
 // ============================================
