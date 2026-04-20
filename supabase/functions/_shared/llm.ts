@@ -235,6 +235,9 @@ async function callGemini(
       const inputTokens = result?.usageMetadata?.promptTokenCount || 0;
       const outputTokens = result?.usageMetadata?.candidatesTokenCount || 0;
 
+      // Auto-log usage when context provided
+      await logUsageSafe(options.usageContext, model, inputTokens, outputTokens);
+
       return {
         content,
         tokens: inputTokens + outputTokens,
