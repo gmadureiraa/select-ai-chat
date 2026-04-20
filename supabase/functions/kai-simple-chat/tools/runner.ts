@@ -44,9 +44,18 @@ export interface GeminiStreamResponse {
 
 export interface RunToolLoopOptions {
   apiKey: string;
-  model: string; // "gemini-2.5-flash" ou "gemini-2.5-pro"
+  /** Modelo default (usado na primeira iteração). Ex: "gemini-2.5-flash". */
+  model: string;
+  /**
+   * Modelo para iterações com multi-tool orchestration (F5).
+   * Ex: "gemini-2.5-pro". Ativado automaticamente se:
+   *   - houve 2+ tool_calls em iterações anteriores OU
+   *   - o usuário explicitamente pediu múltiplas ações em 1 turno
+   * Se omitido, usa o mesmo `model` em todas as iterações.
+   */
+  orchestratorModel?: string;
   systemInstruction: string;
-  contents: GeminiContent[]; // histórico + mensagem atual
+  contents: GeminiContent[];
   registry: ToolRegistry;
   emit: KAIStreamEmitter;
   ctx: ToolExecutionContext;
@@ -55,6 +64,20 @@ export interface RunToolLoopOptions {
 }
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+
+/**
+ * Heurística pra decidir quando usar o orchestratorModel (F5).
+ * Upgrade pra Pro a partir da 2ª chamada consecutiva de tools, que é
+ * onde a latência extra compensa pela qualidade do raciocínio
+ * multi-step ("cria 3 posts E agenda 1 por dia" tipo).
+ */
+function shouldUseOrchestrator(
+  toolCallsSoFar: number,
+  orchestratorModel?: string,
+): boolean {
+  if (!orchestratorModel) return false;
+  return toolCallsSoFar >= 2;
+}
 
 /**
  * Roda um turno inteiro de conversa com tool-calling habilitado.
@@ -67,6 +90,7 @@ export async function runToolLoop(
   const {
     apiKey,
     model,
+    orchestratorModel,
     systemInstruction,
     contents,
     registry,
@@ -81,7 +105,16 @@ export async function runToolLoop(
   let finalText = "";
 
   for (let iter = 0; iter < maxIterations; iter++) {
-    const url = `${GEMINI_API_BASE}/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
+    const activeModel =
+      shouldUseOrchestrator(executedTools.length, orchestratorModel) && orchestratorModel
+        ? orchestratorModel
+        : model;
+    if (activeModel !== model && iter > 0) {
+      console.log(
+        `[runToolLoop] upgrade pra orchestrator model (${activeModel}) na iter ${iter} após ${executedTools.length} tool calls`,
+      );
+    }
+    const url = `${GEMINI_API_BASE}/${activeModel}:streamGenerateContent?key=${apiKey}&alt=sse`;
     const body = {
       contents: workingContents,
       systemInstruction: { parts: [{ text: systemInstruction }] },

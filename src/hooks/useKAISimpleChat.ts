@@ -30,6 +30,12 @@ interface UseKAISimpleChatOptions {
   useTools?: boolean;
 }
 
+/** Shape que o front envia pra executar uma tool direto (clique em card). */
+export interface ForceToolCall {
+  name: string;
+  args: Record<string, unknown>;
+}
+
 export function useKAISimpleChat({
   clientId,
   conversationId: externalConversationId,
@@ -161,7 +167,11 @@ export function useKAISimpleChat({
   const sendMessage = useCallback(async (
     content: string,
     citations?: SimpleCitation[],
-    imageUrls?: string[]
+    imageUrls?: string[],
+    /** F5/UX — se o user clicou num botão de ActionCard (ex: "Aprovar e
+        publicar"), o front passa a tool_call desejada. O edge injeta uma
+        system nudge pro LLM chamar exatamente essa tool. */
+    forceTool?: ForceToolCall,
   ) => {
     if (!content.trim() && (!imageUrls || imageUrls.length === 0)) return;
     if (!clientId) {
@@ -242,6 +252,8 @@ export function useKAISimpleChat({
             })),
             // F0.3b — flag de tool-calling mode
             useTools,
+            // F5 — dirigir o LLM a chamar uma tool específica (clique em card)
+            forceTool,
           }),
           signal: abortControllerRef.current.signal,
         }

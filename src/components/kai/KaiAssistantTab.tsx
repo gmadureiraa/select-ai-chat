@@ -36,6 +36,23 @@ interface KaiAssistantTabProps {
   client: Client;
 }
 
+/** Gera uma mensagem human-readable que vai pro histórico quando o user
+ *  clica num botão de ActionCard. Substitui o "comando" pra não poluir
+ *  a conversa com JSON de tool-call. */
+function actionLabelForDisplay(actionId: string, toolName: string): string {
+  const map: Record<string, string> = {
+    approve_publish: "Aprovar e publicar agora.",
+    approve: "Aprovar.",
+    publish: "Publicar agora.",
+    schedule: "Agendar essa publicação.",
+    cancel: "Cancelar esse agendamento.",
+    regenerate: "Refazer — gera outra versão.",
+    edit: "Editar esse rascunho.",
+    connect: "Conectar conta.",
+  };
+  return map[actionId] ?? `Executar ${toolName}.`;
+}
+
 export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -182,7 +199,14 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   }, [scrollToBottom]);
 
   // Send handler — maps mode + citations to the simple chat backend
-  const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: ChatMode, citations?: Citation[]) => {
+  const handleSend = async (
+    content: string,
+    images?: string[],
+    quality?: "fast" | "high",
+    mode?: ChatMode,
+    citations?: Citation[],
+    forceTool?: { name: string; args: Record<string, unknown> },
+  ) => {
     if (!content.trim() && (!images || images.length === 0)) return;
     
     const effectiveMode = mode || chatMode;
@@ -233,7 +257,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
       title: c.title,
     }));
     
-    await baseSendMessage(content, simpleCitations, images);
+    await baseSendMessage(content, simpleCitations, images, forceTool);
   };
 
   // Clear history
@@ -362,12 +386,24 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                     hasPlanningAccess={hasPlanningAccess}
                     actionCards={message.actionCards}
                     onActionCardClick={(cardId, actionId, toolCall) => {
-                      // Handler stub — F1 vai plugar aqui o re-call pro edge
-                      // pra executar a tool do botão (publishNow, scheduleFor,
-                      // etc). Por ora, só log.
                       console.log("[KAI] action card click:", { cardId, actionId, toolCall });
+                      if (toolCall?.name) {
+                        // F5 — envia sendMessage com forceTool; o edge
+                        // injeta nudge pro LLM chamar essa tool direto.
+                        // Mensagem human-readable pro histórico fica natural.
+                        const humanMsg = actionLabelForDisplay(actionId, toolCall.name);
+                        void handleSend(humanMsg, undefined, undefined, undefined, undefined, toolCall);
+                        return;
+                      }
+                      if (actionId === "edit") {
+                        toast({
+                          title: "Editar",
+                          description: "Edição inline chegará em breve — por ora use o planning dialog.",
+                        });
+                        return;
+                      }
                       toast({
-                        title: "Ação recebida",
+                        title: "Ação",
                         description: `${actionId} no card ${cardId.slice(0, 8)}`,
                       });
                     }}

@@ -1529,6 +1529,9 @@ serve(async (req) => {
       /** Flag experimental (F0.3b) — quando true, usa Gemini function calling
           com o ToolRegistry em vez do intent detection por regex. */
       useTools?: boolean;
+      /** F5/UX — força o LLM a chamar essa tool assim que iniciar (user
+          clicou num botão de ActionCard). Nudge injetado no prompt. */
+      forceTool?: { name: string; args: Record<string, unknown> };
     };
 
     // Validate auth - support internal service auth for Telegram bot
@@ -1982,6 +1985,17 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
     // O frontend ativa passando ?tools=1 na URL → hook envia useTools:true.
     if (body.useTools && shouldStream) {
       console.log("[kai-simple-chat] 🔧 tool-calling mode ON — using runToolLoop");
+
+      // F5 — nudge de forceTool: se o front passou uma tool específica
+      // (clique em botão de ActionCard), injeta uma instrução final no
+      // systemInstruction falando "execute essa tool exatamente"
+      if (body.forceTool?.name) {
+        const argsJson = JSON.stringify(body.forceTool.args ?? {}, null, 2);
+        systemInstructionText += `\n\n⚙️ AÇÃO DIRETA DO USUÁRIO: chame imediatamente a ferramenta \`${body.forceTool.name}\` com os argumentos exatos abaixo, sem pedir confirmação (o usuário já confirmou clicando no botão):\n${argsJson}\n\nApós executar, dê um breve feedback em texto (1 frase) do que foi feito.`;
+        console.log(
+          `[kai-simple-chat] 🔧 forceTool ativo: ${body.forceTool.name} args=${argsJson.slice(0, 200)}`,
+        );
+      }
       const [
         { ToolRegistry, runToolLoop },
         { createKAIEmitter },
@@ -2029,7 +2043,11 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
           try {
             const { finalText, toolCalls } = await runToolLoop({
               apiKey: GOOGLE_API_KEY,
-              model: geminiModel,
+              model: geminiModel, // "gemini-2.5-flash" — turno inicial
+              // F5 — multi-step orchestration: a partir da 2ª tool call
+              // consecutiva, upgrade pra Pro pra raciocínio multi-step
+              // melhor (ex: "cria 3 posts e agenda 1 por dia").
+              orchestratorModel: "gemini-2.5-pro",
               systemInstruction: systemInstructionText,
               contents: geminiContents,
               registry,
