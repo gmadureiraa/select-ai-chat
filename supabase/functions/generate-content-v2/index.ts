@@ -512,6 +512,22 @@ Gere o conteúdo agora:`;
       const aiData = await response.json();
       const generatedText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
+      // Log AI usage
+      if (userId) {
+        try {
+          const svcLogger = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+          const inTok = aiData?.usageMetadata?.promptTokenCount ?? estimateTokens(prompt);
+          const outTok = aiData?.usageMetadata?.candidatesTokenCount ?? estimateTokens(generatedText);
+          await logAIUsage(svcLogger, userId, modelName, "generate-content-v2", inTok, outTok, {
+            client_id: clientId,
+            format: requestedFormat,
+            platform: config.platform,
+          });
+        } catch (e) {
+          console.error("[generate-content-v2] Failed to log usage:", e);
+        }
+      }
+
       // Special handling for thread format - parse structured response
       if (config.format === 'thread') {
         try {
