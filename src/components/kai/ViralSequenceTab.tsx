@@ -99,7 +99,7 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
   };
 
   const hasAnySlideFilled = carousel.slides.some(
-    (s) => s.heading.trim() || s.body.trim(),
+    (s) => (s.heading?.trim() ?? "") !== "" || s.body.trim() !== "",
   );
 
   // Autosave (debounced pela natureza de useEffect a cada render)
@@ -235,7 +235,7 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
   };
 
   const filledCount = carousel.slides.filter(
-    (s) => s.heading.trim() || s.body.trim(),
+    (s) => (s.heading?.trim() ?? "") !== "" || s.body.trim() !== "",
   ).length;
   const imageCount = carousel.slides.filter(
     (s) => s.image.kind !== "none",
