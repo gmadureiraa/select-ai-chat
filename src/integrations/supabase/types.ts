@@ -547,6 +547,76 @@ export type Database = {
           },
         ]
       }
+      client_viral_competitors: {
+        Row: {
+          added_at: string
+          client_id: string
+          created_by: string | null
+          handle: string
+          id: string
+          notes: string | null
+          platform: string
+        }
+        Insert: {
+          added_at?: string
+          client_id: string
+          created_by?: string | null
+          handle: string
+          id?: string
+          notes?: string | null
+          platform: string
+        }
+        Update: {
+          added_at?: string
+          client_id?: string
+          created_by?: string | null
+          handle?: string
+          id?: string
+          notes?: string | null
+          platform?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_viral_competitors_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_viral_keywords: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          keyword: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          keyword: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          keyword?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_viral_keywords_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_visual_references: {
         Row: {
           client_id: string
@@ -3458,6 +3528,69 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      viral_carousels: {
+        Row: {
+          briefing: string | null
+          client_id: string
+          created_at: string
+          id: string
+          profile: Json
+          slides: Json
+          status: string
+          template: string
+          title: string
+          tone: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          briefing?: string | null
+          client_id: string
+          created_at?: string
+          id?: string
+          profile?: Json
+          slides?: Json
+          status?: string
+          template?: string
+          title?: string
+          tone?: string | null
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          briefing?: string | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          profile?: Json
+          slides?: Json
+          status?: string
+          template?: string
+          title?: string
+          tone?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viral_carousels_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "viral_carousels_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workspace_access_requests: {
         Row: {
