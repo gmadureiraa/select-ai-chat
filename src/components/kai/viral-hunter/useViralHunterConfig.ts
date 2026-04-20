@@ -31,8 +31,8 @@ async function fetchConfig(clientId: string): Promise<ViralHunterConfig> {
   return {
     keywords: (kws ?? []).map((r) => r.keyword as string),
     competitors: (comps ?? []).map(
-      (r): Competitor => ({
-        platform: r.platform as Competitor["platform"],
+      (r): CompetitorEntry => ({
+        platform: r.platform as CompetitorEntry["platform"],
         handle: r.handle as string,
         notes: (r.notes ?? undefined) as string | undefined,
         addedAt: (r.added_at ?? new Date().toISOString()) as string,
@@ -80,16 +80,16 @@ export function useViralHunterConfig(clientId: string) {
       }
 
       // ---- Competitors ----
-      const compKey = (c: Pick<Competitor, "platform" | "handle">) =>
+      const compKey = (c: Pick<CompetitorEntry, "platform" | "handle">) =>
         `${c.platform}::${c.handle.toLowerCase()}`;
       const currentMap = new Map(current.competitors.map((c) => [compKey(c), c]));
       const nextMap = new Map(next.competitors.map((c) => [compKey(c), c]));
 
-      const compToInsert: Competitor[] = [];
+      const compToInsert: CompetitorEntry[] = [];
       for (const [k, c] of nextMap) {
         if (!currentMap.has(k)) compToInsert.push(c);
       }
-      const compToDelete: Competitor[] = [];
+      const compToDelete: CompetitorEntry[] = [];
       for (const [k, c] of currentMap) {
         if (!nextMap.has(k)) compToDelete.push(c);
       }
