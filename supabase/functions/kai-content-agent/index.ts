@@ -231,21 +231,29 @@ serve(async (req) => {
     }
 
     // Transform Gemini SSE format to OpenAI-compatible format
+    let capturedInputTokens = 0;
+    let capturedOutputTokens = 0;
+    let accumulatedText = "";
     const transformStream = new TransformStream({
       transform(chunk, controller) {
         const text = new TextDecoder().decode(chunk);
         const lines = text.split("\n");
-        
+
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             try {
               const data = JSON.parse(line.slice(6));
               const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
               if (content) {
+                accumulatedText += content;
                 const openAIFormat = {
                   choices: [{ delta: { content } }]
                 };
                 controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+              }
+              if (data.usageMetadata) {
+                capturedInputTokens = data.usageMetadata.promptTokenCount ?? capturedInputTokens;
+                capturedOutputTokens = data.usageMetadata.candidatesTokenCount ?? capturedOutputTokens;
               }
             } catch {
               // Skip invalid JSON lines
@@ -253,8 +261,23 @@ serve(async (req) => {
           }
         }
       },
-      flush(controller) {
+      async flush(controller) {
         controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+        // Log AI usage at end of stream
+        if (userId) {
+          try {
+            const inTok = capturedInputTokens || estimateTokens(fullSystemPrompt + (userRequest || ""));
+            const outTok = capturedOutputTokens || estimateTokens(accumulatedText);
+            await logAIUsage(supabaseService, userId!, modelName, "kai-content-agent", inTok, outTok, {
+              client_id: clientId,
+              format: normalizedFormat,
+              platform,
+              streaming: true,
+            });
+          } catch (e) {
+            console.error("[kai-content-agent] Failed to log usage:", e);
+          }
+        }
       }
     });
 
