@@ -28,6 +28,21 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // Resolve userId from auth header (best-effort) for usage logging
+    let userId: string | null = null;
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      try {
+        const sbAuth = createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data: { user } } = await sbAuth.auth.getUser();
+        userId = user?.id ?? null;
+      } catch (_) { /* ignore */ }
+    }
+    const supabaseService = createClient(supabaseUrl, supabaseKey);
 
     const requestBody = await req.json() as ContentRequest & { stream?: boolean; message?: string };
     const { clientId, request, format, platform, workspaceId, conversationHistory, includePerformanceContext = true, stream = true, message, additionalMaterial } = requestBody;
@@ -39,6 +54,24 @@ serve(async (req) => {
         JSON.stringify({ error: "clientId é obrigatório" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Fallback: derive userId from client owner if no JWT present
+    if (!userId && clientId) {
+      const { data: clientRow } = await supabaseService
+        .from("clients")
+        .select("user_id, created_by, workspace_id")
+        .eq("id", clientId)
+        .maybeSingle();
+      userId = clientRow?.user_id || clientRow?.created_by || null;
+      if (!userId && clientRow?.workspace_id) {
+        const { data: ws } = await supabaseService
+          .from("workspaces")
+          .select("owner_id")
+          .eq("id", clientRow.workspace_id)
+          .maybeSingle();
+        userId = ws?.owner_id || null;
+      }
     }
 
     // ===================================================
