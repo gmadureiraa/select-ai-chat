@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Trash2, Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -241,6 +242,23 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
       description: "As mensagens foram removidas.",
     });
   };
+
+  // Auto-send prompt from query param (ex: vindo do Viral Hunter com ?prompt=…)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoPromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prompt = searchParams.get("prompt");
+    if (!prompt || isLoading) return;
+    if (autoPromptRef.current === prompt) return;
+    autoPromptRef.current = prompt;
+    // Limpa o query param pra não reenviar em refresh
+    const next = new URLSearchParams(searchParams);
+    next.delete("prompt");
+    setSearchParams(next, { replace: true });
+    // Envia como se o user tivesse digitado
+    handleSend(prompt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get("prompt"), isLoading]);
 
   return (
     <div className="flex h-[calc(100vh-140px)] relative">

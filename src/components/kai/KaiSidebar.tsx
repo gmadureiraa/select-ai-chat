@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { 
-  BarChart3, 
+import {
+  BarChart3,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -14,6 +14,7 @@ import {
   Lock,
   MessageSquare,
   Home,
+  Flame,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
 import { cn } from "@/lib/utils";
@@ -318,6 +319,18 @@ export function KaiSidebar({
           active={activeTab === "library"}
           onClick={() => onTabChange("library")}
           collapsed={collapsed}
+        />
+
+        {/* Viral Hunter — posts de maior engajamento do cliente como
+            inspiração pro KAI. Precisa do mesmo acesso do assistant. */}
+        <NavItem
+          icon={<Flame className="h-4 w-4" strokeWidth={1.5} />}
+          label="Viral Hunter"
+          active={activeTab === "viral"}
+          onClick={() => canUseAssistant ? onTabChange("viral") : showPermissionMessage()}
+          collapsed={collapsed}
+          disabled={!canUseAssistant}
+          showLock={!canUseAssistant}
         />
 
         {/* Automações - Dev e admins do workspace */}

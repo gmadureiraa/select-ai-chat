@@ -7,6 +7,7 @@ import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
 import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 import { KaiAnalyticsTab } from "@/components/kai/KaiAnalyticsTab";
+import { ViralHunterTab } from "@/components/kai/ViralHunterTab";
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
 import { SettingsTab } from "@/components/settings/SettingsTab";
@@ -165,6 +166,31 @@ export default function Kai() {
             <div className="flex items-center justify-center h-full">
               <div className="text-center text-muted-foreground">
                 <p>Selecione um cliente para usar o chat</p>
+              </div>
+            </div>
+          );
+        case "viral":
+          return selectedClient ? (
+            <div className="h-full overflow-hidden">
+              <ViralHunterTab
+                key={selectedClient.id}
+                clientId={selectedClient.id}
+                client={selectedClient}
+                onUseAsInspiration={(prompt) => {
+                  // Leva o user pro chat com o prompt pré-preenchido via URL.
+                  // O chat lê ?prompt= no mount e envia automaticamente.
+                  setSearchParams({
+                    client: selectedClient.id,
+                    tab: "assistant",
+                    prompt,
+                  });
+                }}
+              />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-muted-foreground">
+                <p>Selecione um cliente para ver posts virais</p>
               </div>
             </div>
           );
