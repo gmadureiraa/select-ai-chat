@@ -1522,7 +1522,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const body = await req.json() as RequestBody & { internalServiceAuth?: boolean; userId?: string; stream?: boolean };
+    const body = await req.json() as RequestBody & {
+      internalServiceAuth?: boolean;
+      userId?: string;
+      stream?: boolean;
+      /** Flag experimental (F0.3b) — quando true, usa Gemini function calling
+          com o ToolRegistry em vez do intent detection por regex. */
+      useTools?: boolean;
+    };
 
     // Validate auth - support internal service auth for Telegram bot
     const authHeader = req.headers.get("Authorization");
@@ -1966,6 +1973,81 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
     }
 
     const geminiModel = "gemini-2.5-flash";
+
+    // ═══════════════════════════════════════════════════════════════════
+    // F0.3b — TOOL CALLING MODE (experimental)
+    // ═══════════════════════════════════════════════════════════════════
+    // Quando body.useTools=true e shouldStream=true, usa o runToolLoop com
+    // Gemini function calling nativo em vez do fluxo regex/intent atual.
+    // O frontend ativa passando ?tools=1 na URL → hook envia useTools:true.
+    if (body.useTools && shouldStream) {
+      console.log("[kai-simple-chat] 🔧 tool-calling mode ON — using runToolLoop");
+      const [{ ToolRegistry, runToolLoop }, { createKAIEmitter }, { echoTool }] =
+        await Promise.all([
+          import("./tools/index.ts"),
+          import("../_shared/kai-stream.ts"),
+          import("./tools/echo.ts"),
+        ]);
+
+      const registry = new ToolRegistry();
+      registry.register(echoTool);
+
+      const stream = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          const emit = createKAIEmitter(controller, encoder);
+          try {
+            const { finalText, toolCalls } = await runToolLoop({
+              apiKey: GOOGLE_API_KEY,
+              model: geminiModel,
+              systemInstruction: systemInstructionText,
+              contents: geminiContents,
+              registry,
+              emit,
+              ctx: {
+                supabase,
+                clientId,
+                userId,
+                conversationId: body.conversationId,
+                emit,
+                accessToken: authHeader?.replace("Bearer ", "") ?? "",
+                supabaseUrl: Deno.env.get("SUPABASE_URL") ?? "",
+              },
+            });
+            console.log(
+              `[kai-simple-chat] 🔧 tool-loop done — ${toolCalls.length} tool calls, ${finalText.length} chars de texto`,
+            );
+            const inputTokens = estimateTokens(JSON.stringify(geminiContents));
+            const outputTokens = estimateTokens(finalText);
+            logAIUsage(
+              supabase,
+              userId,
+              `google/${geminiModel}`,
+              "kai-simple-chat-tools",
+              inputTokens,
+              outputTokens,
+              { client_id: clientId, tool_calls: toolCalls.length },
+            ).catch(() => {});
+          } catch (err) {
+            console.error("[kai-simple-chat] runToolLoop error:", err);
+            emit.error(err instanceof Error ? err.message : String(err));
+          } finally {
+            emit.done();
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    }
+
     const geminiEndpoint = shouldStream ? "streamGenerateContent" : "generateContent";
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:${geminiEndpoint}?key=${GOOGLE_API_KEY}${shouldStream ? "&alt=sse" : ""}`;
 

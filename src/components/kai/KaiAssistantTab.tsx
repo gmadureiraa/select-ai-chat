@@ -91,9 +91,11 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   } = useKAISimpleChat({
     clientId,
     conversationId: latestConversationId ?? null,
+    // F0.3b — feature flag ativada via URL `?tools=1`. Quando true, o edge
+    // usa Gemini function calling nativo com o ToolRegistry em vez do
+    // intent detection por regex. Seguro pra rollout gradual.
+    useTools: new URLSearchParams(window.location.search).get("tools") === "1",
     onConversationCreated: (id) => {
-      // quando uma nova conversa é criada (primeiro envio), invalida a
-      // query pra próxima montagem do componente achar essa como a mais recente.
       queryClient.invalidateQueries({
         queryKey: ["kai-latest-conversation", clientId],
       });
@@ -358,6 +360,17 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                     disableAutoPostDetection={true}
                     onUseContent={handleUseContent}
                     hasPlanningAccess={hasPlanningAccess}
+                    actionCards={message.actionCards}
+                    onActionCardClick={(cardId, actionId, toolCall) => {
+                      // Handler stub — F1 vai plugar aqui o re-call pro edge
+                      // pra executar a tool do botão (publishNow, scheduleFor,
+                      // etc). Por ora, só log.
+                      console.log("[KAI] action card click:", { cardId, actionId, toolCall });
+                      toast({
+                        title: "Ação recebida",
+                        description: `${actionId} no card ${cardId.slice(0, 8)}`,
+                      });
+                    }}
                   />
                 ))}
 
