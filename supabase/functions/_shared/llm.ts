@@ -654,7 +654,8 @@ async function streamOpenAI(
  */
 export async function callLLMWithGrounding(
   query: string,
-  systemContext?: string
+  systemContext?: string,
+  usageContext?: LLMUsageContext
 ): Promise<{ content: string; sources: string[]; tokens: number }> {
   const apiKey = getGoogleApiKey();
   if (!apiKey) {
