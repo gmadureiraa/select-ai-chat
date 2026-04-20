@@ -21,6 +21,10 @@ import {
   Sparkles,
   Search,
   TrendingUp,
+  BookmarkPlus,
+  Zap,
+  Award,
+  CalendarRange,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,12 +96,22 @@ function daysAgo(dateStr: string | null): string {
   return `${Math.floor(diff / 30)}mes atrás`;
 }
 
+type PeriodFilter = "all" | "30" | "90" | "180";
+
+const periodLabels: Record<PeriodFilter, string> = {
+  all: "Todo período",
+  "30": "Últimos 30d",
+  "90": "Últimos 90d",
+  "180": "Últimos 6m",
+};
+
 export const ViralHunterTab = ({
   clientId,
   client,
   onUseAsInspiration,
 }: ViralHunterTabProps) => {
   const [platformFilter, setPlatformFilter] = useState<Platform | "all">("all");
+  const [period, setPeriod] = useState<PeriodFilter>("all");
   const [search, setSearch] = useState("");
 
   const { data: posts = [], isLoading, isFetching, refetch } = useQuery({
@@ -216,15 +230,60 @@ export const ViralHunterTab = ({
   });
 
   const filtered = useMemo(() => {
+    const cutoff = period === "all"
+      ? null
+      : new Date(Date.now() - parseInt(period, 10) * 24 * 60 * 60 * 1000);
     return posts.filter((p) => {
       if (platformFilter !== "all" && p.platform !== platformFilter) return false;
+      if (cutoff && p.posted_at) {
+        if (new Date(p.posted_at) < cutoff) return false;
+      }
       if (search.trim()) {
         const q = search.toLowerCase();
         if (!p.caption.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [posts, platformFilter, search]);
+  }, [posts, platformFilter, period, search]);
+
+  // Quick stats: best, média, contagem no filtro
+  const stats = useMemo(() => {
+    if (filtered.length === 0) return null;
+    const best = filtered[0]; // já ordenado por engagement desc
+    const avg = filtered.reduce((acc, p) => acc + p.engagement_rate, 0) / filtered.length;
+    const totalLikes = filtered.reduce((acc, p) => acc + p.likes, 0);
+    return { best, avg, totalLikes };
+  }, [filtered]);
+
+  const handleSaveAsReference = async (post: ViralPost) => {
+    const title = post.caption.slice(0, 80) || `Post viral ${post.platform}`;
+    const referenceType = post.platform === "instagram"
+      ? "post_com_imagem"
+      : post.platform === "linkedin"
+        ? "post_linkedin"
+        : "tweet";
+    const { error } = await supabase.from("client_reference_library").insert({
+      client_id: clientId,
+      title,
+      content: post.caption,
+      source_url: post.url ?? null,
+      reference_type: referenceType,
+      metadata: {
+        engagement_rate: post.engagement_rate,
+        likes: post.likes,
+        comments: post.comments,
+        platform: post.platform,
+        posted_at: post.posted_at,
+        source: "viral-hunter",
+      },
+    });
+    if (error) {
+      console.error("[ViralHunter] save as reference failed:", error);
+      toast.error("Não foi possível salvar como referência.");
+      return;
+    }
+    toast.success("Salvo na biblioteca de referências! ✨");
+  };
 
   const handleCopyAngle = (post: ViralPost) => {
     const prompt = buildInspirationPrompt(post, client);
@@ -276,7 +335,7 @@ export const ViralHunterTab = ({
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters row 1 — plataforma + período */}
         <div className="flex flex-wrap items-center gap-2 mt-3">
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -305,7 +364,64 @@ export const ViralHunterTab = ({
             ) : null,
           )}
         </div>
+
+        {/* Filters row 2 — período */}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <CalendarRange className="h-3.5 w-3.5 text-muted-foreground" />
+          {(Object.keys(periodLabels) as PeriodFilter[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={cn(
+                "text-xs px-2.5 py-1 rounded-full border transition-all",
+                period === p
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background hover:bg-muted border-border text-muted-foreground",
+              )}
+            >
+              {periodLabels[p]}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* Quick stats bar */}
+      {stats && (
+        <div className="border-b border-border/20 bg-muted/20 px-6 py-3">
+          <div className="flex items-center gap-6 text-xs overflow-x-auto">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-md bg-emerald-100 dark:bg-emerald-900/30">
+                <Award className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Melhor post</p>
+                <p className="font-semibold">{stats.best.engagement_rate.toFixed(1)}% eng</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-900/30">
+                <TrendingUp className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Média</p>
+                <p className="font-semibold">{stats.avg.toFixed(1)}% eng</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/30">
+                <Zap className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total de likes</p>
+                <p className="font-semibold">{stats.totalLikes.toLocaleString("pt-BR")}</p>
+              </div>
+            </div>
+            <div className="ml-auto text-muted-foreground">
+              {filtered.length} posts · ordenados por engajamento
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
@@ -325,6 +441,7 @@ export const ViralHunterTab = ({
                 post={post}
                 onUseInKai={handleUseInKai}
                 onCopyAngle={handleCopyAngle}
+                onSaveAsReference={handleSaveAsReference}
               />
             ))}
           </div>
@@ -397,9 +514,10 @@ interface ViralCardProps {
   post: ViralPost;
   onUseInKai: (post: ViralPost) => void;
   onCopyAngle: (post: ViralPost) => void;
+  onSaveAsReference: (post: ViralPost) => void;
 }
 
-function ViralCard({ post, onUseInKai, onCopyAngle }: ViralCardProps) {
+function ViralCard({ post, onUseInKai, onCopyAngle, onSaveAsReference }: ViralCardProps) {
   const cfg = platformColors[post.platform];
   return (
     <div className="bg-card border border-border/50 rounded-xl shadow-sm hover:shadow-md transition-all p-4 flex flex-col gap-3">
@@ -459,6 +577,7 @@ function ViralCard({ post, onUseInKai, onCopyAngle }: ViralCardProps) {
           size="sm"
           className="h-8 text-xs gap-1.5 flex-1 bg-orange-600 hover:bg-orange-700 text-white"
           onClick={() => onUseInKai(post)}
+          title="Criar conteúdo inspirado neste post"
         >
           <Sparkles className="h-3.5 w-3.5" />
           Usar no KAI
@@ -466,8 +585,18 @@ function ViralCard({ post, onUseInKai, onCopyAngle }: ViralCardProps) {
         <Button
           variant="outline"
           size="sm"
-          className="h-8 text-xs gap-1.5"
+          className="h-8 w-8 p-0"
+          onClick={() => onSaveAsReference(post)}
+          title="Salvar como referência"
+        >
+          <BookmarkPlus className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 w-8 p-0"
           onClick={() => onCopyAngle(post)}
+          title="Copiar prompt"
         >
           <Copy className="h-3.5 w-3.5" />
         </Button>
@@ -475,8 +604,9 @@ function ViralCard({ post, onUseInKai, onCopyAngle }: ViralCardProps) {
           <Button
             variant="outline"
             size="sm"
-            className="h-8 text-xs gap-1.5"
+            className="h-8 w-8 p-0"
             onClick={() => window.open(post.url, "_blank")}
+            title="Abrir post original"
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </Button>

@@ -114,8 +114,9 @@ export default function Kai() {
       );
     }
 
-    // Tools that don't need client
-    const toolTabs = ["clients", "settings", "automations", "assistant", "analytics", "home"];
+    // Tools that don't need client (ou que precisam mas tem fallback interno).
+    // "viral" renderiza o ViralHunterTab no switch abaixo.
+    const toolTabs = ["clients", "settings", "automations", "assistant", "analytics", "home", "viral"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
