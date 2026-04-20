@@ -331,6 +331,9 @@ async function callOpenAI(
       const inputTokens = result?.usage?.prompt_tokens || 0;
       const outputTokens = result?.usage?.completion_tokens || 0;
 
+      // Auto-log usage when context provided
+      await logUsageSafe(options.usageContext, model, inputTokens, outputTokens);
+
       return {
         content,
         tokens: inputTokens + outputTokens,
