@@ -18,8 +18,17 @@ export type ImageSource =
 export interface ViralSlide {
   id: string;
   order: number;
-  heading: string;
+  /**
+   * Texto do slide — único bloco estilo tweet (até ~280 chars).
+   * Suporta **bold** inline pra destacar trechos.
+   */
   body: string;
+  /**
+   * @deprecated Mantido pra migração de rascunhos antigos que tinham
+   * heading+body separados. Novos slides usam só `body`. O loader
+   * concatena no body se encontrar.
+   */
+  heading?: string;
   image: ImageSource;
 }
 
@@ -48,10 +57,23 @@ export function emptySlide(order: number): ViralSlide {
   return {
     id: `slide_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`,
     order,
-    heading: "",
     body: "",
     image: { kind: "none" },
   };
+}
+
+/**
+ * Migra rascunho antigo (heading + body separados) pro formato novo
+ * (só body com **bold** no início). Safe pra rodar em qualquer slide.
+ */
+export function migrateSlide(s: ViralSlide): ViralSlide {
+  if (!s.heading || !s.heading.trim()) return s;
+  const heading = s.heading.trim();
+  const body = s.body?.trim() ?? "";
+  const merged = body
+    ? `**${heading.replace(/\*\*/g, "")}**\n\n${body}`
+    : `**${heading.replace(/\*\*/g, "")}**`;
+  return { ...s, heading: undefined, body: merged };
 }
 
 export function emptyCarousel(clientId: string, profile: ViralProfile): ViralCarousel {

@@ -22,11 +22,9 @@ const BORDER = "rgba(15, 20, 25, 0.08)";
 
 const FS_NAME = 40;
 const FS_HANDLE = 30;
-const FS_HEADING = 58;
-const FS_BODY = 42;
+const FS_BODY = 52; // tweet-size: um bloco único, maior que o body antigo
 
 interface TwitterSlideProps {
-  heading: string;
   body: string;
   imageUrl?: string;
   slideNumber: number;
@@ -56,7 +54,6 @@ function renderRichText(text: string): ReactNode[] {
 export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
   function TwitterSlide(
     {
-      heading,
       body,
       imageUrl,
       slideNumber,
@@ -69,7 +66,6 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
     },
     ref,
   ) {
-    const fsHeading = FS_HEADING * textScale;
     const fsBody = FS_BODY * textScale;
 
     return (
@@ -206,36 +202,22 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
             </div>
           </div>
 
-          {/* Body */}
+          {/* Body — texto único estilo tweet com imagem grudada */}
           <div
             style={{
               flex: "1 1 0",
               display: "flex",
               flexDirection: "column",
-              gap: 28,
+              gap: 20,
               overflow: "hidden",
               minHeight: 0,
             }}
           >
-            {heading && (
-              <h2
-                style={{
-                  fontSize: fsHeading,
-                  fontWeight: 700,
-                  lineHeight: 1.2,
-                  margin: 0,
-                  letterSpacing: "-0.02em",
-                  color: FG,
-                }}
-              >
-                {renderRichText(heading)}
-              </h2>
-            )}
             {body && (
               <p
                 style={{
                   fontSize: fsBody,
-                  lineHeight: 1.4,
+                  lineHeight: 1.35,
                   color: FG,
                   margin: 0,
                   whiteSpace: "pre-line",
@@ -249,10 +231,9 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
             {imageUrl && (
               <div
                 style={{
-                  marginTop: "auto",
                   width: "100%",
                   aspectRatio: "16 / 9",
-                  borderRadius: 16,
+                  borderRadius: 20,
                   overflow: "hidden",
                   border: `1px solid ${BORDER}`,
                   background: "#F0F0F0",

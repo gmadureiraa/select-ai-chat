@@ -90,8 +90,7 @@ export function CarouselFullPreview({
 
           <div className="transition-all duration-200">
             <TwitterSlide
-              heading={current.heading || "(sem título)"}
-              body={current.body}
+              body={current.body || "(slide vazio)"}
               imageUrl={imageUrl}
               slideNumber={current.order}
               totalSlides={total}
@@ -126,7 +125,6 @@ export function CarouselFullPreview({
               title={`Slide ${s.order}`}
             >
               <TwitterSlide
-                heading={s.heading}
                 body={s.body}
                 imageUrl={s.image.kind === "none" ? undefined : s.image.url}
                 slideNumber={s.order}

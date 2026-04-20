@@ -31,28 +31,29 @@ interface GeneratedSlideRaw {
 function buildPrompt(input: GenerateCopyInput): string {
   const { briefing, tone, additionalContext } = input;
   return [
-    "Você vai gerar um carrossel de 8 slides estilo Twitter (thread que vira carrossel Instagram) sobre o tema abaixo.",
+    "Você vai gerar um carrossel de 8 slides estilo tweet sobre o tema abaixo.",
+    "Cada slide é UM tweet completo — texto livre com **palavras em negrito** pra destacar trechos-chave.",
     "",
     `TEMA/BRIEFING: ${briefing}`,
     tone ? `\nTOM: ${tone}` : "",
     additionalContext ? `\nCONTEXTO ADICIONAL:\n${additionalContext}` : "",
     "",
     "REGRAS DOS SLIDES:",
-    "- 8 slides no total.",
-    "- Slide 1 (capa): hook irresistível + promessa clara. heading curto e grande. body opcional (máx 1 frase).",
-    "- Slides 2-7: desenvolvem ideia com UM insight por slide. heading = frase-chave bold, body = 1-3 linhas explicando.",
-    "- Slide 8 (CTA): chamada pra ação (comentar, salvar, compartilhar). heading provocativo.",
-    "- Todo slide cabe num tweet: heading ≤ 80 caracteres, body ≤ 280 caracteres.",
+    "- 8 slides no total, cada um com até ~280 caracteres (pode respirar em 2-3 parágrafos curtos).",
+    "- Slide 1 (capa): hook irresistível + promessa. Pode ter uma palavra forte em **negrito**.",
+    "- Slides 2-7: UM insight por slide. Pense em tweet de thread — direto ao ponto, 1-3 frases. Destaque o termo-chave com **negrito**.",
+    "- Slide 8 (CTA): chamada clara pra ação (comentar, salvar, compartilhar, seguir).",
     "- Linguagem informal, direta, em pt-BR. Nada genérico ou corporativo.",
-    "- Pode usar **negrito** inline pra destacar uma palavra-chave por slide.",
-    "- NÃO use hashtags (é carrossel, não post).",
-    "- NÃO numere os slides no heading/body — a numeração é automática.",
+    "- Use **negrito** em 1-3 palavras por slide pra criar hierarquia visual.",
+    "- NÃO use hashtags (é carrossel, não post solto).",
+    "- NÃO numere os slides no texto — a numeração é automática.",
+    "- NÃO comece com \"Slide X:\" nem títulos separados — o texto é um bloco só.",
     "",
     "FORMATO DE SAÍDA: APENAS um array JSON válido, sem texto antes nem depois.",
-    "Cada item: { \"heading\": string, \"body\": string }",
+    "Cada item: { \"body\": string }   ← apenas o campo body, sem heading.",
     "",
     "Exemplo:",
-    '[{"heading":"Hook forte aqui","body":"Uma frase que aprofunda o hook."},{"heading":"Slide 2...","body":"..."}]',
+    '[{"body":"Ninguém te conta isso sobre **self-custody**, mas aqui vai: você não é o dono do seu Bitcoin até ter as chaves."},{"body":"**Erro 1:** manter na exchange esperando \\"ficar mais fácil\\". Exchange quebra, seu Bitcoin vai junto."}]',
     "",
     "Agora gera os 8 slides pro tema acima.",
   ].filter(Boolean).join("\n");
@@ -78,15 +79,21 @@ function normalizeSlides(raw: unknown[]): ViralSlide[] {
   const slides: ViralSlide[] = [];
   for (let i = 0; i < raw.length && i < TARGET_SLIDES; i++) {
     const item = raw[i] as GeneratedSlideRaw;
-    const heading = item.heading ?? item.title ?? "";
+    // Fallback pra rascunhos legados: se vier `heading` separado, junta
+    // no body como **bold** no começo (match ao novo formato).
     const body = item.body ?? item.text ?? item.content ?? "";
+    const heading = item.heading ?? item.title;
+    let finalBody = typeof body === "string" ? body.trim() : "";
+    if (typeof heading === "string" && heading.trim() && finalBody && !finalBody.startsWith("**")) {
+      finalBody = `**${heading.trim()}**\n\n${finalBody}`;
+    } else if (typeof heading === "string" && heading.trim() && !finalBody) {
+      finalBody = `**${heading.trim()}**`;
+    }
     slides.push({
       ...emptySlide(i + 1),
-      heading: typeof heading === "string" ? heading.trim() : "",
-      body: typeof body === "string" ? body.trim() : "",
+      body: finalBody,
     });
   }
-  // Completa até 8 slides se vier menos
   while (slides.length < TARGET_SLIDES) {
     slides.push(emptySlide(slides.length + 1));
   }

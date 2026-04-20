@@ -19,6 +19,7 @@
  */
 
 import type { ViralCarousel } from "./types";
+import { migrateSlide } from "./types";
 
 const STORAGE_KEY = "kai-viral-sequence-draft";
 
@@ -34,7 +35,13 @@ export function loadCurrentCarousel(): ViralCarousel | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as ViralCarousel;
+    const parsed = JSON.parse(raw) as ViralCarousel;
+    // Migração: rascunhos antigos com heading+body separados. Concatena
+    // heading como **bold** no começo do body.
+    if (parsed.slides) {
+      parsed.slides = parsed.slides.map(migrateSlide);
+    }
+    return parsed;
   } catch (err) {
     console.warn("[viral-sequence] loadCurrentCarousel failed:", err);
     return null;

@@ -80,7 +80,7 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
   };
 
   const handleSearch = () => {
-    const q = searchQuery.trim() || slide.heading || slide.body.slice(0, 40);
+    const q = searchQuery.trim() || slide.body.slice(0, 40);
     if (!q) {
       toast.error("Informe um termo pra buscar.");
       return;
@@ -117,7 +117,6 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
       ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
       : "bg-muted text-muted-foreground";
 
-  const headingOver = slide.heading.length > 80;
   const bodyOver = slide.body.length > 280;
 
   return (
@@ -145,8 +144,7 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
         <div className="drop-shadow-md">
           <TwitterSlide
             ref={(n: HTMLDivElement | null) => onSlideNode?.(slide.id, n)}
-            heading={slide.heading || "Seu título aqui"}
-            body={slide.body}
+            body={slide.body || "Texto do slide..."}
             imageUrl={currentImageUrl}
             slideNumber={slide.order}
             totalSlides={totalSlides}
@@ -164,25 +162,18 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
           </span>
           <span className={cn(
             "text-[10px] font-mono",
-            (headingOver || bodyOver) ? "text-destructive font-semibold" : "text-muted-foreground",
+            bodyOver ? "text-destructive font-semibold" : "text-muted-foreground",
           )}>
-            H {slide.heading.length}/80 · B {slide.body.length}/280
+            {slide.body.length}/280
           </span>
         </div>
 
         <Textarea
-          value={slide.heading}
-          onChange={(e) => onChange({ ...slide, heading: e.target.value })}
-          placeholder="Headline / frase-chave (use **bold** pra destacar)"
-          className="text-sm font-semibold resize-none min-h-[48px] max-h-[80px]"
-          rows={2}
-        />
-        <Textarea
           value={slide.body}
           onChange={(e) => onChange({ ...slide, body: e.target.value })}
-          placeholder="Corpo do slide (1-3 linhas)"
-          className="text-sm resize-none min-h-[72px] max-h-[140px]"
-          rows={3}
+          placeholder="Escreva o tweet do slide. Use **bold** pra destacar trechos."
+          className="text-sm resize-none min-h-[120px] max-h-[200px] leading-relaxed"
+          rows={5}
         />
 
         {/* Image action bar */}
@@ -196,7 +187,7 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
             icon={<Sparkles className="h-3 w-3" />}
             active={slide.image.kind === "ai"}
             onClick={() => {
-              setAiPrompt(slide.heading || slide.body.slice(0, 60));
+              setAiPrompt(slide.body.slice(0, 60));
               setAiDialogOpen(true);
             }}
           />
@@ -214,7 +205,7 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
               if (slide.image.kind === "search") {
                 handleReShuffle();
               } else {
-                setSearchQuery(slide.heading);
+                setSearchQuery(slide.body.slice(0, 60));
                 setSearchDialogOpen(true);
               }
             }}
