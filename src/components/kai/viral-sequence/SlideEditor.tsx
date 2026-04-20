@@ -50,9 +50,11 @@ interface SlideEditorProps {
   profile: ViralProfile;
   onChange: (next: ViralSlide) => void;
   onRemove?: () => void;
+  /** Callback que recebe o ref do nó do TwitterSlide — usado pra export PNG/PDF. */
+  onSlideNode?: (slideId: string, node: HTMLElement | null) => void;
 }
 
-export function SlideEditor({ slide, totalSlides, profile, onChange }: SlideEditorProps) {
+export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode }: SlideEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
@@ -142,6 +144,7 @@ export function SlideEditor({ slide, totalSlides, profile, onChange }: SlideEdit
         </span>
         <div className="drop-shadow-md">
           <TwitterSlide
+            ref={(n: HTMLDivElement | null) => onSlideNode?.(slide.id, n)}
             heading={slide.heading || "Seu título aqui"}
             body={slide.body}
             imageUrl={currentImageUrl}

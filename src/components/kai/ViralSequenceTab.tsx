@@ -13,7 +13,7 @@
  * A camada storage.ts isola isso.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Sparkles,
   RotateCcw,
@@ -26,10 +26,18 @@ import {
   Wand2,
   Zap,
   Layers,
+  FileImage,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Client } from "@/hooks/useClients";
@@ -42,6 +50,10 @@ import {
 } from "./viral-sequence/storage";
 import { generateCarouselCopies } from "./viral-sequence/generateCopy";
 import { SlideEditor } from "./viral-sequence/SlideEditor";
+import {
+  exportCarouselAsPngs,
+  exportCarouselAsPdf,
+} from "./viral-sequence/exportCarousel";
 
 interface ViralSequenceTabProps {
   clientId: string;
@@ -73,6 +85,15 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
   const [briefing, setBriefing] = useState(carousel.briefing ?? "");
   const [tone, setTone] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Mapa de refs dos nós TwitterSlide (pra export PNG/PDF via html-to-image).
+  const slideNodesRef = useRef<Map<string, HTMLElement>>(new Map());
+
+  const registerSlideNode = (id: string, node: HTMLElement | null) => {
+    if (node) slideNodesRef.current.set(id, node);
+    else slideNodesRef.current.delete(id);
+  };
 
   // Autosave (debounced pela natureza de useEffect a cada render)
   useEffect(() => {
@@ -141,6 +162,40 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
     URL.revokeObjectURL(url);
   };
 
+  const handleExportPngs = async () => {
+    setIsExporting(true);
+    try {
+      const { ok, failed } = await exportCarouselAsPngs(carousel, slideNodesRef.current);
+      if (failed > 0) {
+        toast.warning(`${ok} PNGs exportados · ${failed} falharam (provavelmente CORS em imagens externas)`);
+      } else {
+        toast.success(`${ok} PNGs baixados! Uma imagem por slide.`);
+      }
+    } catch (err) {
+      console.error("[ViralSequence] export PNG failed:", err);
+      toast.error(`Falha: ${(err as Error).message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    setIsExporting(true);
+    try {
+      const { ok, failed } = await exportCarouselAsPdf(carousel, slideNodesRef.current);
+      if (failed > 0) {
+        toast.warning(`PDF gerado com ${ok} slides · ${failed} falharam`);
+      } else {
+        toast.success(`PDF baixado com ${ok} slides!`);
+      }
+    } catch (err) {
+      console.error("[ViralSequence] export PDF failed:", err);
+      toast.error(`Falha: ${(err as Error).message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handlePublishStub = () => {
     toast.info(
       "Publicar/Agendar: em breve — vai chamar a integração LATE (já disponível no KAI em outras áreas) direto daqui.",
@@ -195,10 +250,46 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
                   <RotateCcw className="h-3.5 w-3.5" />
                   Zerar
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleExportJson} className="gap-1.5 h-8">
-                  <Download className="h-3.5 w-3.5" />
-                  JSON
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 h-8"
+                      disabled={isExporting}
+                    >
+                      {isExporting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      Exportar
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={handleExportPngs} className="gap-2">
+                      <FileImage className="h-4 w-4" />
+                      <div>
+                        <div className="text-sm">PNGs</div>
+                        <div className="text-[10px] text-muted-foreground">Uma imagem por slide</div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportPdf} className="gap-2">
+                      <FileText className="h-4 w-4" />
+                      <div>
+                        <div className="text-sm">PDF</div>
+                        <div className="text-[10px] text-muted-foreground">Todos slides em um arquivo</div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportJson} className="gap-2">
+                      <Download className="h-4 w-4" />
+                      <div>
+                        <div className="text-sm">JSON</div>
+                        <div className="text-[10px] text-muted-foreground">Estrutura completa</div>
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button variant="outline" size="sm" onClick={handleSaveStub} className="gap-1.5 h-8">
                   <Save className="h-3.5 w-3.5" />
                   Salvar
@@ -308,6 +399,7 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
                     slide={slide}
                     totalSlides={carousel.slides.length}
                     profile={carousel.profile}
+                    onSlideNode={registerSlideNode}
                     onChange={(next) =>
                       setCarousel((c) => ({
                         ...c,
