@@ -113,6 +113,23 @@ Ao final, indique aproximadamente quantas páginas o documento possui.`,
     const geminiData = await geminiResponse.json();
     const extractedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
+    // Log AI usage
+    try {
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      let resolvedUserId = userId || user.id;
+      if (serviceKey && resolvedUserId) {
+        const svc = createClient(supabaseUrl, serviceKey);
+        const inTok = geminiData?.usageMetadata?.promptTokenCount ?? Math.ceil(docxBase64.length / 4);
+        const outTok = geminiData?.usageMetadata?.candidatesTokenCount ?? estimateTokens(extractedText);
+        await logAIUsage(svc, resolvedUserId, "gemini-2.5-flash", "extract-docx", inTok, outTok, {
+          client_id: clientId,
+          file_name: fileName,
+        });
+      }
+    } catch (e) {
+      console.error("[extract-docx] Failed to log usage:", e);
+    }
+
     // Try to extract page count from the response
     const pageCountMatch = extractedText.match(/(\d+)\s*página/i);
     const estimatedPageCount = pageCountMatch ? parseInt(pageCountMatch[1]) : Math.ceil(extractedText.length / 3000);
