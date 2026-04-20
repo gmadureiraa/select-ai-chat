@@ -1027,22 +1027,44 @@ async function performWebSearch(query: string, authHeader: string): Promise<stri
 // ============================================
 
 async function generateImage(prompt: string, clientName: string): Promise<{ imageData?: string; text?: string; error?: string }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return { error: "Chave de API não configurada" };
+  const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+  if (!GOOGLE_API_KEY) return { error: "GOOGLE_AI_STUDIO_API_KEY não configurada" };
   try {
     const enhancedPrompt = `Create a professional, high-quality image for ${clientName}. The image should be: ${prompt} Style: Modern, clean, professional. No text or watermarks.`;
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-2.5-flash-image", messages: [{ role: "user", content: enhancedPrompt }], modalities: ["image", "text"] }),
-    });
-    if (!response.ok) return { error: "Erro ao gerar imagem. Tente novamente." };
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: enhancedPrompt }] }],
+          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+        }),
+      }
+    );
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("[kai-simple-chat] Gemini image error:", response.status, errText);
+      return { error: "Erro ao gerar imagem. Tente novamente." };
+    }
     const data = await response.json();
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    const text = data.choices?.[0]?.message?.content || "Imagem gerada! 🎨";
-    if (!imageUrl) return { error: "Não foi possível gerar a imagem." };
-    return { imageData: imageUrl, text };
-  } catch { return { error: "Erro ao gerar imagem. Tente novamente." }; }
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    let imageData: string | undefined;
+    let text = "";
+    for (const p of parts) {
+      if (p.inlineData?.data) {
+        const mime = p.inlineData.mimeType || "image/png";
+        imageData = `data:${mime};base64,${p.inlineData.data}`;
+      } else if (p.text) {
+        text += p.text;
+      }
+    }
+    if (!imageData) return { error: "Não foi possível gerar a imagem." };
+    return { imageData, text: text || "Imagem gerada! 🎨" };
+  } catch (e) {
+    console.error("[kai-simple-chat] Image gen exception:", e);
+    return { error: "Erro ao gerar imagem. Tente novamente." };
+  }
 }
 
 // ============================================
@@ -1064,7 +1086,7 @@ async function generatePlanningCards(
   supabase: any, client: any, clientId: string, workspaceId: string,
   userId: string, intent: PlanningIntent, authHeader: string, userInstructions?: UserInstructions
 ): Promise<any[]> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
   
   if (!workspaceId) throw new Error("Cliente não está associado a um workspace");
   
@@ -1153,7 +1175,7 @@ async function generatePlanningCards(
     }
   }
   
-  if (LOVABLE_API_KEY && (intent.topic || urlContext || intent.analyzeFirst)) {
+  if (GOOGLE_API_KEY && (intent.topic || urlContext || intent.analyzeFirst)) {
     const platformInstructions: Record<string, string> = {
       instagram: "Posts para Instagram: hook forte, máximo 2200 chars, poucos emojis, estrutura clara",
       twitter: "Tweets: MÁXIMO 280 caracteres, ZERO emojis no corpo, ZERO hashtags, gancho forte",
@@ -1198,18 +1220,21 @@ ${platformInstructions[intent.platform || "instagram"] || ""}
 Responda APENAS com JSON: { "cards": [{ "title": "título curto", "description": "CONTEÚDO COMPLETO com tópicos detalhados" }] }`;
 
     try {
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.8, maxOutputTokens: 4096 },
+          }),
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
-        const text = data.choices?.[0]?.message?.content || "";
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
         const jsonMatch = text.match(/\{[\s\S]*"cards"[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
@@ -1398,19 +1423,26 @@ async function fetchKnowledgeContext(
   supabase: any, workspaceId: string, query: string
 ): Promise<string> {
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) return "";
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+    if (!GOOGLE_API_KEY) return "";
 
-    // Generate embedding for the query
-    const embeddingResponse = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "text-embedding-3-small", input: query, dimensions: 768 }),
-    });
+    // Generate embedding for the query (Gemini text-embedding-004 → 768 dims)
+    const embeddingResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "models/text-embedding-004",
+          content: { parts: [{ text: query }] },
+          outputDimensionality: 768,
+        }),
+      }
+    );
 
     if (!embeddingResponse.ok) return "";
     const embeddingData = await embeddingResponse.json();
-    const queryEmbedding = embeddingData.data?.[0]?.embedding;
+    const queryEmbedding = embeddingData?.embedding?.values;
     if (!queryEmbedding) return "";
 
     const { data: results, error } = await supabase.rpc("search_knowledge_semantic", {
@@ -1871,104 +1903,161 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
       hasDocs: !!docsWebsitesContext, hasLibrary: !!libraryExamplesContext,
     });
 
-    // 8. Call Lovable AI Gateway (replacing direct Google API call)
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
+    // 8. Call Google Gemini directly (native API, uses GOOGLE_AI_STUDIO_API_KEY)
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
+    if (!GOOGLE_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
+        JSON.stringify({ error: "GOOGLE_AI_STUDIO_API_KEY não configurada" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Build messages with image support
-    const gatewayMessages: any[] = [];
+    // Convert OpenAI-style messages to Gemini format
+    // - system → systemInstruction
+    // - user/assistant → contents (assistant becomes "model")
+    // - images → inlineData parts (fetched from URL and base64-encoded)
+    let systemInstructionText = "";
+    const geminiContents: any[] = [];
+
     for (const msg of apiMessages) {
+      if (msg.role === "system") {
+        systemInstructionText += (systemInstructionText ? "\n\n" : "") + msg.content;
+        continue;
+      }
+      const role = msg.role === "assistant" ? "model" : "user";
+      const parts: any[] = [];
+
+      // Attach images only on the current user message
       if (msg.role === "user" && imageUrls && imageUrls.length > 0 && msg.content === message) {
-        // Multimodal message with images
-        const contentParts: any[] = [{ type: "text", text: msg.content }];
-        for (const imageUrl of imageUrls) {
-          contentParts.push({ type: "image_url", image_url: { url: imageUrl } });
+        if (msg.content) parts.push({ text: msg.content });
+        for (const url of imageUrls) {
+          try {
+            const imgResp = await fetch(url);
+            if (!imgResp.ok) continue;
+            const mime = imgResp.headers.get("content-type") || "image/jpeg";
+            const buf = new Uint8Array(await imgResp.arrayBuffer());
+            // base64 encode
+            let binary = "";
+            for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]);
+            const b64 = btoa(binary);
+            parts.push({ inlineData: { mimeType: mime, data: b64 } });
+          } catch (e) {
+            console.error("[kai-simple-chat] Failed to fetch image:", url, e);
+          }
         }
-        gatewayMessages.push({ role: msg.role, content: contentParts });
       } else {
-        gatewayMessages.push({ role: msg.role, content: msg.content });
+        parts.push({ text: msg.content });
+      }
+
+      // Merge consecutive same-role messages (Gemini requires alternating roles)
+      if (geminiContents.length > 0 && geminiContents[geminiContents.length - 1].role === role) {
+        geminiContents[geminiContents.length - 1].parts.push(...parts);
+      } else {
+        geminiContents.push({ role, parts });
       }
     }
 
-    const gatewayResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const geminiBody: any = {
+      contents: geminiContents,
+      generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
+    };
+    if (systemInstructionText) {
+      geminiBody.systemInstruction = { parts: [{ text: systemInstructionText }] };
+    }
+
+    const geminiModel = "gemini-2.5-flash";
+    const geminiEndpoint = shouldStream ? "streamGenerateContent" : "generateContent";
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:${geminiEndpoint}?key=${GOOGLE_API_KEY}${shouldStream ? "&alt=sse" : ""}`;
+
+    const gatewayResponse = await fetch(geminiUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: gatewayMessages,
-        stream: shouldStream,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(geminiBody),
     });
 
     if (!gatewayResponse.ok) {
       const errorText = await gatewayResponse.text();
-      console.error("[kai-simple-chat] Gateway error:", gatewayResponse.status, errorText);
-      
+      console.error("[kai-simple-chat] Gemini error:", gatewayResponse.status, errorText);
+
       if (gatewayResponse.status === 429) {
         return new Response(JSON.stringify({ error: "Muitas requisições. Aguarde um momento." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      if (gatewayResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (gatewayResponse.status === 403) {
+        return new Response(JSON.stringify({ error: "Chave da API Google sem permissão ou cota esgotada." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       return new Response(JSON.stringify({ error: "Erro ao gerar resposta." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (!shouldStream) {
-      // Non-streaming mode: return full response as JSON
+      // Non-streaming mode
       const data = await gatewayResponse.json();
-      const content = data.choices?.[0]?.message?.content || "";
-      
-      // Log usage
-      const inputTokens = estimateTokens(JSON.stringify(gatewayMessages));
-      const outputTokens = estimateTokens(content);
-      logAIUsage(supabase, userId, "google/gemini-2.5-flash", "kai-simple-chat", inputTokens, outputTokens, { client_id: clientId }).catch(() => {});
-      
+      const content = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const inputTokens = data?.usageMetadata?.promptTokenCount || estimateTokens(JSON.stringify(geminiContents));
+      const outputTokens = data?.usageMetadata?.candidatesTokenCount || estimateTokens(content);
+      logAIUsage(supabase, userId, `google/${geminiModel}`, "kai-simple-chat", inputTokens, outputTokens, { client_id: clientId }).catch(() => {});
+
       return new Response(JSON.stringify({ content }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Stream response: tee the stream to log usage after completion
-    const inputTokens = estimateTokens(JSON.stringify(gatewayMessages));
+    // Stream: translate Gemini SSE → OpenAI-style SSE so frontend parser works unchanged
+    const inputTokens = estimateTokens(JSON.stringify(geminiContents));
     const reader = gatewayResponse.body!.getReader();
     const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
     let outputText = "";
+    let buffer = "";
 
     const stream = new ReadableStream({
       async pull(controller) {
         try {
           const { done, value } = await reader.read();
           if (done) {
-            controller.close();
-            // Log usage after stream completes
-            const outputTokens = estimateTokens(outputText);
-            logAIUsage(supabase, userId, "google/gemini-2.5-flash", "kai-simple-chat", inputTokens, outputTokens, { client_id: clientId }).catch(() => {});
-            return;
-          }
-          // Extract text content from SSE for token estimation
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
-          for (const line of lines) {
-            if (line.startsWith("data: ") && line !== "data: [DONE]") {
+            // Flush any remaining buffered line
+            if (buffer.trim().startsWith("data: ")) {
               try {
-                const parsed = JSON.parse(line.slice(6));
-                const delta = parsed.choices?.[0]?.delta?.content;
-                if (delta) outputText += delta;
+                const json = JSON.parse(buffer.slice(6).trim());
+                const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                  outputText += text;
+                  const sse = `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`;
+                  controller.enqueue(encoder.encode(sse));
+                }
               } catch {}
             }
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+            const outputTokens = estimateTokens(outputText);
+            logAIUsage(supabase, userId, `google/${geminiModel}`, "kai-simple-chat", inputTokens, outputTokens, { client_id: clientId }).catch(() => {});
+            return;
           }
-          controller.enqueue(value);
+
+          buffer += decoder.decode(value, { stream: true });
+          let newlineIdx: number;
+          while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, newlineIdx).trim();
+            buffer = buffer.slice(newlineIdx + 1);
+            if (!line.startsWith("data: ")) continue;
+            const payload = line.slice(6).trim();
+            if (!payload) continue;
+            try {
+              const json = JSON.parse(payload);
+              const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (text) {
+                outputText += text;
+                const sse = `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`;
+                controller.enqueue(encoder.encode(sse));
+              }
+            } catch {
+              // partial JSON — put back and wait for more
+              buffer = line + "\n" + buffer;
+              break;
+            }
+          }
         } catch (e) {
           controller.error(e);
         }
