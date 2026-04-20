@@ -29,18 +29,20 @@ export async function searchImages(
   opts: { perPage?: number; source?: "openverse" | "pexels" } = {},
 ): Promise<ImageSearchResponse> {
   const q = query.trim();
-  if (!q) return { items: [], source: "openverse" };
+  if (!q) return { items: [], source: "pexels" };
 
   const { data, error } = await supabase.functions.invoke("image-search", {
     body: {
       query: q,
       perPage: opts.perPage ?? 12,
-      source: opts.source ?? "openverse",
+      // Pexels é o default agora (qualidade fotográfica superior).
+      // Openverse fica como fallback automático no backend.
+      source: opts.source ?? "pexels",
     },
   });
   if (error) throw new Error(error.message);
   return {
     items: (data?.items ?? []) as ImageSearchResult[],
-    source: (data?.source ?? "openverse") as "openverse" | "pexels",
+    source: (data?.source ?? "pexels") as "openverse" | "pexels",
   };
 }

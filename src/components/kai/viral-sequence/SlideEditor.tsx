@@ -21,11 +21,12 @@ import {
   Search,
   Upload,
   X,
-  RefreshCw,
   ImageIcon,
   Rocket,
   Flag,
   Target,
+  Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +61,9 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
+  const [searchResults, setSearchResults] = useState<ImageSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchSource, setSearchSource] = useState<"pexels" | "openverse">("pexels");
 
   const setImage = (image: ImageSource) =>
     onChange({ ...slide, image });
@@ -79,21 +83,47 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
     reader.readAsDataURL(file);
   };
 
-  const handleSearch = () => {
-    const q = searchQuery.trim() || slide.body.slice(0, 40);
-    if (!q) {
+  const runSearch = async (q: string, source: "pexels" | "openverse" = searchSource) => {
+    if (!q.trim()) {
       toast.error("Informe um termo pra buscar.");
       return;
     }
-    const url = searchImage(q);
-    setImage({ kind: "search", query: q, url });
-    setSearchDialogOpen(false);
-    toast.success("Imagem encontrada. Clica de novo no ícone pra trocar.");
+    setSearchLoading(true);
+    try {
+      const res = await searchImages(q, { perPage: 12, source });
+      setSearchResults(res.items);
+      setSearchSource(res.source);
+      if (res.items.length === 0) {
+        toast.info("Nenhuma imagem encontrada — tente outro termo (em inglês geralmente rende mais).");
+      }
+    } catch (err) {
+      toast.error(`Falha na busca: ${(err as Error).message}`);
+    } finally {
+      setSearchLoading(false);
+    }
   };
 
-  const handleReShuffle = () => {
-    if (slide.image.kind !== "search") return;
-    setImage({ ...slide.image, url: searchImage(slide.image.query) });
+  const pickImage = (item: ImageSearchResult) => {
+    setImage({
+      kind: "search",
+      query: searchQuery.trim() || slide.body.slice(0, 40),
+      url: item.url,
+      attribution: item.attribution,
+      sourceUrl: item.sourceUrl,
+    } as ImageSource);
+    setSearchDialogOpen(false);
+    toast.success("Imagem aplicada ao slide.");
+  };
+
+  const openSearch = () => {
+    const initial = slide.body.slice(0, 60);
+    setSearchQuery(initial);
+    setSearchResults([]);
+    setSearchDialogOpen(true);
+    // Auto-busca ao abrir, se houver termo
+    if (initial.trim()) {
+      void runSearch(initial);
+    }
   };
 
   const handleAiStub = () => {
@@ -192,23 +222,10 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
             }}
           />
           <ImageButton
-            label={slide.image.kind === "search" ? "Outra" : "Buscar"}
-            icon={
-              slide.image.kind === "search" ? (
-                <RefreshCw className="h-3 w-3" />
-              ) : (
-                <Search className="h-3 w-3" />
-              )
-            }
+            label={slide.image.kind === "search" ? "Trocar" : "Buscar"}
+            icon={<Search className="h-3 w-3" />}
             active={slide.image.kind === "search"}
-            onClick={() => {
-              if (slide.image.kind === "search") {
-                handleReShuffle();
-              } else {
-                setSearchQuery(slide.body.slice(0, 60));
-                setSearchDialogOpen(true);
-              }
-            }}
+            onClick={openSearch}
           />
           <ImageButton
             label="Upload"
@@ -241,36 +258,108 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
         </div>
       </div>
 
-      {/* Dialog: buscar imagem */}
+      {/* Dialog: buscar imagem (galeria) */}
       <Dialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Buscar imagem</DialogTitle>
             <DialogDescription>
-              Busca via Unsplash — qualquer termo funciona (em inglês geralmente rende mais resultados).
+              Fonte: <strong>{searchSource === "pexels" ? "Pexels" : "Openverse (Creative Commons)"}</strong>.
+              Clica numa miniatura para aplicar ao slide. Termos em inglês geralmente rendem mais resultados.
             </DialogDescription>
           </DialogHeader>
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ex: bitcoin, laptop, sunset..."
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSearch();
-              }
-            }}
-          />
+
+          <div className="flex items-center gap-2">
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ex: bitcoin, laptop, sunset, escritorio..."
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void runSearch(searchQuery);
+                }
+              }}
+            />
+            <Button onClick={() => void runSearch(searchQuery)} disabled={!searchQuery.trim() || searchLoading}>
+              {searchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Buscar
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Fonte:</span>
+            <Button
+              size="sm"
+              variant={searchSource === "pexels" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => {
+                setSearchSource("pexels");
+                if (searchQuery.trim()) void runSearch(searchQuery, "pexels");
+              }}
+            >
+              Pexels
+            </Button>
+            <Button
+              size="sm"
+              variant={searchSource === "openverse" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => {
+                setSearchSource("openverse");
+                if (searchQuery.trim()) void runSearch(searchQuery, "openverse");
+              }}
+            >
+              Openverse (CC)
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto -mx-6 px-6 min-h-[300px]">
+            {searchLoading && (
+              <div className="flex items-center justify-center h-64 text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            )}
+            {!searchLoading && searchResults.length === 0 && (
+              <div className="flex items-center justify-center h-64 text-sm text-muted-foreground">
+                {searchQuery.trim() ? "Nenhum resultado. Tente outro termo." : "Digite um termo e clique em Buscar."}
+              </div>
+            )}
+            {!searchLoading && searchResults.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {searchResults.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => pickImage(item)}
+                    className="group relative aspect-video rounded-md overflow-hidden border border-border/40 hover:border-primary hover:ring-2 hover:ring-primary/40 transition-all bg-muted"
+                    title={item.attribution}
+                  >
+                    <img
+                      src={item.thumbnail}
+                      alt={item.attribution}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="text-[10px] text-white truncate flex items-center gap-1">
+                        <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                        {item.attribution || "Sem atribuição"}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
             <Button variant="ghost" onClick={() => setSearchDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSearch} disabled={!searchQuery.trim()}>
-              Buscar
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
       {/* Dialog: IA (stub) */}
       <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
