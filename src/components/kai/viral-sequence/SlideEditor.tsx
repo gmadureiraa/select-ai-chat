@@ -42,7 +42,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { ViralSlide, ViralProfile, ImageSource } from "./types";
 import { TwitterSlide } from "./TwitterSlide";
-import { searchImage } from "./imageSearch";
+import { searchImages, type ImageSearchResult } from "./imageSearch";
 
 interface SlideEditorProps {
   slide: ViralSlide;

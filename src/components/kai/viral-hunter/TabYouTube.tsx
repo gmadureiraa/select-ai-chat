@@ -3,7 +3,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { useYouTubeSearch, getYoutubeApiKey } from "./useYouTubeSearch";
+import { useYouTubeSearch } from "./useYouTubeSearch";
 import { KeywordsChips } from "./KeywordsChips";
 import { useViralHunterConfig } from "./useViralHunterConfig";
 import {
@@ -53,13 +53,13 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
   }, [period]);
 
   const query = config.keywords.join(" | ");
-  const hasKey = !!getYoutubeApiKey();
+  const hasKey = true; // chave agora é server-side via edge function
   const { data: videos = [], isLoading, isFetching, refetch, error } = useYouTubeSearch({
     query,
     publishedAfter,
     order: "viewCount",
     maxResults: 20,
-    enabled: hasKey && config.keywords.length > 0,
+    enabled: config.keywords.length > 0,
   });
 
   const handleSaveKeywords = async (next: string[]) => {

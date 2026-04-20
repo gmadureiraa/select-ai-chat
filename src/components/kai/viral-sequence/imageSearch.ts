@@ -1,39 +1,46 @@
 /**
- * Busca de imagens via Unsplash (público, sem auth pra demo).
+ * Busca imagens via edge function `image-search`.
  *
- * Unsplash Source API (unsplash.com/source) devolve uma imagem aleatória
- * pro termo. Zero auth, zero rate limit documentado (best-effort).
+ * Fonte padrão: Openverse (Creative Commons, sem cadastro nem API key).
+ * Fonte alternativa: Pexels (se PEXELS_API_KEY estiver configurada no backend).
  *
- * Pro futuro: se quiser galeria com múltiplas opções, migrar pra
- * Unsplash API oficial (precisa API key). Por ora Source é suficiente
- * pro user ver algo decente no card.
+ * Retorna lista de imagens normalizadas pra exibir numa galeria — usuário
+ * clica na que prefere e a URL grande vai pro slide.
  */
 
-interface SearchImageParams {
-  query: string;
-  orientation?: "landscape" | "portrait" | "squarish";
+import { supabase } from "@/integrations/supabase/client";
+
+export interface ImageSearchResult {
+  id: string;
+  url: string;          // imagem em tamanho grande (vai pro slide)
+  thumbnail: string;    // thumbnail pra galeria
+  attribution: string;  // crédito do autor / licença
+  sourceUrl: string;    // página de origem (link de crédito)
+  source: "openverse" | "pexels";
 }
 
-export function buildUnsplashSourceUrl({
-  query,
-  orientation = "landscape",
-}: SearchImageParams): string {
-  const size = orientation === "landscape"
-    ? "1600x900"
-    : orientation === "portrait"
-      ? "900x1200"
-      : "1200x1200";
-  const q = encodeURIComponent(query.trim() || "abstract");
-  return `https://source.unsplash.com/${size}/?${q}`;
+export interface ImageSearchResponse {
+  items: ImageSearchResult[];
+  source: "openverse" | "pexels";
 }
 
-/**
- * "Busca" uma imagem: retorna a URL do Source (que redireciona pra imagem
- * aleatória que combina com o termo). Adiciona um parâmetro de cache-bust
- * pra permitir "buscar outra" ao clicar de novo.
- */
-export function searchImage(query: string): string {
-  const base = buildUnsplashSourceUrl({ query, orientation: "landscape" });
-  const bust = Math.floor(Math.random() * 10000);
-  return `${base}&sig=${bust}`;
+export async function searchImages(
+  query: string,
+  opts: { perPage?: number; source?: "openverse" | "pexels" } = {},
+): Promise<ImageSearchResponse> {
+  const q = query.trim();
+  if (!q) return { items: [], source: "openverse" };
+
+  const { data, error } = await supabase.functions.invoke("image-search", {
+    body: {
+      query: q,
+      perPage: opts.perPage ?? 12,
+      source: opts.source ?? "openverse",
+    },
+  });
+  if (error) throw new Error(error.message);
+  return {
+    items: (data?.items ?? []) as ImageSearchResult[],
+    source: (data?.source ?? "openverse") as "openverse" | "pexels",
+  };
 }
