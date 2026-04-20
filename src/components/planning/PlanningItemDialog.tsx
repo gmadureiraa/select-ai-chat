@@ -396,22 +396,36 @@ export function PlanningItemDialog({
       toast.error('Selecione um cliente');
       return;
     }
-    
+
     if (publishablePlatforms.length === 0) {
       toast.error('Nenhuma plataforma conectada selecionada');
       return;
     }
-    
+
     let finalContent = content;
     if (isTwitterThread) {
       finalContent = threadTweets.map(t => t.text).join('\n\n');
     }
-    
+
     if (!finalContent.trim()) {
       toast.error('Adicione conteúdo para publicar');
       return;
     }
-    
+
+    // Se o user selecionou data + hora futuras, NÃO publica imediatamente —
+    // agenda via Late API. Se a data é no passado ou igual a agora, trata
+    // como publicar agora.
+    let finalScheduledAt: Date | undefined;
+    if (scheduledAt) {
+      const [hours, minutes] = scheduledTime.split(':').map(Number);
+      finalScheduledAt = setMinutes(setHours(scheduledAt, hours), minutes);
+      if (finalScheduledAt.getTime() <= Date.now() + 60 * 1000) {
+        // diff <= 1min → trata como "publicar agora"
+        finalScheduledAt = undefined;
+      }
+    }
+    const willSchedule = Boolean(finalScheduledAt);
+
     // If item is not saved yet, save it first
     let itemId = effectiveItem?.id;
     if (!itemId) {
@@ -450,11 +464,13 @@ export function PlanningItemDialog({
     setIsPublishing(true);
     const successPlatforms: string[] = [];
     const failedPlatforms: string[] = [];
-    
+
     try {
       for (const targetPlatform of publishablePlatforms) {
         try {
-          console.log(`[PlanningItemDialog] Publishing to ${targetPlatform}...`);
+          console.log(
+            `[PlanningItemDialog] ${willSchedule ? 'Scheduling' : 'Publishing'} to ${targetPlatform}${willSchedule ? ` @ ${finalScheduledAt?.toISOString()}` : ''}`
+          );
           await lateConnection.publishContent(
             targetPlatform as LatePlatform,
             finalContent,
@@ -462,23 +478,31 @@ export function PlanningItemDialog({
               mediaUrls: mediaItems.map(m => m.url),
               planningItemId: itemId,
               threadItems: isTwitterThread ? threadTweets : undefined,
+              ...(willSchedule && finalScheduledAt
+                ? { scheduledFor: finalScheduledAt.toISOString(), publishNow: false }
+                : {}),
             }
           );
           successPlatforms.push(targetPlatform);
         } catch (err) {
-          console.error(`[PlanningItemDialog] Failed to publish to ${targetPlatform}:`, err);
+          console.error(`[PlanningItemDialog] Failed to ${willSchedule ? 'schedule' : 'publish'} to ${targetPlatform}:`, err);
           failedPlatforms.push(targetPlatform);
         }
       }
 
+      const verb = willSchedule ? 'Agendado' : 'Publicado';
+      const scheduleSuffix = willSchedule && finalScheduledAt
+        ? ` para ${format(finalScheduledAt, "dd/MM 'às' HH:mm")}`
+        : '';
+
       if (successPlatforms.length > 0 && failedPlatforms.length === 0) {
-        toast.success(`Publicado em ${successPlatforms.length} plataforma(s)!`);
+        toast.success(`${verb} em ${successPlatforms.length} plataforma(s)${scheduleSuffix}!`);
       } else if (successPlatforms.length > 0) {
-        toast.warning(`Publicado em ${successPlatforms.length}/${publishablePlatforms.length} plataformas. Falhou: ${failedPlatforms.join(', ')}`);
+        toast.warning(`${verb} em ${successPlatforms.length}/${publishablePlatforms.length} plataformas${scheduleSuffix}. Falhou: ${failedPlatforms.join(', ')}`);
       } else {
-        toast.error('Falha ao publicar em todas as plataformas');
+        toast.error(`Falha ao ${willSchedule ? 'agendar' : 'publicar'} em todas as plataformas`);
       }
-      
+
       if (successPlatforms.length > 0) {
         onOpenChange(false);
       }
@@ -913,31 +937,42 @@ export function PlanningItemDialog({
               <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
                 {readOnly ? 'Fechar' : 'Cancelar'}
               </Button>
-              {!readOnly && canPublishNow && (
-                <Button 
-                  type="button" 
-                  variant="secondary"
-                  size="sm"
-                  onClick={handlePublishNow}
-                  disabled={isPublishing || isSubmitting}
-                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  {isPublishing ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Send className="h-3 w-3" />
-                  )}
-                  Publicar
-                  {publishablePlatforms.length > 1 && (
-                    <span className="flex items-center gap-0.5 ml-0.5">
-                      {publishablePlatforms.slice(0, 3).map(pp => {
-                        const Icon = platformLucideIcons[pp];
-                        return Icon ? <Icon key={pp} className="h-3 w-3 opacity-80" /> : null;
-                      })}
-                    </span>
-                  )}
-                </Button>
-              )}
+              {!readOnly && canPublishNow && (() => {
+                // Label dinâmico: "Agendar" se tiver data futura (>1min),
+                // caso contrário "Publicar" (publica agora).
+                let hasFutureSchedule = false;
+                if (scheduledAt) {
+                  const [hh, mm] = scheduledTime.split(':').map(Number);
+                  const dt = setMinutes(setHours(scheduledAt, hh), mm);
+                  hasFutureSchedule = dt.getTime() > Date.now() + 60 * 1000;
+                }
+                const verb = hasFutureSchedule ? 'Agendar' : 'Publicar';
+                return (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handlePublishNow}
+                    disabled={isPublishing || isSubmitting}
+                    className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {isPublishing ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Send className="h-3 w-3" />
+                    )}
+                    {verb}
+                    {publishablePlatforms.length > 1 && (
+                      <span className="flex items-center gap-0.5 ml-0.5">
+                        {publishablePlatforms.slice(0, 3).map(pp => {
+                          const Icon = platformLucideIcons[pp];
+                          return Icon ? <Icon key={pp} className="h-3 w-3 opacity-80" /> : null;
+                        })}
+                      </span>
+                    )}
+                  </Button>
+                );
+              })()}
               {!readOnly && (
                 <Button type="submit" size="sm" disabled={isSubmitting || !title.trim()}>
                   {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { streamSSEToCallback } from "@/lib/parseOpenAIStream";
 import { toast } from "sonner";
+import type { KAIActionCard } from "@/types/kai-stream";
 
 export interface SimpleMessage {
   id: string;
@@ -9,6 +10,9 @@ export interface SimpleMessage {
   content: string;
   timestamp: Date;
   imageUrl?: string;
+  /** Cards produzidos pelo agente operador (F0.3b+). Map por card.id pra
+      suportar updates incrementais quando o card muda de status. */
+  actionCards?: KAIActionCard[];
 }
 
 export interface SimpleCitation {
@@ -21,12 +25,22 @@ interface UseKAISimpleChatOptions {
   clientId: string;
   conversationId?: string | null;
   onConversationCreated?: (id: string) => void;
+  /** F0.3b — quando true, o edge usa Gemini function calling com ToolRegistry.
+      Ativado via ?tools=1 na URL pelo KaiAssistantTab. Default false (fluxo atual). */
+  useTools?: boolean;
 }
 
-export function useKAISimpleChat({ 
-  clientId, 
+/** Shape que o front envia pra executar uma tool direto (clique em card). */
+export interface ForceToolCall {
+  name: string;
+  args: Record<string, unknown>;
+}
+
+export function useKAISimpleChat({
+  clientId,
   conversationId: externalConversationId,
-  onConversationCreated 
+  onConversationCreated,
+  useTools = false,
 }: UseKAISimpleChatOptions) {
   const [messages, setMessages] = useState<SimpleMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -153,7 +167,11 @@ export function useKAISimpleChat({
   const sendMessage = useCallback(async (
     content: string,
     citations?: SimpleCitation[],
-    imageUrls?: string[]
+    imageUrls?: string[],
+    /** F5/UX — se o user clicou num botão de ActionCard (ex: "Aprovar e
+        publicar"), o front passa a tool_call desejada. O edge injeta uma
+        system nudge pro LLM chamar exatamente essa tool. */
+    forceTool?: ForceToolCall,
   ) => {
     if (!content.trim() && (!imageUrls || imageUrls.length === 0)) return;
     if (!clientId) {
@@ -232,6 +250,10 @@ export function useKAISimpleChat({
               content: m.content,
               imageUrl: m.imageUrl,
             })),
+            // F0.3b — flag de tool-calling mode
+            useTools,
+            // F5 — dirigir o LLM a chamar uma tool específica (clique em card)
+            forceTool,
           }),
           signal: abortControllerRef.current.signal,
         }
@@ -266,37 +288,66 @@ export function useKAISimpleChat({
 
       const fullContent = await streamSSEToCallback(reader, {
         onDelta: (content) => {
-          setMessages(prev => prev.map(m => 
-            m.id === assistantId 
+          setMessages(prev => prev.map(m =>
+            m.id === assistantId
               ? { ...m, content }
               : m
           ));
         },
         onImage: (url) => {
           imageUrl = url;
-          setMessages(prev => prev.map(m => 
-            m.id === assistantId 
+          setMessages(prev => prev.map(m =>
+            m.id === assistantId
               ? { ...m, imageUrl: url }
               : m
           ));
         },
+        // F0.3b — action cards emitidos pelo tool-loop.
+        onActionCard: (card) => {
+          setMessages(prev => prev.map(m => {
+            if (m.id !== assistantId) return m;
+            const cards = m.actionCards ?? [];
+            const idx = cards.findIndex(c => c.id === card.id);
+            const next = idx >= 0
+              ? cards.map((c, i) => i === idx ? { ...c, ...card } : c)
+              : [...cards, card];
+            return { ...m, actionCards: next };
+          }));
+        },
+        onToolRunning: (running) => {
+          // futuro: mostrar chip "Gerando rascunho…" inline
+          console.log("[KAI] tool running:", running.name, running.label);
+        },
+        onError: (errorMsg) => {
+          console.error("[KAI] stream error:", errorMsg);
+          toast.error(errorMsg);
+        },
       });
 
-      // Ensure final content is set
-      const finalAssistantMessage: SimpleMessage = {
-        id: assistantId,
-        role: "assistant",
-        content: fullContent || "Desculpe, não consegui gerar uma resposta.",
-        timestamp: new Date(),
-        imageUrl,
-      };
+      // Ensure final content is set — preserva actionCards acumulados durante o stream
+      setMessages(prev => prev.map(m => {
+        if (m.id !== assistantId) return m;
+        return {
+          ...m,
+          content: fullContent || m.content || "Desculpe, não consegui gerar uma resposta.",
+          timestamp: new Date(),
+          imageUrl,
+        };
+      }));
 
-      setMessages(prev => prev.map(m => 
-        m.id === assistantId ? finalAssistantMessage : m
-      ));
-
-      // Save assistant message to database
-      saveMessage(finalAssistantMessage, activeConversationId);
+      // Save assistant message to database (actionCards não persistem por ora
+      // — quando o user recarregar a conversa, os cards somem. Persistência de
+      // cards vai na F1 junto com planning_items real.)
+      saveMessage(
+        {
+          id: assistantId,
+          role: "assistant",
+          content: fullContent || "Desculpe, não consegui gerar uma resposta.",
+          timestamp: new Date(),
+          imageUrl,
+        },
+        activeConversationId,
+      );
 
     } catch (error) {
       if ((error as Error).name === "AbortError") {

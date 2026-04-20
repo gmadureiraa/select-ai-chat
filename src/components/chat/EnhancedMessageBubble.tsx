@@ -10,6 +10,7 @@ import { AdjustImageButton } from "./AdjustImageButton";
 import { ResponseCard, hasResponseCardPayload, ResponseCardPayload } from "./ResponseCard";
 import { SourcesBadge, ValidationBadge } from "./SourcesBadge";
 import { MessageFeedback } from "./MessageFeedback";
+import { ActionCard } from "./ActionCard";
 import { useState, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -50,6 +51,10 @@ interface EnhancedMessageBubbleProps {
   onUseContent?: (content: string) => void;
   /** Whether the user has access to planning features */
   hasPlanningAccess?: boolean;
+  /** F0.3b — ActionCards emitidos pelo agente operador pra esta mensagem. */
+  actionCards?: import("@/types/kai-stream").KAIActionCard[];
+  /** F0.3b — callback quando user clica num botão de card (ex: "Aprovar", "Publicar") */
+  onActionCardClick?: (cardId: string, actionId: string, toolCall?: { name: string; args: Record<string, unknown> }) => void;
 }
 
 // Helper to get citation icon
@@ -86,6 +91,8 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
   onSaveToLibrary,
   onUseContent,
   hasPlanningAccess = false,
+  actionCards,
+  onActionCardClick,
 }: EnhancedMessageBubbleProps) {
   const isUser = role === "user";
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -400,6 +407,21 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
         {isUser && (
           <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-muted/80 border border-border/50 flex items-center justify-center mt-0.5 shadow-sm">
             <User className="h-4 w-4 text-muted-foreground" />
+          </div>
+        )}
+
+        {/* F0.3b+ — Action cards produzidos pelo agente operador (tool-calling). */}
+        {actionCards && actionCards.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {actionCards.map((card) => (
+              <ActionCard
+                key={card.id}
+                card={card}
+                onAction={(actionId, toolCall) =>
+                  onActionCardClick?.(card.id, actionId, toolCall)
+                }
+              />
+            ))}
           </div>
         )}
       </div>

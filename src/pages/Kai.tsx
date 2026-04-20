@@ -7,6 +7,8 @@ import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
 import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
 import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 import { KaiAnalyticsTab } from "@/components/kai/KaiAnalyticsTab";
+import { ViralHunterTab } from "@/components/kai/ViralHunterTab";
+import { ViralSequenceTab } from "@/components/kai/ViralSequenceTab";
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
 import { SettingsTab } from "@/components/settings/SettingsTab";
@@ -32,6 +34,44 @@ export default function Kai() {
   
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Atalhos globais de teclado — funcionam em qualquer tab.
+  // ⌘K / Ctrl+K → pula pro chat KAI (assistant)
+  // ⌘J / Ctrl+J → pula pra Sequência Viral
+  // ⌘I / Ctrl+I → pula pro Viral Hunter
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const target = e.target as HTMLElement | null;
+      const inEditable =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+      // Não bloqueia Cmd+K em inputs (é o padrão universal de "command menu")
+      // mas ignora Cmd+J/I em inputs (podem conflitar com atalhos do browser)
+      const key = e.key.toLowerCase();
+      if (key === "k") {
+        if (inEditable) return;
+        e.preventDefault();
+        const params = new URLSearchParams(searchParams);
+        params.set("tab", "assistant");
+        setSearchParams(params);
+      } else if (key === "j" && !inEditable) {
+        e.preventDefault();
+        const params = new URLSearchParams(searchParams);
+        params.set("tab", "sequence");
+        setSearchParams(params);
+      } else if (key === "i" && !inEditable) {
+        e.preventDefault();
+        const params = new URLSearchParams(searchParams);
+        params.set("tab", "viral");
+        setSearchParams(params);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [searchParams, setSearchParams]);
 
   // Route protection: redirect to allowed tabs if trying to access unauthorized ones
   useEffect(() => {
@@ -113,8 +153,9 @@ export default function Kai() {
       );
     }
 
-    // Tools that don't need client
-    const toolTabs = ["clients", "settings", "automations", "assistant", "analytics", "home"];
+    // Tools that don't need client (ou que precisam mas tem fallback interno).
+    // "viral" e "sequence" renderizam tabs customizadas no switch abaixo.
+    const toolTabs = ["clients", "settings", "automations", "assistant", "analytics", "home", "viral", "sequence"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -152,12 +193,59 @@ export default function Kai() {
         case "assistant":
           return selectedClient ? (
             <div className="h-full overflow-hidden">
-              <KaiAssistantTab clientId={selectedClient.id} client={selectedClient} />
+              {/* key={selectedClient.id} força remount ao trocar de cliente,
+                  garantindo zero state residual (mensagens, conversationId)
+                  do cliente anterior. Cada cliente tem seu próprio chat. */}
+              <KaiAssistantTab
+                key={selectedClient.id}
+                clientId={selectedClient.id}
+                client={selectedClient}
+              />
             </div>
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-center text-muted-foreground">
                 <p>Selecione um cliente para usar o chat</p>
+              </div>
+            </div>
+          );
+        case "viral":
+          return selectedClient ? (
+            <div className="h-full overflow-hidden">
+              <ViralHunterTab
+                key={selectedClient.id}
+                clientId={selectedClient.id}
+                client={selectedClient}
+                onUseAsInspiration={(prompt) => {
+                  // Leva o user pro chat com o prompt pré-preenchido via URL.
+                  setSearchParams({
+                    client: selectedClient.id,
+                    tab: "assistant",
+                    prompt,
+                  });
+                }}
+              />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-muted-foreground">
+                <p>Selecione um cliente para ver posts virais</p>
+              </div>
+            </div>
+          );
+        case "sequence":
+          return selectedClient ? (
+            <div className="h-full overflow-hidden">
+              <ViralSequenceTab
+                key={selectedClient.id}
+                clientId={selectedClient.id}
+                client={selectedClient}
+              />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-muted-foreground">
+                <p>Selecione um cliente para criar carrossel</p>
               </div>
             </div>
           );

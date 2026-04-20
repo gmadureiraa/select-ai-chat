@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Trash2, Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,7 +10,7 @@ import { Citation } from "@/components/chat/CitationChip";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { PipelineProgress } from "@/components/chat/PipelineProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
-import { ModeSelector, ChatMode } from "@/components/chat/ModeSelector";
+import type { ChatMode } from "@/components/chat/ModeSelector";
 import { Client } from "@/hooks/useClients";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -35,18 +36,67 @@ interface KaiAssistantTabProps {
   client: Client;
 }
 
+/** Gera uma mensagem human-readable que vai pro histórico quando o user
+ *  clica num botão de ActionCard. Substitui o "comando" pra não poluir
+ *  a conversa com JSON de tool-call. */
+function actionLabelForDisplay(actionId: string, toolName: string): string {
+  const map: Record<string, string> = {
+    approve_publish: "Aprovar e publicar agora.",
+    approve: "Aprovar.",
+    publish: "Publicar agora.",
+    schedule: "Agendar essa publicação.",
+    cancel: "Cancelar esse agendamento.",
+    regenerate: "Refazer — gera outra versão.",
+    edit: "Editar esse rascunho.",
+    connect: "Conectar conta.",
+  };
+  return map[actionId] ?? `Executar ${toolName}.`;
+}
+
 export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
-  const [chatMode, setChatMode] = useState<ChatMode>("ideas");
+  // Modo fixo — ModeSelector removido; o agente decide a rota automaticamente
+  // com base no conteúdo da mensagem (intent detection no server + futuramente
+  // tool-calling na F0.3b+).
+  const chatMode: ChatMode = "content";
   const [planningDialogOpen, setPlanningDialogOpen] = useState(false);
   const [contentForPlanning, setContentForPlanning] = useState("");
   
   const { columns, createItem } = usePlanningItems();
   const hasPlanningAccess = columns.length > 0;
+
+  // Busca a conversa mais recente do cliente (pra persistir histórico ao
+  // trocar entre clientes ou recarregar a página). Se não houver nenhuma,
+  // `data` é null e o hook cria uma nova no primeiro envio.
+  const { data: latestConversationId } = useQuery<string | null>({
+    queryKey: ["kai-latest-conversation", clientId],
+    queryFn: async () => {
+      if (!clientId) return null;
+      const { data: userResp } = await supabase.auth.getUser();
+      const userId = userResp?.user?.id;
+      if (!userId) return null;
+      const { data, error } = await supabase
+        .from("kai_chat_conversations")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("client_id", clientId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        console.warn("[KaiAssistantTab] latest conversation query failed:", error);
+        return null;
+      }
+      return data?.id ?? null;
+    },
+    enabled: !!clientId,
+    // não stale — trocar cliente refetcha
+    staleTime: 0,
+  });
 
   // Use the simplified chat hook — all intelligence lives on the backend
   const {
@@ -55,7 +105,20 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     sendMessage: baseSendMessage,
     clearHistory,
     conversationId,
-  } = useKAISimpleChat({ clientId });
+  } = useKAISimpleChat({
+    clientId,
+    conversationId: latestConversationId ?? null,
+    // F0.3b — feature flag ativada via URL `?tools=1`. Quando true, o edge
+    // usa Gemini function calling nativo com o ToolRegistry em vez do
+    // intent detection por regex. Seguro pra rollout gradual.
+    useTools: new URLSearchParams(window.location.search).get("tools") === "1",
+    onConversationCreated: (id) => {
+      queryClient.invalidateQueries({
+        queryKey: ["kai-latest-conversation", clientId],
+      });
+      void id;
+    },
+  });
 
   // Content & reference libraries for citation feature in FloatingInput
   const { data: contentLibrary = [] } = useQuery({
@@ -136,7 +199,14 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   }, [scrollToBottom]);
 
   // Send handler — maps mode + citations to the simple chat backend
-  const handleSend = async (content: string, images?: string[], quality?: "fast" | "high", mode?: ChatMode, citations?: Citation[]) => {
+  const handleSend = async (
+    content: string,
+    images?: string[],
+    quality?: "fast" | "high",
+    mode?: ChatMode,
+    citations?: Citation[],
+    forceTool?: { name: string; args: Record<string, unknown> },
+  ) => {
     if (!content.trim() && (!images || images.length === 0)) return;
     
     const effectiveMode = mode || chatMode;
@@ -187,7 +257,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
       title: c.title,
     }));
     
-    await baseSendMessage(content, simpleCitations, images);
+    await baseSendMessage(content, simpleCitations, images, forceTool);
   };
 
   // Clear history
@@ -198,6 +268,23 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
       description: "As mensagens foram removidas.",
     });
   };
+
+  // Auto-send prompt from query param (ex: vindo do Viral Hunter com ?prompt=…)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoPromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prompt = searchParams.get("prompt");
+    if (!prompt || isLoading) return;
+    if (autoPromptRef.current === prompt) return;
+    autoPromptRef.current = prompt;
+    // Limpa o query param pra não reenviar em refresh
+    const next = new URLSearchParams(searchParams);
+    next.delete("prompt");
+    setSearchParams(next, { replace: true });
+    // Envia como se o user tivesse digitado
+    handleSend(prompt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get("prompt"), isLoading]);
 
   return (
     <div className="flex h-[calc(100vh-140px)] relative">
@@ -297,6 +384,29 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                     disableAutoPostDetection={true}
                     onUseContent={handleUseContent}
                     hasPlanningAccess={hasPlanningAccess}
+                    actionCards={message.actionCards}
+                    onActionCardClick={(cardId, actionId, toolCall) => {
+                      console.log("[KAI] action card click:", { cardId, actionId, toolCall });
+                      if (toolCall?.name) {
+                        // F5 — envia sendMessage com forceTool; o edge
+                        // injeta nudge pro LLM chamar essa tool direto.
+                        // Mensagem human-readable pro histórico fica natural.
+                        const humanMsg = actionLabelForDisplay(actionId, toolCall.name);
+                        void handleSend(humanMsg, undefined, undefined, undefined, undefined, toolCall);
+                        return;
+                      }
+                      if (actionId === "edit") {
+                        toast({
+                          title: "Editar",
+                          description: "Edição inline chegará em breve — por ora use o planning dialog.",
+                        });
+                        return;
+                      }
+                      toast({
+                        title: "Ação",
+                        description: `${actionId} no card ${cardId.slice(0, 8)}`,
+                      });
+                    }}
                   />
                 ))}
 
@@ -320,18 +430,11 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
               onSend={handleSend}
               disabled={isLoading}
               templateType="free_chat"
-              placeholder="Pergunte sobre o cliente... Use @ para formatos"
+              placeholder="Peça qualquer coisa — o KAI decide o que fazer"
               contentLibrary={contentLibrary || []}
               referenceLibrary={referenceLibrary || []}
               selectedMode={chatMode}
             />
-            <div className="flex justify-center px-4">
-              <ModeSelector
-                mode={chatMode}
-                onChange={setChatMode}
-                disabled={isLoading}
-              />
-            </div>
           </div>
         </div>
       </div>

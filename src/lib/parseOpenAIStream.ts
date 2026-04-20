@@ -80,12 +80,55 @@ export async function parseOpenAIStream(
 }
 
 /**
- * Stream SSE to callbacks — robust parser with proper buffering for CRLF and partial chunks
+ * Stream SSE to callbacks — robust parser with proper buffering for CRLF and partial chunks.
+ *
+ * Extende o protocolo pra incluir eventos do KAI operator (tool_running, action_card, error).
+ * Callbacks novos são opcionais — consumidores antigos continuam funcionando com onDelta.
  */
+import type {
+  KAIActionCard,
+  KAIToolRunning,
+} from "@/types/kai-stream";
+
 export interface StreamSSECallbacks {
   onDelta: (fullContent: string) => void;
   onDone?: () => void;
   onImage?: (url: string) => void;
+  /** Tool em execução — ex: mostra chip "Gerando rascunho…" no UI. */
+  onToolRunning?: (running: KAIToolRunning) => void;
+  /** Card novo ou atualizado pra renderizar no chat. Match por card.id. */
+  onActionCard?: (card: KAIActionCard) => void;
+  /** Erro irrecuperável vindo do servidor. Stream será encerrado. */
+  onError?: (message: string) => void;
+}
+
+function handleDelta(
+  delta: Record<string, unknown> | undefined,
+  state: { fullContent: string },
+  callbacks: StreamSSECallbacks,
+): void {
+  if (!delta) return;
+
+  if (typeof delta.content === "string") {
+    state.fullContent += delta.content;
+    callbacks.onDelta(state.fullContent);
+  }
+
+  if (typeof delta.image === "string") {
+    callbacks.onImage?.(delta.image);
+  }
+
+  if (delta.tool_running && typeof delta.tool_running === "object") {
+    callbacks.onToolRunning?.(delta.tool_running as KAIToolRunning);
+  }
+
+  if (delta.action_card && typeof delta.action_card === "object") {
+    callbacks.onActionCard?.(delta.action_card as KAIActionCard);
+  }
+
+  if (typeof delta.error === "string") {
+    callbacks.onError?.(delta.error);
+  }
 }
 
 export async function streamSSEToCallback(
@@ -94,7 +137,7 @@ export async function streamSSEToCallback(
 ): Promise<string> {
   const decoder = new TextDecoder();
   let buffer = "";
-  let fullContent = "";
+  const state = { fullContent: "" };
 
   while (true) {
     const { done, value } = await reader.read();
@@ -114,16 +157,7 @@ export async function streamSSEToCallback(
 
       try {
         const parsed = JSON.parse(jsonStr);
-        const delta = parsed.choices?.[0]?.delta;
-
-        if (delta?.content) {
-          fullContent += delta.content;
-          callbacks.onDelta(fullContent);
-        }
-
-        if (delta?.image) {
-          callbacks.onImage?.(delta.image);
-        }
+        handleDelta(parsed.choices?.[0]?.delta, state, callbacks);
       } catch {
         // Ignore parse errors for incomplete chunks
       }
@@ -139,20 +173,13 @@ export async function streamSSEToCallback(
       if (jsonStr === "[DONE]") continue;
       try {
         const parsed = JSON.parse(jsonStr);
-        const delta = parsed.choices?.[0]?.delta;
-        if (delta?.content) {
-          fullContent += delta.content;
-          callbacks.onDelta(fullContent);
-        }
-        if (delta?.image) {
-          callbacks.onImage?.(delta.image);
-        }
+        handleDelta(parsed.choices?.[0]?.delta, state, callbacks);
       } catch { /* ignore */ }
     }
   }
 
   callbacks.onDone?.();
-  return fullContent;
+  return state.fullContent;
 }
 
 /**
