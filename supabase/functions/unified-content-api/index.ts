@@ -154,6 +154,7 @@ serve(async (req) => {
     // ========================================
     // SECURITY: Validate user access to client
     // ========================================
+    let resolvedUserId: string = req.headers.get("x-user-id") || "system";
     const authHeader = req.headers.get("Authorization");
     if (authHeader && authHeader.startsWith("Bearer ") && !authHeader.includes(supabaseKey)) {
       // This is a user JWT, not service role - validate access
@@ -173,6 +174,7 @@ serve(async (req) => {
       }
       
       const userId = claims.user.id;
+      resolvedUserId = userId;
       
       // Check if user has access to the client's workspace
       const { data: clientData, error: clientError } = await supabase
@@ -206,6 +208,30 @@ serve(async (req) => {
       
       console.log(`[UNIFIED-API] User ${userId} authorized for client ${client_id}`);
     }
+
+    // For automation/system calls, fall back to client owner so cost is attributable
+    if (resolvedUserId === "system") {
+      try {
+        const { data: ownerRow } = await supabase
+          .from("clients")
+          .select("created_by, user_id")
+          .eq("id", client_id)
+          .single();
+        if (ownerRow) {
+          resolvedUserId = (ownerRow.created_by || ownerRow.user_id || "system") as string;
+        }
+      } catch (e) {
+        console.warn("[UNIFIED-API] Could not resolve owner for system call:", e);
+      }
+    }
+
+    const usageContext = {
+      userId: resolvedUserId,
+      edgeFunction: "unified-content-api",
+      clientId: client_id,
+      metadata: { format, source: req.headers.get("x-trigger-source") || "user" },
+    };
+
 
     const normalizedFormat = normalizeFormatKey(format);
     const formatContract = buildFormatContract(normalizedFormat);
@@ -285,6 +311,7 @@ serve(async (req) => {
       writerResult = await callLLM(writerMessages, {
         maxTokens: 8192,
         temperature: dynamicTemp,
+        usageContext: { ...usageContext, metadata: { ...usageContext.metadata, step: "writer" } },
       });
       usedProvider = writerResult.provider;
     } catch (error) {
@@ -337,7 +364,8 @@ serve(async (req) => {
         try {
           const repairResult = await callLLM(repairMessages, {
             maxTokens: 4096,
-            temperature: 0.3, // Lower temperature for precise corrections
+            temperature: 0.3,
+            usageContext: { ...usageContext, metadata: { ...usageContext.metadata, step: "repair", attempt } },
           });
 
           repairTokens += repairResult.tokens;
@@ -420,6 +448,7 @@ NÃO substitua gírias, expressões informais ou tom casual que fazem parte do v
         const reviewerResult = await callLLM(reviewerMessages, {
           maxTokens: 4096,
           temperature: 0.3,
+          usageContext: { ...usageContext, metadata: { ...usageContext.metadata, step: "reviewer" } },
         });
 
         reviewerTokens = reviewerResult.tokens;
@@ -447,14 +476,18 @@ NÃO substitua gírias, expressões informais ou tom casual que fazem parte do v
 
     console.log(`[UNIFIED-API] Completed in ${processingTime}ms, ${totalTokens} tokens`);
 
-    // Log to ai_usage_logs with format tracking
+    // Note: AI usage is auto-logged inside callLLM via usageContext.
+    // We add a final aggregate row for format/validation tracking purposes.
     try {
       await supabase.from("ai_usage_logs").insert({
-        user_id: req.headers.get("x-user-id") || "system",
-        edge_function: "unified-content-api",
+        user_id: resolvedUserId,
+        edge_function: "unified-content-api-summary",
         provider: "google",
-        model_name: "gemini-2.5-flash",
-        total_tokens: totalTokens,
+        model_name: "multi-agent-pipeline",
+        total_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+        estimated_cost_usd: 0,
         format_type: normalizedFormat,
         client_id: client_id,
         validation_passed: finalValidation.valid,
@@ -462,12 +495,13 @@ NÃO substitua gírias, expressões informais ou tom casual que fazem parte do v
         metadata: {
           format: normalizedFormat,
           processing_time_ms: processingTime,
+          aggregate_tokens: totalTokens,
           steps: stepsCompleted,
           sources_used: sourcesUsed,
         },
       });
     } catch (logError) {
-      console.error("[UNIFIED-API] Error logging usage:", logError);
+      console.error("[UNIFIED-API] Error logging summary:", logError);
     }
 
     const response: ContentResponse = {

@@ -1,7 +1,10 @@
 // =====================================================
 // LLM MODULE - Centralized AI calls with retry + fallback
 // Supports: Google Gemini & OpenAI
+// Auto-logs usage to ai_usage_logs when usageContext provided
 // =====================================================
+
+import { logAIUsage, createSupabaseClient } from "./ai-usage.ts";
 
 /**
  * Message format for LLM calls
@@ -10,6 +13,16 @@ export interface LLMMessage {
   role: "system" | "user" | "assistant";
   content: string;
   image_urls?: string[];
+}
+
+/**
+ * Context for automatic AI usage logging
+ */
+export interface LLMUsageContext {
+  userId: string;
+  edgeFunction: string;
+  clientId?: string;
+  metadata?: Record<string, any>;
 }
 
 /**
@@ -22,6 +35,37 @@ export interface LLMOptions {
   model?: string;
   maxRetries?: number;
   retryDelayMs?: number;
+  /** When provided, usage is automatically logged to ai_usage_logs */
+  usageContext?: LLMUsageContext;
+}
+
+/**
+ * Best-effort fire-and-forget logger; never throws
+ */
+async function logUsageSafe(
+  context: LLMUsageContext | undefined,
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  extra: Record<string, any> = {}
+): Promise<void> {
+  if (!context) return;
+  try {
+    const sb = createSupabaseClient();
+    const meta: Record<string, any> = { ...(context.metadata || {}), ...extra };
+    if (context.clientId) meta.client_id = context.clientId;
+    await logAIUsage(
+      sb,
+      context.userId,
+      model,
+      context.edgeFunction,
+      inputTokens,
+      outputTokens,
+      meta
+    );
+  } catch (err) {
+    console.warn("[LLM] Failed to log usage (non-fatal):", err);
+  }
 }
 
 /**
@@ -191,6 +235,9 @@ async function callGemini(
       const inputTokens = result?.usageMetadata?.promptTokenCount || 0;
       const outputTokens = result?.usageMetadata?.candidatesTokenCount || 0;
 
+      // Auto-log usage when context provided
+      await logUsageSafe(options.usageContext, model, inputTokens, outputTokens);
+
       return {
         content,
         tokens: inputTokens + outputTokens,
@@ -283,6 +330,9 @@ async function callOpenAI(
       const content = result?.choices?.[0]?.message?.content || "";
       const inputTokens = result?.usage?.prompt_tokens || 0;
       const outputTokens = result?.usage?.completion_tokens || 0;
+
+      // Auto-log usage when context provided
+      await logUsageSafe(options.usageContext, model, inputTokens, outputTokens);
 
       return {
         content,
@@ -502,7 +552,10 @@ async function streamGemini(
     throw new LLMError("No response body from Gemini");
   }
 
-  // Transform Gemini SSE format to OpenAI format
+  // Transform Gemini SSE format to OpenAI format + capture usage from final chunk
+  let capturedInputTokens = 0;
+  let capturedOutputTokens = 0;
+
   const transformStream = new TransformStream({
     transform(chunk, controller) {
       const text = new TextDecoder().decode(chunk);
@@ -513,6 +566,11 @@ async function streamGemini(
           const data = line.slice(6).trim();
           try {
             const parsed = JSON.parse(data);
+            // Capture usage if present (usually in final chunk)
+            if (parsed.usageMetadata) {
+              capturedInputTokens = parsed.usageMetadata.promptTokenCount || capturedInputTokens;
+              capturedOutputTokens = parsed.usageMetadata.candidatesTokenCount || capturedOutputTokens;
+            }
             if (parsed.candidates?.[0]?.content?.parts?.[0]?.text) {
               const textChunk = parsed.candidates[0].content.parts[0].text;
               const openAIFormat = {
@@ -526,6 +584,12 @@ async function streamGemini(
             // Ignore parsing errors for partial chunks
           }
         }
+      }
+    },
+    async flush() {
+      // Log usage at end of stream
+      if (options.usageContext) {
+        await logUsageSafe(options.usageContext, model, capturedInputTokens, capturedOutputTokens, { streaming: true });
       }
     },
   });
@@ -604,7 +668,8 @@ async function streamOpenAI(
  */
 export async function callLLMWithGrounding(
   query: string,
-  systemContext?: string
+  systemContext?: string,
+  usageContext?: LLMUsageContext
 ): Promise<{ content: string; sources: string[]; tokens: number }> {
   const apiKey = getGoogleApiKey();
   if (!apiKey) {
@@ -681,6 +746,9 @@ export async function callLLMWithGrounding(
 
   const inputTokens = result?.usageMetadata?.promptTokenCount || 0;
   const outputTokens = result?.usageMetadata?.candidatesTokenCount || 0;
+
+  // Auto-log usage when context provided
+  await logUsageSafe(usageContext, model, inputTokens, outputTokens, { grounding: true, sources_count: sources.length });
 
   console.log(`[LLM] Grounding complete: ${content.length} chars, ${sources.length} sources`);
 
