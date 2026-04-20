@@ -1,7 +1,10 @@
 // =====================================================
 // LLM MODULE - Centralized AI calls with retry + fallback
 // Supports: Google Gemini & OpenAI
+// Auto-logs usage to ai_usage_logs when usageContext provided
 // =====================================================
+
+import { logAIUsage, createSupabaseClient } from "./ai-usage.ts";
 
 /**
  * Message format for LLM calls
@@ -10,6 +13,16 @@ export interface LLMMessage {
   role: "system" | "user" | "assistant";
   content: string;
   image_urls?: string[];
+}
+
+/**
+ * Context for automatic AI usage logging
+ */
+export interface LLMUsageContext {
+  userId: string;
+  edgeFunction: string;
+  clientId?: string;
+  metadata?: Record<string, any>;
 }
 
 /**
@@ -22,6 +35,37 @@ export interface LLMOptions {
   model?: string;
   maxRetries?: number;
   retryDelayMs?: number;
+  /** When provided, usage is automatically logged to ai_usage_logs */
+  usageContext?: LLMUsageContext;
+}
+
+/**
+ * Best-effort fire-and-forget logger; never throws
+ */
+async function logUsageSafe(
+  context: LLMUsageContext | undefined,
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  extra: Record<string, any> = {}
+): Promise<void> {
+  if (!context) return;
+  try {
+    const sb = createSupabaseClient();
+    const meta: Record<string, any> = { ...(context.metadata || {}), ...extra };
+    if (context.clientId) meta.client_id = context.clientId;
+    await logAIUsage(
+      sb,
+      context.userId,
+      model,
+      context.edgeFunction,
+      inputTokens,
+      outputTokens,
+      meta
+    );
+  } catch (err) {
+    console.warn("[LLM] Failed to log usage (non-fatal):", err);
+  }
 }
 
 /**
