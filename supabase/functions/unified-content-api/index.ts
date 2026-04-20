@@ -448,6 +448,7 @@ NÃO substitua gírias, expressões informais ou tom casual que fazem parte do v
         const reviewerResult = await callLLM(reviewerMessages, {
           maxTokens: 4096,
           temperature: 0.3,
+          usageContext: { ...usageContext, metadata: { ...usageContext.metadata, step: "reviewer" } },
         });
 
         reviewerTokens = reviewerResult.tokens;
