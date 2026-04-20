@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildWriterSystemPrompt, selectModelForFormat } from "../_shared/prompt-builder.ts";
 import { normalizeFormatKey } from "../_shared/knowledge-loader.ts";
+import { logAIUsage, estimateTokens } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
