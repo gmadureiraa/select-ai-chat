@@ -37,6 +37,11 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   "claude-sonnet-4-5": { input: 3.00, output: 15.00 },
   "claude-3-5-sonnet": { input: 3.00, output: 15.00 },
   
+  // OpenAI Whisper (audio transcription) — billed per second of audio.
+  // Real price: $0.006/min = $0.0001/s. We represent it as $100/1M "tokens"
+  // where 1 token = 1 second of audio, so cost = seconds * $0.0001.
+  "whisper-1": { input: 100.00, output: 0.00 },
+  
   // Pipeline/composite (zero - individual calls logged separately)
   "multi-agent-pipeline": { input: 0.00, output: 0.00 },
 };
