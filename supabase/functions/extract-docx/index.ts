@@ -36,7 +36,7 @@ serve(async (req) => {
       );
     }
 
-    const { fileUrl, fileName } = await req.json();
+    const { fileUrl, fileName, userId, clientId } = await req.json();
 
     if (!fileUrl) {
       throw new Error("fileUrl é obrigatório");
