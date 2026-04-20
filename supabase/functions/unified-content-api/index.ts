@@ -364,7 +364,8 @@ serve(async (req) => {
         try {
           const repairResult = await callLLM(repairMessages, {
             maxTokens: 4096,
-            temperature: 0.3, // Lower temperature for precise corrections
+            temperature: 0.3,
+            usageContext: { ...usageContext, metadata: { ...usageContext.metadata, step: "repair", attempt } },
           });
 
           repairTokens += repairResult.tokens;
