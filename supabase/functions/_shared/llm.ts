@@ -733,6 +733,9 @@ export async function callLLMWithGrounding(
   const inputTokens = result?.usageMetadata?.promptTokenCount || 0;
   const outputTokens = result?.usageMetadata?.candidatesTokenCount || 0;
 
+  // Auto-log usage when context provided
+  await logUsageSafe(usageContext, model, inputTokens, outputTokens, { grounding: true, sources_count: sources.length });
+
   console.log(`[LLM] Grounding complete: ${content.length} chars, ${sources.length} sources`);
 
   return {
