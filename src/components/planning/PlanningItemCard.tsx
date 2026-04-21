@@ -94,6 +94,9 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   const dotColor = PLATFORM_COLOR_MAP[primaryPlatform] || '#888';
   const contentType = metadata.content_type || (item as any).content_type;
   const contentTypeLabel = contentType ? getContentTypeLabel(contentType) : null;
+  const viralCarouselId: string | undefined = metadata.viral_carousel_id;
+  const viralSlides: Array<{ body: string }> | undefined = metadata.viral_carousel_slides;
+  const isViralCarousel = contentType === 'viral_carousel' || !!viralCarouselId;
 
   const displayDate = item.scheduled_at || item.published_at || item.due_date;
   const isFailed = item.status === 'failed';
