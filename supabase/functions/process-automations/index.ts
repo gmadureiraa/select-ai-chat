@@ -1075,6 +1075,95 @@ serve(async (req) => {
 
         console.log(`Triggering automation: ${automation.name}`);
 
+        // ============================================================
+        // BRANCH: viral_carousel — delega pra generate-viral-carousel
+        // ============================================================
+        if (automation.content_type === 'viral_carousel' && automation.client_id) {
+          try {
+            const briefing = (automation.prompt_template ?? triggerData?.title ?? automation.name).slice(0, 4000);
+            const carouselTitle = triggerData?.title || automation.name;
+
+            const vcRes = await fetch(`${supabaseUrl}/functions/v1/generate-viral-carousel`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''}`,
+                apikey: Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+                'x-internal-call': 'true',
+              },
+              body: JSON.stringify({
+                clientId: automation.client_id,
+                briefing,
+                title: carouselTitle,
+                persistAs: 'both',
+                source: 'automation',
+                automationId: automation.id,
+              }),
+            });
+
+            const vcJson = await vcRes.json().catch(() => ({}));
+            if (!vcRes.ok || !vcJson?.ok) {
+              throw new Error(vcJson?.error || `generate-viral-carousel ${vcRes.status}`);
+            }
+
+            console.log(`[viral_carousel] created carousel=${vcJson.carouselId} planningItem=${vcJson.planningItemId}`);
+
+            // Update automation tracking
+            await supabase
+              .from('planning_automations')
+              .update({
+                last_triggered_at: new Date().toISOString(),
+                items_created: (automation.items_created ?? 0) + 1,
+              })
+              .eq('id', automation.id);
+
+            if (runId) {
+              await supabase
+                .from('planning_automation_runs')
+                .update({
+                  status: 'success',
+                  result: `Carrossel viral criado: ${vcJson.carouselId}`,
+                  planning_item_id: vcJson.planningItemId,
+                  completed_at: new Date().toISOString(),
+                  duration_ms: Date.now() - startTime,
+                })
+                .eq('id', runId);
+            }
+
+            results.push({
+              id: automation.id,
+              name: automation.name,
+              triggered: true,
+              itemId: vcJson.planningItemId,
+              runId: runId || undefined,
+            });
+            continue; // pula o fluxo padrão
+          } catch (vcErr) {
+            const msg = vcErr instanceof Error ? vcErr.message : String(vcErr);
+            console.error(`[viral_carousel] failed for automation ${automation.id}:`, msg);
+
+            if (runId) {
+              await supabase
+                .from('planning_automation_runs')
+                .update({
+                  status: 'failed',
+                  error: msg,
+                  completed_at: new Date().toISOString(),
+                  duration_ms: Date.now() - startTime,
+                })
+                .eq('id', runId);
+            }
+            results.push({
+              id: automation.id,
+              name: automation.name,
+              triggered: false,
+              error: msg,
+              runId: runId || undefined,
+            });
+            continue;
+          }
+        }
+
         const itemTitle = triggerData?.title || automation.name;
         const itemDescription = triggerData?.description?.replace(/<[^>]*>/g, '').substring(0, 500) || '';
         
