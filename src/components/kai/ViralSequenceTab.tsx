@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Sparkles,
   RotateCcw,
@@ -29,6 +30,7 @@ import {
   FileImage,
   FileText,
   Eye,
+  ListTodo,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,9 +40,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import type { Client } from "@/hooks/useClients";
 import type { ViralCarousel, ViralProfile } from "./viral-sequence/types";
 import { emptyCarousel } from "./viral-sequence/types";
@@ -48,6 +52,8 @@ import {
   saveCurrentCarousel,
   loadCurrentCarousel,
   clearCurrentCarousel,
+  saveCarousel,
+  loadCarousel,
 } from "./viral-sequence/storage";
 import { generateCarouselCopies } from "./viral-sequence/generateCopy";
 import { SlideEditor } from "./viral-sequence/SlideEditor";
@@ -56,6 +62,7 @@ import {
   exportCarouselAsPdf,
 } from "./viral-sequence/exportCarousel";
 import { CarouselFullPreview } from "./viral-sequence/CarouselFullPreview";
+import { SavedCarouselsSidebar } from "./viral-sequence/SavedCarouselsSidebar";
 
 interface ViralSequenceTabProps {
   clientId: string;
