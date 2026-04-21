@@ -24,6 +24,7 @@ export {
 
 export { echoTool } from "./echo.ts";
 export { createContentTool } from "./createContent.ts";
+export { createViralCarouselTool } from "./createViralCarousel.ts";
 export { editContentTool } from "./editContent.ts";
 export { listPendingApprovalsTool } from "./listPendingApprovals.ts";
 export { getClientContextTool } from "./getClientContext.ts";

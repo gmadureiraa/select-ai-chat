@@ -12,6 +12,7 @@ export const CONTENT_TYPES = {
   
   // Social - Instagram
   carousel: { label: "Carrossel", category: "instagram" },
+  viral_carousel: { label: "Carrossel Viral (Tweet)", category: "instagram" },
   stories: { label: "Stories", category: "instagram" },
   static_image: { label: "Estático Único", category: "instagram" },
   instagram_post: { label: "Post Instagram", category: "instagram" },
@@ -46,6 +47,7 @@ export const CONTENT_TYPE_OPTIONS: { value: ContentTypeKey; label: string; categ
   { value: "linkedin_post", label: "Post LinkedIn", category: "LinkedIn" },
   // Instagram
   { value: "carousel", label: "Carrossel", category: "Instagram" },
+  { value: "viral_carousel", label: "Carrossel Viral (estilo Tweet)", category: "Instagram" },
   { value: "stories", label: "Stories", category: "Instagram" },
   { value: "static_image", label: "Estático Único", category: "Instagram" },
   { value: "instagram_post", label: "Post Instagram", category: "Instagram" },
@@ -76,6 +78,7 @@ export const CONTENT_TO_PLATFORM: Record<ContentTypeKey, string> = {
   x_article: 'twitter',
   linkedin_post: 'linkedin',
   carousel: 'instagram',
+  viral_carousel: 'instagram',
   stories: 'instagram',
   static_image: 'instagram',
   instagram_post: 'instagram',

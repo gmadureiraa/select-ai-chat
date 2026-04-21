@@ -2001,6 +2001,7 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
         { createKAIEmitter },
         { echoTool },
         { createContentTool },
+        { createViralCarouselTool },
         { editContentTool },
         { listPendingApprovalsTool },
         { getClientContextTool },
@@ -2014,6 +2015,7 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
         import("../_shared/kai-stream.ts"),
         import("./tools/echo.ts"),
         import("./tools/createContent.ts"),
+        import("./tools/createViralCarousel.ts"),
         import("./tools/editContent.ts"),
         import("./tools/listPendingApprovals.ts"),
         import("./tools/getClientContext.ts"),
@@ -2027,6 +2029,7 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
       const registry = new ToolRegistry();
       registry.register(echoTool);
       registry.register(createContentTool);
+      registry.register(createViralCarouselTool);
       registry.register(editContentTool);
       registry.register(listPendingApprovalsTool);
       registry.register(getClientContextTool);

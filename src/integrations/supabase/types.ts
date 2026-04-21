@@ -3535,8 +3535,10 @@ export type Database = {
           client_id: string
           created_at: string
           id: string
+          planning_item_id: string | null
           profile: Json
           slides: Json
+          source: string
           status: string
           template: string
           title: string
@@ -3550,8 +3552,10 @@ export type Database = {
           client_id: string
           created_at?: string
           id?: string
+          planning_item_id?: string | null
           profile?: Json
           slides?: Json
+          source?: string
           status?: string
           template?: string
           title?: string
@@ -3565,8 +3569,10 @@ export type Database = {
           client_id?: string
           created_at?: string
           id?: string
+          planning_item_id?: string | null
           profile?: Json
           slides?: Json
+          source?: string
           status?: string
           template?: string
           title?: string
@@ -3581,6 +3587,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "viral_carousels_planning_item_id_fkey"
+            columns: ["planning_item_id"]
+            isOneToOne: false
+            referencedRelation: "planning_items"
             referencedColumns: ["id"]
           },
           {
