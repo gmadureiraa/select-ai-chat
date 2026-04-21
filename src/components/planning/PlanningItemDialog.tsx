@@ -87,6 +87,7 @@ export function PlanningItemDialog({
   readOnly = false
 }: PlanningItemDialogProps) {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const { clients } = useClients();
   const { members } = useTeamMembers();
   const [isSubmitting, setIsSubmitting] = useState(false);
