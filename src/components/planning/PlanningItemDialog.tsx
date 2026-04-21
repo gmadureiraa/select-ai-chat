@@ -652,7 +652,7 @@ export function PlanningItemDialog({
                 <MediaUploader
                   value={mediaItems}
                   onChange={setMediaItems}
-                  maxItems={platform === 'twitter' ? 4 : 10}
+                  maxItems={platform === 'twitter' ? 4 : 20}
                   clientId={selectedClientId}
                 />
               </div>
