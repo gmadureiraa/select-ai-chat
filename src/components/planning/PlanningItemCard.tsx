@@ -147,13 +147,41 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         </div>
       )}
 
+      {/* Viral carousel preview (when no media uploaded yet) */}
+      {!isImage && isViralCarousel && viralSlides && viralSlides.length > 0 && (
+        <div className="relative w-full bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-background border-b border-border/30 px-3 py-2.5 overflow-hidden">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Twitter className="h-3 w-3 text-sky-500" />
+            <span className="text-[9px] font-mono uppercase tracking-wider text-sky-600 dark:text-sky-400">
+              Carrossel Viral · {viralSlides.length} slides
+            </span>
+          </div>
+          <p className="text-[11px] leading-snug line-clamp-3 text-foreground/80">
+            {viralSlides[0]?.body?.replace(/\*\*(.+?)\*\*/g, '$1') || 'Sem preview'}
+          </p>
+        </div>
+      )}
+
       <div className="p-3.5">
         {/* Row 1: Platform badges + content type */}
         <div className="flex items-center gap-1.5 mb-2 flex-wrap">
           {/* Content type badge */}
           {contentTypeLabel && (
-            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20">
-              <span className="text-[10px] font-semibold text-primary">
+            <div
+              className={cn(
+                "flex items-center gap-1 px-1.5 py-0.5 rounded border",
+                isViralCarousel
+                  ? "bg-sky-500/15 border-sky-500/40"
+                  : "bg-primary/10 border-primary/20",
+              )}
+            >
+              {isViralCarousel && <Layers className="h-2.5 w-2.5 text-sky-600 dark:text-sky-400" />}
+              <span
+                className={cn(
+                  "text-[10px] font-semibold",
+                  isViralCarousel ? "text-sky-700 dark:text-sky-400" : "text-primary",
+                )}
+              >
                 {contentTypeLabel}
               </span>
             </div>
