@@ -2307,7 +2307,26 @@ serve(async (req) => {
           runId: runId || undefined
         });
       }
+      } // end for automation loop
+    }; // end runLoop
+
+    if (isManualTest) {
+      // @ts-ignore — EdgeRuntime is available in Supabase Edge Runtime
+      EdgeRuntime.waitUntil(
+        runLoop().catch((e) => console.error('[process-automations] background run failed:', e))
+      );
+      return new Response(JSON.stringify({
+        success: true,
+        accepted: true,
+        message: 'Automação iniciada em background. Acompanhe pelo histórico de execuções.',
+        automationId,
+      }), {
+        status: 202,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+
+    await runLoop();
 
     const triggered = results.filter(r => r.triggered).length;
     console.log(`Processing complete. Triggered: ${triggered}/${results.length}`);
