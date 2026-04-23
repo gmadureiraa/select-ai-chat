@@ -1135,9 +1135,9 @@ serve(async (req) => {
               await supabase
                 .from('planning_automation_runs')
                 .update({
-                  status: 'success',
-                  result: `Carrossel viral criado: ${vcJson.carouselId}`,
-                  planning_item_id: vcJson.planningItemId,
+                  status: 'completed',
+                  result: `Carrossel viral criado: ${vcJson.carouselId} (planningItem=${vcJson.planningItemId})`,
+                  items_created: 1,
                   completed_at: new Date().toISOString(),
                   duration_ms: Date.now() - startTime,
                 })
