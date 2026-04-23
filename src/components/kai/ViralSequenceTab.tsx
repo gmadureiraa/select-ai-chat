@@ -29,6 +29,7 @@ import {
   Layers,
   FileImage,
   FileText,
+  FileArchive,
   Eye,
   ListTodo,
 } from "lucide-react";
@@ -60,9 +61,11 @@ import { SlideEditor } from "./viral-sequence/SlideEditor";
 import {
   exportCarouselAsPngs,
   exportCarouselAsPdf,
+  exportCarouselAsZip,
 } from "./viral-sequence/exportCarousel";
 import { CarouselFullPreview } from "./viral-sequence/CarouselFullPreview";
 import { SavedCarouselsSidebar } from "./viral-sequence/SavedCarouselsSidebar";
+import { OffscreenSlideRenderer } from "./viral-sequence/OffscreenSlideRenderer";
 
 interface ViralSequenceTabProps {
   clientId: string;
@@ -104,12 +107,18 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
   const [previewOpen, setPreviewOpen] = useState(false);
   const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
 
-  // Mapa de refs dos nós TwitterSlide (pra export PNG/PDF via html-to-image).
+  // Mapa de refs dos previews em scale (UI grid).
   const slideNodesRef = useRef<Map<string, HTMLElement>>(new Map());
+  // Mapa de refs dos nós off-screen em scale=1 (1080x1350) — usados pra export.
+  const exportNodesRef = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const registerSlideNode = (id: string, node: HTMLElement | null) => {
     if (node) slideNodesRef.current.set(id, node);
     else slideNodesRef.current.delete(id);
+  };
+  const registerExportNode = (id: string, node: HTMLDivElement | null) => {
+    if (node) exportNodesRef.current.set(id, node);
+    else exportNodesRef.current.delete(id);
   };
 
   const hasAnySlideFilled = carousel.slides.some(
@@ -371,10 +380,29 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
     URL.revokeObjectURL(url);
   };
 
+  const handleExportZip = async () => {
+    setIsExporting(true);
+    try {
+      const { ok, failed } = await exportCarouselAsZip(carousel, exportNodesRef.current as unknown as Map<string, HTMLElement>);
+      if (ok === 0) {
+        toast.error("Falha ao gerar ZIP. Tenta de novo.");
+      } else if (failed > 0) {
+        toast.warning(`ZIP baixado com ${ok} slides · ${failed} falharam (CORS em imagens externas).`);
+      } else {
+        toast.success(`ZIP baixado com ${ok} slides em 1080×1350. Pronto pro Instagram.`);
+      }
+    } catch (err) {
+      console.error("[ViralSequence] export ZIP failed:", err);
+      toast.error(`Falha: ${(err as Error).message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleExportPngs = async () => {
     setIsExporting(true);
     try {
-      const { ok, failed } = await exportCarouselAsPngs(carousel, slideNodesRef.current);
+      const { ok, failed } = await exportCarouselAsPngs(carousel, exportNodesRef.current as unknown as Map<string, HTMLElement>);
       if (failed > 0) {
         toast.warning(`${ok} PNGs exportados · ${failed} falharam (provavelmente CORS em imagens externas)`);
       } else {
@@ -391,7 +419,7 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
   const handleExportPdf = async () => {
     setIsExporting(true);
     try {
-      const { ok, failed } = await exportCarouselAsPdf(carousel, slideNodesRef.current);
+      const { ok, failed } = await exportCarouselAsPdf(carousel, exportNodesRef.current as unknown as Map<string, HTMLElement>);
       if (failed > 0) {
         toast.warning(`PDF gerado com ${ok} slides · ${failed} falharam`);
       } else {
@@ -658,6 +686,14 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
           )}
         </div>
       </div>
+
+      {/* Off-screen renderer scale=1 — usado pra captura PNG/PDF/ZIP em qualidade Instagram */}
+      {hasAnySlideFilled && (
+        <OffscreenSlideRenderer
+          carousel={carousel}
+          registerRef={registerExportNode}
+        />
+      )}
 
       {/* Full-screen preview modal */}
       <CarouselFullPreview

@@ -2,12 +2,14 @@
  * TwitterSlide — renderiza 1 slide do carrossel estilo tweet.
  * Canvas 1080×1350 (Instagram 4:5). Scale controlável pra caber na UI.
  *
- * Simplificado do componente de template-twitter.tsx do sequencia-viral:
- * mantém header (avatar + nome + verified badge + handle), body com
- * heading + texto, imagem opcional abaixo, contador slideNumber/total
- * no canto superior direito.
+ * Mudanças (refactor inspirado no postflow/gmadureiraa):
+ *   - FS_BODY base reduzido: 52 → 39 (mais leve, igual ao tweet real).
+ *   - Auto-shrink do body: passa de 220 chars → reduz fonte gradualmente.
+ *   - Suporte `imageAsCover` — imagem cobre o slide inteiro com overlay
+ *     (útil pra slide de capa com foto/imagem da notícia).
+ *   - Suporte `proxyImageUrl` — função que reescreve src da imagem (CORS).
  *
- * Suporta **bold** inline no heading/body via renderRichText.
+ * Suporta **bold** inline no body via renderRichText.
  */
 
 import { forwardRef, type CSSProperties } from "react";
@@ -20,9 +22,10 @@ const FG = "#0F1419";
 const MUTED = "#536471";
 const BORDER = "rgba(15, 20, 25, 0.08)";
 
-const FS_NAME = 40;
-const FS_HANDLE = 30;
-const FS_BODY = 52; // tweet-size: um bloco único, maior que o body antigo
+const FS_NAME = 41;
+const FS_HANDLE = 31;
+// Fonte base do corpo — alinhada ao postflow. Auto-shrink abaixo cuida do overflow.
+const FS_BODY_BASE = 39;
 
 interface TwitterSlideProps {
   body: string;
@@ -32,6 +35,10 @@ interface TwitterSlideProps {
   profile: ViralProfile;
   scale?: number;
   textScale?: number;
+  /** Se true, imagem ocupa todo o slide com gradient overlay (estilo capa de jornal). */
+  imageAsCover?: boolean;
+  /** Reescreve URL da imagem (ex: pra passar por proxy CORS). */
+  rewriteImageUrl?: (url: string) => string;
   className?: string;
   style?: CSSProperties;
 }
@@ -51,6 +58,26 @@ function renderRichText(text: string): ReactNode[] {
   });
 }
 
+/**
+ * Auto-shrink: dado o tamanho do body, retorna um multiplicador do font-size.
+ * Curva conservadora pra evitar texto microscópico.
+ *   ≤180 chars   → 1.00 (39px)
+ *   181-260      → 0.92 (~36px)
+ *   261-340      → 0.85 (~33px)
+ *   341-420      → 0.78 (~30px)
+ *   >420         → 0.72 (~28px)
+ */
+function autoShrinkMultiplier(bodyLength: number, hasImage: boolean): number {
+  // Quando tem imagem o espaço útil cai ~40% — shrink mais agressivo.
+  const lengthFactor = hasImage ? 0.7 : 1;
+  const adjusted = bodyLength / lengthFactor;
+  if (adjusted <= 180) return 1.0;
+  if (adjusted <= 260) return 0.92;
+  if (adjusted <= 340) return 0.85;
+  if (adjusted <= 420) return 0.78;
+  return 0.72;
+}
+
 export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
   function TwitterSlide(
     {
@@ -61,12 +88,21 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
       profile,
       scale = 0.32,
       textScale = 1,
+      imageAsCover = false,
+      rewriteImageUrl,
       className,
       style,
     },
     ref,
   ) {
-    const fsBody = FS_BODY * textScale;
+    const shrink = autoShrinkMultiplier(body?.length ?? 0, !!imageUrl && !imageAsCover);
+    const fsBody = FS_BODY_BASE * textScale * shrink;
+    const resolvedImageUrl = imageUrl
+      ? (rewriteImageUrl ? rewriteImageUrl(imageUrl) : imageUrl)
+      : undefined;
+    const resolvedAvatarUrl = profile.avatarUrl
+      ? (rewriteImageUrl ? rewriteImageUrl(profile.avatarUrl) : profile.avatarUrl)
+      : undefined;
 
     return (
       <div
@@ -111,6 +147,8 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
               gap: 20,
               marginBottom: 40,
               flexShrink: 0,
+              position: "relative",
+              zIndex: 2,
             }}
           >
             <div
@@ -129,9 +167,9 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
                 flexShrink: 0,
               }}
             >
-              {profile.avatarUrl ? (
+              {resolvedAvatarUrl ? (
                 <img
-                  src={profile.avatarUrl}
+                  src={resolvedAvatarUrl}
                   alt={profile.name}
                   crossOrigin="anonymous"
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
@@ -202,56 +240,121 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
             </div>
           </div>
 
-          {/* Body — texto único estilo tweet com imagem grudada */}
-          <div
-            style={{
-              flex: "1 1 0",
-              display: "flex",
-              flexDirection: "column",
-              gap: 20,
-              overflow: "hidden",
-              minHeight: 0,
-            }}
-          >
-            {body && (
-              <p
+          {/* Body — texto único estilo tweet */}
+          {imageAsCover && resolvedImageUrl ? (
+            // Layout COVER: imagem cobre todo o slide com gradient overlay e texto sobreposto
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 1,
+              }}
+            >
+              <img
+                src={resolvedImageUrl}
+                alt=""
+                crossOrigin="anonymous"
                 style={{
-                  fontSize: fsBody,
-                  lineHeight: 1.35,
-                  color: FG,
-                  margin: 0,
-                  whiteSpace: "pre-line",
-                  fontWeight: 400,
-                  letterSpacing: "-0.01em",
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
                 }}
-              >
-                {renderRichText(body)}
-              </p>
-            )}
-            {imageUrl && (
+              />
               <div
                 style={{
-                  width: "100%",
-                  aspectRatio: "16 / 9",
-                  borderRadius: 20,
-                  overflow: "hidden",
-                  border: `1px solid ${BORDER}`,
-                  background: "#F0F0F0",
+                  position: "absolute",
+                  inset: 0,
+                  background:
+                    "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.4) 32%, rgba(0,0,0,0.65) 75%, rgba(0,0,0,0.92) 100%)",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  left: 70,
+                  right: 70,
+                  bottom: 80,
+                  zIndex: 2,
                 }}
               >
-                <img
-                  src={imageUrl}
-                  alt=""
-                  crossOrigin="anonymous"
+                {body && (
+                  <p
+                    style={{
+                      fontSize: fsBody * 1.15,
+                      lineHeight: 1.2,
+                      color: "#FFFFFF",
+                      margin: 0,
+                      whiteSpace: "pre-line",
+                      fontWeight: 700,
+                      letterSpacing: "-0.015em",
+                      textShadow: "0 2px 12px rgba(0,0,0,0.5)",
+                    }}
+                  >
+                    {renderRichText(body)}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{
+                flex: "1 1 0",
+                display: "flex",
+                flexDirection: "column",
+                gap: 24,
+                overflow: "hidden",
+                minHeight: 0,
+                position: "relative",
+                zIndex: 2,
+              }}
+            >
+              {body && (
+                <p
+                  style={{
+                    fontSize: fsBody,
+                    lineHeight: 1.4,
+                    color: FG,
+                    margin: 0,
+                    whiteSpace: "pre-line",
+                    fontWeight: 400,
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  {renderRichText(body)}
+                </p>
+              )}
+              {resolvedImageUrl && (
+                <div
                   style={{
                     width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
+                    flex: "1 1 auto",
+                    minHeight: 0,
+                    borderRadius: 20,
+                    overflow: "hidden",
+                    border: `1px solid ${BORDER}`,
+                    background: "#F4F4F5",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
-                />
-              </div>
-            )}
-          </div>
+                >
+                  <img
+                    src={resolvedImageUrl}
+                    alt=""
+                    crossOrigin="anonymous"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
