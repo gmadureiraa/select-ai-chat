@@ -30,6 +30,12 @@ export interface ViralSlide {
    */
   heading?: string;
   image: ImageSource;
+  /**
+   * Se true, a imagem cobre o slide inteiro com gradient overlay e o
+   * texto fica sobreposto em branco (estilo capa de jornal). Útil pro
+   * slide 1 quando há uma imagem forte da notícia.
+   */
+  imageAsCover?: boolean;
 }
 
 export interface ViralProfile {
