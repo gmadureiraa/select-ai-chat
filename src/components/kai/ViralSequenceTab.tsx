@@ -29,6 +29,7 @@ import {
   Layers,
   FileImage,
   FileText,
+  FileArchive,
   Eye,
   ListTodo,
 } from "lucide-react";
@@ -60,9 +61,11 @@ import { SlideEditor } from "./viral-sequence/SlideEditor";
 import {
   exportCarouselAsPngs,
   exportCarouselAsPdf,
+  exportCarouselAsZip,
 } from "./viral-sequence/exportCarousel";
 import { CarouselFullPreview } from "./viral-sequence/CarouselFullPreview";
 import { SavedCarouselsSidebar } from "./viral-sequence/SavedCarouselsSidebar";
+import { OffscreenSlideRenderer } from "./viral-sequence/OffscreenSlideRenderer";
 
 interface ViralSequenceTabProps {
   clientId: string;
