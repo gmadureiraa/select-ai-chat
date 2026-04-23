@@ -66,6 +66,7 @@ export function OffscreenSlideRenderer({
             ref={(n) => registerRef(slide.id, n)}
             body={slide.body || ""}
             imageUrl={slide.image.kind === "none" ? undefined : slide.image.url}
+            imageAsCover={slide.imageAsCover === true && slide.image.kind !== "none"}
             slideNumber={slide.order}
             totalSlides={carousel.slides.length}
             profile={carousel.profile}

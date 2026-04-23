@@ -52,7 +52,8 @@ interface ViralSlide {
   id: string;
   order: number;
   body: string;
-  image: { kind: "none" };
+  image: { kind: "none" } | { kind: "search"; query: string; url: string; attribution?: string };
+  imageAsCover?: boolean;
 }
 
 interface RequestBody {
@@ -65,6 +66,9 @@ interface RequestBody {
   title?: string;
   source?: "manual" | "automation" | "chat";
   automationId?: string;
+  /** Se fornecido, vira capa do slide 1 com imageAsCover=true. */
+  coverImageUrl?: string | null;
+  coverImageAttribution?: string | null;
 }
 
 function buildPrompt(briefing: string, slideCount: number, tone?: string): string {
@@ -215,6 +219,8 @@ serve(async (req) => {
       title,
       source = "manual",
       automationId,
+      coverImageUrl,
+      coverImageAttribution,
     } = body;
 
     if (!clientId || !briefing) {
@@ -291,6 +297,20 @@ serve(async (req) => {
       );
     }
     const slides = normalizeSlides(arr, slideCount);
+
+    // Aplica imagem de capa no slide 1 (se fornecida) — estilo capa de jornal.
+    if (coverImageUrl && slides.length > 0) {
+      slides[0] = {
+        ...slides[0],
+        image: {
+          kind: "search",
+          query: title ?? briefing.slice(0, 60),
+          url: coverImageUrl,
+          attribution: coverImageAttribution ?? undefined,
+        },
+        imageAsCover: true,
+      };
+    }
 
     const finalProfile: ViralProfile = profile ?? {
       name: client.name as string,
