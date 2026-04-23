@@ -58,8 +58,8 @@ async function waitForExportReady(nodes: HTMLElement[]): Promise<void> {
   );
   if (typeof document !== "undefined" && "fonts" in document) {
     try {
-      // @ts-expect-error - fonts API nem sempre tipada
-      await document.fonts?.ready;
+      const fontsApi = (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts;
+      await fontsApi?.ready;
     } catch {
       /* best-effort */
     }
