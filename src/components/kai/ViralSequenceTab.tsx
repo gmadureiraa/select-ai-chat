@@ -304,6 +304,10 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
         .order("position", { ascending: true })
         .limit(1);
       const columnId = cols?.[0]?.id ?? null;
+      if (!columnId) {
+        toast.error("Nenhuma coluna disponível no Planejamento");
+        return;
+      }
 
       // 3) Cria planning_item linkado
       const { data: pi, error: piErr } = await supabase
@@ -327,7 +331,7 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
             viral_carousel_briefing: saved.briefing ?? null,
             viral_carousel_slides: saved.slides,
           },
-        })
+        } as never)
         .select("id")
         .single();
       if (piErr) throw piErr;
