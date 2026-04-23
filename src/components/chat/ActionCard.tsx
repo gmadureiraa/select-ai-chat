@@ -146,6 +146,37 @@ function CardBody({ card }: { card: KAIActionCard }) {
 }
 
 function DraftBody({ data }: { data: KAIDraftCardData }) {
+  // Renderer especial pra carrossel viral (estilo Twitter)
+  const isViralCarousel = data.format === "viral_carousel";
+  const viralSlides = (data as unknown as { viralSlides?: Array<{ body: string }> }).viralSlides;
+
+  if (isViralCarousel && Array.isArray(viralSlides) && viralSlides.length > 0) {
+    return (
+      <div className="space-y-2">
+        {data.title && <p className="text-sm font-semibold">{data.title}</p>}
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wide">
+          <span>Sequência Viral</span>
+          <span>·</span>
+          <span>{viralSlides.length} slides</span>
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {viralSlides.map((s, i) => (
+            <div
+              key={i}
+              className="shrink-0 w-32 h-40 rounded-md border border-border/40 bg-gradient-to-br from-sky-50 to-background dark:from-sky-950/40 p-2 text-[9px] leading-tight overflow-hidden"
+              title={s.body}
+            >
+              <div className="text-[8px] font-mono text-sky-600 dark:text-sky-400 mb-1">
+                {String(i + 1).padStart(2, "0")}/{viralSlides.length}
+              </div>
+              <p className="line-clamp-8 whitespace-pre-wrap">{s.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       {data.title && (
