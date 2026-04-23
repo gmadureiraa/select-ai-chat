@@ -1096,6 +1096,8 @@ serve(async (req) => {
             const rawTemplate = automation.prompt_template ?? triggerData?.title ?? automation.name;
             const briefing = (await replaceTemplateVariables(rawTemplate, triggerData ?? null, automation.name)).slice(0, 4000);
             const carouselTitle = triggerData?.title || automation.name;
+            // Pega 1ª imagem do RSS pra usar como capa do slide 1 (estilo jornal).
+            const coverImageUrl = triggerData?.allImages?.[0] ?? null;
 
             const vcRes = await fetch(`${supabaseUrl}/functions/v1/generate-viral-carousel`, {
               method: 'POST',
@@ -1112,6 +1114,8 @@ serve(async (req) => {
                 persistAs: 'both',
                 source: 'automation',
                 automationId: automation.id,
+                coverImageUrl,
+                coverImageAttribution: triggerData?.link ?? null,
               }),
             });
 
