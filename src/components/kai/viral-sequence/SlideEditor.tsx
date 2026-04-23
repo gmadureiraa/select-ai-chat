@@ -27,6 +27,7 @@ import {
   Target,
   Loader2,
   ExternalLink,
+  Maximize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
