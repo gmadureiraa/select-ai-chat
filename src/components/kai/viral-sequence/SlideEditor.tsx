@@ -28,6 +28,12 @@ import {
   Loader2,
   ExternalLink,
   Maximize2,
+  Eye,
+  Type,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyStart,
+  AlignVerticalJustifyEnd,
+  Palette as PaletteIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,11 +46,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { ViralSlide, ViralProfile, ImageSource } from "./types";
+import type { ViralSlide, ViralProfile, ImageSource, CoverTextStyle } from "./types";
 import { TwitterSlide } from "./TwitterSlide";
 import { searchImages, type ImageSearchResult } from "./imageSearch";
+import { buildFallbackImageSource, COVER_FALLBACK_PALETTES } from "./coverFallback";
 
 interface SlideEditorProps {
   slide: ViralSlide;
