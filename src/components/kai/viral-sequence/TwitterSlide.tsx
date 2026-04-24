@@ -306,8 +306,7 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
                 style={{
                   position: "absolute",
                   inset: 0,
-                  background:
-                    "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.4) 32%, rgba(0,0,0,0.65) 75%, rgba(0,0,0,0.92) 100%)",
+                  background: overlayCss,
                 }}
               />
               <div
@@ -315,27 +314,48 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
                   position: "absolute",
                   left: 70,
                   right: 70,
-                  bottom: 80,
+                  ...(coverPosition === "top"
+                    ? { top: 220 }
+                    : coverPosition === "center"
+                      ? { top: "50%", transform: "translateY(-30%)" }
+                      : { bottom: 100 }),
                   zIndex: 2,
                 }}
               >
                 {body && (
                   <p
                     style={{
-                      fontSize: fsBody * 1.15,
-                      lineHeight: 1.2,
-                      color: "#FFFFFF",
+                      fontSize: fsBodyCover,
+                      lineHeight: coverSpacing,
+                      color: coverTextColor,
                       margin: 0,
                       whiteSpace: "pre-line",
                       fontWeight: 700,
                       letterSpacing: "-0.015em",
-                      textShadow: "0 2px 12px rgba(0,0,0,0.5)",
+                      textShadow: coverTextShadow,
                     }}
                   >
                     {renderRichText(body)}
                   </p>
                 )}
               </div>
+              {imageAttribution && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 70,
+                    bottom: 32,
+                    fontSize: 18,
+                    color: "rgba(255,255,255,0.75)",
+                    zIndex: 3,
+                    fontWeight: 500,
+                    letterSpacing: "0.02em",
+                    textShadow: "0 1px 4px rgba(0,0,0,0.6)",
+                  }}
+                >
+                  Foto: {imageAttribution}
+                </div>
+              )}
             </div>
           ) : (
             <div
