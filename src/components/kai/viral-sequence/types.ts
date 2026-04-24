@@ -12,8 +12,13 @@ export type ViralTemplateId = "twitter"; // MVP: só twitter
 export type ImageSource =
   | { kind: "none" }
   | { kind: "ai"; prompt: string; url: string }
-  | { kind: "search"; query: string; url: string; attribution?: string }
-  | { kind: "upload"; url: string; filename?: string };
+  | { kind: "search"; query: string; url: string; attribution?: string; sourceUrl?: string }
+  | { kind: "upload"; url: string; filename?: string }
+  /**
+   * Fallback gerado: SVG/CSS gradient renderizado quando RSS não tem imagem.
+   * `url` é a data-URL do SVG; `palette` é um nome legível do esquema.
+   */
+  | { kind: "fallback"; url: string; palette: string; seed: string };
 
 /** Onde o texto sobreposto fica posicionado quando `imageAsCover=true`. */
 export type CoverTextPosition = "top" | "center" | "bottom";
