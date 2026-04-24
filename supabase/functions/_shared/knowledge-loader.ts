@@ -430,7 +430,7 @@ export async function getClientAvoidList(clientId: string): Promise<string[]> {
 // Re-export types and functions from new modules
 export { getFormatSchema, buildFormatContract } from "./format-schemas.ts";
 export { buildForbiddenPhrasesSection, UNIVERSAL_OUTPUT_RULES } from "./quality-rules.ts";
-export type { VoiceProfile };
+// VoiceProfile já é exportado na declaração da interface acima (linha 24).
 
 /**
  * Retorna lista de formatos disponíveis
