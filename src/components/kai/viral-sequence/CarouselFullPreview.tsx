@@ -92,6 +92,11 @@ export function CarouselFullPreview({
             <TwitterSlide
               body={current.body || "(slide vazio)"}
               imageUrl={imageUrl}
+              imageAsCover={current.imageAsCover === true && current.image.kind !== "none"}
+              coverTextStyle={current.coverTextStyle}
+              imageAttribution={
+                current.image.kind === "search" ? current.image.attribution : undefined
+              }
               slideNumber={current.order}
               totalSlides={total}
               profile={carousel.profile}

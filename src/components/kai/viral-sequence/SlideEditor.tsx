@@ -28,6 +28,12 @@ import {
   Loader2,
   ExternalLink,
   Maximize2,
+  Eye,
+  Type,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyStart,
+  AlignVerticalJustifyEnd,
+  Palette as PaletteIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,11 +46,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { ViralSlide, ViralProfile, ImageSource } from "./types";
+import type { ViralSlide, ViralProfile, ImageSource, CoverTextStyle } from "./types";
 import { TwitterSlide } from "./TwitterSlide";
 import { searchImages, type ImageSearchResult } from "./imageSearch";
+import { buildFallbackImageSource, COVER_FALLBACK_PALETTES } from "./coverFallback";
 
 interface SlideEditorProps {
   slide: ViralSlide;
@@ -60,6 +68,7 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [coverPreviewOpen, setCoverPreviewOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
   const [searchResults, setSearchResults] = useState<ImageSearchResult[]>([]);
@@ -178,6 +187,10 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
             body={slide.body || "Texto do slide..."}
             imageUrl={currentImageUrl}
             imageAsCover={slide.imageAsCover === true && slide.image.kind !== "none"}
+            coverTextStyle={slide.coverTextStyle}
+            imageAttribution={
+              slide.image.kind === "search" ? slide.image.attribution : undefined
+            }
             slideNumber={slide.order}
             totalSlides={totalSlides}
             profile={profile}
@@ -235,6 +248,21 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
             active={slide.image.kind === "upload"}
             onClick={() => fileInputRef.current?.click()}
           />
+          <ImageButton
+            label="Capa"
+            icon={<PaletteIcon className="h-3 w-3" />}
+            active={slide.image.kind === "fallback"}
+            onClick={() => {
+              const seed = slide.body.slice(0, 60) || `slide-${slide.order}`;
+              setImage(buildFallbackImageSource(seed));
+              onChange({
+                ...slide,
+                image: buildFallbackImageSource(seed),
+                imageAsCover: true,
+              });
+              toast.success("Capa gerada (gradient).");
+            }}
+          />
           {slide.image.kind !== "none" && (
             <Button
               size="sm"
@@ -259,27 +287,64 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
           />
         </div>
 
+        {/* Atribuição (só se houver) */}
+        {slide.image.kind === "search" && slide.image.attribution && (
+          <div className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
+            <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate" title={slide.image.attribution}>
+              {slide.image.attribution}
+            </span>
+          </div>
+        )}
+        {slide.image.kind === "fallback" && (
+          <div className="text-[10px] text-muted-foreground">
+            Capa gerada · paleta {slide.image.palette}
+          </div>
+        )}
+
         {/* Toggle: imagem como capa (só aparece se houver imagem) */}
         {slide.image.kind !== "none" && (
-          <button
-            type="button"
-            onClick={() => onChange({ ...slide, imageAsCover: !slide.imageAsCover })}
-            className={cn(
-              "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md border text-[11px] transition-colors",
-              slide.imageAsCover
-                ? "border-sky-500 bg-sky-500/10 text-sky-700 dark:text-sky-300"
-                : "border-border/40 bg-muted/30 text-muted-foreground hover:bg-muted/60",
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onChange({ ...slide, imageAsCover: !slide.imageAsCover })}
+              className={cn(
+                "flex-1 flex items-center justify-between gap-2 px-2 py-1.5 rounded-md border text-[11px] transition-colors",
+                slide.imageAsCover
+                  ? "border-sky-500 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+                  : "border-border/40 bg-muted/30 text-muted-foreground hover:bg-muted/60",
+              )}
+              title="Quando ativo, a imagem cobre todo o slide com o texto sobreposto."
+            >
+              <span className="flex items-center gap-1.5">
+                <Maximize2 className="h-3 w-3" />
+                Imagem como capa
+              </span>
+              <span className="font-mono text-[10px]">
+                {slide.imageAsCover ? "ON" : "OFF"}
+              </span>
+            </button>
+            {slide.imageAsCover && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-[11px] gap-1"
+                onClick={() => setCoverPreviewOpen(true)}
+                title="Ver slide em tamanho real (1080×1350)"
+              >
+                <Eye className="h-3 w-3" />
+                Preview
+              </Button>
             )}
-            title="Quando ativo, a imagem cobre todo o slide com o texto sobreposto."
-          >
-            <span className="flex items-center gap-1.5">
-              <Maximize2 className="h-3 w-3" />
-              Imagem como capa
-            </span>
-            <span className="font-mono text-[10px]">
-              {slide.imageAsCover ? "ON" : "OFF"}
-            </span>
-          </button>
+          </div>
+        )}
+
+        {/* Painel de controles da capa */}
+        {slide.image.kind !== "none" && slide.imageAsCover && (
+          <CoverControls
+            value={slide.coverTextStyle}
+            onChange={(next) => onChange({ ...slide, coverTextStyle: next })}
+          />
         )}
       </div>
 
@@ -412,6 +477,176 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: preview do slide em tamanho real (1080×1350) */}
+      <Dialog open={coverPreviewOpen} onOpenChange={setCoverPreviewOpen}>
+        <DialogContent className="max-w-[720px] p-0 gap-0 bg-neutral-950 border-neutral-800 overflow-hidden">
+          <DialogHeader className="p-4 pb-2 border-b border-neutral-800">
+            <DialogTitle className="text-white text-sm">
+              Preview · Slide {slide.order} (1080×1350 — tamanho final Instagram)
+            </DialogTitle>
+            <DialogDescription className="text-neutral-400 text-xs">
+              É exatamente assim que o slide vai sair quando você exportar e postar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-6 bg-neutral-900">
+            <TwitterSlide
+              body={slide.body || "Texto do slide..."}
+              imageUrl={currentImageUrl}
+              imageAsCover={slide.imageAsCover === true && slide.image.kind !== "none"}
+              coverTextStyle={slide.coverTextStyle}
+              imageAttribution={
+                slide.image.kind === "search" ? slide.image.attribution : undefined
+              }
+              slideNumber={slide.order}
+              totalSlides={totalSlides}
+              profile={profile}
+              scale={0.5}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// CoverControls — painel de ajuste fino do texto sobreposto à capa.
+// ----------------------------------------------------------------------------
+function CoverControls({
+  value,
+  onChange,
+}: {
+  value: CoverTextStyle | undefined;
+  onChange: (next: CoverTextStyle) => void;
+}) {
+  const v: Required<Pick<CoverTextStyle, "size" | "position" | "spacing" | "overlay" | "textColor">> = {
+    size: value?.size ?? "md",
+    position: value?.position ?? "bottom",
+    spacing: value?.spacing ?? 1.2,
+    overlay: value?.overlay ?? "medium",
+    textColor: value?.textColor ?? "auto",
+  };
+  const set = (patch: Partial<CoverTextStyle>) => onChange({ ...v, ...patch });
+
+  return (
+    <div className="border border-sky-200/40 dark:border-sky-800/30 rounded-md bg-sky-50/40 dark:bg-sky-950/20 p-2 space-y-2">
+      <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-sky-700 dark:text-sky-300">
+        <Type className="h-3 w-3" />
+        Ajustes da capa
+      </div>
+
+      {/* Tamanho */}
+      <div className="space-y-1">
+        <span className="text-[10px] text-muted-foreground">Tamanho</span>
+        <div className="grid grid-cols-4 gap-1">
+          {(["sm", "md", "lg", "xl"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => set({ size: s })}
+              className={cn(
+                "h-6 text-[10px] font-mono uppercase rounded border transition-colors",
+                v.size === s
+                  ? "border-sky-500 bg-sky-500 text-white"
+                  : "border-border/40 bg-background hover:bg-muted",
+              )}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Posição */}
+      <div className="space-y-1">
+        <span className="text-[10px] text-muted-foreground">Posição</span>
+        <div className="grid grid-cols-3 gap-1">
+          {([
+            { id: "top", icon: <AlignVerticalJustifyStart className="h-3 w-3" />, label: "Topo" },
+            { id: "center", icon: <AlignVerticalJustifyCenter className="h-3 w-3" />, label: "Centro" },
+            { id: "bottom", icon: <AlignVerticalJustifyEnd className="h-3 w-3" />, label: "Base" },
+          ] as const).map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => set({ position: p.id })}
+              className={cn(
+                "h-6 text-[10px] flex items-center justify-center gap-1 rounded border transition-colors",
+                v.position === p.id
+                  ? "border-sky-500 bg-sky-500 text-white"
+                  : "border-border/40 bg-background hover:bg-muted",
+              )}
+            >
+              {p.icon}
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Espaçamento de linha */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground">Espaçamento</span>
+          <span className="text-[10px] font-mono text-muted-foreground">{v.spacing.toFixed(2)}×</span>
+        </div>
+        <Slider
+          value={[v.spacing]}
+          min={1}
+          max={1.6}
+          step={0.05}
+          onValueChange={([x]) => set({ spacing: x })}
+        />
+      </div>
+
+      {/* Overlay (intensidade) */}
+      <div className="space-y-1">
+        <span className="text-[10px] text-muted-foreground">Overlay (contraste)</span>
+        <div className="grid grid-cols-3 gap-1">
+          {(["soft", "medium", "strong"] as const).map((o) => (
+            <button
+              key={o}
+              type="button"
+              onClick={() => set({ overlay: o })}
+              className={cn(
+                "h-6 text-[10px] font-mono uppercase rounded border transition-colors",
+                v.overlay === o
+                  ? "border-sky-500 bg-sky-500 text-white"
+                  : "border-border/40 bg-background hover:bg-muted",
+              )}
+            >
+              {o}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Cor do texto */}
+      <div className="space-y-1">
+        <span className="text-[10px] text-muted-foreground">Cor do texto</span>
+        <div className="grid grid-cols-3 gap-1">
+          {([
+            { id: "auto", label: "Auto" },
+            { id: "white", label: "Branco" },
+            { id: "black", label: "Preto" },
+          ] as const).map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => set({ textColor: c.id })}
+              className={cn(
+                "h-6 text-[10px] rounded border transition-colors",
+                v.textColor === c.id
+                  ? "border-sky-500 bg-sky-500 text-white"
+                  : "border-border/40 bg-background hover:bg-muted",
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -52,8 +52,81 @@ interface ViralSlide {
   id: string;
   order: number;
   body: string;
-  image: { kind: "none" } | { kind: "search"; query: string; url: string; attribution?: string };
+  image:
+    | { kind: "none" }
+    | { kind: "search"; query: string; url: string; attribution?: string }
+    | { kind: "fallback"; url: string; palette: string; seed: string };
   imageAsCover?: boolean;
+  coverTextStyle?: Record<string, unknown>;
+}
+
+// Paletas para cover fallback (espelha src/components/kai/viral-sequence/coverFallback.ts).
+const FALLBACK_PALETTES: Array<{ name: string; colors: [string, string]; accent: string }> = [
+  { name: "Indigo", colors: ["#1e1b4b", "#4338ca"], accent: "#a78bfa" },
+  { name: "Rose", colors: ["#881337", "#e11d48"], accent: "#fbcfe8" },
+  { name: "Emerald", colors: ["#022c22", "#059669"], accent: "#a7f3d0" },
+  { name: "Amber", colors: ["#451a03", "#d97706"], accent: "#fde68a" },
+  { name: "Slate", colors: ["#0f172a", "#475569"], accent: "#cbd5e1" },
+  { name: "Sky", colors: ["#082f49", "#0284c7"], accent: "#bae6fd" },
+];
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h << 5) - h + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+
+function buildFallbackCover(seedText: string): { url: string; palette: string; seed: string } {
+  const palette = FALLBACK_PALETTES[hashStr(seedText) % FALLBACK_PALETTES.length];
+  const seed = hashStr(seedText);
+  const c1x = (seed % 600) + 200;
+  const c1y = ((seed >> 4) % 600) + 200;
+  const c2x = ((seed >> 8) % 700) + 100;
+  const c2y = ((seed >> 12) % 700) + 400;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${palette.colors[0]}"/><stop offset="100%" stop-color="${palette.colors[1]}"/></linearGradient><radialGradient id="glow" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="${palette.accent}" stop-opacity="0.35"/><stop offset="100%" stop-color="${palette.accent}" stop-opacity="0"/></radialGradient></defs><rect width="1080" height="1350" fill="url(#bg)"/><circle cx="${c1x}" cy="${c1y}" r="280" fill="${palette.accent}" opacity="0.12"/><circle cx="${c2x}" cy="${c2y}" r="180" fill="${palette.accent}" opacity="0.08"/><rect width="1080" height="1350" fill="url(#glow)"/></svg>`;
+  return {
+    url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+    palette: palette.name,
+    seed: seedText.slice(0, 60),
+  };
+}
+
+/**
+ * Faz cache da imagem do RSS no Storage (bucket social-images) pra evitar
+ * URLs que expiram. Retorna a URL pública do storage ou a original em caso
+ * de falha (não bloqueia o pipeline).
+ */
+async function cacheCoverImage(
+  supabase: ReturnType<typeof createClient>,
+  sourceUrl: string,
+  clientId: string,
+): Promise<string> {
+  try {
+    const res = await fetch(sourceUrl, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return sourceUrl;
+    const ct = res.headers.get("content-type") ?? "image/jpeg";
+    const ext = ct.includes("png") ? "png" : ct.includes("webp") ? "webp" : "jpg";
+    const buf = new Uint8Array(await res.arrayBuffer());
+    if (buf.length === 0 || buf.length > 10 * 1024 * 1024) return sourceUrl; // skip empty/huge
+    const path = `viral-covers/${clientId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from("social-images").upload(path, buf, {
+      contentType: ct,
+      cacheControl: "31536000",
+      upsert: false,
+    });
+    if (error) {
+      console.warn("[generate-viral-carousel] cover cache upload failed:", error.message);
+      return sourceUrl;
+    }
+    const { data } = supabase.storage.from("social-images").getPublicUrl(path);
+    return data?.publicUrl ?? sourceUrl;
+  } catch (err) {
+    console.warn("[generate-viral-carousel] cover cache failed:", err);
+    return sourceUrl;
+  }
 }
 
 interface RequestBody {
@@ -298,18 +371,30 @@ serve(async (req) => {
     }
     const slides = normalizeSlides(arr, slideCount);
 
-    // Aplica imagem de capa no slide 1 (se fornecida) — estilo capa de jornal.
-    if (coverImageUrl && slides.length > 0) {
-      slides[0] = {
-        ...slides[0],
-        image: {
-          kind: "search",
-          query: title ?? briefing.slice(0, 60),
-          url: coverImageUrl,
-          attribution: coverImageAttribution ?? undefined,
-        },
-        imageAsCover: true,
-      };
+    // Aplica imagem de capa no slide 1 — estilo capa de jornal.
+    // Se RSS trouxer URL: cacheia no Storage pra não quebrar quando expirar.
+    // Se não trouxer: gera fallback SVG (gradient).
+    if (slides.length > 0) {
+      if (coverImageUrl) {
+        const cachedUrl = await cacheCoverImage(supabase, coverImageUrl, clientId);
+        slides[0] = {
+          ...slides[0],
+          image: {
+            kind: "search",
+            query: title ?? briefing.slice(0, 60),
+            url: cachedUrl,
+            attribution: coverImageAttribution ?? undefined,
+          },
+          imageAsCover: true,
+        };
+      } else {
+        const fb = buildFallbackCover(title ?? briefing);
+        slides[0] = {
+          ...slides[0],
+          image: { kind: "fallback", url: fb.url, palette: fb.palette, seed: fb.seed },
+          imageAsCover: true,
+        };
+      }
     }
 
     const finalProfile: ViralProfile = profile ?? {

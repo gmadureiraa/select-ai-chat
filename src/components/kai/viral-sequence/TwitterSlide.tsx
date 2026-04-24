@@ -14,7 +14,7 @@
 
 import { forwardRef, type CSSProperties } from "react";
 import type { ReactNode } from "react";
-import { CANVAS_H, CANVAS_W, type ViralProfile } from "./types";
+import { CANVAS_H, CANVAS_W, type ViralProfile, type CoverTextStyle } from "./types";
 
 const TWITTER_BLUE = "#1D9BF0";
 const BG = "#FFFFFF";
@@ -37,6 +37,10 @@ interface TwitterSlideProps {
   textScale?: number;
   /** Se true, imagem ocupa todo o slide com gradient overlay (estilo capa de jornal). */
   imageAsCover?: boolean;
+  /** Estilo do texto sobreposto (apenas quando imageAsCover=true). */
+  coverTextStyle?: CoverTextStyle;
+  /** Atribuição da imagem (mostrada como pequeno crédito quando há fonte). */
+  imageAttribution?: string;
   /** Reescreve URL da imagem (ex: pra passar por proxy CORS). */
   rewriteImageUrl?: (url: string) => string;
   className?: string;
@@ -89,6 +93,8 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
       scale = 0.32,
       textScale = 1,
       imageAsCover = false,
+      coverTextStyle,
+      imageAttribution,
       rewriteImageUrl,
       className,
       style,
@@ -103,6 +109,40 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
     const resolvedAvatarUrl = profile.avatarUrl
       ? (rewriteImageUrl ? rewriteImageUrl(profile.avatarUrl) : profile.avatarUrl)
       : undefined;
+
+    // Resolução do estilo da capa (com defaults).
+    const coverSize = coverTextStyle?.size ?? "md";
+    const coverPosition = coverTextStyle?.position ?? "bottom";
+    const coverSpacing = Math.max(1.0, Math.min(1.6, coverTextStyle?.spacing ?? 1.2));
+    const coverOverlay = coverTextStyle?.overlay ?? "medium";
+    const coverColorMode = coverTextStyle?.textColor ?? "auto";
+
+    const COVER_SIZE_MULT: Record<string, number> = { sm: 0.95, md: 1.15, lg: 1.35, xl: 1.55 };
+    const fsBodyCover = fsBody * (COVER_SIZE_MULT[coverSize] ?? 1.15);
+
+    // Auto-contrast: white text + dark overlay (default), or black text + light overlay.
+    const useDarkOverlay = coverColorMode !== "black";
+    const overlayStops = useDarkOverlay
+      ? {
+          soft:    "rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.55) 100%",
+          medium:  "rgba(0,0,0,0.20) 0%, rgba(0,0,0,0.78) 100%",
+          strong:  "rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.92) 100%",
+        }
+      : {
+          soft:    "rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.78) 100%",
+          medium:  "rgba(255,255,255,0.40) 0%, rgba(255,255,255,0.90) 100%",
+          strong:  "rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.97) 100%",
+        };
+    const stop = overlayStops[coverOverlay];
+    const overlayCss =
+      coverPosition === "top"    ? `linear-gradient(180deg, ${stop})` :
+      coverPosition === "center" ? `radial-gradient(ellipse at center, ${stop})` :
+                                   `linear-gradient(0deg, ${stop})`;
+
+    const coverTextColor = useDarkOverlay ? "#FFFFFF" : "#0F1419";
+    const coverTextShadow = useDarkOverlay
+      ? "0 2px 16px rgba(0,0,0,0.55)"
+      : "0 1px 4px rgba(255,255,255,0.85)";
 
     return (
       <div
@@ -266,8 +306,7 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
                 style={{
                   position: "absolute",
                   inset: 0,
-                  background:
-                    "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.4) 32%, rgba(0,0,0,0.65) 75%, rgba(0,0,0,0.92) 100%)",
+                  background: overlayCss,
                 }}
               />
               <div
@@ -275,27 +314,48 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
                   position: "absolute",
                   left: 70,
                   right: 70,
-                  bottom: 80,
+                  ...(coverPosition === "top"
+                    ? { top: 220 }
+                    : coverPosition === "center"
+                      ? { top: "50%", transform: "translateY(-30%)" }
+                      : { bottom: 100 }),
                   zIndex: 2,
                 }}
               >
                 {body && (
                   <p
                     style={{
-                      fontSize: fsBody * 1.15,
-                      lineHeight: 1.2,
-                      color: "#FFFFFF",
+                      fontSize: fsBodyCover,
+                      lineHeight: coverSpacing,
+                      color: coverTextColor,
                       margin: 0,
                       whiteSpace: "pre-line",
                       fontWeight: 700,
                       letterSpacing: "-0.015em",
-                      textShadow: "0 2px 12px rgba(0,0,0,0.5)",
+                      textShadow: coverTextShadow,
                     }}
                   >
                     {renderRichText(body)}
                   </p>
                 )}
               </div>
+              {imageAttribution && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 70,
+                    bottom: 32,
+                    fontSize: 18,
+                    color: "rgba(255,255,255,0.75)",
+                    zIndex: 3,
+                    fontWeight: 500,
+                    letterSpacing: "0.02em",
+                    textShadow: "0 1px 4px rgba(0,0,0,0.6)",
+                  }}
+                >
+                  Foto: {imageAttribution}
+                </div>
+              )}
             </div>
           ) : (
             <div

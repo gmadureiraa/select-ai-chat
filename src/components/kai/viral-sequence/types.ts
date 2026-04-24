@@ -12,8 +12,31 @@ export type ViralTemplateId = "twitter"; // MVP: só twitter
 export type ImageSource =
   | { kind: "none" }
   | { kind: "ai"; prompt: string; url: string }
-  | { kind: "search"; query: string; url: string; attribution?: string }
-  | { kind: "upload"; url: string; filename?: string };
+  | { kind: "search"; query: string; url: string; attribution?: string; sourceUrl?: string }
+  | { kind: "upload"; url: string; filename?: string }
+  /**
+   * Fallback gerado: SVG/CSS gradient renderizado quando RSS não tem imagem.
+   * `url` é a data-URL do SVG; `palette` é um nome legível do esquema.
+   */
+  | { kind: "fallback"; url: string; palette: string; seed: string };
+
+/** Onde o texto sobreposto fica posicionado quando `imageAsCover=true`. */
+export type CoverTextPosition = "top" | "center" | "bottom";
+
+/** Tamanho relativo do texto sobreposto à capa. */
+export type CoverTextSize = "sm" | "md" | "lg" | "xl";
+
+/** Intensidade do overlay escuro/claro pra garantir contraste. */
+export type CoverOverlayStrength = "soft" | "medium" | "strong";
+
+export interface CoverTextStyle {
+  size?: CoverTextSize;        // default md
+  position?: CoverTextPosition; // default bottom
+  spacing?: number;             // line-height multiplier (default 1.2, 1.0–1.6)
+  overlay?: CoverOverlayStrength; // default medium
+  /** Cor do texto. "auto" calcula baseado no overlay. */
+  textColor?: "auto" | "white" | "black";
+}
 
 export interface ViralSlide {
   id: string;
@@ -36,6 +59,8 @@ export interface ViralSlide {
    * slide 1 quando há uma imagem forte da notícia.
    */
   imageAsCover?: boolean;
+  /** Estilização do texto sobreposto à capa (apenas quando imageAsCover=true). */
+  coverTextStyle?: CoverTextStyle;
 }
 
 export interface ViralProfile {
