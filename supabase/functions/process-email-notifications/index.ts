@@ -32,6 +32,16 @@ interface Workspace {
   name: string;
 }
 
+interface QueueTableUpdater {
+  update: (values: { error: string; sent_at: string }) => {
+    eq: (column: string, value: string) => Promise<unknown>;
+  };
+}
+
+interface QueueSupabaseClient {
+  from: (table: "email_notification_queue") => QueueTableUpdater;
+}
+
 const BATCH_SIZE = 50;
 
 serve(async (req) => {
@@ -196,7 +206,7 @@ serve(async (req) => {
   }
 });
 
-async function markAsError(supabase: ReturnType<typeof createClient>, id: string, error: string) {
+async function markAsError(supabase: QueueSupabaseClient, id: string, error: string) {
   await supabase
     .from("email_notification_queue")
     .update({ error, sent_at: new Date().toISOString() })
