@@ -1989,7 +1989,7 @@ serve(async (req) => {
                 .update({ 
                   media_urls: mediaUrls,
                   metadata: {
-                    ...(newItem.metadata as any || {}),
+                    ...toRecord(newItem.metadata),
                     generated_image_url: imageResult.imageUrl,
                     image_style: automation.image_style,
                   }
@@ -2007,10 +2007,10 @@ serve(async (req) => {
         // Publish immediately without requiring Telegram approval.
         // Telegram will receive an informational notification after publishing.
         if (automation.auto_publish && automation.client_id && generatedContent) {
-          const itemMeta0 = (newItem.metadata as any) || {};
+          const itemMeta0 = toRecord(newItem.metadata);
           const targetPlatforms: string[] = 
-            itemMeta0.target_platforms?.length > 0 ? itemMeta0.target_platforms :
-            (automation as any).platforms?.length > 0 ? (automation as any).platforms :
+            Array.isArray(itemMeta0.target_platforms) && itemMeta0.target_platforms.length > 0 ? itemMeta0.target_platforms.filter((platform): platform is string => typeof platform === 'string') :
+            (automation.platforms && automation.platforms.length > 0) ? automation.platforms :
             (derivedPlatform ? [derivedPlatform] : []);
 
           const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
