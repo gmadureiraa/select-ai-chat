@@ -477,6 +477,176 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: preview do slide em tamanho real (1080×1350) */}
+      <Dialog open={coverPreviewOpen} onOpenChange={setCoverPreviewOpen}>
+        <DialogContent className="max-w-[720px] p-0 gap-0 bg-neutral-950 border-neutral-800 overflow-hidden">
+          <DialogHeader className="p-4 pb-2 border-b border-neutral-800">
+            <DialogTitle className="text-white text-sm">
+              Preview · Slide {slide.order} (1080×1350 — tamanho final Instagram)
+            </DialogTitle>
+            <DialogDescription className="text-neutral-400 text-xs">
+              É exatamente assim que o slide vai sair quando você exportar e postar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-6 bg-neutral-900">
+            <TwitterSlide
+              body={slide.body || "Texto do slide..."}
+              imageUrl={currentImageUrl}
+              imageAsCover={slide.imageAsCover === true && slide.image.kind !== "none"}
+              coverTextStyle={slide.coverTextStyle}
+              imageAttribution={
+                slide.image.kind === "search" ? slide.image.attribution : undefined
+              }
+              slideNumber={slide.order}
+              totalSlides={totalSlides}
+              profile={profile}
+              scale={0.5}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// CoverControls — painel de ajuste fino do texto sobreposto à capa.
+// ----------------------------------------------------------------------------
+function CoverControls({
+  value,
+  onChange,
+}: {
+  value: CoverTextStyle | undefined;
+  onChange: (next: CoverTextStyle) => void;
+}) {
+  const v: Required<Pick<CoverTextStyle, "size" | "position" | "spacing" | "overlay" | "textColor">> = {
+    size: value?.size ?? "md",
+    position: value?.position ?? "bottom",
+    spacing: value?.spacing ?? 1.2,
+    overlay: value?.overlay ?? "medium",
+    textColor: value?.textColor ?? "auto",
+  };
+  const set = (patch: Partial<CoverTextStyle>) => onChange({ ...v, ...patch });
+
+  return (
+    <div className="border border-sky-200/40 dark:border-sky-800/30 rounded-md bg-sky-50/40 dark:bg-sky-950/20 p-2 space-y-2">
+      <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-sky-700 dark:text-sky-300">
+        <Type className="h-3 w-3" />
+        Ajustes da capa
+      </div>
+
+      {/* Tamanho */}
+      <div className="space-y-1">
+        <span className="text-[10px] text-muted-foreground">Tamanho</span>
+        <div className="grid grid-cols-4 gap-1">
+          {(["sm", "md", "lg", "xl"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => set({ size: s })}
+              className={cn(
+                "h-6 text-[10px] font-mono uppercase rounded border transition-colors",
+                v.size === s
+                  ? "border-sky-500 bg-sky-500 text-white"
+                  : "border-border/40 bg-background hover:bg-muted",
+              )}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Posição */}
+      <div className="space-y-1">
+        <span className="text-[10px] text-muted-foreground">Posição</span>
+        <div className="grid grid-cols-3 gap-1">
+          {([
+            { id: "top", icon: <AlignVerticalJustifyStart className="h-3 w-3" />, label: "Topo" },
+            { id: "center", icon: <AlignVerticalJustifyCenter className="h-3 w-3" />, label: "Centro" },
+            { id: "bottom", icon: <AlignVerticalJustifyEnd className="h-3 w-3" />, label: "Base" },
+          ] as const).map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => set({ position: p.id })}
+              className={cn(
+                "h-6 text-[10px] flex items-center justify-center gap-1 rounded border transition-colors",
+                v.position === p.id
+                  ? "border-sky-500 bg-sky-500 text-white"
+                  : "border-border/40 bg-background hover:bg-muted",
+              )}
+            >
+              {p.icon}
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Espaçamento de linha */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground">Espaçamento</span>
+          <span className="text-[10px] font-mono text-muted-foreground">{v.spacing.toFixed(2)}×</span>
+        </div>
+        <Slider
+          value={[v.spacing]}
+          min={1}
+          max={1.6}
+          step={0.05}
+          onValueChange={([x]) => set({ spacing: x })}
+        />
+      </div>
+
+      {/* Overlay (intensidade) */}
+      <div className="space-y-1">
+        <span className="text-[10px] text-muted-foreground">Overlay (contraste)</span>
+        <div className="grid grid-cols-3 gap-1">
+          {(["soft", "medium", "strong"] as const).map((o) => (
+            <button
+              key={o}
+              type="button"
+              onClick={() => set({ overlay: o })}
+              className={cn(
+                "h-6 text-[10px] font-mono uppercase rounded border transition-colors",
+                v.overlay === o
+                  ? "border-sky-500 bg-sky-500 text-white"
+                  : "border-border/40 bg-background hover:bg-muted",
+              )}
+            >
+              {o}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Cor do texto */}
+      <div className="space-y-1">
+        <span className="text-[10px] text-muted-foreground">Cor do texto</span>
+        <div className="grid grid-cols-3 gap-1">
+          {([
+            { id: "auto", label: "Auto" },
+            { id: "white", label: "Branco" },
+            { id: "black", label: "Preto" },
+          ] as const).map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => set({ textColor: c.id })}
+              className={cn(
+                "h-6 text-[10px] rounded border transition-colors",
+                v.textColor === c.id
+                  ? "border-sky-500 bg-sky-500 text-white"
+                  : "border-border/40 bg-background hover:bg-muted",
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
