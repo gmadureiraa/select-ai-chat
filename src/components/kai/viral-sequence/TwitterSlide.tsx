@@ -14,7 +14,7 @@
 
 import { forwardRef, type CSSProperties } from "react";
 import type { ReactNode } from "react";
-import { CANVAS_H, CANVAS_W, type ViralProfile } from "./types";
+import { CANVAS_H, CANVAS_W, type ViralProfile, type CoverTextStyle } from "./types";
 
 const TWITTER_BLUE = "#1D9BF0";
 const BG = "#FFFFFF";
@@ -37,6 +37,10 @@ interface TwitterSlideProps {
   textScale?: number;
   /** Se true, imagem ocupa todo o slide com gradient overlay (estilo capa de jornal). */
   imageAsCover?: boolean;
+  /** Estilo do texto sobreposto (apenas quando imageAsCover=true). */
+  coverTextStyle?: CoverTextStyle;
+  /** Atribuição da imagem (mostrada como pequeno crédito quando há fonte). */
+  imageAttribution?: string;
   /** Reescreve URL da imagem (ex: pra passar por proxy CORS). */
   rewriteImageUrl?: (url: string) => string;
   className?: string;
