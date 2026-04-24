@@ -187,6 +187,10 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
             body={slide.body || "Texto do slide..."}
             imageUrl={currentImageUrl}
             imageAsCover={slide.imageAsCover === true && slide.image.kind !== "none"}
+            coverTextStyle={slide.coverTextStyle}
+            imageAttribution={
+              slide.image.kind === "search" ? slide.image.attribution : undefined
+            }
             slideNumber={slide.order}
             totalSlides={totalSlides}
             profile={profile}
