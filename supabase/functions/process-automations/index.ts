@@ -1437,7 +1437,7 @@ serve(async (req) => {
             
             if (automation.content_type === 'tweet') {
               // Random rotation with cooldown instead of sequential
-              const triggerConfig = automation.trigger_config as any;
+              const triggerConfig = automation.trigger_config;
               const { index: variationIndex, variation, updatedRecentIndices } = selectVariationWithCooldown(GM_VARIATION_CATEGORIES, triggerConfig);
               
               // Fetch recent tweets as anti-examples (increased to 12)
@@ -1484,7 +1484,7 @@ serve(async (req) => {
             
             // LinkedIn editorial variation system
             if (automation.content_type === 'linkedin_post') {
-              const triggerConfig = automation.trigger_config as any;
+              const triggerConfig = automation.trigger_config;
               
               // Get editorial type from automation name
               let editorialType = 'opinion';
@@ -1549,7 +1549,7 @@ serve(async (req) => {
             
             // Threads editorial variation system
             if (automation.content_type === 'social_post' && (derivedPlatform === 'threads')) {
-              const triggerConfig = automation.trigger_config as any;
+              const triggerConfig = automation.trigger_config;
               const { index: variationIndex, variation, updatedRecentIndices } = selectVariationWithCooldown(THREADS_VARIATION_CATEGORIES, triggerConfig);
               
               // Fetch recent Threads posts as anti-examples (increased to 12)
@@ -1596,7 +1596,7 @@ serve(async (req) => {
             
             // Blog editorial variation system
             if (automation.content_type === 'blog_post' || automation.content_type === 'article') {
-              const triggerConfig = automation.trigger_config as any;
+              const triggerConfig = automation.trigger_config;
               const { index: variationIndex, variation, updatedRecentIndices } = selectVariationWithCooldown(BLOG_VARIATION_CATEGORIES, triggerConfig);
               
               variationContext = {
