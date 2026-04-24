@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { Resend } from "https://esm.sh/resend@4.0.0";
+import { Resend } from "npm:resend@4.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -196,7 +196,7 @@ serve(async (req) => {
   }
 });
 
-async function markAsError(supabase: any, id: string, error: string) {
+async function markAsError(supabase: ReturnType<typeof createClient>, id: string, error: string) {
   await supabase
     .from("email_notification_queue")
     .update({ error, sent_at: new Date().toISOString() })
