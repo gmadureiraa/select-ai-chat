@@ -68,6 +68,7 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [coverPreviewOpen, setCoverPreviewOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
   const [searchResults, setSearchResults] = useState<ImageSearchResult[]>([]);
