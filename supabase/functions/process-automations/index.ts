@@ -15,7 +15,7 @@ import { detectContentStructure, detectOpeningPatterns } from "../_shared/qualit
 // =====================================================
 function selectVariationWithCooldown(
   categories: Array<{ name: string; instruction: string }>,
-  triggerConfig: any,
+  triggerConfig: RSSConfig,
 ): { index: number; variation: { name: string; instruction: string }; updatedRecentIndices: number[] } {
   const recentIndices: number[] = triggerConfig.recent_variation_indices || [];
   
@@ -70,6 +70,16 @@ interface RSSConfig {
   url?: string;
   last_guid?: string;
   last_checked?: string;
+  recent_variation_indices?: number[];
+  variation_index?: number;
+}
+
+type JsonObject = Record<string, unknown>;
+
+function toRecord(value: unknown): JsonObject {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as JsonObject)
+    : {};
 }
 
 interface PlanningAutomation {
@@ -91,6 +101,7 @@ interface PlanningAutomation {
   image_prompt_template: string | null;
   image_style: 'photographic' | 'illustration' | 'minimalist' | 'vibrant' | null;
   image_reference_ids: string[] | null;
+  platforms?: string[] | null;
   // Tracking
   last_triggered_at: string | null;
   items_created: number;
@@ -138,7 +149,7 @@ function cleanContentOutput(content: string, platform?: string): string {
   cleaned = cleaned.replace(/\*{2}([^*]+)\*{2}/g, '$1'); // **bold** → bold
   cleaned = cleaned.replace(/^#+\s+/gm, ''); // ## headers
   cleaned = cleaned.replace(/^---+$/gm, ''); // --- separators
-  cleaned = cleaned.replace(/^\s*[\-\*]\s+/gm, ''); // bullet points
+  cleaned = cleaned.replace(/^\s*[-*]\s+/gm, ''); // bullet points
   
   // Remove label prefixes that might remain
   cleaned = cleaned.replace(/^(?:TWEET|LEGENDA|TEXTO|CAPTION|POST|TEXTO DO VISUAL)[:\s]*/im, '');
