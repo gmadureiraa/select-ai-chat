@@ -130,10 +130,8 @@ export const createViralCarouselTool: RegisteredTool<
           title: title ?? briefing.slice(0, 60),
           body: slides.map((s, i) => `Slide ${i + 1}: ${s.body}`).join("\n\n"),
           briefing,
-          // @ts-expect-error — campos extras pra renderizador especial reconhecer
-          viralCarouselId: carouselId,
-          // @ts-expect-error
-          viralSlides: slides,
+          // Campos extras pra renderizador especial reconhecer (cast pra any pra evitar TS strict)
+          ...({ viralCarouselId: carouselId, viralSlides: slides } as Record<string, unknown>),
         },
         requires_approval: false,
         available_actions: [
