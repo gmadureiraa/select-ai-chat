@@ -34,7 +34,7 @@ interface Workspace {
 
 interface QueueTableUpdater {
   update: (values: { error: string; sent_at: string }) => {
-    eq: (column: string, value: string) => Promise<unknown>;
+    eq: (column: string, value: string) => unknown;
   };
 }
 
