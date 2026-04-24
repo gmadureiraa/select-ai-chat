@@ -15,7 +15,7 @@ import { detectContentStructure, detectOpeningPatterns } from "../_shared/qualit
 // =====================================================
 function selectVariationWithCooldown(
   categories: Array<{ name: string; instruction: string }>,
-  triggerConfig: any,
+  triggerConfig: RSSConfig,
 ): { index: number; variation: { name: string; instruction: string }; updatedRecentIndices: number[] } {
   const recentIndices: number[] = triggerConfig.recent_variation_indices || [];
   
@@ -70,6 +70,22 @@ interface RSSConfig {
   url?: string;
   last_guid?: string;
   last_checked?: string;
+  recent_variation_indices?: number[];
+  variation_index?: number;
+}
+
+type JsonObject = Record<string, unknown>;
+
+function toRecord(value: unknown): JsonObject {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as JsonObject)
+    : {};
+}
+
+function toRecordArray(value: unknown): JsonObject[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is JsonObject => !!item && typeof item === 'object' && !Array.isArray(item))
+    : [];
 }
 
 interface PlanningAutomation {
@@ -91,6 +107,7 @@ interface PlanningAutomation {
   image_prompt_template: string | null;
   image_style: 'photographic' | 'illustration' | 'minimalist' | 'vibrant' | null;
   image_reference_ids: string[] | null;
+  platforms?: string[] | null;
   // Tracking
   last_triggered_at: string | null;
   items_created: number;
@@ -138,7 +155,7 @@ function cleanContentOutput(content: string, platform?: string): string {
   cleaned = cleaned.replace(/\*{2}([^*]+)\*{2}/g, '$1'); // **bold** → bold
   cleaned = cleaned.replace(/^#+\s+/gm, ''); // ## headers
   cleaned = cleaned.replace(/^---+$/gm, ''); // --- separators
-  cleaned = cleaned.replace(/^\s*[\-\*]\s+/gm, ''); // bullet points
+  cleaned = cleaned.replace(/^\s*[-*]\s+/gm, ''); // bullet points
   
   // Remove label prefixes that might remain
   cleaned = cleaned.replace(/^(?:TWEET|LEGENDA|TEXTO|CAPTION|POST|TEXTO DO VISUAL)[:\s]*/im, '');
@@ -1053,12 +1070,13 @@ serve(async (req) => {
               shouldTrigger = shouldTriggerSchedule(automation.trigger_config, automation.last_triggered_at);
               break;
               
-            case 'rss':
+            case 'rss': {
               const rssResult = await checkRSSTrigger(automation.trigger_config);
               shouldTrigger = rssResult.shouldTrigger;
               triggerData = rssResult.data || null;
               newGuid = rssResult.newGuid;
               break;
+            }
               
             case 'webhook':
               shouldTrigger = false;
@@ -1235,8 +1253,8 @@ serve(async (req) => {
         const position = (count || 0) + 1;
 
         // Prepare metadata with images and target platforms
-        const targetPlatforms: string[] = (automation as any).platforms?.length > 0
-          ? (automation as any).platforms
+        const targetPlatforms: string[] = (automation.platforms && automation.platforms.length > 0)
+          ? automation.platforms
           : (derivedPlatform ? [derivedPlatform] : []);
 
         const metadata: Record<string, unknown> = {
@@ -1425,7 +1443,7 @@ serve(async (req) => {
             
             if (automation.content_type === 'tweet') {
               // Random rotation with cooldown instead of sequential
-              const triggerConfig = automation.trigger_config as any;
+              const triggerConfig = automation.trigger_config;
               const { index: variationIndex, variation, updatedRecentIndices } = selectVariationWithCooldown(GM_VARIATION_CATEGORIES, triggerConfig);
               
               // Fetch recent tweets as anti-examples (increased to 12)
@@ -1472,7 +1490,7 @@ serve(async (req) => {
             
             // LinkedIn editorial variation system
             if (automation.content_type === 'linkedin_post') {
-              const triggerConfig = automation.trigger_config as any;
+              const triggerConfig = automation.trigger_config;
               
               // Get editorial type from automation name
               let editorialType = 'opinion';
@@ -1537,7 +1555,7 @@ serve(async (req) => {
             
             // Threads editorial variation system
             if (automation.content_type === 'social_post' && (derivedPlatform === 'threads')) {
-              const triggerConfig = automation.trigger_config as any;
+              const triggerConfig = automation.trigger_config;
               const { index: variationIndex, variation, updatedRecentIndices } = selectVariationWithCooldown(THREADS_VARIATION_CATEGORIES, triggerConfig);
               
               // Fetch recent Threads posts as anti-examples (increased to 12)
@@ -1584,7 +1602,7 @@ serve(async (req) => {
             
             // Blog editorial variation system
             if (automation.content_type === 'blog_post' || automation.content_type === 'article') {
-              const triggerConfig = automation.trigger_config as any;
+              const triggerConfig = automation.trigger_config;
               const { index: variationIndex, variation, updatedRecentIndices } = selectVariationWithCooldown(BLOG_VARIATION_CATEGORIES, triggerConfig);
               
               variationContext = {
@@ -1977,7 +1995,7 @@ serve(async (req) => {
                 .update({ 
                   media_urls: mediaUrls,
                   metadata: {
-                    ...(newItem.metadata as any || {}),
+                    ...toRecord(newItem.metadata),
                     generated_image_url: imageResult.imageUrl,
                     image_style: automation.image_style,
                   }
@@ -1995,10 +2013,10 @@ serve(async (req) => {
         // Publish immediately without requiring Telegram approval.
         // Telegram will receive an informational notification after publishing.
         if (automation.auto_publish && automation.client_id && generatedContent) {
-          const itemMeta0 = (newItem.metadata as any) || {};
+          const itemMeta0 = toRecord(newItem.metadata);
           const targetPlatforms: string[] = 
-            itemMeta0.target_platforms?.length > 0 ? itemMeta0.target_platforms :
-            (automation as any).platforms?.length > 0 ? (automation as any).platforms :
+            Array.isArray(itemMeta0.target_platforms) && itemMeta0.target_platforms.length > 0 ? itemMeta0.target_platforms.filter((platform): platform is string => typeof platform === 'string') :
+            (automation.platforms && automation.platforms.length > 0) ? automation.platforms :
             (derivedPlatform ? [derivedPlatform] : []);
 
           const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -2016,19 +2034,26 @@ serve(async (req) => {
               };
 
               // Add thread items if available
-              if (automation.content_type === 'thread' && itemMeta0.thread_tweets?.length > 0) {
-                publishBody.threadItems = itemMeta0.thread_tweets.map((t: any) => ({
-                  text: t.text,
-                  media_urls: t.media_urls || [],
+              const threadTweets = toRecordArray(itemMeta0.thread_tweets);
+              if (automation.content_type === 'thread' && threadTweets.length > 0) {
+                publishBody.threadItems = threadTweets.map((tweet) => ({
+                  text: typeof tweet.text === 'string' ? tweet.text : '',
+                  media_urls: Array.isArray(tweet.media_urls)
+                    ? tweet.media_urls.filter((url): url is string => typeof url === 'string')
+                    : [],
                 }));
               }
 
               // Add carousel media if available
-              if (automation.content_type === 'carousel' && itemMeta0.carousel_slides?.length > 0) {
+              const carouselSlides = toRecordArray(itemMeta0.carousel_slides);
+              if (automation.content_type === 'carousel' && carouselSlides.length > 0) {
                 const carouselMedia: { url: string; type: string }[] = [];
-                for (const slide of itemMeta0.carousel_slides) {
-                  if (slide.media_urls?.length > 0) {
-                    for (const url of slide.media_urls) {
+                for (const slide of carouselSlides) {
+                  const slideMediaUrls = Array.isArray(slide.media_urls)
+                    ? slide.media_urls.filter((url): url is string => typeof url === 'string')
+                    : [];
+                  if (slideMediaUrls.length > 0) {
+                    for (const url of slideMediaUrls) {
                       carouselMedia.push({ url, type: url.match(/\.(mp4|mov|webm)$/i) ? 'video' : 'image' });
                     }
                   }
@@ -2329,7 +2354,7 @@ serve(async (req) => {
     }; // end runLoop
 
     if (isManualTest) {
-      // @ts-ignore — EdgeRuntime is available in Supabase Edge Runtime
+      // @ts-expect-error — EdgeRuntime is available in Supabase Edge Runtime
       EdgeRuntime.waitUntil(
         runLoop().catch((e) => console.error('[process-automations] background run failed:', e))
       );

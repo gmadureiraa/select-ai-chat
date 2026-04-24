@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { Resend } from "https://esm.sh/resend@4.0.0";
+import { Resend } from "https://esm.sh/resend@4.0.0?target=deno";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +30,16 @@ interface Notification {
 interface Workspace {
   slug: string;
   name: string;
+}
+
+interface QueueTableUpdater {
+  update: (values: { error: string; sent_at: string }) => {
+    eq: (column: string, value: string) => unknown;
+  };
+}
+
+interface QueueSupabaseClient {
+  from: (table: "email_notification_queue") => QueueTableUpdater;
 }
 
 const BATCH_SIZE = 50;
@@ -196,7 +206,7 @@ serve(async (req) => {
   }
 });
 
-async function markAsError(supabase: any, id: string, error: string) {
+async function markAsError(supabase: QueueSupabaseClient, id: string, error: string) {
   await supabase
     .from("email_notification_queue")
     .update({ error, sent_at: new Date().toISOString() })
