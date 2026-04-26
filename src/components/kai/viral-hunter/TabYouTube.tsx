@@ -6,6 +6,8 @@ import { useMemo, useState } from "react";
 import { useYouTubeSearch } from "./useYouTubeSearch";
 import { KeywordsChips } from "./KeywordsChips";
 import { useViralHunterConfig } from "./useViralHunterConfig";
+import { saveAsIdea } from "./saveAsIdea";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import {
   Play,
   Eye,
@@ -16,6 +18,7 @@ import {
   Sparkles,
   AlertTriangle,
   Youtube,
+  Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
