@@ -182,6 +182,17 @@ export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
                     <div className="flex-1" />
                     <Button
                       size="sm"
+                      variant="ghost"
+                      className="h-6 text-[11px] gap-1 px-2 text-muted-foreground hover:text-foreground"
+                      onClick={() => handleSaveAsIdea(n)}
+                      disabled={savingIds.has(n.id)}
+                      title="Salvar como ideia no Planejamento"
+                    >
+                      <Lightbulb className="h-3 w-3" />
+                      {savingIds.has(n.id) ? "Salvando…" : "Ideia"}
+                    </Button>
+                    <Button
+                      size="sm"
                       className="h-6 text-[11px] gap-1 bg-orange-600 hover:bg-orange-700 text-white px-2"
                       onClick={() => handleUse(n)}
                     >
