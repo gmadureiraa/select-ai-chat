@@ -231,6 +231,17 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
                   </Button>
                   <Button
                     size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs gap-1"
+                    onClick={() => handleSaveAsIdea(v)}
+                    disabled={savingIds.has(v.id)}
+                    title="Salvar como ideia no Planejamento"
+                  >
+                    <Lightbulb className="h-3 w-3" />
+                    {savingIds.has(v.id) ? "…" : "Ideia"}
+                  </Button>
+                  <Button
+                    size="sm"
                     variant="outline"
                     className="h-7 w-7 p-0"
                     onClick={() => window.open(v.url, "_blank")}
