@@ -133,6 +133,9 @@ export function CarouselFullPreview({
               <TwitterSlide
                 body={s.body}
                 imageUrl={s.image.kind === "none" ? undefined : s.image.url}
+                imageAsCover={s.imageAsCover === true && s.image.kind !== "none"}
+                coverTextStyle={s.coverTextStyle}
+                editorial={s.editorial}
                 slideNumber={s.order}
                 totalSlides={total}
                 profile={carousel.profile}
