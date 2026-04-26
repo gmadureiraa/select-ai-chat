@@ -36,6 +36,8 @@ interface TabNewsProps {
 
 export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
   const { config, save } = useViralHunterConfig(clientId);
+  const { workspace } = useWorkspaceContext();
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const query = config.keywords.join(" OR ");
   const { data: news = [], isLoading, isFetching, refetch, error } = useGoogleNews({
     query,
@@ -52,6 +54,42 @@ export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
     ].join("");
     onUseAsInspiration(prompt);
     toast.success("Enviado pro KAI — ele vai reagir à notícia.");
+  };
+
+  const handleSaveAsIdea = async (n: typeof news[number]) => {
+    if (!workspace?.id) {
+      toast.error("Workspace não encontrado");
+      return;
+    }
+    setSavingIds((s) => new Set(s).add(n.id));
+    try {
+      await saveAsIdea({
+        clientId,
+        workspaceId: workspace.id,
+        title: n.title,
+        briefing: [
+          n.snippet ?? "",
+          "",
+          "Ângulo sugerido: reagir editorialmente a essa notícia trazendo a perspectiva do cliente.",
+        ].join("\n"),
+        source: {
+          kind: "news",
+          url: n.url,
+          sourceName: n.source,
+          thumbnail: n.thumbnailUrl,
+          publishedAt: n.publishedAt,
+        },
+      });
+      toast.success("Salvo como ideia no Planejamento");
+    } catch (err) {
+      toast.error("Falha ao salvar: " + (err as Error).message);
+    } finally {
+      setSavingIds((s) => {
+        const next = new Set(s);
+        next.delete(n.id);
+        return next;
+      });
+    }
   };
 
   return (
