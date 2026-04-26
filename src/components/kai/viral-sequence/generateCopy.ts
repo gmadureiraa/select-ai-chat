@@ -84,8 +84,22 @@ function normalizeSlides(raw: unknown[]): ViralSlide[] {
   const slides: ViralSlide[] = [];
   for (let i = 0; i < raw.length && i < TARGET_SLIDES; i++) {
     const item = raw[i] as GeneratedSlideRaw;
-    // Fallback pra rascunhos legados: se vier `heading` separado, junta
-    // no body como **bold** no começo (match ao novo formato).
+    const order = i + 1;
+
+    // Slide 1 — capa editorial (preferida quando vier headline)
+    if (order === 1 && typeof item.headline === "string" && item.headline.trim()) {
+      const headline = item.headline.trim();
+      const subtitle = typeof item.subtitle === "string" ? item.subtitle.trim() : "";
+      const credit = typeof item.credit === "string" ? item.credit.trim() : "";
+      const kicker = typeof item.kicker === "string" ? item.kicker.trim() : "";
+      slides.push({
+        ...emptySlide(order),
+        body: subtitle ? `**${headline}**\n\n${subtitle}` : `**${headline}**`,
+        editorial: { headline, subtitle, credit, kicker },
+      });
+      continue;
+    }
+
     const body = item.body ?? item.text ?? item.content ?? "";
     const heading = item.heading ?? item.title;
     let finalBody = typeof body === "string" ? body.trim() : "";
@@ -95,7 +109,7 @@ function normalizeSlides(raw: unknown[]): ViralSlide[] {
       finalBody = `**${heading.trim()}**`;
     }
     slides.push({
-      ...emptySlide(i + 1),
+      ...emptySlide(order),
       body: finalBody,
     });
   }
