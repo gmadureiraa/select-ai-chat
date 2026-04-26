@@ -330,21 +330,91 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
                   zIndex: 2,
                 }}
               >
-                {body && (
-                  <p
-                    style={{
-                      fontSize: fsBodyCover,
-                      lineHeight: coverSpacing,
-                      color: coverTextColor,
-                      margin: 0,
-                      whiteSpace: "pre-line",
-                      fontWeight: 700,
-                      letterSpacing: "-0.015em",
-                      textShadow: coverTextShadow,
-                    }}
-                  >
-                    {renderRichText(body)}
-                  </p>
+                {isEditorial ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                    {editorial?.kicker && (
+                      <div
+                        style={{
+                          fontSize: 24,
+                          fontWeight: 800,
+                          letterSpacing: "0.18em",
+                          textTransform: "uppercase",
+                          color: coverTextColor,
+                          opacity: 0.92,
+                          textShadow: coverTextShadow,
+                          borderLeft: `5px solid ${coverTextColor}`,
+                          paddingLeft: 16,
+                          alignSelf: "flex-start",
+                        }}
+                      >
+                        {editorial.kicker}
+                      </div>
+                    )}
+                    <h1
+                      style={{
+                        fontSize: 78,
+                        lineHeight: 1.05,
+                        fontWeight: 900,
+                        letterSpacing: "-0.03em",
+                        color: coverTextColor,
+                        margin: 0,
+                        fontFamily:
+                          '"Playfair Display", "Georgia", "Times New Roman", serif',
+                        textShadow: coverTextShadow,
+                      }}
+                    >
+                      {editorial!.headline}
+                    </h1>
+                    {editorial?.subtitle && (
+                      <p
+                        style={{
+                          fontSize: 32,
+                          lineHeight: 1.35,
+                          fontWeight: 500,
+                          letterSpacing: "-0.005em",
+                          color: coverTextColor,
+                          opacity: 0.92,
+                          margin: 0,
+                          textShadow: coverTextShadow,
+                        }}
+                      >
+                        {renderRichText(editorial.subtitle)}
+                      </p>
+                    )}
+                    {editorial?.credit && (
+                      <div
+                        style={{
+                          fontSize: 20,
+                          fontWeight: 600,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: coverTextColor,
+                          opacity: 0.78,
+                          textShadow: coverTextShadow,
+                          marginTop: 8,
+                        }}
+                      >
+                        {editorial.credit}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  body && (
+                    <p
+                      style={{
+                        fontSize: fsBodyCover,
+                        lineHeight: coverSpacing,
+                        color: coverTextColor,
+                        margin: 0,
+                        whiteSpace: "pre-line",
+                        fontWeight: 700,
+                        letterSpacing: "-0.015em",
+                        textShadow: coverTextShadow,
+                      }}
+                    >
+                      {renderRichText(body)}
+                    </p>
+                  )
                 )}
               </div>
               {imageAttribution && (
