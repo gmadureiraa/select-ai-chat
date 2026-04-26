@@ -5,16 +5,20 @@
 import { useGoogleNews } from "./useGoogleNews";
 import { useViralHunterConfig } from "./useViralHunterConfig";
 import { KeywordsChips } from "./KeywordsChips";
+import { saveAsIdea } from "./saveAsIdea";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import {
   Newspaper,
   ExternalLink,
   RefreshCw,
   Sparkles,
   Globe,
+  Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useState } from "react";
 
 function hoursAgo(iso: string): string {
   const h = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000);
@@ -32,6 +36,8 @@ interface TabNewsProps {
 
 export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
   const { config, save } = useViralHunterConfig(clientId);
+  const { workspace } = useWorkspaceContext();
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const query = config.keywords.join(" OR ");
   const { data: news = [], isLoading, isFetching, refetch, error } = useGoogleNews({
     query,
@@ -48,6 +54,42 @@ export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
     ].join("");
     onUseAsInspiration(prompt);
     toast.success("Enviado pro KAI — ele vai reagir à notícia.");
+  };
+
+  const handleSaveAsIdea = async (n: typeof news[number]) => {
+    if (!workspace?.id) {
+      toast.error("Workspace não encontrado");
+      return;
+    }
+    setSavingIds((s) => new Set(s).add(n.id));
+    try {
+      await saveAsIdea({
+        clientId,
+        workspaceId: workspace.id,
+        title: n.title,
+        briefing: [
+          n.snippet ?? "",
+          "",
+          "Ângulo sugerido: reagir editorialmente a essa notícia trazendo a perspectiva do cliente.",
+        ].join("\n"),
+        source: {
+          kind: "news",
+          url: n.url,
+          sourceName: n.source,
+          thumbnail: n.thumbnailUrl,
+          publishedAt: n.publishedAt,
+        },
+      });
+      toast.success("Salvo como ideia no Planejamento");
+    } catch (err) {
+      toast.error("Falha ao salvar: " + (err as Error).message);
+    } finally {
+      setSavingIds((s) => {
+        const next = new Set(s);
+        next.delete(n.id);
+        return next;
+      });
+    }
   };
 
   return (
@@ -138,6 +180,17 @@ export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
                     </span>
                     <span>{hoursAgo(n.publishedAt)}</span>
                     <div className="flex-1" />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-[11px] gap-1 px-2 text-muted-foreground hover:text-foreground"
+                      onClick={() => handleSaveAsIdea(n)}
+                      disabled={savingIds.has(n.id)}
+                      title="Salvar como ideia no Planejamento"
+                    >
+                      <Lightbulb className="h-3 w-3" />
+                      {savingIds.has(n.id) ? "Salvando…" : "Ideia"}
+                    </Button>
                     <Button
                       size="sm"
                       className="h-6 text-[11px] gap-1 bg-orange-600 hover:bg-orange-700 text-white px-2"

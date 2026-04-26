@@ -6,6 +6,8 @@ import { useMemo, useState } from "react";
 import { useYouTubeSearch } from "./useYouTubeSearch";
 import { KeywordsChips } from "./KeywordsChips";
 import { useViralHunterConfig } from "./useViralHunterConfig";
+import { saveAsIdea } from "./saveAsIdea";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import {
   Play,
   Eye,
@@ -16,6 +18,7 @@ import {
   Sparkles,
   AlertTriangle,
   Youtube,
+  Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -44,6 +47,8 @@ interface TabYouTubeProps {
 
 export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
   const { config, save } = useViralHunterConfig(clientId);
+  const { workspace } = useWorkspaceContext();
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [period, setPeriod] = useState<"7d" | "30d" | "90d" | "all">("30d");
 
   const publishedAfter = useMemo(() => {
@@ -78,24 +83,42 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
     toast.success("Enviado pro KAI — ele vai criar algo baseado nesse vídeo.");
   };
 
-  if (!hasKey) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center max-w-lg mx-auto gap-3">
-        <div className="p-4 rounded-full bg-amber-100 dark:bg-amber-900/20">
-          <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-        </div>
-        <h3 className="text-base font-semibold">YouTube API Key não configurada</h3>
-        <p className="text-sm text-muted-foreground">
-          Adicione <code className="text-xs bg-muted px-1.5 py-0.5 rounded">VITE_YT_API_KEY</code> no
-          <code className="text-xs bg-muted px-1.5 py-0.5 rounded ml-1">.env</code> do projeto e
-          reinicie o dev server pra buscar vídeos virais.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Grátis no Google Cloud Console — YouTube Data API v3 · 10k quotas/dia.
-        </p>
-      </div>
-    );
-  }
+  const handleSaveAsIdea = async (v: typeof videos[number]) => {
+    if (!workspace?.id) {
+      toast.error("Workspace não encontrado");
+      return;
+    }
+    setSavingIds((s) => new Set(s).add(v.id));
+    try {
+      await saveAsIdea({
+        clientId,
+        workspaceId: workspace.id,
+        title: v.title,
+        briefing: [
+          v.description?.slice(0, 400) ?? "",
+          "",
+          `Vídeo viral de "${v.channelTitle}" (${fmt(v.viewCount)} views).`,
+          "Ângulo sugerido: adaptar o hook desse vídeo pro formato preferido do cliente.",
+        ].join("\n"),
+        source: {
+          kind: "youtube",
+          url: v.url,
+          sourceName: v.channelTitle,
+          thumbnail: v.thumbnailUrl,
+          publishedAt: v.publishedAt,
+        },
+      });
+      toast.success("Salvo como ideia no Planejamento");
+    } catch (err) {
+      toast.error("Falha ao salvar: " + (err as Error).message);
+    } finally {
+      setSavingIds((s) => {
+        const next = new Set(s);
+        next.delete(v.id);
+        return next;
+      });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -205,6 +228,17 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
                   >
                     <Sparkles className="h-3 w-3" />
                     Usar no KAI
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs gap-1"
+                    onClick={() => handleSaveAsIdea(v)}
+                    disabled={savingIds.has(v.id)}
+                    title="Salvar como ideia no Planejamento"
+                  >
+                    <Lightbulb className="h-3 w-3" />
+                    {savingIds.has(v.id) ? "…" : "Ideia"}
                   </Button>
                   <Button
                     size="sm"
