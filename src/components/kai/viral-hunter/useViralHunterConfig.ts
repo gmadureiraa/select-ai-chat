@@ -124,6 +124,30 @@ export function useViralHunterConfig(clientId: string) {
     },
   });
 
+  // Auto-popular keywords a partir do voice_profile/identity_guide quando vazio.
+  // Roda uma vez por clientId — depois disso o usuário gerencia manualmente.
+  const autoPopulatedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!clientId) return;
+    if (autoPopulatedRef.current.has(clientId)) return;
+    if (query.isLoading || !query.data) return;
+    if (query.data.keywords.length > 0) {
+      autoPopulatedRef.current.add(clientId);
+      return;
+    }
+    autoPopulatedRef.current.add(clientId);
+    (async () => {
+      const suggested = await fetchSuggestedKeywords(clientId);
+      if (suggested.length === 0) return;
+      try {
+        await mutation.mutateAsync({ ...query.data!, keywords: suggested });
+      } catch (err) {
+        console.warn("[viral-hunter] auto-populate keywords falhou:", err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, query.isLoading, query.data]);
+
   return {
     config: query.data ?? { keywords: [], competitors: [] },
     isLoading: query.isLoading,
