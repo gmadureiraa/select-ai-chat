@@ -5,16 +5,20 @@
 import { useGoogleNews } from "./useGoogleNews";
 import { useViralHunterConfig } from "./useViralHunterConfig";
 import { KeywordsChips } from "./KeywordsChips";
+import { saveAsIdea } from "./saveAsIdea";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import {
   Newspaper,
   ExternalLink,
   RefreshCw,
   Sparkles,
   Globe,
+  Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useState } from "react";
 
 function hoursAgo(iso: string): string {
   const h = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000);
