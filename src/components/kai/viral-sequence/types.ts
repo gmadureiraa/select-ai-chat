@@ -61,6 +61,21 @@ export interface ViralSlide {
   imageAsCover?: boolean;
   /** Estilização do texto sobreposto à capa (apenas quando imageAsCover=true). */
   coverTextStyle?: CoverTextStyle;
+  /**
+   * Layout editorial (capa de jornal) — usado tipicamente no slide 1.
+   * Quando `editorial` está preenchido E `imageAsCover=true`, o slide
+   * renderiza headline grande + subtitle + crédito ao invés do `body`.
+   */
+  editorial?: {
+    /** Manchete principal (até ~80 chars). */
+    headline: string;
+    /** Subtítulo / lead da matéria (até ~140 chars). Opcional. */
+    subtitle?: string;
+    /** Crédito / fonte (ex: "Folha de SP", "Reuters"). Opcional. */
+    credit?: string;
+    /** Categoria/eyebrow (ex: "MERCADO", "TECNOLOGIA"). Opcional. */
+    kicker?: string;
+  };
 }
 
 export interface ViralProfile {
