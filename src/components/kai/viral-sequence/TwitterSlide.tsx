@@ -101,12 +101,14 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
       imageAsCover = false,
       coverTextStyle,
       imageAttribution,
+      editorial,
       rewriteImageUrl,
       className,
       style,
     },
     ref,
   ) {
+    const isEditorial = !!editorial?.headline?.trim() && imageAsCover && !!imageUrl;
     const shrink = autoShrinkMultiplier(body?.length ?? 0, !!imageUrl && !imageAsCover);
     const fsBody = FS_BODY_BASE * textScale * shrink;
     const resolvedImageUrl = imageUrl
