@@ -94,6 +94,7 @@ export function CarouselFullPreview({
               imageUrl={imageUrl}
               imageAsCover={current.imageAsCover === true && current.image.kind !== "none"}
               coverTextStyle={current.coverTextStyle}
+              editorial={current.editorial}
               imageAttribution={
                 current.image.kind === "search" ? current.image.attribution : undefined
               }
