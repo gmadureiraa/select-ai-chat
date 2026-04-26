@@ -119,23 +119,6 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
       });
     }
   };
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center max-w-lg mx-auto gap-3">
-        <div className="p-4 rounded-full bg-amber-100 dark:bg-amber-900/20">
-          <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-        </div>
-        <h3 className="text-base font-semibold">YouTube API Key não configurada</h3>
-        <p className="text-sm text-muted-foreground">
-          Adicione <code className="text-xs bg-muted px-1.5 py-0.5 rounded">VITE_YT_API_KEY</code> no
-          <code className="text-xs bg-muted px-1.5 py-0.5 rounded ml-1">.env</code> do projeto e
-          reinicie o dev server pra buscar vídeos virais.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Grátis no Google Cloud Console — YouTube Data API v3 · 10k quotas/dia.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4">
