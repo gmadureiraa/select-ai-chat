@@ -8,9 +8,11 @@
  * viviam em clients.tags.viral_hunter — componentes não precisam mudar.
  */
 
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { ViralHunterConfig, CompetitorEntry } from "./types";
+import { fetchSuggestedKeywords } from "./keywordSuggestions";
 
 async function fetchConfig(clientId: string): Promise<ViralHunterConfig> {
   const [{ data: kws, error: kErr }, { data: comps, error: cErr }] = await Promise.all([
