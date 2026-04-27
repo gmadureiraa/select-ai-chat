@@ -95,6 +95,24 @@ export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
     }
   };
 
+  const handleGenerateCarousel = (n: typeof news[number]) => {
+    const briefing = [
+      `Notícia base: ${n.title}`,
+      n.snippet ? `\nResumo: ${n.snippet}` : "",
+      `\nFonte: ${n.source}`,
+      n.url ? `Link: ${n.url}` : "",
+      n.thumbnailUrl ? `\nImagem de capa sugerida: ${n.thumbnailUrl}` : "",
+      "\nObjetivo: criar carrossel editorial estilo capa de jornal — slide 1 com headline forte sobre essa notícia, slides 2-7 desenvolvendo análise/contexto/implicações, slide 8 chamada pra discussão.",
+    ].join("\n");
+    const url = buildSequenceUrl({
+      clientId,
+      title: n.title,
+      briefing,
+    });
+    navigate(url);
+    toast.success("Abrindo Sequência Viral com briefing pronto…");
+  };
+
   return (
     <div className="space-y-4">
       <div className="bg-card border border-border/30 rounded-xl p-4 space-y-3">
