@@ -526,6 +526,7 @@ export function CalendarView({
                       item={item}
                       onEdit={() => onEditItem(item)}
                       onRetry={() => onRetry(item.id)}
+                      onDelete={() => setItemToDelete(item)}
                       canEdit={canEdit}
                       onDragStart={handleDragStart}
                       isDragging={draggedItem?.id === item.id}
