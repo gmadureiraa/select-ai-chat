@@ -6,8 +6,9 @@ import { useMemo, useState } from "react";
 import { useYouTubeSearch } from "./useYouTubeSearch";
 import { KeywordsChips } from "./KeywordsChips";
 import { useViralHunterConfig } from "./useViralHunterConfig";
-import { saveAsIdea } from "./saveAsIdea";
+import { saveAsIdea, buildSequenceUrl } from "./saveAsIdea";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { useNavigate } from "react-router-dom";
 import {
   Play,
   Eye,
