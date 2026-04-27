@@ -77,3 +77,20 @@ export async function saveAsIdea(input: SaveAsIdeaInput): Promise<string> {
   if (error) throw error;
   return data.id as string;
 }
+
+/**
+ * Constrói a URL pra abrir a Sequência Viral com briefing pré-populado.
+ * Usado pelo botão "Gerar carrossel" no Viral Hunter.
+ */
+export function buildSequenceUrl(input: {
+  clientId: string;
+  title: string;
+  briefing: string;
+}): string {
+  const params = new URLSearchParams();
+  params.set("client", input.clientId);
+  params.set("tab", "sequence");
+  params.set("seedTitle", encodeURIComponent(input.title));
+  params.set("seedBriefing", encodeURIComponent(input.briefing));
+  return `/kaleidos?${params.toString()}`;
+}
