@@ -263,6 +263,16 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
                   </Button>
                   <Button
                     size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs gap-1 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30"
+                    onClick={() => handleGenerateCarousel(v)}
+                    title="Abrir Sequência Viral com briefing desse vídeo"
+                  >
+                    <Layers className="h-3 w-3" />
+                    Carrossel
+                  </Button>
+                  <Button
+                    size="sm"
                     variant="outline"
                     className="h-7 w-7 p-0"
                     onClick={() => window.open(v.url, "_blank")}
