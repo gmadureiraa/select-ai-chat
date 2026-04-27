@@ -148,6 +148,26 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carouselIdParam]);
 
+  // Pré-popula briefing vindo do Viral Hunter (?seedBriefing=...&seedTitle=...)
+  useEffect(() => {
+    if (!seedBriefingParam) return;
+    const decoded = decodeURIComponent(seedBriefingParam);
+    setBriefing(decoded);
+    const seedTitle = searchParams.get("seedTitle");
+    if (seedTitle) {
+      setCarousel((c) => ({ ...c, title: decodeURIComponent(seedTitle).slice(0, 60) }));
+    }
+    // Limpa params pra não re-aplicar em refresh
+    setSearchParams((sp) => {
+      const next = new URLSearchParams(sp);
+      next.delete("seedBriefing");
+      next.delete("seedTitle");
+      return next;
+    });
+    toast.success("Briefing carregado do Viral Hunter — clique 'Gerar carrossel'.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedBriefingParam]);
+
   // Autosave (debounced pela natureza de useEffect a cada render)
   useEffect(() => {
     saveCurrentCarousel(carousel);
