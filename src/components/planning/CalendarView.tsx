@@ -564,26 +564,44 @@ export function CalendarView({
         </div>
       </div>
 
-      <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+      <AlertDialog
+        open={!!itemToDelete}
+        onOpenChange={(open) => {
+          if (!open && !localDeleting && !isDeleting) setItemToDelete(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir card?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir <strong>{itemToDelete?.title || 'este item'}</strong>? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir <strong>{itemToDelete?.title || 'este item'}</strong>? Você poderá desfazer logo após a exclusão.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={localDeleting || isDeleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (itemToDelete) {
-                  onDeleteItem(itemToDelete.id);
+              disabled={localDeleting || isDeleting || !itemToDelete}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!itemToDelete) return;
+                setLocalDeleting(true);
+                try {
+                  await onDeleteItem(itemToDelete.id);
                   setItemToDelete(null);
+                } finally {
+                  setLocalDeleting(false);
                 }
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Excluir
+              {(localDeleting || isDeleting) ? (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5 mr-2 animate-spin" />
+                  Excluindo…
+                </>
+              ) : (
+                'Excluir'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
