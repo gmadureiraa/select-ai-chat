@@ -164,6 +164,17 @@ function CalendarCard({
               {isAutoPublish && item.status === 'scheduled' && (
                 <Bot className="h-3 w-3 shrink-0 text-primary/60" />
               )}
+              {canEdit && onDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                  className="shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity hover:scale-110 text-muted-foreground hover:text-red-500"
+                  title="Excluir card"
+                  aria-label="Excluir card"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
             </div>
           </div>
           
