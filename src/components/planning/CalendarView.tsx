@@ -100,6 +100,7 @@ function CalendarCard({
   item, 
   onEdit, 
   onRetry,
+  onDelete,
   canEdit = true,
   onDragStart,
   isDragging 
@@ -107,6 +108,7 @@ function CalendarCard({
   item: PlanningItem; 
   onEdit: () => void; 
   onRetry?: () => void;
+  onDelete?: () => void;
   canEdit?: boolean;
   onDragStart?: (e: React.DragEvent, item: PlanningItem) => void;
   isDragging?: boolean;
