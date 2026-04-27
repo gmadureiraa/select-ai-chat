@@ -25,11 +25,12 @@ interface CalendarViewProps {
   items: PlanningItem[];
   onEditItem: (item: PlanningItem) => void;
   onAddItem: (date: Date) => void;
-  onDeleteItem: (id: string) => void;
+  onDeleteItem: (id: string) => void | Promise<unknown>;
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
   onMoveItem?: (itemId: string, newDate: Date) => void;
   canEdit?: boolean;
+  isDeleting?: boolean;
 }
 
 const statusConfig: Record<string, { bg: string; text: string; border: string; dot: string }> = {
@@ -287,12 +288,14 @@ export function CalendarView({
   onRetry,
   onMoveItem,
   canEdit = true,
+  isDeleting = false,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draggedItem, setDraggedItem] = useState<PlanningItem | null>(null);
   const [dragOverDay, setDragOverDay] = useState<Date | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = useState<PlanningItem | null>(null);
+  const [localDeleting, setLocalDeleting] = useState(false);
 
   const days = useMemo(() => {
     const monthStart = startOfMonth(currentDate);
@@ -520,19 +523,23 @@ export function CalendarView({
                   "space-y-0.5",
                   expandedDay === format(day, 'yyyy-MM-dd') ? "overflow-visible" : "overflow-hidden"
                 )}>
-                  {(expandedDay === format(day, 'yyyy-MM-dd') ? dayItems : dayItems.slice(0, 3)).map(item => (
-                    <CalendarCard
-                      key={item.id}
-                      item={item}
-                      onEdit={() => onEditItem(item)}
-                      onRetry={() => onRetry(item.id)}
-                      onDelete={() => setItemToDelete(item)}
-                      canEdit={canEdit}
-                      onDragStart={handleDragStart}
-                      isDragging={draggedItem?.id === item.id}
-                    />
-                  ))}
-                  
+                  {(expandedDay === format(day, 'yyyy-MM-dd') ? dayItems : dayItems.slice(0, 3)).map(item => {
+                    // Hide delete for already-published items that are tied to a real external post
+                    const isLockedFromDelete = item.status === 'published' && !!item.external_post_id;
+                    return (
+                      <CalendarCard
+                        key={item.id}
+                        item={item}
+                        onEdit={() => onEditItem(item)}
+                        onRetry={() => onRetry(item.id)}
+                        onDelete={canEdit && !isLockedFromDelete ? () => setItemToDelete(item) : undefined}
+                        canEdit={canEdit}
+                        onDragStart={handleDragStart}
+                        isDragging={draggedItem?.id === item.id}
+                      />
+                    );
+                  })}
+
                   {dayItems.length > 3 && expandedDay !== format(day, 'yyyy-MM-dd') && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setExpandedDay(format(day, 'yyyy-MM-dd')); }}
@@ -557,26 +564,44 @@ export function CalendarView({
         </div>
       </div>
 
-      <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+      <AlertDialog
+        open={!!itemToDelete}
+        onOpenChange={(open) => {
+          if (!open && !localDeleting && !isDeleting) setItemToDelete(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir card?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir <strong>{itemToDelete?.title || 'este item'}</strong>? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir <strong>{itemToDelete?.title || 'este item'}</strong>? Você poderá desfazer logo após a exclusão.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={localDeleting || isDeleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (itemToDelete) {
-                  onDeleteItem(itemToDelete.id);
+              disabled={localDeleting || isDeleting || !itemToDelete}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!itemToDelete) return;
+                setLocalDeleting(true);
+                try {
+                  await onDeleteItem(itemToDelete.id);
                   setItemToDelete(null);
+                } finally {
+                  setLocalDeleting(false);
                 }
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Excluir
+              {(localDeleting || isDeleting) ? (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5 mr-2 animate-spin" />
+                  Excluindo…
+                </>
+              ) : (
+                'Excluir'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

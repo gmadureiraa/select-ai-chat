@@ -260,19 +260,73 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
     }
   });
 
-  // Delete item
+  // Delete item with undo support
   const deleteItem = useMutation({
     mutationFn: async (id: string) => {
+      // Snapshot the item before deletion to allow restore
+      const snapshot = items.find(i => i.id === id);
+
       const { error } = await supabase
         .from('planning_items')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+      return { id, snapshot };
     },
-    onSuccess: () => {
+    onSuccess: ({ snapshot }) => {
       queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
-      toast.success('Card excluído');
+
+      if (snapshot) {
+        // Build a clean payload (strip joined relations & generated fields)
+        const restorePayload = {
+          id: snapshot.id,
+          workspace_id: snapshot.workspace_id,
+          client_id: snapshot.client_id,
+          column_id: snapshot.column_id,
+          title: snapshot.title,
+          description: snapshot.description,
+          content: snapshot.content,
+          platform: snapshot.platform,
+          content_type: snapshot.content_type,
+          due_date: snapshot.due_date,
+          scheduled_at: snapshot.scheduled_at,
+          published_at: snapshot.published_at,
+          status: snapshot.status,
+          priority: snapshot.priority,
+          position: snapshot.position,
+          labels: snapshot.labels,
+          assigned_to: snapshot.assigned_to,
+          media_urls: snapshot.media_urls,
+          metadata: snapshot.metadata as Json,
+          external_post_id: snapshot.external_post_id,
+          error_message: snapshot.error_message,
+          retry_count: snapshot.retry_count,
+          added_to_library: snapshot.added_to_library,
+          content_library_id: snapshot.content_library_id,
+          created_by: snapshot.created_by,
+        };
+
+        toast.success('Card excluído', {
+          duration: 6000,
+          action: {
+            label: 'Desfazer',
+            onClick: async () => {
+              const { error } = await supabase
+                .from('planning_items')
+                .insert(restorePayload as never);
+              if (error) {
+                toast.error('Não foi possível restaurar: ' + error.message);
+                return;
+              }
+              queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
+              toast.success('Card restaurado');
+            },
+          },
+        });
+      } else {
+        toast.success('Card excluído');
+      }
     },
     onError: (error) => {
       toast.error('Erro ao excluir: ' + error.message);

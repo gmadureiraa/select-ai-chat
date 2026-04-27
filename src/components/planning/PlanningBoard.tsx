@@ -302,11 +302,12 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
             items={items}
             onEditItem={handleEdit}
             onAddItem={(date) => handleNewCard(undefined, date)}
-            onDeleteItem={(id) => deleteItem.mutate(id)}
+            onDeleteItem={(id) => deleteItem.mutateAsync(id)}
             onMoveToLibrary={(id) => moveToLibrary.mutate(id)}
             onRetry={(id) => retryPublication.mutate(id)}
             onMoveItem={handleMoveToDate}
             canEdit={!isViewer}
+            isDeleting={deleteItem.isPending}
           />
         )}
 
