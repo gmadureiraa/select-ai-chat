@@ -25,11 +25,12 @@ interface CalendarViewProps {
   items: PlanningItem[];
   onEditItem: (item: PlanningItem) => void;
   onAddItem: (date: Date) => void;
-  onDeleteItem: (id: string) => void;
+  onDeleteItem: (id: string) => void | Promise<unknown>;
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
   onMoveItem?: (itemId: string, newDate: Date) => void;
   canEdit?: boolean;
+  isDeleting?: boolean;
 }
 
 const statusConfig: Record<string, { bg: string; text: string; border: string; dot: string }> = {
