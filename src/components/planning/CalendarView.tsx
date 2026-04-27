@@ -292,6 +292,7 @@ export function CalendarView({
   const [draggedItem, setDraggedItem] = useState<PlanningItem | null>(null);
   const [dragOverDay, setDragOverDay] = useState<Date | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<PlanningItem | null>(null);
 
   const days = useMemo(() => {
     const monthStart = startOfMonth(currentDate);
