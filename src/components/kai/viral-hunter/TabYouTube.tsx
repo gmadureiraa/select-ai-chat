@@ -123,6 +123,24 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
     }
   };
 
+  const handleGenerateCarousel = (v: typeof videos[number]) => {
+    const briefing = [
+      `Vídeo viral de referência: ${v.title}`,
+      `Canal: ${v.channelTitle} (${fmt(v.viewCount)} views)`,
+      v.description ? `\nDescrição: ${v.description.slice(0, 400)}` : "",
+      `\nLink: ${v.url}`,
+      v.thumbnailUrl ? `Capa de referência: ${v.thumbnailUrl}` : "",
+      "\nObjetivo: criar carrossel adaptando o ângulo desse vídeo viral pro feed do cliente. Slide 1 com headline editorial forte, slides 2-7 desenvolvendo os pontos-chave do vídeo no tom do cliente, slide 8 chamada pra ação/discussão.",
+    ].join("\n");
+    const url = buildSequenceUrl({
+      clientId,
+      title: v.title,
+      briefing,
+    });
+    navigate(url);
+    toast.success("Abrindo Sequência Viral com briefing pronto…");
+  };
+
   return (
     <div className="space-y-4">
       {/* Header de config */}
