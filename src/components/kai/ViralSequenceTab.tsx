@@ -91,6 +91,7 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const carouselIdParam = searchParams.get("carouselId");
+  const seedBriefingParam = searchParams.get("seedBriefing");
 
   const [carousel, setCarousel] = useState<ViralCarousel>(() => {
     const saved = loadCurrentCarousel();
@@ -146,6 +147,26 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carouselIdParam]);
+
+  // Pré-popula briefing vindo do Viral Hunter (?seedBriefing=...&seedTitle=...)
+  useEffect(() => {
+    if (!seedBriefingParam) return;
+    const decoded = decodeURIComponent(seedBriefingParam);
+    setBriefing(decoded);
+    const seedTitle = searchParams.get("seedTitle");
+    if (seedTitle) {
+      setCarousel((c) => ({ ...c, title: decodeURIComponent(seedTitle).slice(0, 60) }));
+    }
+    // Limpa params pra não re-aplicar em refresh
+    setSearchParams((sp) => {
+      const next = new URLSearchParams(sp);
+      next.delete("seedBriefing");
+      next.delete("seedTitle");
+      return next;
+    });
+    toast.success("Briefing carregado do Viral Hunter — clique 'Gerar carrossel'.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedBriefingParam]);
 
   // Autosave (debounced pela natureza de useEffect a cada render)
   useEffect(() => {
@@ -433,11 +454,41 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
     }
   };
 
-  const handlePublishStub = () => {
-    toast.info(
-      "Publicar/Agendar: em breve — vai chamar a integração LATE (já disponível no KAI em outras áreas) direto daqui.",
-      { duration: 4000 },
+  const [isPublishing, setIsPublishing] = useState(false);
+  const handlePublishStub = async () => {
+    if (!hasAnySlideFilled) {
+      toast.error("Gere os slides antes de publicar.");
+      return;
+    }
+    const caption = window.prompt(
+      "Caption do post no Instagram (até 2200 chars):",
+      carousel.briefing?.slice(0, 500) ?? carousel.title,
     );
+    if (!caption?.trim()) return;
+    setIsPublishing(true);
+    try {
+      const ctx = await getSaveContext();
+      if (!ctx) return;
+      const saved = await saveCarousel(carousel, ctx);
+      setCarousel(saved);
+      const { publishCarouselToInstagram } = await import("./viral-sequence/publishCarousel");
+      const res = await publishCarouselToInstagram(
+        saved,
+        exportNodesRef.current as unknown as Map<string, HTMLElement>,
+        { caption: caption.trim() },
+      );
+      if (!res.ok) {
+        toast.error(`Falha: ${res.error}`);
+      } else {
+        toast.success(`Publicado no Instagram com ${res.mediaUrls?.length ?? 0} slides!`);
+        setSidebarRefreshKey((k) => k + 1);
+      }
+    } catch (err) {
+      console.error("[ViralSequence] publish failed:", err);
+      toast.error(`Falha: ${(err as Error).message}`);
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   const handleSaveStub = () => {

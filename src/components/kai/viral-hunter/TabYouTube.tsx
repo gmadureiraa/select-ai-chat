@@ -6,8 +6,9 @@ import { useMemo, useState } from "react";
 import { useYouTubeSearch } from "./useYouTubeSearch";
 import { KeywordsChips } from "./KeywordsChips";
 import { useViralHunterConfig } from "./useViralHunterConfig";
-import { saveAsIdea } from "./saveAsIdea";
+import { saveAsIdea, buildSequenceUrl } from "./saveAsIdea";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { useNavigate } from "react-router-dom";
 import {
   Play,
   Eye,
@@ -19,6 +20,7 @@ import {
   AlertTriangle,
   Youtube,
   Lightbulb,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -48,6 +50,7 @@ interface TabYouTubeProps {
 export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
   const { config, save } = useViralHunterConfig(clientId);
   const { workspace } = useWorkspaceContext();
+  const navigate = useNavigate();
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [period, setPeriod] = useState<"7d" | "30d" | "90d" | "all">("30d");
 
@@ -118,6 +121,24 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
         return next;
       });
     }
+  };
+
+  const handleGenerateCarousel = (v: typeof videos[number]) => {
+    const briefing = [
+      `Vídeo viral de referência: ${v.title}`,
+      `Canal: ${v.channelTitle} (${fmt(v.viewCount)} views)`,
+      v.description ? `\nDescrição: ${v.description.slice(0, 400)}` : "",
+      `\nLink: ${v.url}`,
+      v.thumbnailUrl ? `Capa de referência: ${v.thumbnailUrl}` : "",
+      "\nObjetivo: criar carrossel adaptando o ângulo desse vídeo viral pro feed do cliente. Slide 1 com headline editorial forte, slides 2-7 desenvolvendo os pontos-chave do vídeo no tom do cliente, slide 8 chamada pra ação/discussão.",
+    ].join("\n");
+    const url = buildSequenceUrl({
+      clientId,
+      title: v.title,
+      briefing,
+    });
+    navigate(url);
+    toast.success("Abrindo Sequência Viral com briefing pronto…");
   };
 
   return (
@@ -239,6 +260,16 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
                   >
                     <Lightbulb className="h-3 w-3" />
                     {savingIds.has(v.id) ? "…" : "Ideia"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs gap-1 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30"
+                    onClick={() => handleGenerateCarousel(v)}
+                    title="Abrir Sequência Viral com briefing desse vídeo"
+                  >
+                    <Layers className="h-3 w-3" />
+                    Carrossel
                   </Button>
                   <Button
                     size="sm"

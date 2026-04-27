@@ -3535,8 +3535,11 @@ export type Database = {
           client_id: string
           created_at: string
           id: string
+          last_publish_media_urls: Json | null
           planning_item_id: string | null
           profile: Json
+          published_at: string | null
+          scheduled_for: string | null
           slides: Json
           source: string
           status: string
@@ -3552,8 +3555,11 @@ export type Database = {
           client_id: string
           created_at?: string
           id?: string
+          last_publish_media_urls?: Json | null
           planning_item_id?: string | null
           profile?: Json
+          published_at?: string | null
+          scheduled_for?: string | null
           slides?: Json
           source?: string
           status?: string
@@ -3569,8 +3575,11 @@ export type Database = {
           client_id?: string
           created_at?: string
           id?: string
+          last_publish_media_urls?: Json | null
           planning_item_id?: string | null
           profile?: Json
+          published_at?: string | null
+          scheduled_for?: string | null
           slides?: Json
           source?: string
           status?: string

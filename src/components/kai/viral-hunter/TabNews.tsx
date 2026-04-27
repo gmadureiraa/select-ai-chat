@@ -5,8 +5,9 @@
 import { useGoogleNews } from "./useGoogleNews";
 import { useViralHunterConfig } from "./useViralHunterConfig";
 import { KeywordsChips } from "./KeywordsChips";
-import { saveAsIdea } from "./saveAsIdea";
+import { saveAsIdea, buildSequenceUrl } from "./saveAsIdea";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { useNavigate } from "react-router-dom";
 import {
   Newspaper,
   ExternalLink,
@@ -14,6 +15,7 @@ import {
   Sparkles,
   Globe,
   Lightbulb,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,7 @@ interface TabNewsProps {
 export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
   const { config, save } = useViralHunterConfig(clientId);
   const { workspace } = useWorkspaceContext();
+  const navigate = useNavigate();
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const query = config.keywords.join(" OR ");
   const { data: news = [], isLoading, isFetching, refetch, error } = useGoogleNews({
@@ -90,6 +93,24 @@ export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
         return next;
       });
     }
+  };
+
+  const handleGenerateCarousel = (n: typeof news[number]) => {
+    const briefing = [
+      `Notícia base: ${n.title}`,
+      n.snippet ? `\nResumo: ${n.snippet}` : "",
+      `\nFonte: ${n.source}`,
+      n.url ? `Link: ${n.url}` : "",
+      n.thumbnailUrl ? `\nImagem de capa sugerida: ${n.thumbnailUrl}` : "",
+      "\nObjetivo: criar carrossel editorial estilo capa de jornal — slide 1 com headline forte sobre essa notícia, slides 2-7 desenvolvendo análise/contexto/implicações, slide 8 chamada pra discussão.",
+    ].join("\n");
+    const url = buildSequenceUrl({
+      clientId,
+      title: n.title,
+      briefing,
+    });
+    navigate(url);
+    toast.success("Abrindo Sequência Viral com briefing pronto…");
   };
 
   return (
@@ -190,6 +211,16 @@ export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
                     >
                       <Lightbulb className="h-3 w-3" />
                       {savingIds.has(n.id) ? "Salvando…" : "Ideia"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-[11px] gap-1 px-2 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30"
+                      onClick={() => handleGenerateCarousel(n)}
+                      title="Abrir Sequência Viral com briefing dessa notícia"
+                    >
+                      <Layers className="h-3 w-3" />
+                      Carrossel
                     </Button>
                     <Button
                       size="sm"
