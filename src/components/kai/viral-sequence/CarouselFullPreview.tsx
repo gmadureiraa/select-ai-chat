@@ -2,8 +2,8 @@
  * CarouselFullPreview — dialog em tela cheia que mostra o carrossel
  * navegável estilo Instagram (swipe horizontal com botões + keyboard).
  *
- * Útil pra review antes de publicar. Mostra contador X/8, thumbnails
- * abaixo, e atalhos ← → pra navegar.
+ * Template Twitter padrão Madureira: render único por slide, sem
+ * variantes de capa.
  */
 
 import { useEffect, useState } from "react";
@@ -60,7 +60,6 @@ export function CarouselFullPreview({
       <DialogContent className="max-w-[1100px] p-0 gap-0 overflow-hidden bg-neutral-950 border-neutral-800">
         <DialogTitle className="sr-only">Preview do carrossel</DialogTitle>
 
-        {/* Close button */}
         <Button
           variant="ghost"
           size="sm"
@@ -70,14 +69,11 @@ export function CarouselFullPreview({
           <X className="h-4 w-4" />
         </Button>
 
-        {/* Counter */}
         <div className="absolute top-4 left-4 z-20 text-xs text-white/70 font-mono bg-black/40 backdrop-blur-sm rounded-full px-3 py-1">
           {index + 1} / {total}
         </div>
 
-        {/* Stage */}
         <div className="relative flex items-center justify-center bg-neutral-950 min-h-[720px]">
-          {/* Prev button */}
           <Button
             variant="ghost"
             size="sm"
@@ -92,9 +88,6 @@ export function CarouselFullPreview({
             <TwitterSlide
               body={current.body || "(slide vazio)"}
               imageUrl={imageUrl}
-              imageAsCover={current.imageAsCover === true && current.image.kind !== "none"}
-              coverTextStyle={current.coverTextStyle}
-              editorial={current.editorial}
               imageAttribution={
                 current.image.kind === "search" ? current.image.attribution : undefined
               }
@@ -116,7 +109,6 @@ export function CarouselFullPreview({
           </Button>
         </div>
 
-        {/* Thumbnails */}
         <div className="flex items-center gap-1.5 px-4 py-3 bg-neutral-900 border-t border-neutral-800 overflow-x-auto">
           {slides.map((s, i) => (
             <button
@@ -133,9 +125,6 @@ export function CarouselFullPreview({
               <TwitterSlide
                 body={s.body}
                 imageUrl={s.image.kind === "none" ? undefined : s.image.url}
-                imageAsCover={s.imageAsCover === true && s.image.kind !== "none"}
-                coverTextStyle={s.coverTextStyle}
-                editorial={s.editorial}
                 slideNumber={s.order}
                 totalSlides={total}
                 profile={carousel.profile}

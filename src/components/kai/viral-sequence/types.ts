@@ -1,7 +1,9 @@
 /**
  * Tipos da Sequência Viral dentro do KAI.
  * Canvas Instagram 4:5 (1080 × 1350 px).
- * Apenas template "Twitter" no MVP.
+ *
+ * Template Twitter padrão Madureira: layout único por slide (header + body
+ * + imagem opcional abaixo). Sem variantes de capa/editorial/overlay.
  */
 
 export const CANVAS_W = 1080;
@@ -13,30 +15,7 @@ export type ImageSource =
   | { kind: "none" }
   | { kind: "ai"; prompt: string; url: string }
   | { kind: "search"; query: string; url: string; attribution?: string; sourceUrl?: string }
-  | { kind: "upload"; url: string; filename?: string }
-  /**
-   * Fallback gerado: SVG/CSS gradient renderizado quando RSS não tem imagem.
-   * `url` é a data-URL do SVG; `palette` é um nome legível do esquema.
-   */
-  | { kind: "fallback"; url: string; palette: string; seed: string };
-
-/** Onde o texto sobreposto fica posicionado quando `imageAsCover=true`. */
-export type CoverTextPosition = "top" | "center" | "bottom";
-
-/** Tamanho relativo do texto sobreposto à capa. */
-export type CoverTextSize = "sm" | "md" | "lg" | "xl";
-
-/** Intensidade do overlay escuro/claro pra garantir contraste. */
-export type CoverOverlayStrength = "soft" | "medium" | "strong";
-
-export interface CoverTextStyle {
-  size?: CoverTextSize;        // default md
-  position?: CoverTextPosition; // default bottom
-  spacing?: number;             // line-height multiplier (default 1.2, 1.0–1.6)
-  overlay?: CoverOverlayStrength; // default medium
-  /** Cor do texto. "auto" calcula baseado no overlay. */
-  textColor?: "auto" | "white" | "black";
-}
+  | { kind: "upload"; url: string; filename?: string };
 
 export interface ViralSlide {
   id: string;
@@ -48,34 +27,19 @@ export interface ViralSlide {
   body: string;
   /**
    * @deprecated Mantido pra migração de rascunhos antigos que tinham
-   * heading+body separados. Novos slides usam só `body`. O loader
-   * concatena no body se encontrar.
+   * heading+body separados. O loader concatena no body se encontrar.
    */
   heading?: string;
   image: ImageSource;
   /**
-   * Se true, a imagem cobre o slide inteiro com gradient overlay e o
-   * texto fica sobreposto em branco (estilo capa de jornal). Útil pro
-   * slide 1 quando há uma imagem forte da notícia.
+   * @deprecated Removido no padrão Madureira (single layout). Campos
+   * antigos de carrosséis salvos serão ignorados pelo render.
    */
   imageAsCover?: boolean;
-  /** Estilização do texto sobreposto à capa (apenas quando imageAsCover=true). */
-  coverTextStyle?: CoverTextStyle;
-  /**
-   * Layout editorial (capa de jornal) — usado tipicamente no slide 1.
-   * Quando `editorial` está preenchido E `imageAsCover=true`, o slide
-   * renderiza headline grande + subtitle + crédito ao invés do `body`.
-   */
-  editorial?: {
-    /** Manchete principal (até ~80 chars). */
-    headline: string;
-    /** Subtítulo / lead da matéria (até ~140 chars). Opcional. */
-    subtitle?: string;
-    /** Crédito / fonte (ex: "Folha de SP", "Reuters"). Opcional. */
-    credit?: string;
-    /** Categoria/eyebrow (ex: "MERCADO", "TECNOLOGIA"). Opcional. */
-    kicker?: string;
-  };
+  /** @deprecated Removido — sem mais variantes de capa. */
+  coverTextStyle?: unknown;
+  /** @deprecated Removido — sem mais layout editorial. */
+  editorial?: unknown;
 }
 
 export interface ViralProfile {
@@ -111,15 +75,23 @@ export function emptySlide(order: number): ViralSlide {
 /**
  * Migra rascunho antigo (heading + body separados) pro formato novo
  * (só body com **bold** no início). Safe pra rodar em qualquer slide.
+ * Também limpa campos legados de capa.
  */
 export function migrateSlide(s: ViralSlide): ViralSlide {
-  if (!s.heading || !s.heading.trim()) return s;
-  const heading = s.heading.trim();
-  const body = s.body?.trim() ?? "";
-  const merged = body
-    ? `**${heading.replace(/\*\*/g, "")}**\n\n${body}`
-    : `**${heading.replace(/\*\*/g, "")}**`;
-  return { ...s, heading: undefined, body: merged };
+  let next = s;
+  if (s.heading && s.heading.trim()) {
+    const heading = s.heading.trim();
+    const body = s.body?.trim() ?? "";
+    const merged = body
+      ? `**${heading.replace(/\*\*/g, "")}**\n\n${body}`
+      : `**${heading.replace(/\*\*/g, "")}**`;
+    next = { ...next, heading: undefined, body: merged };
+  }
+  // Limpa campos deprecated (sem mudar a forma do objeto persistido).
+  if (next.imageAsCover || next.coverTextStyle || next.editorial) {
+    next = { ...next, imageAsCover: undefined, coverTextStyle: undefined, editorial: undefined };
+  }
+  return next;
 }
 
 export function emptyCarousel(clientId: string, profile: ViralProfile): ViralCarousel {

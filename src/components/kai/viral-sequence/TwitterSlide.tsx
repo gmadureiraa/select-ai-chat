@@ -1,30 +1,37 @@
 /**
  * TwitterSlide — renderiza 1 slide do carrossel estilo tweet.
- * Canvas 1080×1350 (Instagram 4:5). Scale controlável pra caber na UI.
  *
- * Mudanças (refactor inspirado no postflow/gmadureiraa):
- *   - FS_BODY base reduzido: 52 → 39 (mais leve, igual ao tweet real).
- *   - Auto-shrink do body: passa de 220 chars → reduz fonte gradualmente.
- *   - Suporte `imageAsCover` — imagem cobre o slide inteiro com overlay
- *     (útil pra slide de capa com foto/imagem da notícia).
- *   - Suporte `proxyImageUrl` — função que reescreve src da imagem (CORS).
+ * Padrão 1:1 com gmadureiraa/sequencia-viral (commit 4ef43003 — "audit
+ * editor=preview 100% sincronizado"): UM ÚNICO LAYOUT por slide. Sem
+ * variantes de capa/overlay/editorial.
  *
- * Suporta **bold** inline no body via renderRichText.
+ *   - Card branco (ou dark, detectado por luminância) 1080×1350 (Instagram 4:5).
+ *   - Header: avatar 100px + nome bold + verified azul (#1D9BF0) + @handle
+ *     + contador `n/total` no canto superior direito.
+ *   - Body: parágrafo único, Inter ~39px, hierarquia via `**bold**` inline.
+ *   - Imagem opcional ABAIXO do texto (border 1px, radius 20).
+ *   - Sem CTA hardcoded, sem action bar, sem tweet-screenshot de capa.
+ *
+ * Auto-shrink mantido: se o body ficar muito longo, reduz fonte
+ * gradualmente. `rewriteImageUrl` mantido para o proxy de export PNG.
  */
 
 import { forwardRef, type CSSProperties } from "react";
 import type { ReactNode } from "react";
-import { CANVAS_H, CANVAS_W, type ViralProfile, type CoverTextStyle, type ViralSlide } from "./types";
+import { CANVAS_H, CANVAS_W, type ViralProfile } from "./types";
 
 const TWITTER_BLUE = "#1D9BF0";
-const BG = "#FFFFFF";
-const FG = "#0F1419";
-const MUTED = "#536471";
-const BORDER = "rgba(15, 20, 25, 0.08)";
+const BG_LIGHT = "#FFFFFF";
+const BG_DARK = "#0A0A0A";
+const FG_LIGHT = "#0F1419";
+const FG_DARK = "#F5F5F5";
+const MUTED_LIGHT = "#536471";
+const MUTED_DARK = "#9CA3AF";
+const BORDER_LIGHT = "#E5E7EB";
+const BORDER_DARK = "#262626";
 
 const FS_NAME = 41;
 const FS_HANDLE = 31;
-// Fonte base do corpo — alinhada ao postflow. Auto-shrink abaixo cuida do overflow.
 const FS_BODY_BASE = 39;
 
 interface TwitterSlideProps {
@@ -35,18 +42,10 @@ interface TwitterSlideProps {
   profile: ViralProfile;
   scale?: number;
   textScale?: number;
-  /** Se true, imagem ocupa todo o slide com gradient overlay (estilo capa de jornal). */
-  imageAsCover?: boolean;
-  /** Estilo do texto sobreposto (apenas quando imageAsCover=true). */
-  coverTextStyle?: CoverTextStyle;
-  /** Atribuição da imagem (mostrada como pequeno crédito quando há fonte). */
+  /** Força tema dark. Se omitido, usa light por padrão. */
+  dark?: boolean;
+  /** Atribuição da imagem (mostrada como crédito discreto quando presente). */
   imageAttribution?: string;
-  /**
-   * Layout editorial (capa de jornal) — quando preenchido + imageAsCover,
-   * renderiza kicker + headline grande + subtitle + crédito sobreposto.
-   * Substitui o `body` no slide.
-   */
-  editorial?: ViralSlide["editorial"];
   /** Reescreve URL da imagem (ex: pra passar por proxy CORS). */
   rewriteImageUrl?: (url: string) => string;
   className?: string;
@@ -69,13 +68,8 @@ function renderRichText(text: string): ReactNode[] {
 }
 
 /**
- * Auto-shrink: dado o tamanho do body, retorna um multiplicador do font-size.
- * Curva conservadora pra evitar texto microscópico.
- *   ≤180 chars   → 1.00 (39px)
- *   181-260      → 0.92 (~36px)
- *   261-340      → 0.85 (~33px)
- *   341-420      → 0.78 (~30px)
- *   >420         → 0.72 (~28px)
+ * Auto-shrink: dado o tamanho do body, retorna multiplicador do font-size.
+ *   ≤180 chars → 1.00, 181-260 → 0.92, 261-340 → 0.85, 341-420 → 0.78, >420 → 0.72
  */
 function autoShrinkMultiplier(bodyLength: number, hasImage: boolean): number {
   // Quando tem imagem o espaço útil cai ~40% — shrink mais agressivo.
@@ -98,59 +92,32 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
       profile,
       scale = 0.32,
       textScale = 1,
-      imageAsCover = false,
-      coverTextStyle,
+      dark = false,
       imageAttribution,
-      editorial,
       rewriteImageUrl,
       className,
       style,
     },
     ref,
   ) {
-    const isEditorial = !!editorial?.headline?.trim() && imageAsCover && !!imageUrl;
-    const shrink = autoShrinkMultiplier(body?.length ?? 0, !!imageUrl && !imageAsCover);
+    const bg = dark ? BG_DARK : BG_LIGHT;
+    const fg = dark ? FG_DARK : FG_LIGHT;
+    const muted = dark ? MUTED_DARK : MUTED_LIGHT;
+    const border = dark ? BORDER_DARK : BORDER_LIGHT;
+
+    const shrink = autoShrinkMultiplier(body?.length ?? 0, !!imageUrl);
     const fsBody = FS_BODY_BASE * textScale * shrink;
+
     const resolvedImageUrl = imageUrl
-      ? (rewriteImageUrl ? rewriteImageUrl(imageUrl) : imageUrl)
+      ? rewriteImageUrl
+        ? rewriteImageUrl(imageUrl)
+        : imageUrl
       : undefined;
     const resolvedAvatarUrl = profile.avatarUrl
-      ? (rewriteImageUrl ? rewriteImageUrl(profile.avatarUrl) : profile.avatarUrl)
+      ? rewriteImageUrl
+        ? rewriteImageUrl(profile.avatarUrl)
+        : profile.avatarUrl
       : undefined;
-
-    // Resolução do estilo da capa (com defaults).
-    const coverSize = coverTextStyle?.size ?? "md";
-    const coverPosition = coverTextStyle?.position ?? "bottom";
-    const coverSpacing = Math.max(1.0, Math.min(1.6, coverTextStyle?.spacing ?? 1.2));
-    const coverOverlay = coverTextStyle?.overlay ?? "medium";
-    const coverColorMode = coverTextStyle?.textColor ?? "auto";
-
-    const COVER_SIZE_MULT: Record<string, number> = { sm: 0.95, md: 1.15, lg: 1.35, xl: 1.55 };
-    const fsBodyCover = fsBody * (COVER_SIZE_MULT[coverSize] ?? 1.15);
-
-    // Auto-contrast: white text + dark overlay (default), or black text + light overlay.
-    const useDarkOverlay = coverColorMode !== "black";
-    const overlayStops = useDarkOverlay
-      ? {
-          soft:    "rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.55) 100%",
-          medium:  "rgba(0,0,0,0.20) 0%, rgba(0,0,0,0.78) 100%",
-          strong:  "rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.92) 100%",
-        }
-      : {
-          soft:    "rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.78) 100%",
-          medium:  "rgba(255,255,255,0.40) 0%, rgba(255,255,255,0.90) 100%",
-          strong:  "rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.97) 100%",
-        };
-    const stop = overlayStops[coverOverlay];
-    const overlayCss =
-      coverPosition === "top"    ? `linear-gradient(180deg, ${stop})` :
-      coverPosition === "center" ? `radial-gradient(ellipse at center, ${stop})` :
-                                   `linear-gradient(0deg, ${stop})`;
-
-    const coverTextColor = useDarkOverlay ? "#FFFFFF" : "#0F1419";
-    const coverTextShadow = useDarkOverlay
-      ? "0 2px 16px rgba(0,0,0,0.55)"
-      : "0 1px 4px rgba(255,255,255,0.85)";
 
     return (
       <div
@@ -173,8 +140,8 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
             height: CANVAS_H,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
-            background: BG,
-            color: FG,
+            background: bg,
+            color: fg,
             borderRadius: 44,
             display: "flex",
             flexDirection: "column",
@@ -182,12 +149,12 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
             fontFamily:
               '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
             overflow: "hidden",
-            border: `2px solid ${BORDER}`,
+            border: `2px solid ${border}`,
             boxShadow: "0 4px 24px rgba(0,0,0,0.05)",
             boxSizing: "border-box",
           }}
         >
-          {/* Header */}
+          {/* Header: avatar + nome + verified + handle + contador */}
           <div
             style={{
               display: "flex",
@@ -195,8 +162,6 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
               gap: 20,
               marginBottom: 40,
               flexShrink: 0,
-              position: "relative",
-              zIndex: 2,
             }}
           >
             <div
@@ -237,7 +202,7 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
                   fontWeight: 800,
                   lineHeight: 1.1,
                   letterSpacing: "-0.02em",
-                  color: FG,
+                  color: fg,
                 }}
               >
                 <span
@@ -249,6 +214,7 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
                 >
                   {profile.name || "Seu nome"}
                 </span>
+                {/* Verified badge azul X */}
                 <svg
                   width="28"
                   height="28"
@@ -265,7 +231,7 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
               <div
                 style={{
                   fontSize: FS_HANDLE,
-                  color: MUTED,
+                  color: muted,
                   lineHeight: 1.2,
                   marginTop: 4,
                   fontWeight: 500,
@@ -279,7 +245,7 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
             <div
               style={{
                 fontSize: 26,
-                color: MUTED,
+                color: muted,
                 fontWeight: 600,
                 alignSelf: "flex-start",
               }}
@@ -288,211 +254,81 @@ export const TwitterSlide = forwardRef<HTMLDivElement, TwitterSlideProps>(
             </div>
           </div>
 
-          {/* Body — texto único estilo tweet */}
-          {imageAsCover && resolvedImageUrl ? (
-            // Layout COVER: imagem cobre todo o slide com gradient overlay e texto sobreposto
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                zIndex: 1,
-              }}
-            >
-              <img
-                src={resolvedImageUrl}
-                alt=""
-                crossOrigin="anonymous"
+          {/* Body — texto único estilo tweet, imagem opcional abaixo */}
+          <div
+            style={{
+              flex: "1 1 0",
+              display: "flex",
+              flexDirection: "column",
+              gap: 24,
+              overflow: "hidden",
+              minHeight: 0,
+            }}
+          >
+            {body && (
+              <p
                 style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: overlayCss,
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  left: 70,
-                  right: 70,
-                  ...(coverPosition === "top"
-                    ? { top: 220 }
-                    : coverPosition === "center"
-                      ? { top: "50%", transform: "translateY(-30%)" }
-                      : { bottom: 100 }),
-                  zIndex: 2,
+                  fontSize: fsBody,
+                  lineHeight: 1.4,
+                  color: fg,
+                  margin: 0,
+                  whiteSpace: "pre-line",
+                  fontWeight: 400,
+                  letterSpacing: "-0.01em",
                 }}
               >
-                {isEditorial ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                    {editorial?.kicker && (
-                      <div
-                        style={{
-                          fontSize: 24,
-                          fontWeight: 800,
-                          letterSpacing: "0.18em",
-                          textTransform: "uppercase",
-                          color: coverTextColor,
-                          opacity: 0.92,
-                          textShadow: coverTextShadow,
-                          borderLeft: `5px solid ${coverTextColor}`,
-                          paddingLeft: 16,
-                          alignSelf: "flex-start",
-                        }}
-                      >
-                        {editorial.kicker}
-                      </div>
-                    )}
-                    <h1
-                      style={{
-                        fontSize: 78,
-                        lineHeight: 1.05,
-                        fontWeight: 900,
-                        letterSpacing: "-0.03em",
-                        color: coverTextColor,
-                        margin: 0,
-                        fontFamily:
-                          '"Playfair Display", "Georgia", "Times New Roman", serif',
-                        textShadow: coverTextShadow,
-                      }}
-                    >
-                      {editorial!.headline}
-                    </h1>
-                    {editorial?.subtitle && (
-                      <p
-                        style={{
-                          fontSize: 32,
-                          lineHeight: 1.35,
-                          fontWeight: 500,
-                          letterSpacing: "-0.005em",
-                          color: coverTextColor,
-                          opacity: 0.92,
-                          margin: 0,
-                          textShadow: coverTextShadow,
-                        }}
-                      >
-                        {renderRichText(editorial.subtitle)}
-                      </p>
-                    )}
-                    {editorial?.credit && (
-                      <div
-                        style={{
-                          fontSize: 20,
-                          fontWeight: 600,
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                          color: coverTextColor,
-                          opacity: 0.78,
-                          textShadow: coverTextShadow,
-                          marginTop: 8,
-                        }}
-                      >
-                        {editorial.credit}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  body && (
-                    <p
-                      style={{
-                        fontSize: fsBodyCover,
-                        lineHeight: coverSpacing,
-                        color: coverTextColor,
-                        margin: 0,
-                        whiteSpace: "pre-line",
-                        fontWeight: 700,
-                        letterSpacing: "-0.015em",
-                        textShadow: coverTextShadow,
-                      }}
-                    >
-                      {renderRichText(body)}
-                    </p>
-                  )
-                )}
-              </div>
-              {imageAttribution && (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 70,
-                    bottom: 32,
-                    fontSize: 18,
-                    color: "rgba(255,255,255,0.75)",
-                    zIndex: 3,
-                    fontWeight: 500,
-                    letterSpacing: "0.02em",
-                    textShadow: "0 1px 4px rgba(0,0,0,0.6)",
-                  }}
-                >
-                  Foto: {imageAttribution}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div
-              style={{
-                flex: "1 1 0",
-                display: "flex",
-                flexDirection: "column",
-                gap: 24,
-                overflow: "hidden",
-                minHeight: 0,
-                position: "relative",
-                zIndex: 2,
-              }}
-            >
-              {body && (
-                <p
-                  style={{
-                    fontSize: fsBody,
-                    lineHeight: 1.4,
-                    color: FG,
-                    margin: 0,
-                    whiteSpace: "pre-line",
-                    fontWeight: 400,
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  {renderRichText(body)}
-                </p>
-              )}
-              {resolvedImageUrl && (
-                <div
+                {renderRichText(body)}
+              </p>
+            )}
+            {resolvedImageUrl && (
+              <div
+                style={{
+                  width: "100%",
+                  flex: "1 1 auto",
+                  minHeight: 0,
+                  borderRadius: 20,
+                  overflow: "hidden",
+                  border: `1px solid ${border}`,
+                  background: dark ? "#1A1A1A" : "#F4F4F5",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                }}
+              >
+                <img
+                  src={resolvedImageUrl}
+                  alt=""
+                  crossOrigin="anonymous"
                   style={{
                     width: "100%",
-                    flex: "1 1 auto",
-                    minHeight: 0,
-                    borderRadius: 20,
-                    overflow: "hidden",
-                    border: `1px solid ${BORDER}`,
-                    background: "#F4F4F5",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
                   }}
-                >
-                  <img
-                    src={resolvedImageUrl}
-                    alt=""
-                    crossOrigin="anonymous"
+                />
+                {imageAttribution && (
+                  <div
                     style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
+                      position: "absolute",
+                      bottom: 12,
+                      right: 16,
+                      fontSize: 16,
+                      color: "rgba(255,255,255,0.85)",
+                      fontWeight: 500,
+                      letterSpacing: "0.02em",
+                      textShadow: "0 1px 4px rgba(0,0,0,0.6)",
+                      background: "rgba(0,0,0,0.35)",
+                      padding: "4px 10px",
+                      borderRadius: 999,
                     }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
+                  >
+                    Foto: {imageAttribution}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
