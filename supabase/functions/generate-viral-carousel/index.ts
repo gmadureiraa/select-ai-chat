@@ -372,30 +372,20 @@ serve(async (req) => {
     }
     const slides = normalizeSlides(arr, slideCount);
 
-    // Aplica imagem de capa no slide 1 — estilo capa de jornal.
-    // Se RSS trouxer URL: cacheia no Storage pra não quebrar quando expirar.
-    // Se não trouxer: gera fallback SVG (gradient).
-    if (slides.length > 0) {
-      if (coverImageUrl) {
-        const cachedUrl = await cacheCoverImage(supabase, coverImageUrl, clientId);
-        slides[0] = {
-          ...slides[0],
-          image: {
-            kind: "search",
-            query: title ?? briefing.slice(0, 60),
-            url: cachedUrl,
-            attribution: coverImageAttribution ?? undefined,
-          },
-          imageAsCover: true,
-        };
-      } else {
-        const fb = buildFallbackCover(title ?? briefing);
-        slides[0] = {
-          ...slides[0],
-          image: { kind: "fallback", url: fb.url, palette: fb.palette, seed: fb.seed },
-          imageAsCover: true,
-        };
-      }
+    // Aplica imagem ao slide 1 APENAS quando há imagem real (RSS/scrape).
+    // Padrão Madureira: imagem fica abaixo do texto (não como cover/overlay).
+    // Sem imagem real → slide text-only (não geramos mais SVG fallback indigo).
+    if (slides.length > 0 && coverImageUrl) {
+      const cachedUrl = await cacheCoverImage(supabase, coverImageUrl, clientId);
+      slides[0] = {
+        ...slides[0],
+        image: {
+          kind: "search",
+          query: title ?? briefing.slice(0, 60),
+          url: cachedUrl,
+          attribution: coverImageAttribution ?? undefined,
+        },
+      };
     }
 
     const finalProfile: ViralProfile = profile ?? {
