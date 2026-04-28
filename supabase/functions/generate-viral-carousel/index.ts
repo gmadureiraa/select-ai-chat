@@ -102,7 +102,7 @@ interface RequestBody {
   title?: string;
   source?: "manual" | "automation" | "chat";
   automationId?: string;
-  /** Se fornecido, vira capa do slide 1 com imageAsCover=true. */
+  /** Se fornecido, vira a imagem do slide 1 (renderizada abaixo do texto). */
   coverImageUrl?: string | null;
   coverImageAttribution?: string | null;
 }
