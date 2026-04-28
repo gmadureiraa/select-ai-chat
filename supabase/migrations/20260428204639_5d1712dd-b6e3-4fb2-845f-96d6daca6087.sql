@@ -1,0 +1,1 @@
+UPDATE public.clients SET avatar_url = 'https://tkbsjtgrumhvwlxkmojg.supabase.co/storage/v1/object/public/client-files/jornal-cripto/avatar.svg' WHERE id = 'cd25972a-c2fe-42b7-a290-13196d753981';
