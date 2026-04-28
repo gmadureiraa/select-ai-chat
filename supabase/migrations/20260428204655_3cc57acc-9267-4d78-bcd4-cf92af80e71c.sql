@@ -1,0 +1,1 @@
+DELETE FROM public.viral_carousels WHERE client_id='cd25972a-c2fe-42b7-a290-13196d753981' AND created_at > NOW() - INTERVAL '3 hours';
