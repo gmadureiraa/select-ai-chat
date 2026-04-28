@@ -108,6 +108,34 @@ interface RequestBody {
 }
 
 function buildPrompt(briefing: string, slideCount: number, tone?: string): string {
+  // Modo single-slide (1 post = 1 imagem com manchete + lead curto).
+  // Usado pra automação RSS de notícias: cada notícia vira 1 post.
+  if (slideCount === 1) {
+    return [
+      "Você vai gerar UM ÚNICO post estilo tweet visual sobre o tema abaixo.",
+      "É um post de notícia pra Instagram (formato 4:5) — vai junto com a imagem da notícia abaixo do texto.",
+      "",
+      `TEMA/BRIEFING: ${briefing}`,
+      tone ? `\nTOM: ${tone}` : "",
+      "",
+      "REGRAS:",
+      "- 1 slide só. Texto até ~260 caracteres no total.",
+      "- Estrutura: **manchete forte** (até 80 chars, em negrito) + linha em branco + lead/contexto (1-2 frases curtas explicando a notícia).",
+      "- Linguagem informal, direta, em pt-BR. Nada de corporativês.",
+      "- Use **negrito** apenas na manchete (e opcionalmente em 1 termo-chave do lead).",
+      "- NÃO use hashtags. NÃO use emojis. NÃO numere.",
+      "- NÃO comece com \"Slide 1:\" nem com \"Manchete:\".",
+      "",
+      "FORMATO DE SAÍDA: APENAS um array JSON válido com 1 item, sem texto antes nem depois.",
+      "Item: { \"body\": string }",
+      "",
+      "Exemplo:",
+      '[{"body":"**Bitcoin perde US$ 77 mil e liquida US$ 1 bi em alavancagem**\\n\\nQueda foi puxada por venda institucional e quebra do suporte técnico. Mercado segue em alerta."}]',
+      "",
+      "Agora gera o post pro tema acima.",
+    ].filter(Boolean).join("\n");
+  }
+
   return [
     `Você vai gerar um carrossel de ${slideCount} slides estilo tweet sobre o tema abaixo.`,
     "Cada slide é UM tweet completo — texto livre com **palavras em negrito** pra destacar trechos-chave.",
@@ -388,9 +416,11 @@ serve(async (req) => {
       };
     }
 
+    const igHandle = (client.social_media as Record<string, unknown> | null)?.instagram_handle as string | undefined;
+    const fallbackHandle = (client.name as string).toLowerCase().replace(/\s+/g, "");
     const finalProfile: ViralProfile = profile ?? {
       name: client.name as string,
-      handle: `@${(client.name as string).toLowerCase().replace(/\s+/g, "")}`,
+      handle: `@${igHandle?.replace(/^@/, "") || fallbackHandle}`,
       avatarUrl: (client.avatar_url as string) ?? undefined,
     };
     const finalTitle = title ?? briefing.slice(0, 60);

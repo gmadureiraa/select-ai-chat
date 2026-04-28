@@ -21,6 +21,7 @@ interface CreateViralCarouselArgs {
   tone?: string;
   addToPlanning?: boolean;
   title?: string;
+  slideCount?: number;
 }
 
 interface CreateViralCarouselData {
@@ -36,14 +37,14 @@ export const createViralCarouselTool: RegisteredTool<
   definition: {
     name: "createViralCarousel",
     description:
-      "Criar um carrossel estilo Twitter de 8 slides (formato 'Sequência Viral') sobre o tema dado. Use quando o usuário pede explicitamente: 'cria um carrossel viral', 'sequência viral', 'carrossel estilo tweet', 'thread visual'. NÃO use pra carrossel comum de Instagram — pra isso use createContent. Os slides já vêm com **negrito** estratégico e podem ser editados depois na aba Sequência Viral.",
+      "Criar conteúdo estilo tweet visual (formato 'Sequência Viral') sobre o tema dado. Por padrão gera 8 slides (carrossel). Use slideCount=1 quando o usuário pedir UM post só (ex: 'um post de notícia', 'só uma imagem com a manchete', automação de RSS de notícias). Use quando o usuário pede explicitamente: 'carrossel viral', 'sequência viral', 'post estilo tweet', 'thread visual', 'post de notícia no padrão tweet'. NÃO use pra carrossel comum de Instagram — pra isso use createContent.",
     parameters: {
       type: "object",
       properties: {
         briefing: {
           type: "string",
           description:
-            "Tema/ângulo do carrossel — quanto mais específico, melhor. Ex: 'os 5 erros que todo iniciante em Bitcoin comete + 1 hack sobre self-custody'.",
+            "Tema/ângulo. Pra slideCount=1 (notícia), inclua manchete + summary curto. Pra carrossel, inclua o gancho + pontos a cobrir.",
         },
         tone: {
           type: "string",
@@ -59,6 +60,11 @@ export const createViralCarouselTool: RegisteredTool<
           type: "string",
           description:
             "Título curto opcional pro carrossel/card. Se omitido, gera a partir do briefing.",
+        },
+        slideCount: {
+          type: "number",
+          description:
+            "Quantidade de slides. 1 = post único (ideal pra notícia/RSS, com imagem da matéria). 8 = carrossel padrão (default). Faixa válida: 1-10.",
         },
       },
       required: ["briefing"],
@@ -78,6 +84,10 @@ export const createViralCarouselTool: RegisteredTool<
       `[createViralCarousel] clientId=${ctx.clientId} briefing="${briefing.slice(0, 60)}..." addToPlanning=${addToPlanning}`,
     );
 
+    const slideCount = typeof args.slideCount === "number" && args.slideCount >= 1 && args.slideCount <= 10
+      ? Math.round(args.slideCount)
+      : undefined;
+
     try {
       const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
       const res = await fetch(
@@ -94,6 +104,7 @@ export const createViralCarouselTool: RegisteredTool<
             briefing,
             tone,
             title,
+            slideCount,
             persistAs: addToPlanning ? "both" : "carousel",
             source: "chat",
           }),

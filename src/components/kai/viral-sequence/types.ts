@@ -94,13 +94,18 @@ export function migrateSlide(s: ViralSlide): ViralSlide {
   return next;
 }
 
-export function emptyCarousel(clientId: string, profile: ViralProfile): ViralCarousel {
+export function emptyCarousel(
+  clientId: string,
+  profile: ViralProfile,
+  slideCount = 8,
+): ViralCarousel {
+  const count = Math.max(1, Math.min(20, slideCount));
   return {
     id: `car_${crypto.randomUUID()}`,
     clientId,
-    title: "Novo carrossel",
+    title: count === 1 ? "Novo post" : "Novo carrossel",
     template: "twitter",
-    slides: Array.from({ length: 8 }).map((_, i) => emptySlide(i + 1)),
+    slides: Array.from({ length: count }).map((_, i) => emptySlide(i + 1)),
     profile,
     status: "draft",
     createdAt: new Date().toISOString(),

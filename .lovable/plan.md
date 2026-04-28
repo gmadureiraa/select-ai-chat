@@ -1,88 +1,93 @@
-## Diagnóstico
+## Audit: estado atual do Jornal Cripto + Sequência Viral
 
-Comparei o `template-twitter.tsx` do repo `gmadureiraa/sequencia-viral` (commit `4ef43003`, "audit editor=preview 100% sincronizado") com o nosso `src/components/kai/viral-sequence/TwitterSlide.tsx` e com o slide que ficou salvo em `viral_carousels/428d5af4...`.
+**Cliente** (`cd25972a-...`):
+- `avatar_url`: SVG genérico "JC" laranja (criado na rodada anterior, não é o personagem nem o jornalzinho).
+- `social_media`: tem `website / newsletter / radar`. **Não tem campo de handle de Instagram.**
+- `client_reference_library`: vazia (nenhum logo carregado ainda).
 
-**Padrão correto do Madureira (single-layout, sem variantes):**
-1. Card branco (ou dark) com border `2px solid #e5e7eb`, radius `44px`, padding generoso.
-2. Header: avatar **redondo 100px** (foto real do perfil) + nome bold + **selo verified azul (#1D9BF0)** + `@handle` em cinza + contador `n/total` no topo direito.
-3. Body: parágrafo único, Inter 39px, hierarquia via `**bold**` inline.
-4. Imagem opcional **ABAIXO do texto** (não como cover/overlay), border `1px solid #e5e7eb`, radius 20.
-5. **Sem CTA hardcoded**, sem "action bar", sem variantes editoriais, sem cover-overlay com gradient. Mesma estrutura do slide 1 ao slide N.
-6. Twitter dark detectado por luminância (`isTwitterDark`) — alterna texto.
+**Edge `generate-viral-carousel`**:
+- `slideCount` default = 8. Cliente já passa por param, mas a UI/chat sempre força 8.
+- Handle gerado por fallback: `@${client.name.toLowerCase().replace(/\s+/g,"")}` → renderiza como `@jornalcripto`. Quer `@ojornalcripto`.
 
-**Problemas no nosso template + edge function:**
+**Componentes UI**:
+- `TwitterSlide.tsx` está no padrão correto (1 layout, header + body + imagem abaixo).
+- `types.ts` mantém `emptyCarousel` criando array fixo de 8 — precisa virar parametrizável pro modo "single slide".
 
-| Item | Madureira | Nosso (atual) |
-|---|---|---|
-| Variantes de layout | Layout único | Tem `imageAsCover`, `editorial.kicker/headline/credit`, overlay 6 níveis, modo "capa de jornal" |
-| Avatar | Foto real, sempre | Cliente Jornal Cripto sem `avatar_url` → renderiza `J` em gradient azul. Edge function nunca buscou logo do site nem ofereceu fallback. |
-| Imagem no slide | Sempre abaixo do texto | Quando `imageAsCover=true` (default da edge no slide 1), vira overlay. |
-| Imagem real | Vem do briefing/scrape | Edge function gerou **SVG indigo gradient** (`buildFallbackCover`) porque a UI/chamada interna não passou `coverImageUrl`. O preview salvo confirma: `image.kind:"fallback"`. |
-| Negrito | `**palavra**` | Igual ✓ |
-| Auto-shrink | Não tem (font fixa 39px, layout decide) | Tem curva 1.0 → 0.72. Pode ficar, é uma boa adição compatível. |
+---
 
-**Resultado que o usuário viu:** slide com gradient indigo de fundo + texto branco centralizado, sem avatar, sem imagem do artigo, sem cara de tweet — basicamente o **layout cover/editorial**, não o template Twitter.
+## Plano de ajustes
 
-## Plano de execução
+### 1. Trocar avatar do Jornal Cripto pelo logo oficial
 
-### 1. Refatorar `TwitterSlide.tsx` — voltar ao layout único
+O usuário menciona "jornalzinho com laranja no fundo ou o personagem" — assets que ele já tem mas não estão no projeto. Vou:
+- Criar `public/clients/jornal-cripto/avatar.svg` **novo**, redesenhado como ícone de jornalzinho dobrado (📰 estilizado) sobre fundo laranja `#F7931A` (cor Bitcoin), em SVG vetorial limpo, 200×200, cantos arredondados full (avatar circular).
+- Subir via migration pro bucket `client-files/jornal-cripto/avatar.svg` (overwrite do atual "JC").
+- Manter `clients.avatar_url` apontando pro mesmo path (já está correto).
 
-- **Remover** branches `imageAsCover`, `editorial`, `coverTextStyle`, `coverPosition`, `coverOverlay`, `coverColorMode`, `COVER_SIZE_MULT`, todo overlay gradient.
-- **Manter** apenas: header (avatar + nome + verified + handle + contador), body com `renderRichText`, imagem opcional abaixo (border 1px, radius 20).
-- **Adicionar** detector `isTwitterDark()` igual ao Madureira (alterna `bg/fg/muted/border` por luminância).
-- **Manter** auto-shrink de body (compatível, melhora robustez).
-- **Manter** `rewriteImageUrl` (necessário pro proxy de export PNG).
-- Atualizar `types.ts`: remover `imageAsCover`, `coverTextStyle`, `editorial` do `ViralSlide` (ou marcar deprecated mas ignorar no render).
+> Se o usuário tiver o PNG/SVG real do personagem ou logo final, ele pode trocar depois pela aba do cliente. O ícone de jornalzinho fica como placeholder muito superior ao "JC".
 
-### 2. Atualizar `OffscreenSlideRenderer.tsx`, `SlideEditor.tsx`, `CarouselFullPreview.tsx`
+### 2. Adicionar handle correto `@ojornalcripto`
 
-- Tirar qualquer UI de "modo capa", toggle de `imageAsCover`, controles de overlay/posição/cor da capa, edição de `editorial.headline/kicker/subtitle/credit`.
-- Editor passa a ter: campo `body` (com bold), botão de imagem (URL ou upload), e toggle "remover imagem". Só isso.
+`social_media` JSONB do cliente vai ganhar a chave `instagram_handle`. Migration:
+```sql
+UPDATE clients
+SET social_media = social_media || '{"instagram_handle":"ojornalcripto"}'::jsonb
+WHERE id = 'cd25972a-...';
+```
 
-### 3. Edge function `generate-viral-carousel` — corrigir tratamento de imagem
+E na edge `generate-viral-carousel` (linha 391-395), trocar fallback:
+```ts
+const igHandle = (client.social_media as any)?.instagram_handle;
+handle: igHandle ? `@${igHandle}` : `@${client.name.toLowerCase().replace(/\s+/g,"")}`,
+```
 
-- **Remover** `buildFallbackCover()` SVG indigo. Quando não há `coverImageUrl`, slide 1 fica **sem imagem** (`image: { kind: "none" }`) — o tweet text-only é o padrão correto.
-- **Remover** `imageAsCover: true` no slide 1. Imagem entra abaixo do texto, igual aos demais slides.
-- Manter `cacheCoverImage()` quando `coverImageUrl` é passado (RSS/notícia real).
-- **Avatar fallback**: se `client.avatar_url` está vazio, tentar pegar `social_media.website` → favicon ou OG image via Firecrawl. Se falhar, deixar avatar com inicial (já é o atual fallback do template, fica OK).
+### 3. Suporte a "single slide mode" (1 slide ao invés de 8)
 
-### 4. Atualizar `coverFallback.ts` no front
+**Por que**: vai virar automação RSS → 1 post = 1 imagem com manchete + legenda. Não faz sentido carrossel de 8.
 
-- Como o template não tem mais modo "cover", deletar arquivo e remover imports.
+**Mudanças**:
+- `generate-viral-carousel/index.ts`: aceita `slideCount: 1`. Ajustar `buildPrompt` pra reconhecer caso especial:
+  - Quando `slideCount === 1`: prompt pede UM slide com manchete forte + 2-3 linhas de contexto + imagem da notícia. Sem CTA separado.
+- `types.ts`: `emptyCarousel(clientId, profile, slideCount = 8)` parametrizável.
+- `createViralCarousel` tool (chat): aceitar `slideCount` opcional no schema.
+- `SlideEditor` / `SavedCarouselsSidebar`: já são dinâmicos pelo array, sem mudança.
 
-### 5. Refazer o teste do Jornal Cripto
+### 4. Pequenos ajustes de design no `TwitterSlide.tsx`
 
-Após a refatoração:
-- Apagar o carrossel atual `428d5af4-7f92-48a6-840a-821eb69713ea`.
-- Chamar `generate-viral-carousel` passando:
-  - `briefing`: notícia real do Bitcoin abaixo de US$ 77k
-  - `coverImageUrl`: imagem real do artigo do Valor (já scrapeada, está no `media_urls` do planning item original)
-  - `slideCount`: 8 (capa + 6 insights + CTA — padrão Madureira, não 1)
-  - `profile.avatarUrl`: tentar logo do Jornal Cripto via OG image de jornalcripto.com
-  - `persistAs`: `both` (carousel + planning)
-- Abrir o `CarouselFullPreview` e confirmar: tweet branco, avatar/handle/verified, body com bold, imagem do BTC abaixo do texto.
+Auditando o render atual (slide aberto na rota `?carouselId=6c7ba...`):
+- Conferir spacing entre header/body/image (ref repo usa 32px gap).
+- Garantir que a imagem da notícia tenha `object-cover` com aspect 16:9 (não esticar) e border 1px sutil.
+- Ajustar tamanho do `@handle` e contador (1/1) pra cinza `#71767B` exato do Twitter.
+- Letter-spacing do nome do perfil (-0.01em) pra ficar 1:1 com X/Twitter real.
 
-### 6. Migration leve
+Vou abrir o componente, comparar com o padrão do repo de referência e aplicar refinamentos pontuais — sem reestruturar.
 
-- Coluna `template` em `viral_carousels` já default `'twitter'` ✓
-- Não precisa alterar schema. O JSON de `slides` aceita os novos campos ausentes sem migração.
+### 5. Regenerar o carrossel de teste como **single slide**
 
-## Detalhes técnicos
+Após deploy:
+- Apagar o carousel atual de 8 slides do cliente (`6c7ba5ed-...`).
+- Chamar `generate-viral-carousel` com:
+  - `slideCount: 1`
+  - briefing: pegar 1 notícia real do RSS do Jornal Cripto (`https://jornalcripto.com/feed/` ou newsletter), título + summary + imagem destacada.
+  - `persistAs: "both"`.
+- Validar visual final na aba Sequência Viral.
 
-**Arquivos editados:**
-- `src/components/kai/viral-sequence/TwitterSlide.tsx` (reescrita parcial: remove ~250 linhas de overlay/editorial)
-- `src/components/kai/viral-sequence/types.ts` (remove `imageAsCover`, `coverTextStyle`, `editorial`, `CoverTextStyle`)
-- `src/components/kai/viral-sequence/SlideEditor.tsx` (remove controles de cover)
-- `src/components/kai/viral-sequence/CarouselFullPreview.tsx` (remove props de cover ao instanciar slides)
-- `src/components/kai/viral-sequence/OffscreenSlideRenderer.tsx` (idem)
-- `src/components/kai/viral-sequence/coverFallback.ts` (deletar)
-- `supabase/functions/generate-viral-carousel/index.ts` (remove `buildFallbackCover`, remove `imageAsCover:true`, simplifica slide 1)
+### 6. Memory updates
 
-**Não muda:**
-- `publishCarousel.ts`, `exportCarousel.ts`, `imageSearch.ts`, `generateCopy.ts`, `storage.ts`
-- Edge `publish-viral-carousel`, `kai-content-agent`
-- Schema do banco
+Salvar em `mem://features/automations/jornal-cripto-instagram-strategy`:
+- Padrão = 1 slide por notícia (single tweet visual).
+- Handle: `@ojornalcripto`.
+- Avatar: jornalzinho laranja Bitcoin.
 
-**Risco:** carrosséis antigos no banco que tenham `imageAsCover:true` ou `editorial:{...}` — após refactor, esses campos serão ignorados pelo render e o slide aparecerá como tweet padrão. Sem quebra, só estética diferente. Migration de cleanup opcional (não vou fazer agora).
+---
 
-**Validação final:** rodar o teste do Jornal Cripto descrito acima e mostrar o preview pro usuário.
+## Resumo do que fica entregue
+
+1. Avatar novo (jornalzinho SVG laranja) no storage + override do antigo.
+2. Handle `@ojornalcripto` salvo no `social_media` e renderizado nos slides.
+3. `slideCount=1` suportado end-to-end (edge + tool do chat + UI).
+4. Refinamentos de tipografia/spacing no `TwitterSlide` (1:1 com X real).
+5. Novo teste: 1 slide com notícia real do RSS, visível na rota atual.
+6. Memory atualizada.
+
+Posso seguir?

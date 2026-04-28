@@ -1,4 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <rect width="200" height="200" rx="100" fill="#F7931A"/>
-  <text x="100" y="118" font-family="Inter, sans-serif" font-weight="900" font-size="110" fill="white" text-anchor="middle">JC</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFA94D"/>
+      <stop offset="100%" stop-color="#F7931A"/>
+    </linearGradient>
+  </defs>
+  <!-- Fundo circular laranja Bitcoin -->
+  <rect width="200" height="200" rx="100" fill="url(#bg)"/>
+  <!-- Jornalzinho dobrado -->
+  <g transform="translate(40 50)">
+    <!-- Folha de trás -->
+    <rect x="6" y="6" width="108" height="92" rx="6" fill="#FFE8CC" opacity="0.6"/>
+    <!-- Folha principal -->
+    <rect x="0" y="0" width="108" height="92" rx="6" fill="#FFFFFF"/>
+    <!-- Cabeçalho do jornal -->
+    <rect x="10" y="10" width="88" height="14" rx="2" fill="#1A1A1A"/>
+    <!-- Bloco de imagem -->
+    <rect x="10" y="32" width="38" height="28" rx="2" fill="#F7931A"/>
+    <!-- Símbolo Bitcoin dentro do bloco -->
+    <text x="29" y="53" font-family="Arial, sans-serif" font-weight="900" font-size="22" fill="#FFFFFF" text-anchor="middle">₿</text>
+    <!-- Linhas de texto -->
+    <rect x="54" y="34" width="44" height="4" rx="1" fill="#1A1A1A"/>
+    <rect x="54" y="42" width="40" height="4" rx="1" fill="#404040"/>
+    <rect x="54" y="50" width="44" height="4" rx="1" fill="#404040"/>
+    <rect x="54" y="58" width="32" height="4" rx="1" fill="#404040"/>
+    <!-- Linhas inferiores -->
+    <rect x="10" y="68" width="88" height="3" rx="1" fill="#404040"/>
+    <rect x="10" y="75" width="88" height="3" rx="1" fill="#404040"/>
+    <rect x="10" y="82" width="60" height="3" rx="1" fill="#404040"/>
+  </g>
 </svg>
