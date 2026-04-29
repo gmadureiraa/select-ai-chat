@@ -198,6 +198,71 @@ export const publishNowTool: RegisteredTool<PublishNowArgs, PublishNowData> = {
 
       // 4. Erro: tratar caso "not connected"
       if (!postResponse.ok) {
+        // 4a. 409 = duplicate. Pode significar que já publicamos antes
+        //     (ex: stream caiu, user clicou de novo, mas o post foi). Antes
+        //     de mostrar erro, conferimos no banco se o item virou published.
+        if (postResponse.status === 409) {
+          const { data: refreshed } = await ctx.supabase
+            .from("planning_items")
+            .select("status, published_at, metadata, external_post_id")
+            .eq("id", planningItemId)
+            .single();
+
+          const meta = (refreshed?.metadata ?? {}) as Record<string, unknown>;
+          const publishedUrls = (meta.published_urls ?? {}) as Record<string, string>;
+          const externalUrl = publishedUrls[platform] ?? (meta.published_url as string | undefined);
+
+          if (refreshed?.status === "published" || refreshed?.published_at) {
+            // Já tinha publicado — devolve card de sucesso ao invés de erro.
+            console.log("[publishNow] 409 mas item já published — reconciliando como sucesso");
+            const card: KAIActionCard = {
+              id: newActionCardId(),
+              planning_item_id: planningItemId,
+              type: "published",
+              status: "done",
+              data: {
+                kind: "published",
+                clientId: ctx.clientId,
+                platform,
+                externalUrl,
+                publishedAt: refreshed.published_at ?? new Date().toISOString(),
+                body: content,
+                mediaUrls,
+              },
+              requires_approval: false,
+              available_actions: [],
+            };
+            return {
+              ok: true,
+              data: { planningItemId, platform, externalUrl, status: "published" },
+              card,
+            };
+          }
+
+          // Caso raro: 409 sem registro local (publicação por outro caminho).
+          // Mostra mensagem clara, não recoverable (não adianta tentar de novo).
+          const card: KAIActionCard = {
+            id: newActionCardId(),
+            planning_item_id: planningItemId,
+            type: "error",
+            status: "error",
+            data: {
+              kind: "error",
+              message:
+                "Esse conteúdo já foi enviado pra rede social nas últimas 24h. Edite o texto pra publicar de novo.",
+              toolName: "publishNow",
+              recoverable: false,
+            },
+            requires_approval: false,
+            available_actions: [],
+          };
+          return {
+            ok: true,
+            data: { planningItemId, platform, status: "failed" },
+            card,
+          };
+        }
+
         if (isNotConnectedError(postResponse.status, responseText)) {
           const oauthUrl = await fetchOAuthUrl(
             ctx.supabaseUrl,
