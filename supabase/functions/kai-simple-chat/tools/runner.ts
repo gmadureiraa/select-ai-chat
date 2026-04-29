@@ -156,7 +156,17 @@ export async function runToolLoop(
           label: humanLabelForTool(call.name),
         });
 
-        const result = await registry.execute(call.name, call.args, ctx);
+        // Heartbeat durante a execução: tools como publishNow / generateImage
+        // podem levar 30-60s. Sem isso, proxies/browsers derrubam o SSE por
+        // inatividade e o front mostra "tempo esgotado" mesmo com a tool
+        // tendo sucesso. Comentário SSE é invisível ao parser.
+        const stopHeartbeat = emit.startHeartbeat(10_000);
+        let result;
+        try {
+          result = await registry.execute(call.name, call.args, ctx);
+        } finally {
+          stopHeartbeat();
+        }
         executedTools.push({ name: call.name, args: call.args, result });
 
         if (result.card) {
