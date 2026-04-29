@@ -285,55 +285,137 @@ export function useKAISimpleChat({
       if (!reader) throw new Error("No response body");
 
       let imageUrl: string | undefined;
+      // Track tools rodando — usado pra reconciliar se o stream cair (ex:
+      // publishNow leva 40s e o proxy derruba a conexão; o post pode ter
+      // sido publicado mesmo assim).
+      const runningTools = new Map<string, { name: string; startedAt: number }>();
+      let streamFailed = false;
 
-      const fullContent = await streamSSEToCallback(reader, {
-        onDelta: (content) => {
-          setMessages(prev => prev.map(m =>
-            m.id === assistantId
-              ? { ...m, content }
-              : m
-          ));
-        },
-        onImage: (url) => {
-          imageUrl = url;
-          setMessages(prev => prev.map(m =>
-            m.id === assistantId
-              ? { ...m, imageUrl: url }
-              : m
-          ));
-        },
-        // F0.3b — action cards emitidos pelo tool-loop.
-        onActionCard: (card) => {
-          setMessages(prev => prev.map(m => {
-            if (m.id !== assistantId) return m;
-            const cards = m.actionCards ?? [];
-            const idx = cards.findIndex(c => c.id === card.id);
-            const next = idx >= 0
-              ? cards.map((c, i) => i === idx ? { ...c, ...card } : c)
-              : [...cards, card];
-            return { ...m, actionCards: next };
-          }));
-        },
-        onToolRunning: (running) => {
-          // futuro: mostrar chip "Gerando rascunho…" inline
-          console.log("[KAI] tool running:", running.name, running.label);
-        },
-        onError: (errorMsg) => {
-          console.error("[KAI] stream error:", errorMsg);
-          toast.error(errorMsg);
-        },
-      });
+      let fullContent = "";
+      try {
+        fullContent = await streamSSEToCallback(reader, {
+          onDelta: (content) => {
+            setMessages(prev => prev.map(m =>
+              m.id === assistantId
+                ? { ...m, content }
+                : m
+            ));
+          },
+          onImage: (url) => {
+            imageUrl = url;
+            setMessages(prev => prev.map(m =>
+              m.id === assistantId
+                ? { ...m, imageUrl: url }
+                : m
+            ));
+          },
+          // F0.3b — action cards emitidos pelo tool-loop.
+          onActionCard: (card) => {
+            // Card chegou — tool terminou, remove do tracking.
+            if (card.planning_item_id) {
+              runningTools.delete(card.planning_item_id);
+            }
+            setMessages(prev => prev.map(m => {
+              if (m.id !== assistantId) return m;
+              const cards = m.actionCards ?? [];
+              const idx = cards.findIndex(c => c.id === card.id);
+              const next = idx >= 0
+                ? cards.map((c, i) => i === idx ? { ...c, ...card } : c)
+                : [...cards, card];
+              return { ...m, actionCards: next };
+            }));
+          },
+          onToolRunning: (running) => {
+            console.log("[KAI] tool running:", running.name, running.label);
+            // Tracking de tools longas pra reconciliação em caso de timeout.
+            runningTools.set(running.id, { name: running.name, startedAt: Date.now() });
+          },
+          onError: (errorMsg) => {
+            console.error("[KAI] stream error:", errorMsg);
+            toast.error(errorMsg);
+          },
+        });
+      } catch (streamErr) {
+        // Stream caiu mid-flight. Se havia uma publicação em andamento, pode
+        // ter dado certo no backend mesmo assim — confere antes de mostrar erro.
+        streamFailed = true;
+        const wasPublishing = Array.from(runningTools.values()).some(
+          (t) => t.name === "publishNow" || t.name === "scheduleFor" || t.name === "createViralCarousel",
+        );
+        if (!wasPublishing) throw streamErr;
+
+        console.warn("[KAI] stream caiu durante publicação — reconciliando status no banco…");
+        toast.info("Conexão caiu, conferindo se a publicação foi…");
+
+        // Espera 3s pro backend terminar e confere o status do item mais recente
+        // do cliente em status publishing/scheduled/published nos últimos 2min.
+        await new Promise((r) => setTimeout(r, 3000));
+        const since = new Date(Date.now() - 2 * 60_000).toISOString();
+        const { data: recent } = await supabase
+          .from("planning_items")
+          .select("id, status, platform, content, published_at, metadata, media_urls")
+          .eq("client_id", clientId)
+          .gte("updated_at", since)
+          .in("status", ["published", "scheduled", "publishing", "failed"])
+          .order("updated_at", { ascending: false })
+          .limit(1);
+
+        const item = recent?.[0];
+        if (item && (item.status === "published" || item.status === "scheduled")) {
+          const meta = (item.metadata ?? {}) as Record<string, unknown>;
+          const publishedUrls = (meta.published_urls ?? {}) as Record<string, string>;
+          const reconciledCard: KAIActionCard = {
+            id: `card_reconciled_${item.id}`,
+            planning_item_id: item.id,
+            type: item.status === "published" ? "published" : "scheduled",
+            status: "done",
+            data: item.status === "published"
+              ? {
+                  kind: "published",
+                  clientId,
+                  platform: item.platform ?? "",
+                  externalUrl: publishedUrls[item.platform ?? ""],
+                  publishedAt: item.published_at ?? new Date().toISOString(),
+                  body: item.content ?? "",
+                  mediaUrls: Array.isArray(item.media_urls) ? (item.media_urls as string[]) : undefined,
+                }
+              : {
+                  kind: "scheduled",
+                  clientId,
+                  platform: item.platform ?? "",
+                  scheduledFor: (item as { scheduled_at?: string }).scheduled_at ?? new Date().toISOString(),
+                  body: item.content ?? "",
+                  mediaUrls: Array.isArray(item.media_urls) ? (item.media_urls as string[]) : undefined,
+                  planningItemId: item.id,
+                },
+            requires_approval: false,
+            available_actions: [],
+          };
+          fullContent = "Publicação confirmada (a conexão caiu mas o post foi enviado).";
+          setMessages(prev => prev.map(m => m.id === assistantId ? {
+            ...m,
+            content: fullContent,
+            actionCards: [...(m.actionCards ?? []), reconciledCard],
+          } : m));
+          toast.success("Publicado com sucesso ✓");
+        } else {
+          // Não confirmamos sucesso — propaga o erro original.
+          throw streamErr;
+        }
+      }
 
       // Ensure final content is set — preserva actionCards acumulados durante o stream
-      setMessages(prev => prev.map(m => {
-        if (m.id !== assistantId) return m;
-        return {
-          ...m,
-          content: fullContent || m.content || "Desculpe, não consegui gerar uma resposta.",
-          timestamp: new Date(),
-          imageUrl,
-        };
-      }));
+      if (!streamFailed) {
+        setMessages(prev => prev.map(m => {
+          if (m.id !== assistantId) return m;
+          return {
+            ...m,
+            content: fullContent || m.content || "Desculpe, não consegui gerar uma resposta.",
+            timestamp: new Date(),
+            imageUrl,
+          };
+        }));
+      }
 
       // Save assistant message to database (actionCards não persistem por ora
       // — quando o user recarregar a conversa, os cards somem. Persistência de
