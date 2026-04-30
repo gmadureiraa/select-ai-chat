@@ -613,6 +613,21 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
                   <Eye className="h-3.5 w-3.5" />
                   Preview
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAutoImages}
+                  disabled={isAutoImaging}
+                  className="gap-1.5 h-8 border-sky-300/60 dark:border-sky-700/40 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                  title="Buscar imagem no Pexels para cada slide vazio"
+                >
+                  {isAutoImaging ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <FileImage className="h-3.5 w-3.5" />
+                  )}
+                  Auto-imagens
+                </Button>
                 <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1.5 h-8">
                   <RotateCcw className="h-3.5 w-3.5" />
                   Zerar
