@@ -61,6 +61,7 @@ export function SlideEditor({ slide, totalSlides, profile, onChange, onSlideNode
   const [searchResults, setSearchResults] = useState<ImageSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchSource, setSearchSource] = useState<"pexels" | "openverse">("pexels");
+  const [aiLoading, setAiLoading] = useState(false);
 
   const setImage = (image: ImageSource) =>
     onChange({ ...slide, image });
