@@ -773,6 +773,7 @@ Responda APENAS com JSON no formato: {"queries": [{"id": "...", "q": "..."}]}. N
             </div>
           )}
         </div>
+      </div>
 
       <div className="flex-1 overflow-y-auto">
         <div className="px-6 py-6 space-y-6">
