@@ -125,12 +125,40 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
     }
   };
 
-  const handleAiStub = () => {
-    toast.info(
-      "Geração IA: em breve (precisa de edge function dedicada). Por ora use 'Buscar' ou 'Upload'.",
-      { duration: 4000 },
-    );
-    setAiDialogOpen(false);
+  const handleAiGenerate = async () => {
+    const prompt = aiPrompt.trim();
+    if (!prompt) {
+      toast.error("Descreva a imagem que você quer gerar.");
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-content-v2", {
+        body: {
+          type: "image",
+          inputs: [{ type: "text", content: prompt }],
+          config: {
+            format: "carousel",
+            platform: "instagram",
+            aspectRatio: "4:5",
+            noText: true,
+          },
+          clientId,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      const url: string | undefined = data?.imageUrl || data?.image_url;
+      if (!url) throw new Error("Nenhuma imagem retornada.");
+      setImage({ kind: "ai", prompt, url });
+      setAiDialogOpen(false);
+      toast.success("Imagem IA aplicada ao slide.");
+    } catch (err) {
+      console.error("[SlideEditor] AI image gen failed:", err);
+      toast.error(`Falha ao gerar imagem: ${(err as Error).message}`);
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const currentImageUrl =
