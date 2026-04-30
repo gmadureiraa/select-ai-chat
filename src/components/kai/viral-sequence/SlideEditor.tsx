@@ -412,14 +412,14 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: IA (stub) */}
-      <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
+      {/* Dialog: gerar imagem com IA */}
+      <Dialog open={aiDialogOpen} onOpenChange={(o) => !aiLoading && setAiDialogOpen(o)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Gerar imagem com IA</DialogTitle>
             <DialogDescription>
-              Em breve — vai usar a mesma infra de geração de imagem do KAI.
-              Por ora o campo só registra o prompt pra integrar depois.
+              Usa o Nano Banana com as referências visuais do cliente.
+              Sem texto na imagem — proporção 4:5 (Instagram).
             </DialogDescription>
           </DialogHeader>
           <Textarea
@@ -427,13 +427,15 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
             onChange={(e) => setAiPrompt(e.target.value)}
             placeholder="Descreva a imagem ideal (ex: laptop na mesa de madeira com café, luz suave, minimalista)"
             rows={4}
+            disabled={aiLoading}
           />
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setAiDialogOpen(false)}>
+            <Button variant="ghost" onClick={() => setAiDialogOpen(false)} disabled={aiLoading}>
               Fechar
             </Button>
-            <Button onClick={handleAiStub} disabled={!aiPrompt.trim()}>
-              Gerar (em breve)
+            <Button onClick={handleAiGenerate} disabled={!aiPrompt.trim() || aiLoading} className="gap-2">
+              {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {aiLoading ? "Gerando..." : "Gerar imagem"}
             </Button>
           </DialogFooter>
         </DialogContent>
