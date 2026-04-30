@@ -7,7 +7,8 @@
  * Padrão Madureira (single layout): cada slide é um tweet único. Imagem,
  * quando presente, aparece ABAIXO do texto. Sem variantes de capa/editorial.
  *
- * Ações de imagem: [IA (em breve)] [Buscar] [Upload] [Remover]
+ * Ações de imagem (linha 1): [IA] [Buscar] [Upload] [Sem imagem]
+ * Ações secundárias (linha 2, só quando há imagem): [Preview] [Remover]
  */
 
 import { useRef, useState } from "react";
@@ -21,8 +22,8 @@ import {
   Flag,
   Target,
   Loader2,
-  ExternalLink,
   Maximize2,
+  Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,6 +39,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { ViralSlide, ViralProfile, ImageSource } from "./types";
+import { getImageUrl } from "./types";
 import { TwitterSlide } from "./TwitterSlide";
 import { searchImages, type ImageSearchResult } from "./imageSearch";
 import { supabase } from "@/integrations/supabase/client";
@@ -62,7 +64,6 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
   const [aiPrompt, setAiPrompt] = useState("");
   const [searchResults, setSearchResults] = useState<ImageSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [searchSource, setSearchSource] = useState<"pexels" | "openverse">("pexels");
   const [aiLoading, setAiLoading] = useState(false);
 
   const setImage = (image: ImageSource) =>
@@ -83,16 +84,15 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
     reader.readAsDataURL(file);
   };
 
-  const runSearch = async (q: string, source: "pexels" | "openverse" = searchSource) => {
+  const runSearch = async (q: string) => {
     if (!q.trim()) {
       toast.error("Informe um termo pra buscar.");
       return;
     }
     setSearchLoading(true);
     try {
-      const res = await searchImages(q, { perPage: 12, source });
+      const res = await searchImages(q, { perPage: 12, source: "pexels" });
       setSearchResults(res.items);
-      setSearchSource(res.source);
       if (res.items.length === 0) {
         toast.info("Nenhuma imagem encontrada — tente outro termo (em inglês geralmente rende mais).");
       }
@@ -161,8 +161,9 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
     }
   };
 
-  const currentImageUrl =
-    slide.image.kind === "none" ? undefined : slide.image.url;
+  const currentImageUrl = getImageUrl(slide.image);
+  const isSkipped = slide.image.kind === "skip";
+  const hasImage = currentImageUrl !== undefined;
 
   const isCover = slide.order === 1;
   const isCta = slide.order === totalSlides;
@@ -185,7 +186,7 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
       )}
     >
       {/* Preview */}
-      <div className="bg-gradient-to-b from-muted/30 to-muted/60 p-4 flex items-center justify-center border-b border-border/30 relative">
+      <div className="bg-gradient-to-b from-muted/30 to-muted/60 p-3 flex items-center justify-center border-b border-border/30 relative">
         <span className="absolute top-2 left-2 flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider font-semibold text-muted-foreground bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded">
           {String(slide.order).padStart(2, "0")}
         </span>
@@ -198,14 +199,17 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
           <RoleIcon className="h-2.5 w-2.5" />
           {roleLabel}
         </span>
+        {isSkipped && (
+          <span className="absolute bottom-2 left-2 flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider font-semibold text-muted-foreground bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded">
+            <Ban className="h-2.5 w-2.5" />
+            Sem imagem
+          </span>
+        )}
         <div className="drop-shadow-md">
           <TwitterSlide
             ref={(n: HTMLDivElement | null) => onSlideNode?.(slide.id, n)}
             body={slide.body || "Texto do slide..."}
             imageUrl={currentImageUrl}
-            imageAttribution={
-              slide.image.kind === "search" ? slide.image.attribution : undefined
-            }
             slideNumber={slide.order}
             totalSlides={totalSlides}
             profile={profile}
@@ -215,7 +219,7 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
       </div>
 
       {/* Fields */}
-      <div className="p-3 space-y-2">
+      <div className="p-3 pt-2.5 space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
             Slide {slide.order}/{totalSlides}
@@ -236,11 +240,10 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
           rows={5}
         />
 
-        {/* Image action bar */}
-        <div className="flex items-center gap-1 pt-1">
-          <div className="flex items-center gap-1 text-[10px] text-muted-foreground mr-1">
+        {/* Image action bar — linha 1: tipo de imagem */}
+        <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground mr-0.5">
             <ImageIcon className="h-3 w-3" />
-            <span className="hidden sm:inline">Imagem:</span>
           </div>
           <ImageButton
             label="IA"
@@ -263,29 +266,12 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
             active={slide.image.kind === "upload"}
             onClick={() => fileInputRef.current?.click()}
           />
-          {slide.image.kind !== "none" && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-[11px] gap-1 ml-auto"
-                onClick={() => setFullPreviewOpen(true)}
-                title="Ver slide em tamanho real (1080×1350)"
-              >
-                <Maximize2 className="h-3 w-3" />
-                Preview
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                onClick={() => setImage({ kind: "none" })}
-                title="Remover imagem"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </>
-          )}
+          <ImageButton
+            label={isSkipped ? "Sem img ✓" : "Sem img"}
+            icon={<Ban className="h-3 w-3" />}
+            active={isSkipped}
+            onClick={() => setImage(isSkipped ? { kind: "none" } : { kind: "skip" })}
+          />
           <input
             ref={fileInputRef}
             type="file"
@@ -299,13 +285,29 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
           />
         </div>
 
-        {/* Atribuição (só se houver) */}
-        {slide.image.kind === "search" && slide.image.attribution && (
-          <div className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
-            <ExternalLink className="h-2.5 w-2.5 shrink-0" />
-            <span className="truncate" title={slide.image.attribution}>
-              {slide.image.attribution}
-            </span>
+        {/* Linha 2: ações secundárias só quando há imagem real */}
+        {hasImage && (
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[11px] gap-1"
+              onClick={() => setFullPreviewOpen(true)}
+              title="Ver slide em tamanho real (1080×1350)"
+            >
+              <Maximize2 className="h-3 w-3" />
+              Preview
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-[11px] gap-1 text-muted-foreground hover:text-destructive ml-auto"
+              onClick={() => setImage({ kind: "none" })}
+              title="Remover imagem"
+            >
+              <X className="h-3 w-3" />
+              Remover
+            </Button>
           </div>
         )}
       </div>
@@ -316,7 +318,6 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
           <DialogHeader>
             <DialogTitle>Buscar imagem</DialogTitle>
             <DialogDescription>
-              Fonte: <strong>{searchSource === "pexels" ? "Pexels" : "Openverse (Creative Commons)"}</strong>.
               Clica numa miniatura para aplicar ao slide. Termos em inglês geralmente rendem mais resultados.
             </DialogDescription>
           </DialogHeader>
@@ -336,32 +337,6 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
             <Button onClick={() => void runSearch(searchQuery)} disabled={!searchQuery.trim() || searchLoading}>
               {searchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               Buscar
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground">Fonte:</span>
-            <Button
-              size="sm"
-              variant={searchSource === "pexels" ? "default" : "outline"}
-              className="h-7 text-xs"
-              onClick={() => {
-                setSearchSource("pexels");
-                if (searchQuery.trim()) void runSearch(searchQuery, "pexels");
-              }}
-            >
-              Pexels
-            </Button>
-            <Button
-              size="sm"
-              variant={searchSource === "openverse" ? "default" : "outline"}
-              className="h-7 text-xs"
-              onClick={() => {
-                setSearchSource("openverse");
-                if (searchQuery.trim()) void runSearch(searchQuery, "openverse");
-              }}
-            >
-              Openverse (CC)
             </Button>
           </div>
 
@@ -388,16 +363,10 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
                   >
                     <img
                       src={item.thumbnail}
-                      alt={item.attribution}
+                      alt=""
                       loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <p className="text-[10px] text-white truncate flex items-center gap-1">
-                        <ExternalLink className="h-2.5 w-2.5 shrink-0" />
-                        {item.attribution || "Sem atribuição"}
-                      </p>
-                    </div>
                   </button>
                 ))}
               </div>
@@ -456,9 +425,6 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
             <TwitterSlide
               body={slide.body || "Texto do slide..."}
               imageUrl={currentImageUrl}
-              imageAttribution={
-                slide.image.kind === "search" ? slide.image.attribution : undefined
-              }
               slideNumber={slide.order}
               totalSlides={totalSlides}
               profile={profile}
