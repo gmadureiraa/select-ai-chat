@@ -500,31 +500,99 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
   };
 
   const [isAutoImaging, setIsAutoImaging] = useState(false);
+
+  /**
+   * Gera 2-4 palavras-chave em inglês via Gemini Flash a partir do briefing
+   * + body de cada slide. Fallback: 6 primeiras palavras do body.
+   */
+  const buildSearchQueries = async (
+    slides: { id: string; body: string }[],
+  ): Promise<Map<string, string>> => {
+    const fallback = new Map<string, string>();
+    for (const s of slides) {
+      const raw = (s.body || carousel.briefing || carousel.title)
+        .replace(/\*\*/g, "")
+        .replace(/[#@]/g, "")
+        .trim();
+      fallback.set(s.id, raw.split(/\s+/).slice(0, 6).join(" ").slice(0, 80));
+    }
+
+    if (slides.length === 0) return fallback;
+
+    try {
+      const prompt = `Você é um curador de stock photos. Para cada slide abaixo, retorne 2-4 palavras-chave EM INGLÊS que descrevam visualmente o tema (objetos concretos, cenas, atmosferas — NÃO conceitos abstratos). O Pexels rende muito mais resultados em inglês com termos visuais.
+
+CONTEXTO GERAL: ${(carousel.briefing || carousel.title || "").slice(0, 300)}
+
+SLIDES:
+${slides.map((s, i) => `${i + 1}. [id=${s.id}] ${s.body.replace(/\*\*/g, "").slice(0, 200)}`).join("\n")}
+
+Responda APENAS com JSON no formato: {"queries": [{"id": "...", "q": "..."}]}. Nada mais.`;
+
+      const { data, error } = await supabase.functions.invoke("kai-chat-stream", {
+        body: {
+          messages: [{ role: "user", content: prompt }],
+          mode: "general",
+          stream: false,
+          model: "google/gemini-2.5-flash",
+        },
+      });
+      if (error || !data) return fallback;
+      const text: string = data?.content || data?.message || data?.text || "";
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) return fallback;
+      const parsed = JSON.parse(match[0]) as { queries?: { id: string; q: string }[] };
+      const result = new Map(fallback);
+      for (const q of parsed.queries ?? []) {
+        if (q.id && q.q?.trim()) result.set(q.id, q.q.trim().slice(0, 80));
+      }
+      return result;
+    } catch (err) {
+      console.warn("[ViralSequence] keyword LLM failed, using fallback:", err);
+      return fallback;
+    }
+  };
+
   const handleAutoImages = async () => {
-    const targets = carousel.slides.filter((s) => s.image.kind === "none");
+    // Pula slides já com imagem, marcados como skip, e o CTA (último).
+    const targets = carousel.slides.filter(
+      (s) =>
+        s.image.kind === "none" &&
+        s.order !== carousel.slides.length, // skip CTA
+    );
     if (targets.length === 0) {
-      toast.info("Todos os slides já têm imagem.");
+      toast.info("Nenhum slide precisa de imagem (CTA pulado, marcados como 'Sem imagem' respeitados).");
       return;
     }
     setIsAutoImaging(true);
+
+    // URLs já em uso em outros slides — pra evitar duplicata.
+    const usedUrls = new Set<string>(
+      carousel.slides
+        .map((s) => (s.image.kind === "none" || s.image.kind === "skip" ? null : s.image.url))
+        .filter((u): u is string => !!u),
+    );
+
     let ok = 0;
     let failed = 0;
     try {
+      const queries = await buildSearchQueries(targets.map((s) => ({ id: s.id, body: s.body })));
+
       for (const slide of targets) {
-        // Query: extrai 4-6 palavras-chave do body (sem markdown nem stopwords curtas).
-        const raw = (slide.body || carousel.briefing || carousel.title)
-          .replace(/\*\*/g, "")
-          .replace(/[#@]/g, "")
-          .trim();
-        const query = raw.split(/\s+/).slice(0, 6).join(" ").slice(0, 80);
-        if (!query) continue;
+        const query = queries.get(slide.id) || "";
+        if (!query) {
+          failed += 1;
+          continue;
+        }
         try {
-          const res = await searchImages(query, { perPage: 1, source: "pexels" });
-          const item = res.items[0];
+          const res = await searchImages(query, { perPage: 3, source: "pexels" });
+          // Pega 1º que não seja duplicata.
+          const item = res.items.find((i) => !usedUrls.has(i.url)) ?? res.items[0];
           if (!item) {
             failed += 1;
             continue;
           }
+          usedUrls.add(item.url);
           setCarousel((c) => ({
             ...c,
             updatedAt: new Date().toISOString(),
