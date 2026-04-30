@@ -56,10 +56,7 @@ export function OffscreenSlideRenderer({
           <TwitterSlide
             ref={(n) => registerRef(slide.id, n)}
             body={slide.body || ""}
-            imageUrl={slide.image.kind === "none" ? undefined : slide.image.url}
-            imageAttribution={
-              slide.image.kind === "search" ? slide.image.attribution : undefined
-            }
+            imageUrl={slide.image.kind === "none" || slide.image.kind === "skip" ? undefined : slide.image.url}
             slideNumber={slide.order}
             totalSlides={carousel.slides.length}
             profile={carousel.profile}

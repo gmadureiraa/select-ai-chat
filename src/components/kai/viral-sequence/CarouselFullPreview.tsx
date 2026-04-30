@@ -53,7 +53,7 @@ export function CarouselFullPreview({
   if (!current) return null;
 
   const imageUrl =
-    current.image.kind === "none" ? undefined : current.image.url;
+    current.image.kind === "none" || current.image.kind === "skip" ? undefined : current.image.url;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -124,7 +124,7 @@ export function CarouselFullPreview({
             >
               <TwitterSlide
                 body={s.body}
-                imageUrl={s.image.kind === "none" ? undefined : s.image.url}
+                imageUrl={s.image.kind === "none" || s.image.kind === "skip" ? undefined : s.image.url}
                 slideNumber={s.order}
                 totalSlides={total}
                 profile={carousel.profile}
