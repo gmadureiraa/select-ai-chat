@@ -720,6 +720,7 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
                     slide={slide}
                     totalSlides={carousel.slides.length}
                     profile={carousel.profile}
+                    clientId={clientId}
                     onSlideNode={registerSlideNode}
                     onChange={(next) =>
                       setCarousel((c) => ({
