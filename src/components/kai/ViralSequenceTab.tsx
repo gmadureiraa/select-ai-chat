@@ -66,6 +66,7 @@ import {
 import { CarouselFullPreview } from "./viral-sequence/CarouselFullPreview";
 import { SavedCarouselsSidebar } from "./viral-sequence/SavedCarouselsSidebar";
 import { OffscreenSlideRenderer } from "./viral-sequence/OffscreenSlideRenderer";
+import { searchImages } from "./viral-sequence/imageSearch";
 
 interface ViralSequenceTabProps {
   clientId: string;
@@ -498,6 +499,66 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
     );
   };
 
+  const [isAutoImaging, setIsAutoImaging] = useState(false);
+  const handleAutoImages = async () => {
+    const targets = carousel.slides.filter((s) => s.image.kind === "none");
+    if (targets.length === 0) {
+      toast.info("Todos os slides já têm imagem.");
+      return;
+    }
+    setIsAutoImaging(true);
+    let ok = 0;
+    let failed = 0;
+    try {
+      for (const slide of targets) {
+        // Query: extrai 4-6 palavras-chave do body (sem markdown nem stopwords curtas).
+        const raw = (slide.body || carousel.briefing || carousel.title)
+          .replace(/\*\*/g, "")
+          .replace(/[#@]/g, "")
+          .trim();
+        const query = raw.split(/\s+/).slice(0, 6).join(" ").slice(0, 80);
+        if (!query) continue;
+        try {
+          const res = await searchImages(query, { perPage: 1, source: "pexels" });
+          const item = res.items[0];
+          if (!item) {
+            failed += 1;
+            continue;
+          }
+          setCarousel((c) => ({
+            ...c,
+            updatedAt: new Date().toISOString(),
+            slides: c.slides.map((s) =>
+              s.id === slide.id
+                ? {
+                    ...s,
+                    image: {
+                      kind: "search",
+                      query,
+                      url: item.url,
+                      attribution: item.attribution,
+                      sourceUrl: item.sourceUrl,
+                    },
+                  }
+                : s,
+            ),
+          }));
+          ok += 1;
+        } catch (err) {
+          console.error("[ViralSequence] auto-image slide failed:", err);
+          failed += 1;
+        }
+      }
+      if (ok > 0) {
+        toast.success(`${ok} imagens adicionadas${failed > 0 ? ` · ${failed} sem resultado` : ""}.`);
+      } else {
+        toast.error("Nenhuma imagem encontrada. Tente buscar manualmente.");
+      }
+    } finally {
+      setIsAutoImaging(false);
+    }
+  };
+
   const filledCount = carousel.slides.filter(
     (s) => (s.heading?.trim() ?? "") !== "" || s.body.trim() !== "",
   ).length;
@@ -551,6 +612,21 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
                 >
                   <Eye className="h-3.5 w-3.5" />
                   Preview
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAutoImages}
+                  disabled={isAutoImaging}
+                  className="gap-1.5 h-8 border-sky-300/60 dark:border-sky-700/40 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                  title="Buscar imagem no Pexels para cada slide vazio"
+                >
+                  {isAutoImaging ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <FileImage className="h-3.5 w-3.5" />
+                  )}
+                  Auto-imagens
                 </Button>
                 <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1.5 h-8">
                   <RotateCcw className="h-3.5 w-3.5" />
@@ -720,6 +796,7 @@ export const ViralSequenceTab = ({ clientId, client }: ViralSequenceTabProps) =>
                     slide={slide}
                     totalSlides={carousel.slides.length}
                     profile={carousel.profile}
+                    clientId={clientId}
                     onSlideNode={registerSlideNode}
                     onChange={(next) =>
                       setCarousel((c) => ({
