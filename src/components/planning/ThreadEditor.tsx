@@ -17,18 +17,28 @@ interface ThreadEditorProps {
   onChange: (tweets: ThreadTweet[]) => void;
   clientId?: string;
   className?: string;
+  /** Plataformas-alvo. Define o limite de chars: Threads=500, X=280. Se ambas, usa o menor (280). */
+  targetPlatforms?: string[];
 }
 
-const MAX_TWEET_LENGTH = 280;
+const X_MAX = 280;
+const THREADS_MAX = 500;
 
 export function ThreadEditor({
   value,
   onChange,
   clientId,
-  className
+  className,
+  targetPlatforms = ['twitter']
 }: ThreadEditorProps) {
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const hasX = targetPlatforms.includes('twitter');
+  const hasThreads = targetPlatforms.includes('threads');
+  // Se ambos, usar o menor limite (X) para garantir que cabe nos dois.
+  const MAX_TWEET_LENGTH = hasX ? X_MAX : (hasThreads ? THREADS_MAX : X_MAX);
+  const platformLabel = hasX && hasThreads ? 'X + Threads' : hasThreads ? 'Threads' : 'X (Twitter)';
 
   const addTweet = () => {
     const newTweet: ThreadTweet = {
@@ -129,7 +139,14 @@ export function ThreadEditor({
   return (
     <div className={cn("space-y-3 rounded-lg border border-border/40 p-4", className)}>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">Thread ({value.length} tweets)</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          Thread · {platformLabel} ({value.length} {value.length === 1 ? 'post' : 'posts'} · max {MAX_TWEET_LENGTH} chars)
+        </span>
+        {hasX && hasThreads && (
+          <span className="text-[10px] text-muted-foreground/70">
+            Limite 280 (X) — sobe igual nos dois
+          </span>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -159,7 +176,7 @@ export function ThreadEditor({
                   <Textarea
                     value={tweet.text}
                     onChange={(e) => updateTweet(tweet.id, e.target.value)}
-                    placeholder={index === 0 ? "Primeiro tweet da thread..." : "Continuar thread..."}
+                    placeholder={index === 0 ? "Primeiro post da thread..." : "Continuar thread..."}
                     className="resize-none min-h-[80px] pr-12 rounded-md border-border/40 text-sm"
                     maxLength={MAX_TWEET_LENGTH}
                   />
@@ -253,7 +270,7 @@ export function ThreadEditor({
         onClick={addTweet}
       >
         <Plus className="h-4 w-4" />
-        Adicionar Tweet
+        Adicionar post
       </Button>
     </div>
   );
