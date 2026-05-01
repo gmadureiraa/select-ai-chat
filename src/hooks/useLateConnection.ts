@@ -205,6 +205,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       threadItems?: Array<{ id?: string; text: string; media_urls?: string[] }>;
       scheduledFor?: string; // ISO date string for scheduling
       publishNow?: boolean;
+      platformOptions?: Record<string, any>;
     }
   ) => {
     // Timeout to prevent infinite loading (30 seconds)
@@ -236,6 +237,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
           planningItemId: options?.planningItemId,
           scheduledFor: options?.scheduledFor,
           publishNow: options?.publishNow ?? true,
+          platformOptions: options?.platformOptions,
         }
       });
 

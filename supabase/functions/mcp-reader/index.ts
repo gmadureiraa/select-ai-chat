@@ -714,6 +714,78 @@ mcpServer.tool("create_viral_carousel", {
   },
 });
 
+mcpServer.tool("publish_content", {
+  description: "Publish or schedule content to a connected social platform via Zernio (Late). Supports Instagram Stories, Reels (including TRIAL REELS shown only to non-followers), Carousels, Facebook Stories/Reels, plus collaborators and first comment. Use 'instagram_content_type' to choose feed/story/reel/carousel. Set 'instagram_trial_reel' to 'manual' or 'auto' to publish as a Trial Reel.",
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      client_id: { type: "string", description: "Client UUID" },
+      platform: { type: "string", enum: ["instagram", "facebook", "twitter", "linkedin", "tiktok", "youtube", "threads"], description: "Target platform" },
+      content: { type: "string", description: "Caption / text body" },
+      media_urls: { type: "array", items: { type: "string" }, description: "Public media URLs (CDN, no Drive/Dropbox)" },
+      planning_item_id: { type: "string", description: "Optional planning_items UUID to update on success" },
+      scheduled_for: { type: "string", description: "ISO datetime to schedule. Omit to publish now." },
+      // Instagram-specific
+      instagram_content_type: { type: "string", enum: ["feed", "story", "reel", "carousel"], description: "Instagram only. Default: carousel if 2+ media, else feed." },
+      instagram_share_to_feed: { type: "boolean", description: "Reels only. true = also show in feed (default), false = Reels tab only." },
+      instagram_trial_reel: { type: "string", enum: ["off", "manual", "auto"], description: "Reels only. 'manual' = MANUAL graduation, 'auto' = SS_PERFORMANCE auto-graduate. Trial Reels are shown only to non-followers." },
+      instagram_collaborators: { type: "array", items: { type: "string" }, description: "Up to 3 IG usernames (Business/Creator). Not for Stories." },
+      instagram_first_comment: { type: "string", description: "Auto-posted as first comment. Not for Stories." },
+      instagram_thumbnail_url: { type: "string", description: "Custom Reel cover (JPEG/PNG, 1080x1920)." },
+      instagram_caption_override: { type: "string", description: "Override the caption just for Instagram." },
+      // Facebook-specific
+      facebook_content_type: { type: "string", enum: ["feed", "story", "reel"], description: "Facebook only." },
+      facebook_first_comment: { type: "string" },
+    },
+    required: ["client_id", "platform"],
+  },
+  handler: async (args: any) => {
+    const platformOptions: Record<string, any> = {};
+    const ig: Record<string, any> = {};
+    if (args.instagram_content_type) ig.contentType = args.instagram_content_type;
+    if (typeof args.instagram_share_to_feed === "boolean") ig.shareToFeed = args.instagram_share_to_feed;
+    if (args.instagram_trial_reel) ig.trialReel = args.instagram_trial_reel;
+    if (Array.isArray(args.instagram_collaborators)) ig.collaborators = args.instagram_collaborators;
+    if (args.instagram_first_comment) ig.firstComment = args.instagram_first_comment;
+    if (args.instagram_thumbnail_url) ig.instagramThumbnail = args.instagram_thumbnail_url;
+    if (args.instagram_caption_override) ig.customCaption = args.instagram_caption_override;
+    if (Object.keys(ig).length) platformOptions.instagram = ig;
+
+    const fb: Record<string, any> = {};
+    if (args.facebook_content_type) fb.contentType = args.facebook_content_type;
+    if (args.facebook_first_comment) fb.firstComment = args.facebook_first_comment;
+    if (Object.keys(fb).length) platformOptions.facebook = fb;
+
+    const body: Record<string, any> = {
+      clientId: args.client_id,
+      platform: args.platform,
+      content: args.content ?? "",
+      mediaUrls: args.media_urls,
+      planningItemId: args.planning_item_id,
+      publishNow: !args.scheduled_for,
+    };
+    if (args.scheduled_for) body.scheduledFor = args.scheduled_for;
+    if (Object.keys(platformOptions).length) body.platformOptions = platformOptions;
+
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/late-post`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify(body),
+      });
+      const text = await resp.text();
+      let parsed: any;
+      try { parsed = JSON.parse(text); } catch { parsed = text; }
+      return { content: [{ type: "text" as const, text: JSON.stringify({ status: resp.status, data: parsed }, null, 2) }] };
+    } catch (err: any) {
+      return { content: [{ type: "text" as const, text: `Error: ${err.message}` }] };
+    }
+  },
+});
+
 mcpServer.tool("list_clients", {
   description: "List all clients in a workspace",
   inputSchema: {

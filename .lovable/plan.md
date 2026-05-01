@@ -1,51 +1,129 @@
-## Problemas atuais
+## Contexto
 
-1. **Auto-imagens busca para todos os slides vazios** com queries pobres (6 primeiras palavras do texto), trazendo fotos genéricas e desconectadas.
-2. **Atribuição "Pexels / autor"** aparece no slide e na barra de ações — não precisa, a licença Pexels já libera uso sem crédito.
-3. **Não dá pra dizer "nem precisa de imagem nesse"** — auto-imagens trata todo slide vazio como alvo.
-4. **Header da Sequência Viral está apertado**: 7 botões + título + badges numa linha só, em 1694px já corta/quebra. No SlideEditor, a barra de ações de imagem também fica espremida quando há "Preview + X" depois dos 3 botões.
+A API Late virou **Zernio** e tem muito mais do que usamos hoje. O `late-post` atual só publica feed + threads + carrossel Instagram. Vamos cobrir o universo completo de publicação Instagram (Feed/Story/Reel/Carousel + Trial Reels) e deixar a porta aberta pra novas plataformas e Inbox.
 
-## O que vou fazer
+A imagem que você mandou é exatamente a UI que vamos replicar dentro do `PlanningItemDialog`: tabs **Feed / Story / Reel / Carousel** por plataforma + campos contextuais (trial reel, collaborators, first comment, custom thumbnail, custom caption).
 
-### 1. Auto-imagens mais inteligente e opt-out por slide
+---
 
-- Adicionar campo `image: { kind: "skip" }` no tipo `ImageSource` (slide marcado como "sem imagem de propósito" — auto-imagens ignora).
-- No `SlideEditor`, novo botão **"Sem imagem"** na barra de ações que marca o slide como `skip`. Quando ativo, aparece etiqueta discreta "Sem imagem" no preview e auto-imagens pula.
-- Auto-imagens passa a:
-  - Pular slides `kind: "skip"` e slides que já têm imagem.
-  - Pular automaticamente o slide **CTA** (último) — quase nunca precisa de foto.
-  - Gerar a query via LLM (1 chamada Gemini Flash) que recebe `briefing + body do slide` e devolve **2-4 palavras-chave em inglês** (Pexels rende muito mais em inglês). Fallback para o método atual se a chamada falhar.
-  - Buscar 3 candidatos por slide e pegar o primeiro que não seja duplicata de outro slide já preenchido (evita 8 fotos iguais de "laptop").
+## Fase 1 — Stories, Reels, Trial Reels e campos avançados Instagram (foco agora)
 
-### 2. Remover atribuição Pexels
+### 1.1 `late-post` (edge function)
+Aceitar novo bloco `platformOptions` por plataforma. Para Instagram:
 
-- No `SlideEditor`: remover o bloco de atribuição abaixo da barra de ações.
-- No `TwitterSlide`: remover o overlay/legenda de atribuição da imagem.
-- No diálogo de busca: remover o overlay de crédito do hover das miniaturas (mantém só o nome no `title` pra acessibilidade).
-- Manter `attribution` e `sourceUrl` no tipo (não quebra dados salvos), só não renderizar.
+```ts
+platformOptions: {
+  instagram: {
+    contentType: 'feed' | 'story' | 'reel' | 'carousel',
+    shareToFeed?: boolean,         // Reel
+    trialReel?: 'off' | 'manual' | 'auto',  // off=normal | manual=MANUAL | auto=SS_PERFORMANCE
+    collaborators?: string[],       // até 3, sem @
+    userTags?: { username, x, y, mediaIndex? }[],
+    firstComment?: string,
+    instagramThumbnail?: string,    // URL JPEG/PNG
+    thumbOffset?: number,
+    audioName?: string,
+    customCaption?: string,         // override do content principal
+  },
+  facebook: { contentType: 'feed' | 'story' | 'reel', firstComment?: string },
+  // outras plataformas escaláveis depois
+}
+```
 
-### 3. UI mais limpa
+Mapear pra `platformSpecificData.trialParams.graduationStrategy = "MANUAL" | "SS_PERFORMANCE"` quando `trialReel !== 'off'`. Validações:
+- Story: 1 mídia, sem collaborators, sem firstComment
+- Reel: vídeo 9:16, ≤90s
+- Trial Reel: só permitido em Reel
+- Carousel: 2-10 mídias
 
-**Header (`ViralSequenceTab`)**
-- Reorganizar botões em duas linhas conceituais quando há slides: linha 1 (título + badges), linha 2 (ações: Preview · Auto-imagens · Zerar · Exportar · Salvar · Mandar pro Planejamento).
-- Em telas largas (`xl:`), volta pra linha única; abaixo disso, segunda linha alinhada à direita.
-- Encolher botões secundários para `size="xs"` visual (h-7, ícone-only no `lg:` quando útil) e mover **Zerar** para dentro do dropdown "Exportar" como item destacado, liberando espaço.
+### 1.2 UI no `PlanningItemDialog`
+Replicar layout da imagem:
+- Tabs **Feed / Story / Reel / Carousel** por plataforma marcada
+- Painel contextual abaixo:
+  - **Reel:** dropdown "Trial Reel" (Off (regular) / Manual / Auto-graduate), input collaborators (max 3), first comment, upload de thumbnail, custom caption
+  - **Story:** thumbnail opcional, custom caption (mesmo Stories ignorando texto, mantemos pro registro interno)
+  - **Carousel:** collaborators, first comment, custom caption
+  - **Feed:** collaborators, first comment, custom caption
 
-**SlideEditor**
-- Quando o slide tem imagem: a linha "Preview" + "X remover" passa pra **segunda linha** abaixo dos botões IA/Buscar/Upload/Sem imagem, evitando o aperto atual.
-- Aumentar o gap da barra para `gap-1.5` e dar `flex-wrap`.
-- Reduzir padding interno do card de `p-3` pra `p-3 pt-2.5` e do preview de `p-4` pra `p-3` — menos vazio, slides maiores na grid.
+Persistir tudo em `planning_items.metadata.platform_options` (jsonb, sem migration).
 
-### 4. Limpeza relacionada
+### 1.3 Indicador visual no card
+Badge no Kanban/Calendar mostrando o tipo (📷 Feed / ⭕ Story / 🎬 Reel / 🎞 Carousel) e selo "🧪 Trial Reel" quando for o caso.
 
-- Remover toast "Pexels já libera..." e referências a "fonte" no diálogo de busca; manter só "Buscar imagem".
-- Remover o seletor de fonte (Pexels/Openverse) do diálogo — Pexels é o default e o backend já tem fallback automático. Simplifica a UI.
+### 1.4 Chat KAI + MCP
+- `publishContent` aceita `platformOptions`
+- Novo MCP tool `publish_story` (atalho semântico)
+- KAI entende: "agenda como story", "posta esse reel como trial pro Madureira", "publica o reel só no aba reels (não compartilha no feed)"
+- Atualizar prompt do agente (camada de capabilities) com a nova matriz de tipos
 
-## Arquivos a editar
+### 1.5 `publish-viral-carousel`
+Aceitar `contentType: 'story'` para publicar a sequência viral como Stories sequenciais (1 story por slide).
 
-- `src/components/kai/viral-sequence/types.ts` — adicionar variant `skip` em `ImageSource`.
-- `src/components/kai/viral-sequence/SlideEditor.tsx` — botão "Sem imagem", remover atribuição, reorganizar barra, simplificar diálogo de busca.
-- `src/components/kai/viral-sequence/TwitterSlide.tsx` — remover legenda de atribuição, suportar estado `skip` (não renderiza imagem).
-- `src/components/kai/ViralSequenceTab.tsx` — header em 2 linhas, lógica nova de auto-imagens (LLM keywords + skip CTA + dedup).
+---
 
-Sem mudanças em edge functions nem migrations.
+## Fase 2 — Plataformas novas (Bluesky, Pinterest, Snapchat) — opcional já
+
+Cada plataforma adicional exige:
+- Adicionar à enum `ALLOWED_PLATFORMS`
+- OAuth via `late-oauth-start` (Zernio cuida do flow)
+- Card de conexão na `SocialIntegrationsTab`
+- `platformOptions` específico (ex: Pinterest precisa `boardId`, Snapchat tem `story / saved_story / spotlight`)
+
+**Recomendação:** ativar **Bluesky + Pinterest** agora (custo zero), Snapchat sob demanda.
+
+Reddit, WhatsApp, Telegram, Discord, Google Business — Fase 4 se você pedir.
+
+---
+
+## Fase 3 — Recursos avançados extras
+
+- **LinkedIn documents (PDF)** — postar carrossel-doc
+- **Twitter polls** — `poll: { options, durationMinutes }`
+- **TikTok privacy + duet/stitch**
+- **YouTube Shorts vs vídeo longo + visibility + playlist**
+- **Threads reply controls**
+
+Tudo via mesmo `platformOptions`, expansão incremental.
+
+---
+
+## Fase 4 — Inbox unificado (DMs + comentários)
+
+Add-on pago da Zernio (~$10/mês). Permite responder DMs do Instagram, FB, X, LinkedIn dentro do kAI, plugado no `EngagementHub`. Webhooks `comment.received` e `message.received` viram notificações Telegram + bell. Fica pendente sua aprovação por causa do custo.
+
+---
+
+## Fase 5 — Analytics expandidos
+
+`fetch-late-metrics` atual já roda; vamos somar:
+- Reach, saves, profile clicks
+- Instagram Account Insights + Follower History + Demographics
+- YouTube demographics (idade/gênero/país)
+- Google Business Performance (impressões, calls, directions) — útil se algum cliente tiver loja física
+
+---
+
+## Detalhes técnicos
+
+**Arquivos principais a editar (Fase 1):**
+- `supabase/functions/late-post/index.ts` — aceitar `platformOptions`, mapear `trialParams`, validar requisitos
+- `supabase/functions/publish-viral-carousel/index.ts` — opção Stories
+- `supabase/functions/kai-simple-chat/tools/publishContent.ts` — passar `platformOptions`
+- `supabase/functions/mcp-reader/index.ts` — novo `publish_story` + parâmetros expandidos no `create_viral_carousel`
+- `src/components/planning/PlanningItemDialog.tsx` — tabs por plataforma + painel contextual (espelha a UI da imagem)
+- `src/components/planning/PlanningItemCard.tsx` — badge de tipo + selo Trial Reel
+- `src/hooks/useClientPlatformStatus.ts` — flags `supportsStories`/`supportsReels`/`supportsTrialReels`
+
+**Sem migrations** — tudo em `metadata.platform_options` (jsonb).
+
+**Compatibilidade:** ausência de `platformOptions` mantém comportamento atual (feed). Zero risco para publicações existentes ou automações em curso.
+
+**Memória do projeto:** vou atualizar `mem://features/publication/late-api-status-and-multi-platform` para refletir Zernio + matriz de tipos por plataforma.
+
+---
+
+## O que entra agora
+
+Vou implementar **Fase 1 inteira** (Stories + Reels + Trial Reels + collaborators + first comment + custom thumbnail/caption + UI espelhada da imagem + chat + MCP + viral carousel como Story). É o que cobre 100% do uso pro Madureira.
+
+Posso já incluir **Bluesky + Pinterest** (Fase 2) no mesmo pacote sem custo extra de complexidade — me avisa se quer.

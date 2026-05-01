@@ -254,6 +254,39 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             </span>
           )}
 
+          {/* IG content type badge */}
+          {(() => {
+            const ig = metadata.platform_options?.instagram;
+            if (!ig?.contentType || !targetPlatforms.includes('instagram')) return null;
+            const map: Record<string, { emoji: string; label: string }> = {
+              feed: { emoji: '📷', label: 'Feed' },
+              story: { emoji: '⭕', label: 'Story' },
+              reel: { emoji: '🎬', label: 'Reel' },
+              carousel: { emoji: '🎞', label: 'Carrossel' },
+            };
+            const info = map[ig.contentType];
+            if (!info) return null;
+            return (
+              <span
+                className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/30"
+                title={`Instagram: ${info.label}`}
+              >
+                {info.emoji} {info.label}
+              </span>
+            );
+          })()}
+
+          {/* Trial Reel badge */}
+          {metadata.platform_options?.instagram?.trialReel &&
+            metadata.platform_options.instagram.trialReel !== 'off' && (
+              <span
+                className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                title={`Trial Reel (${metadata.platform_options.instagram.trialReel})`}
+              >
+                🧪 Trial
+              </span>
+          )}
+
           {/* Menu - pushed to right */}
           <div className="ml-auto">
             <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>

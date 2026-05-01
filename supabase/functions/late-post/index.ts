@@ -23,6 +23,36 @@ interface MediaItem {
 const ALLOWED_PLATFORMS = ['twitter', 'linkedin', 'instagram', 'tiktok', 'youtube', 'facebook', 'threads'] as const;
 type AllowedPlatform = typeof ALLOWED_PLATFORMS[number];
 
+type IGContentType = 'feed' | 'story' | 'reel' | 'carousel';
+type FBContentType = 'feed' | 'story' | 'reel';
+type TrialReelMode = 'off' | 'manual' | 'auto';
+
+interface InstagramOptions {
+  contentType?: IGContentType;
+  shareToFeed?: boolean;
+  trialReel?: TrialReelMode;
+  collaborators?: string[];
+  userTags?: Array<{ username: string; x: number; y: number; mediaIndex?: number }>;
+  firstComment?: string;
+  instagramThumbnail?: string;
+  thumbOffset?: number;
+  audioName?: string;
+  customCaption?: string;
+}
+
+interface FacebookOptions {
+  contentType?: FBContentType;
+  firstComment?: string;
+  customCaption?: string;
+}
+
+interface PlatformOptions {
+  instagram?: InstagramOptions;
+  facebook?: FacebookOptions;
+  // future: linkedin, tiktok, youtube, threads, twitter
+  [key: string]: Record<string, unknown> | undefined;
+}
+
 interface PostRequest {
   clientId: string;
   platform: AllowedPlatform;
@@ -33,6 +63,7 @@ interface PostRequest {
   planningItemId?: string;
   scheduledFor?: string; // ISO date string for scheduling
   publishNow?: boolean;
+  platformOptions?: PlatformOptions;
 }
 
 // Input validation constants
@@ -84,17 +115,28 @@ serve(async (req: Request) => {
     // Use service role for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    const { 
-      clientId, 
-      platform, 
-      content, 
-      mediaUrls, 
+    const {
+      clientId,
+      platform,
+      content: rawContent,
+      mediaUrls,
       mediaItems: inputMediaItems,
       threadItems,
-      planningItemId, 
-      scheduledFor, 
-      publishNow = true 
+      planningItemId,
+      scheduledFor,
+      publishNow = true,
+      platformOptions,
     }: PostRequest = await req.json();
+
+    // Resolve per-platform options + caption override
+    const igOpts: InstagramOptions = platformOptions?.instagram || {};
+    const fbOpts: FacebookOptions = platformOptions?.facebook || {};
+    let content = rawContent;
+    if (platform === 'instagram' && igOpts.customCaption?.trim()) {
+      content = igOpts.customCaption;
+    } else if (platform === 'facebook' && fbOpts.customCaption?.trim()) {
+      content = fbOpts.customCaption;
+    }
 
     // === INPUT VALIDATION ===
     
@@ -394,11 +436,70 @@ serve(async (req: Request) => {
         }
       }
       
-      // Instagram carousel - ensure order is preserved
-      if (platform === 'instagram' && finalMediaItems.length > 1) {
-        console.log("Instagram carousel detected with", finalMediaItems.length, "items");
-        // Late API should receive items in order
-        platformSpecificData.isCarousel = true;
+      // === Instagram advanced options (Stories, Reels, Trial Reels, etc.) ===
+      if (platform === 'instagram') {
+        const desiredType: IGContentType = igOpts.contentType
+          || (finalMediaItems.length > 1 ? 'carousel' : 'feed');
+
+        if (desiredType === 'story') {
+          platformSpecificData.contentType = 'story';
+          if (finalMediaItems.length > 1) {
+            return new Response(JSON.stringify({
+              error: "Stories aceitam apenas 1 mídia. Reduza para 1 imagem/vídeo."
+            }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+        } else if (desiredType === 'reel') {
+          platformSpecificData.contentType = 'reels';
+          if (igOpts.shareToFeed === false) platformSpecificData.shareToFeed = false;
+          else platformSpecificData.shareToFeed = true;
+
+          // Trial Reels (only for Reels)
+          if (igOpts.trialReel && igOpts.trialReel !== 'off') {
+            platformSpecificData.trialParams = {
+              graduationStrategy: igOpts.trialReel === 'auto' ? 'SS_PERFORMANCE' : 'MANUAL',
+            };
+          }
+
+          // Reel thumbnail / audio
+          if (igOpts.instagramThumbnail) platformSpecificData.instagramThumbnail = igOpts.instagramThumbnail;
+          else if (typeof igOpts.thumbOffset === 'number') platformSpecificData.thumbOffset = igOpts.thumbOffset;
+          if (igOpts.audioName) platformSpecificData.audioName = igOpts.audioName;
+
+          // Validate media is a video
+          const firstMedia = finalMediaItems[0];
+          if (!firstMedia || firstMedia.type !== 'video') {
+            return new Response(JSON.stringify({
+              error: "Reels exigem um vídeo (9:16, até 90s)."
+            }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+        } else if (desiredType === 'carousel' || finalMediaItems.length > 1) {
+          console.log("Instagram carousel detected with", finalMediaItems.length, "items");
+          platformSpecificData.isCarousel = true;
+        }
+        // 'feed' = no contentType field
+
+        // Common Instagram fields (apply to feed/reel/carousel; not stories)
+        if (desiredType !== 'story') {
+          if (igOpts.collaborators?.length) {
+            platformSpecificData.collaborators = igOpts.collaborators
+              .map(u => u.replace(/^@/, '').trim())
+              .filter(Boolean)
+              .slice(0, 3);
+          }
+          if (igOpts.firstComment?.trim()) {
+            platformSpecificData.firstComment = igOpts.firstComment.trim();
+          }
+          if (igOpts.userTags?.length) {
+            platformSpecificData.userTags = igOpts.userTags;
+          }
+        }
+      }
+
+      // === Facebook content type (story / reel / feed) ===
+      if (platform === 'facebook') {
+        if (fbOpts.contentType === 'story') platformSpecificData.contentType = 'story';
+        else if (fbOpts.contentType === 'reel') platformSpecificData.contentType = 'reels';
+        if (fbOpts.firstComment?.trim()) platformSpecificData.firstComment = fbOpts.firstComment.trim();
       }
       
       postPayload.platforms = [{

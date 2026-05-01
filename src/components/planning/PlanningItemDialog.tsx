@@ -27,6 +27,7 @@ import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationM
 import { PlanningItemComments } from './PlanningItemComments';
 import { MentionableInput } from './MentionableInput';
 import { RecurrenceConfig } from './RecurrenceConfig';
+import { PlatformOptionsPanel, PlatformOptionsState } from './PlatformOptionsPanel';
 import { CONTENT_TYPE_OPTIONS, CONTENT_TO_PLATFORM, ContentTypeKey, ALL_PUBLISH_PLATFORMS } from '@/types/contentTypes';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
 import type { RecurrenceConfig as RecurrenceConfigType } from '@/types/recurrence';
@@ -155,6 +156,7 @@ export function PlanningItemDialog({
     time: null,
     endDate: null,
   });
+  const [platformOptions, setPlatformOptions] = useState<PlatformOptionsState>({});
 
   const { generateImage, isGenerating: isGeneratingImage } = usePlanningImageGeneration(selectedClientId);
   const { generateContent, isGenerating: isGeneratingContent, isFetchingReference } = usePlanningContentGeneration();
@@ -269,6 +271,7 @@ export function PlanningItemDialog({
       } else {
         setThreadTweets([{ id: 'tweet-1', text: effectiveItem.content || '', media_urls: [] }]);
       }
+      setPlatformOptions((metadata.platform_options as PlatformOptionsState) || {});
     } else if (!item) {
       // Only reset when there's no item at all (new card)
       setTitle('');
@@ -286,7 +289,7 @@ export function PlanningItemDialog({
       setSelectedPlatforms([]);
       setReferenceInput('');
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
-      
+      setPlatformOptions({});
     }
   }, [effectiveItem, item, defaultColumnId, defaultDate, defaultClientId, columns, open]);
 
@@ -337,6 +340,7 @@ export function PlanningItemDialog({
           content_type: contentType,
           target_platforms: selectedPlatforms,
           ...(isTwitterThread && { thread_tweets: threadTweets }),
+          platform_options: platformOptions,
         },
         recurrence_type: recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null,
         recurrence_days: recurrenceConfig.days.length > 0 ? recurrenceConfig.days : null,
@@ -375,6 +379,7 @@ export function PlanningItemDialog({
                 threadItems: isTwitterThread ? threadTweets : undefined,
                 scheduledFor: finalScheduledAt.toISOString(),
                 publishNow: false,
+                platformOptions,
               }
             );
           }
@@ -446,6 +451,7 @@ export function PlanningItemDialog({
             content_type: contentType,
             target_platforms: selectedPlatforms,
             ...(isTwitterThread && { thread_tweets: threadTweets }),
+            platform_options: platformOptions,
           },
         };
         
@@ -480,6 +486,7 @@ export function PlanningItemDialog({
               mediaUrls: mediaItems.map(m => m.url),
               planningItemId: itemId,
               threadItems: isTwitterThread ? threadTweets : undefined,
+              platformOptions,
               ...(willSchedule && finalScheduledAt
                 ? { scheduledFor: finalScheduledAt.toISOString(), publishNow: false }
                 : {}),
@@ -805,6 +812,14 @@ export function PlanningItemDialog({
                   </p>
                 )}
               </div>
+
+              {/* Per-platform options (Stories, Reels, Trial Reels, etc.) */}
+              <PlatformOptionsPanel
+                selectedPlatforms={selectedPlatforms}
+                value={platformOptions}
+                onChange={setPlatformOptions}
+                hasMultipleMedia={mediaItems.length > 1}
+              />
 
               {/* Divider */}
               <div className="border-t border-border/30" />
