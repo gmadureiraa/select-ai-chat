@@ -419,6 +419,7 @@ serve(async (req: Request) => {
           `<b>Cliente:</b> ${escapeHtml(clientName)}\n` +
           `<b>Título:</b> ${escapeHtml(item.title || "—")}\n\n` +
           `<b>Falhou em:</b>\n<pre>${escapeHtml(failedList)}</pre>`,
+        item.client_id,
       );
     }
 
