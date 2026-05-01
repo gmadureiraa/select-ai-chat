@@ -270,7 +270,7 @@ export function ThreadEditor({
         onClick={addTweet}
       >
         <Plus className="h-4 w-4" />
-        Adicionar Tweet
+        Adicionar post
       </Button>
     </div>
   );
