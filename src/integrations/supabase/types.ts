@@ -2135,6 +2135,56 @@ export type Database = {
           },
         ]
       }
+      metrics_sync_runs: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          estimated_cost_usd: number | null
+          id: string
+          items_synced: number | null
+          metadata: Json | null
+          platform: string
+          status: string
+          triggered_by: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          items_synced?: number | null
+          metadata?: Json | null
+          platform: string
+          status: string
+          triggered_by?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          items_synced?: number | null
+          metadata?: Json | null
+          platform?: string
+          status?: string
+          triggered_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrics_sync_runs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null

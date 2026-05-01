@@ -1,129 +1,83 @@
-## Contexto
+# Automação de Performance — Coleta automática de métricas
 
-A API Late virou **Zernio** e tem muito mais do que usamos hoje. O `late-post` atual só publica feed + threads + carrossel Instagram. Vamos cobrir o universo completo de publicação Instagram (Feed/Story/Reel/Carousel + Trial Reels) e deixar a porta aberta pra novas plataformas e Inbox.
+## Situação atual
 
-A imagem que você mandou é exatamente a UI que vamos replicar dentro do `PlanningItemDialog`: tabs **Feed / Story / Reel / Carousel** por plataforma + campos contextuais (trial reel, collaborators, first comment, custom thumbnail, custom caption).
+Já existe infra parcial:
+- Tabela `platform_metrics` (likes, comments, shares, views, engagement, subscribers) com upsert único por `(client_id, platform, metric_date)`.
+- Edge functions Apify já rodando: `fetch-instagram-metrics`, `fetch-twitter-apify`, `fetch-youtube-apify`, `extract-instagram`, `batch-sync-posts`.
+- Tokens Apify configurados: `APIFY_API_TOKEN`, `APIFY_API_TOKEN_2`, `APIFY_API_KEY`, `APIFY_API_KEY_INSTAGRAM`.
+- Padrão de cron via `pg_cron` + Vault (`cron_service_role_key`, `project_url`) já em uso (process-push-queue).
 
----
-
-## Fase 1 — Stories, Reels, Trial Reels e campos avançados Instagram (foco agora)
-
-### 1.1 `late-post` (edge function)
-Aceitar novo bloco `platformOptions` por plataforma. Para Instagram:
-
-```ts
-platformOptions: {
-  instagram: {
-    contentType: 'feed' | 'story' | 'reel' | 'carousel',
-    shareToFeed?: boolean,         // Reel
-    trialReel?: 'off' | 'manual' | 'auto',  // off=normal | manual=MANUAL | auto=SS_PERFORMANCE
-    collaborators?: string[],       // até 3, sem @
-    userTags?: { username, x, y, mediaIndex? }[],
-    firstComment?: string,
-    instagramThumbnail?: string,    // URL JPEG/PNG
-    thumbOffset?: number,
-    audioName?: string,
-    customCaption?: string,         // override do content principal
-  },
-  facebook: { contentType: 'feed' | 'story' | 'reel', firstComment?: string },
-  // outras plataformas escaláveis depois
-}
-```
-
-Mapear pra `platformSpecificData.trialParams.graduationStrategy = "MANUAL" | "SS_PERFORMANCE"` quando `trialReel !== 'off'`. Validações:
-- Story: 1 mídia, sem collaborators, sem firstComment
-- Reel: vídeo 9:16, ≤90s
-- Trial Reel: só permitido em Reel
-- Carousel: 2-10 mídias
-
-### 1.2 UI no `PlanningItemDialog`
-Replicar layout da imagem:
-- Tabs **Feed / Story / Reel / Carousel** por plataforma marcada
-- Painel contextual abaixo:
-  - **Reel:** dropdown "Trial Reel" (Off (regular) / Manual / Auto-graduate), input collaborators (max 3), first comment, upload de thumbnail, custom caption
-  - **Story:** thumbnail opcional, custom caption (mesmo Stories ignorando texto, mantemos pro registro interno)
-  - **Carousel:** collaborators, first comment, custom caption
-  - **Feed:** collaborators, first comment, custom caption
-
-Persistir tudo em `planning_items.metadata.platform_options` (jsonb, sem migration).
-
-### 1.3 Indicador visual no card
-Badge no Kanban/Calendar mostrando o tipo (📷 Feed / ⭕ Story / 🎬 Reel / 🎞 Carousel) e selo "🧪 Trial Reel" quando for o caso.
-
-### 1.4 Chat KAI + MCP
-- `publishContent` aceita `platformOptions`
-- Novo MCP tool `publish_story` (atalho semântico)
-- KAI entende: "agenda como story", "posta esse reel como trial pro Madureira", "publica o reel só no aba reels (não compartilha no feed)"
-- Atualizar prompt do agente (camada de capabilities) com a nova matriz de tipos
-
-### 1.5 `publish-viral-carousel`
-Aceitar `contentType: 'story'` para publicar a sequência viral como Stories sequenciais (1 story por slide).
+**O que falta:** disparo automático recorrente. Hoje é tudo manual via botão na UI. Não existe TikTok nem LinkedIn público scraper, nem orquestrador único.
 
 ---
 
-## Fase 2 — Plataformas novas (Bluesky, Pinterest, Snapchat) — opcional já
+## O que fica gratuito vs pago
 
-Cada plataforma adicional exige:
-- Adicionar à enum `ALLOWED_PLATFORMS`
-- OAuth via `late-oauth-start` (Zernio cuida do flow)
-- Card de conexão na `SocialIntegrationsTab`
-- `platformOptions` específico (ex: Pinterest precisa `boardId`, Snapchat tem `story / saved_story / spotlight`)
+### Gratuito (APIs oficiais públicas)
+- **YouTube Data API v3** — 10.000 unidades/dia grátis. Cobre estatísticas de canal e vídeos públicos sem custo. Já temos `fetch-youtube-metrics` (oficial) além do Apify. **Recomendação: priorizar a oficial, Apify só como fallback.**
+- **RSS / oEmbed** — útil para Threads/Beehiiv (já usado).
 
-**Recomendação:** ativar **Bluesky + Pinterest** agora (custo zero), Snapchat sob demanda.
+### Sem alternativa gratuita confiável (precisa scraper/Apify)
+- **Instagram** — não há API pública para perfis de terceiros. Graph API só funciona com conta business conectada via OAuth do dono. Para dados públicos: Apify é o caminho.
+- **TikTok** — API oficial exige aprovação demorada e só dá dados do dono autenticado. Públicos: Apify.
+- **X (Twitter)** — API oficial v2 é paga (Basic US$ 200/mês). Para dados públicos: Apify (já temos).
+- **LinkedIn** — API oficial não permite scraping de perfis/empresas de terceiros. Apify é a única via prática (e com mais risco de bloqueio).
 
-Reddit, WhatsApp, Telegram, Discord, Google Business — Fase 4 se você pedir.
+### Estimativa de custo Apify (plano Starter US$ 49/mês = US$ 49 em créditos)
 
----
+Custos médios por actor (preço de mercado em compute units, arredondado):
 
-## Fase 3 — Recursos avançados extras
+| Plataforma | Actor recomendado | Custo médio | 1 cliente / dia | 10 clientes / dia | 10 clientes / mês |
+|---|---|---|---|---|---|
+| Instagram (perfil + últimos 12 posts) | `apify/instagram-scraper` | ~US$ 2,30 / 1.000 itens | ~US$ 0,03 | ~US$ 0,30 | **~US$ 9** |
+| TikTok (perfil + últimos 10 vídeos) | `clockworks/tiktok-scraper` | ~US$ 0,30 / 1.000 itens | ~US$ 0,01 | ~US$ 0,10 | **~US$ 3** |
+| X (perfil + últimos 20 tweets) | `apidojo/twitter-scraper-lite` | ~US$ 0,40 / 1.000 itens | ~US$ 0,01 | ~US$ 0,10 | **~US$ 3** |
+| LinkedIn (empresa/perfil) | `apimaestro/linkedin-profile-scraper` ou `harvestapi/linkedin` | ~US$ 4 / 1.000 perfis | ~US$ 0,02 | ~US$ 0,20 | **~US$ 6** |
+| YouTube | API oficial Google | **grátis** | 0 | 0 | **0** |
 
-- **LinkedIn documents (PDF)** — postar carrossel-doc
-- **Twitter polls** — `poll: { options, durationMinutes }`
-- **TikTok privacy + duet/stitch**
-- **YouTube Shorts vs vídeo longo + visibility + playlist**
-- **Threads reply controls**
+**Total estimado para 10 clientes, sync diário, 4 plataformas pagas:** **~US$ 21/mês em uso de Apify** — cabe folgado no Free (US$ 5/mês de crédito) se forem 2-3 clientes, ou no Starter US$ 49/mês para escalar até ~20-30 clientes.
 
-Tudo via mesmo `platformOptions`, expansão incremental.
-
----
-
-## Fase 4 — Inbox unificado (DMs + comentários)
-
-Add-on pago da Zernio (~$10/mês). Permite responder DMs do Instagram, FB, X, LinkedIn dentro do kAI, plugado no `EngagementHub`. Webhooks `comment.received` e `message.received` viram notificações Telegram + bell. Fica pendente sua aprovação por causa do custo.
+Para sync **a cada 6h em vez de diário** multiplique por 4 (~US$ 84/mês para 10 clientes). Recomendo **diário às 6h BRT** + botão de refresh manual já existente.
 
 ---
 
-## Fase 5 — Analytics expandidos
+## Plano de implementação
 
-`fetch-late-metrics` atual já roda; vamos somar:
-- Reach, saves, profile clicks
-- Instagram Account Insights + Follower History + Demographics
-- YouTube demographics (idade/gênero/país)
-- Google Business Performance (impressões, calls, directions) — útil se algum cliente tiver loja física
+### 1. Novas edge functions (scrapers que faltam)
+- `fetch-tiktok-apify` — recebe `client_id`, lê handle TikTok do `clients.tiktok_handle` (criar coluna se não existir), roda `clockworks/tiktok-scraper` async (polling pattern já usado em IG), faz upsert em `platform_metrics` (platform=`tiktok`).
+- `fetch-linkedin-apify` — mesmo padrão para LinkedIn (perfil ou company), platform=`linkedin`. Usa `harvestapi/linkedin-profile-scraper`.
 
----
+### 2. Orquestrador único: `sync-all-metrics`
+Edge function que itera sobre todos os `clients` ativos do workspace e dispara em paralelo (com `Promise.allSettled`) as funções de cada plataforma onde o cliente tem handle preenchido. Loga sucesso/erro em `automation_runs` (se existir) ou em `notifications` tipo `automation_completed`.
 
-## Detalhes técnicos
+### 3. Cron diário via pg_cron + Vault
+Migration adicionando job `sync-all-metrics-daily` rodando **06:00 BRT (09:00 UTC)** chamando o orquestrador, no mesmo padrão do `process-push-queue-cron`.
 
-**Arquivos principais a editar (Fase 1):**
-- `supabase/functions/late-post/index.ts` — aceitar `platformOptions`, mapear `trialParams`, validar requisitos
-- `supabase/functions/publish-viral-carousel/index.ts` — opção Stories
-- `supabase/functions/kai-simple-chat/tools/publishContent.ts` — passar `platformOptions`
-- `supabase/functions/mcp-reader/index.ts` — novo `publish_story` + parâmetros expandidos no `create_viral_carousel`
-- `src/components/planning/PlanningItemDialog.tsx` — tabs por plataforma + painel contextual (espelha a UI da imagem)
-- `src/components/planning/PlanningItemCard.tsx` — badge de tipo + selo Trial Reel
-- `src/hooks/useClientPlatformStatus.ts` — flags `supportsStories`/`supportsReels`/`supportsTrialReels`
+### 4. Schema
+- Adicionar colunas em `clients`: `tiktok_handle text`, `linkedin_handle text`, `linkedin_type text` ('person'|'company') — só se não existirem.
+- Confirmar `instagram_handle`, `twitter_handle`, `youtube_channel_id` já existem (provável que sim).
 
-**Sem migrations** — tudo em `metadata.platform_options` (jsonb).
+### 5. UI
+- Em **Performance**, adicionar badge "Última sync automática: há X horas" e indicador por plataforma (verde = ok, amarelo = sem handle, vermelho = falhou).
+- Configuração por workspace: toggle "Sync automático diário" + escolha de horário (default 06h BRT).
 
-**Compatibilidade:** ausência de `platformOptions` mantém comportamento atual (feed). Zero risco para publicações existentes ou automações em curso.
-
-**Memória do projeto:** vou atualizar `mem://features/publication/late-api-status-and-multi-platform` para refletir Zernio + matriz de tipos por plataforma.
+### 6. Custo / limites visíveis
+- Página de **Settings → Cloud & AI balance** já mostra custos. Adicionar nota informando custo estimado mensal Apify por cliente ativo, lendo da tabela `ai_usage_logs` (estendendo para tipo `apify_scrape`).
+- Hard cap: se gasto Apify do mês > limite definido, pular sync e notificar via Telegram.
 
 ---
 
-## O que entra agora
+## Recomendação final
 
-Vou implementar **Fase 1 inteira** (Stories + Reels + Trial Reels + collaborators + first comment + custom thumbnail/caption + UI espelhada da imagem + chat + MCP + viral carousel como Story). É o que cobre 100% do uso pro Madureira.
+1. **Começar Free**: ativar sync automático apenas YouTube (oficial, grátis) + IG (Apify, baixo volume).
+2. **Adicionar TikTok + X** como segunda fase (custo marginal baixo).
+3. **LinkedIn por último** (mais frágil, mais caro, mais risco de bloqueio do actor).
+4. **Sync 1x/dia às 06h BRT** — suficiente para reports e dashboard, custo controlado (~US$ 10-25/mês para 10 clientes).
+5. **Manter botão manual** para refresh sob demanda quando precisar de dado quente.
 
-Posso já incluir **Bluesky + Pinterest** (Fase 2) no mesmo pacote sem custo extra de complexidade — me avisa se quer.
+## Resposta direta: dá para automatizar tudo?
+- **Instagram, TikTok, X, LinkedIn**: sim, via Apify. Gratuito não rola para esses 4 em escala — só YouTube tem API oficial generosa.
+- **Custo total realista** para automação completa diária de **10 clientes em 5 plataformas: ~US$ 21/mês**. Para **30 clientes: ~US$ 60/mês**. Cabe no plano Apify Starter US$ 49/mês até ~20 clientes; acima disso, Scale US$ 199/mês.
+
+Posso seguir e implementar tudo (scrapers TikTok/LinkedIn + orquestrador + cron + UI de status)?

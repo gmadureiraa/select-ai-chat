@@ -16,6 +16,7 @@ import { Client } from "@/hooks/useClients";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useSyncLateMetrics } from "@/hooks/useSyncLateMetrics";
+import { AutoSyncStatus } from "@/components/performance/AutoSyncStatus";
 import { cn } from "@/lib/utils";
 
 interface KaiPerformanceTabProps {
@@ -66,6 +67,7 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
 
   return (
     <div className="space-y-4">
+      <AutoSyncStatus clientId={clientId} />
       {/* Channel Tabs */}
       <Tabs value={activeChannel} onValueChange={setActiveChannel}>
         <div className="flex items-center justify-between gap-4 -mx-3 sm:mx-0 px-3 sm:px-0">
