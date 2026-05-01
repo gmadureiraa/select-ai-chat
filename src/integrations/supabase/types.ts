@@ -3664,6 +3664,42 @@ export type Database = {
           },
         ]
       }
+      webhook_events_log: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_type: string
+          id: string
+          payload: Json | null
+          processed_ok: boolean
+          related_client_id: string | null
+          related_planning_item_id: string | null
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          payload?: Json | null
+          processed_ok?: boolean
+          related_client_id?: string | null
+          related_planning_item_id?: string | null
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          processed_ok?: boolean
+          related_client_id?: string | null
+          related_planning_item_id?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
       workspace_access_requests: {
         Row: {
           id: string
