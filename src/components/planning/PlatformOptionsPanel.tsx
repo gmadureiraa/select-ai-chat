@@ -19,6 +19,8 @@ export interface InstagramOptions {
   collaborators?: string[];
   firstComment?: string;
   instagramThumbnail?: string;
+  thumbOffset?: number;
+  audioName?: string;
   customCaption?: string;
 }
 
