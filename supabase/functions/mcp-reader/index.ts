@@ -298,7 +298,7 @@ mcpServer.tool("get_schema", {
 // ---------- WRITE TOOLS ----------
 
 mcpServer.tool("create_planning_item", {
-  description: "Create a new planning item (content card) for a client",
+  description: "Create a new planning item (content card) for a client. For THREADS (X/Twitter or Threads), pass 'thread_items' as an array of posts — each with its own text and images. The content_type should be 'thread' and platform 'twitter' or 'threads' (or both, sent as comma-separated 'twitter,threads' in 'target_platforms').",
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -306,12 +306,25 @@ mcpServer.tool("create_planning_item", {
       workspace_id: { type: "string" },
       title: { type: "string" },
       description: { type: "string" },
-      platform: { type: "string", description: "twitter, linkedin, instagram, threads, etc." },
-      content_type: { type: "string" },
+      platform: { type: "string", description: "twitter, linkedin, instagram, threads, etc. For thread on both X+Threads, use 'twitter' here and add 'threads' to target_platforms." },
+      target_platforms: { type: "array", items: { type: "string" }, description: "Multi-platform targeting. Ex: ['twitter','threads'] for thread parity." },
+      content_type: { type: "string", description: "tweet | thread | linkedin_post | carousel | viral_carousel | stories | reel | etc." },
       status: { type: "string", description: "idea, draft, review, approved, scheduled, published" },
       scheduled_at: { type: "string", description: "ISO datetime" },
-      content: { type: "string", description: "The actual post content" },
+      content: { type: "string", description: "Plain post body (used for non-threads). For threads use thread_items instead." },
       image_url: { type: "string" },
+      thread_items: {
+        type: "array",
+        description: "THREAD ONLY. Array of posts. Each post is independent. Per-platform char limits: X=280, Threads=500. If both, keep ≤280.",
+        items: {
+          type: "object",
+          properties: {
+            text: { type: "string", description: "Post body. Use \\n for line breaks INSIDE the same post." },
+            media_urls: { type: "array", items: { type: "string" }, description: "0–4 image URLs for THIS post only." },
+          },
+          required: ["text"],
+        },
+      },
     },
     required: ["client_id", "workspace_id", "title"],
   },
@@ -320,21 +333,47 @@ mcpServer.tool("create_planning_item", {
     const { data: cols } = await sb.from("kanban_columns").select("id").eq("workspace_id", params.workspace_id).order("position").limit(1);
     const columnId = cols?.[0]?.id;
 
+    const isThread = params.content_type === "thread" || (Array.isArray(params.thread_items) && params.thread_items.length > 0);
+    const targetPlatforms: string[] = Array.isArray(params.target_platforms) && params.target_platforms.length
+      ? params.target_platforms
+      : (isThread ? ["twitter", "threads"] : (params.platform ? [params.platform] : []));
+
+    // Normalize thread_items: ensure id + arrays
+    const normalizedThreadItems = Array.isArray(params.thread_items)
+      ? params.thread_items.map((t: any, i: number) => ({
+          id: t.id || `tweet-${Date.now()}-${i}`,
+          text: String(t.text || ""),
+          media_urls: Array.isArray(t.media_urls) ? t.media_urls : [],
+        }))
+      : null;
+
+    // For threads, derive a fallback content joining the items with --- so legacy readers still see something
+    const fallbackContent = normalizedThreadItems
+      ? normalizedThreadItems.map((t: any) => t.text).join("\n\n---\n\n")
+      : (params.content || null);
+
+    const metadata: Record<string, any> = {
+      content_type: params.content_type || (isThread ? "thread" : null),
+      target_platforms: targetPlatforms,
+    };
+    if (normalizedThreadItems) metadata.thread_tweets = normalizedThreadItems;
+
     const { data, error } = await sb.from("planning_items").insert({
       client_id: params.client_id,
       workspace_id: params.workspace_id,
       title: params.title,
       description: params.description || null,
-      platform: params.platform || null,
-      content_type: params.content_type || null,
+      platform: params.platform || targetPlatforms[0] || null,
+      content_type: params.content_type || (isThread ? "thread" : null),
       status: params.status || "idea",
       scheduled_at: params.scheduled_at || null,
-      content: params.content || null,
+      content: fallbackContent,
       image_url: params.image_url || null,
       column_id: columnId,
+      metadata,
     }).select().single();
     if (error) return { content: [{ type: "text" as const, text: `Error: ${error.message}` }] };
-    return { content: [{ type: "text" as const, text: JSON.stringify({ success: true, item: data }, null, 2) }] };
+    return { content: [{ type: "text" as const, text: JSON.stringify({ success: true, item: data, is_thread: isThread, target_platforms: targetPlatforms }, null, 2) }] };
   },
 });
 
@@ -715,7 +754,7 @@ mcpServer.tool("create_viral_carousel", {
 });
 
 mcpServer.tool("publish_content", {
-  description: "Publish or schedule content to a connected social platform via Zernio (Late). Supports Instagram Stories, Reels (including TRIAL REELS shown only to non-followers), Carousels, Facebook Stories/Reels, plus collaborators and first comment. Use 'instagram_content_type' to choose feed/story/reel/carousel. Set 'instagram_trial_reel' to 'manual' or 'auto' to publish as a Trial Reel.",
+  description: "Publish or schedule content to a connected social platform via Zernio (Late). Supports: Instagram Stories/Reels (incl. TRIAL REELS shown only to non-followers)/Carousels, Facebook Stories/Reels, and THREADS for both X (Twitter) and Threads (Meta). For threads, set platform='twitter' or 'threads' and pass 'thread_items' (array of posts, each with text + own media_urls). To publish the same thread on BOTH X and Threads, call this tool TWICE — once per platform — with the same thread_items.",
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -738,6 +777,19 @@ mcpServer.tool("publish_content", {
       // Facebook-specific
       facebook_content_type: { type: "string", enum: ["feed", "story", "reel"], description: "Facebook only." },
       facebook_first_comment: { type: "string" },
+      // Thread-specific (X / Threads)
+      thread_items: {
+        type: "array",
+        description: "THREAD ONLY (platform=twitter or threads). Array of posts. Each is independent. Per-platform char limits: X=280, Threads=500. media_urls is per post.",
+        items: {
+          type: "object",
+          properties: {
+            text: { type: "string" },
+            media_urls: { type: "array", items: { type: "string" } },
+          },
+          required: ["text"],
+        },
+      },
     },
     required: ["client_id", "platform"],
   },
@@ -770,6 +822,13 @@ mcpServer.tool("publish_content", {
     };
     if (args.scheduled_for) body.scheduledFor = args.scheduled_for;
     if (Object.keys(platformOptions).length) body.platformOptions = platformOptions;
+    if (Array.isArray(args.thread_items) && args.thread_items.length > 0) {
+      body.threadItems = args.thread_items.map((t: any, i: number) => ({
+        id: t.id || `tw-${i}`,
+        text: String(t.text || ""),
+        media_urls: Array.isArray(t.media_urls) ? t.media_urls : [],
+      }));
+    }
 
     try {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/late-post`, {
