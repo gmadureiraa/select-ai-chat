@@ -450,6 +450,7 @@ export function PlanningItemDialog({
             content_type: contentType,
             target_platforms: selectedPlatforms,
             ...(isTwitterThread && { thread_tweets: threadTweets }),
+            platform_options: platformOptions,
           },
         };
         
