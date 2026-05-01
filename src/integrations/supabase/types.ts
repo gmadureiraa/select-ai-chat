@@ -3664,41 +3664,90 @@ export type Database = {
           },
         ]
       }
+      webhook_alert_preferences: {
+        Row: {
+          alerts_enabled: boolean
+          client_id: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          alerts_enabled?: boolean
+          client_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          alerts_enabled?: boolean
+          client_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_alert_preferences_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhook_events_log: {
         Row: {
+          client_id: string | null
           created_at: string
           error_message: string | null
           event_type: string
           id: string
+          is_test: boolean
           payload: Json | null
           processed_ok: boolean
           related_client_id: string | null
           related_planning_item_id: string | null
+          retry_count: number
           source: string
         }
         Insert: {
+          client_id?: string | null
           created_at?: string
           error_message?: string | null
           event_type: string
           id?: string
+          is_test?: boolean
           payload?: Json | null
           processed_ok?: boolean
           related_client_id?: string | null
           related_planning_item_id?: string | null
+          retry_count?: number
           source?: string
         }
         Update: {
+          client_id?: string | null
           created_at?: string
           error_message?: string | null
           event_type?: string
           id?: string
+          is_test?: boolean
           payload?: Json | null
           processed_ok?: boolean
           related_client_id?: string | null
           related_planning_item_id?: string | null
+          retry_count?: number
           source?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "webhook_events_log_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workspace_access_requests: {
         Row: {

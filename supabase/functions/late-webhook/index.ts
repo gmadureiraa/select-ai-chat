@@ -77,11 +77,30 @@ async function verifyWebhookSignature(req: Request): Promise<{ valid: boolean; b
   return { valid: true, body };
 }
 
+async function alertsEnabledForClient(
+  supabase: ReturnType<typeof createClient>,
+  clientId: string | null | undefined,
+): Promise<boolean> {
+  if (!clientId) return true;
+  const { data } = await supabase
+    .from("webhook_alert_preferences")
+    .select("alerts_enabled")
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (!data) return true; // default ON
+  return (data as { alerts_enabled: boolean }).alerts_enabled;
+}
+
 async function sendTelegram(
   supabase: ReturnType<typeof createClient>,
   text: string,
+  clientId?: string | null,
 ): Promise<void> {
   try {
+    if (!(await alertsEnabledForClient(supabase, clientId))) {
+      console.log("Alerts disabled for client", clientId, "— skipping Telegram");
+      return;
+    }
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const TELEGRAM_API_KEY = Deno.env.get("TELEGRAM_API_KEY");
     if (!LOVABLE_API_KEY || !TELEGRAM_API_KEY) {
@@ -215,6 +234,7 @@ serve(async (req: Request) => {
           `<b>Plataforma:</b> ${escapeHtml(platform)}\n` +
           (event.accountName ? `<b>Conta:</b> ${escapeHtml(event.accountName)}\n` : "") +
           `\n⚠️ Reconecte em <i>Cliente → Integrações</i> para retomar publicações.`,
+        affectedClientId,
       );
 
       await supabase.from("webhook_events_log").insert({
@@ -222,6 +242,8 @@ serve(async (req: Request) => {
         event_type: event.type,
         payload: rawPayload,
         related_client_id: affectedClientId,
+        client_id: affectedClientId,
+        processed_ok: true,
       });
 
       return new Response(JSON.stringify({ success: true, eventType: event.type }), {
@@ -349,6 +371,7 @@ serve(async (req: Request) => {
           `<b>Título:</b> ${escapeHtml(item.title || "—")}\n` +
           `<b>Erro:</b> <code>${escapeHtml(event.error || "Desconhecido")}</code>\n\n` +
           `Abra no kAI para revisar e republicar.`,
+        item.client_id,
       );
     }
 
@@ -396,6 +419,7 @@ serve(async (req: Request) => {
           `<b>Cliente:</b> ${escapeHtml(clientName)}\n` +
           `<b>Título:</b> ${escapeHtml(item.title || "—")}\n\n` +
           `<b>Falhou em:</b>\n<pre>${escapeHtml(failedList)}</pre>`,
+        item.client_id,
       );
     }
 
@@ -421,6 +445,7 @@ serve(async (req: Request) => {
           `<b>Cliente:</b> ${escapeHtml(clientName)}\n` +
           `<b>Plataforma:</b> ${escapeHtml(platformLabel)}\n` +
           `<b>Título:</b> ${escapeHtml(item.title || "—")}`,
+        item.client_id,
       );
     }
 
@@ -449,6 +474,7 @@ serve(async (req: Request) => {
       processed_ok: true,
       related_planning_item_id: item.id,
       related_client_id: item.client_id,
+      client_id: item.client_id,
     });
 
     return new Response(JSON.stringify({ success: true, eventType: event.type }), {
