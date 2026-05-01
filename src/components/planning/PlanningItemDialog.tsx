@@ -289,7 +289,7 @@ export function PlanningItemDialog({
       setSelectedPlatforms([]);
       setReferenceInput('');
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
-      
+      setPlatformOptions({});
     }
   }, [effectiveItem, item, defaultColumnId, defaultDate, defaultClientId, columns, open]);
 
