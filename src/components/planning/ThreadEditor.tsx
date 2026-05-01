@@ -139,7 +139,14 @@ export function ThreadEditor({
   return (
     <div className={cn("space-y-3 rounded-lg border border-border/40 p-4", className)}>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">Thread ({value.length} tweets)</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          Thread · {platformLabel} ({value.length} {value.length === 1 ? 'post' : 'posts'} · max {MAX_TWEET_LENGTH} chars)
+        </span>
+        {hasX && hasThreads && (
+          <span className="text-[10px] text-muted-foreground/70">
+            Limite 280 (X) — sobe igual nos dois
+          </span>
+        )}
       </div>
 
       <div className="space-y-2">
