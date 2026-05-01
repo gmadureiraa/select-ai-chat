@@ -6,8 +6,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-late-signature",
 };
 
+const TG_GATEWAY = "https://connector-gateway.lovable.dev/telegram";
+
 interface LateWebhookEvent {
-  type: 'post.published' | 'post.failed' | 'post.scheduled' | 'account.connected' | 'account.disconnected' | 'account.expired';
+  type:
+    | 'post.published'
+    | 'post.failed'
+    | 'post.scheduled'
+    | 'post.partial'
+    | 'post.cancelled'
+    | 'post.recycled'
+    | 'account.connected'
+    | 'account.disconnected'
+    | 'account.expired';
   postId?: string;
   accountId?: string;
   profileId?: string;
@@ -19,6 +30,14 @@ interface LateWebhookEvent {
   socialAccountId?: string;
   socialPlatform?: string;
   accountName?: string;
+  failedPlatforms?: Array<{ platform: string; error?: string }>;
+}
+
+function escapeHtml(text: string): string {
+  return (text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 async function verifyWebhookSignature(req: Request): Promise<{ valid: boolean; body: string }> {
@@ -27,19 +46,16 @@ async function verifyWebhookSignature(req: Request): Promise<{ valid: boolean; b
 
   const body = await req.text();
 
-  // If no secret is configured, reject all requests
   if (!secret) {
     console.error("LATE_WEBHOOK_SECRET not configured — rejecting webhook");
     return { valid: false, body };
   }
 
-  // If no signature provided, reject
   if (!signature) {
     console.error("Missing x-late-signature header");
     return { valid: false, body };
   }
 
-  // Verify HMAC-SHA256
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
@@ -61,67 +77,154 @@ async function verifyWebhookSignature(req: Request): Promise<{ valid: boolean; b
   return { valid: true, body };
 }
 
+async function sendTelegram(
+  supabase: ReturnType<typeof createClient>,
+  text: string,
+): Promise<void> {
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const TELEGRAM_API_KEY = Deno.env.get("TELEGRAM_API_KEY");
+    if (!LOVABLE_API_KEY || !TELEGRAM_API_KEY) {
+      console.warn("Telegram keys not configured, skipping notification");
+      return;
+    }
+
+    const { data: config } = await supabase
+      .from("telegram_bot_config")
+      .select("chat_id")
+      .eq("id", 1)
+      .single();
+
+    const chatId = (config as { chat_id?: number | string } | null)?.chat_id;
+    if (!chatId) {
+      console.warn("No telegram chat_id configured, skipping notification");
+      return;
+    }
+
+    const res = await fetch(`${TG_GATEWAY}/sendMessage`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "X-Connection-Api-Key": TELEGRAM_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+      }),
+    });
+
+    if (!res.ok) {
+      const data = await res.text();
+      console.error("Telegram send failed:", res.status, data);
+    }
+  } catch (e) {
+    console.error("Telegram notify error:", e);
+  }
+}
+
+async function getClientName(
+  supabase: ReturnType<typeof createClient>,
+  clientId: string | null | undefined,
+): Promise<string> {
+  if (!clientId) return "Cliente";
+  const { data } = await supabase
+    .from("clients")
+    .select("name")
+    .eq("id", clientId)
+    .single();
+  return (data as { name?: string } | null)?.name || "Cliente";
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+  let parsedEvent: LateWebhookEvent | null = null;
+  let rawPayload: unknown = null;
+
   try {
-    // Verify webhook signature before processing
     const { valid, body } = await verifyWebhookSignature(req);
     if (!valid) {
+      await supabase.from("webhook_events_log").insert({
+        source: "late",
+        event_type: "invalid_signature",
+        payload: { body_preview: body.substring(0, 500) },
+        processed_ok: false,
+        error_message: "Invalid or missing x-late-signature",
+      });
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-
-    // Parse webhook payload
     const event: LateWebhookEvent = JSON.parse(body);
-    
+    parsedEvent = event;
+    rawPayload = event;
+
     console.log("Late webhook received:", event.type);
 
-    // Handle account events first
-    if (event.type === 'account.disconnected' || event.type === 'account.expired') {
+    // ─────── ACCOUNT EVENTS ───────
+    if (event.type === "account.disconnected" || event.type === "account.expired") {
       const accountId = event.accountId || event.socialAccountId;
-      const platform = event.platform || event.socialPlatform;
-      
-      console.log("Account event:", event.type, { accountId, platform });
+      const platform = event.platform || event.socialPlatform || "rede social";
+
+      let affectedClientName = "um cliente";
+      let affectedClientId: string | null = null;
 
       if (accountId) {
-        const { data: credentials, error: findError } = await supabase
+        const { data: credentials } = await supabase
           .from("client_social_credentials")
-          .select("id, client_id, platform, metadata")
+          .select("id, client_id, platform")
           .or(`metadata->late_account_id.eq.${accountId},metadata->late_profile_id.eq.${accountId}`);
 
-        if (!findError && credentials && credentials.length > 0) {
-          for (const cred of credentials) {
-            if (event.type === 'account.disconnected') {
-              console.log("Deleting credential for disconnected account:", cred.id);
+        if (credentials && credentials.length > 0) {
+          for (const cred of credentials as Array<{ id: string; client_id: string; platform: string }>) {
+            if (event.type === "account.disconnected") {
               await supabase.from("client_social_credentials").delete().eq("id", cred.id);
-            } else if (event.type === 'account.expired') {
-              console.log("Marking credential as invalid for expired account:", cred.id);
+            } else {
               await supabase
                 .from("client_social_credentials")
-                .update({ 
-                  is_valid: false, 
+                .update({
+                  is_valid: false,
                   validation_error: "Conta expirada no Late API",
                   updated_at: new Date().toISOString(),
                 })
                 .eq("id", cred.id);
             }
+            affectedClientId = cred.client_id;
+            affectedClientName = await getClientName(supabase, cred.client_id);
           }
         }
       }
 
-      return new Response(JSON.stringify({ 
-        success: true,
-        eventType: event.type,
-      }), {
+      const emoji = event.type === "account.disconnected" ? "🔌" : "⏰";
+      const verb = event.type === "account.disconnected" ? "DESCONECTOU" : "EXPIROU";
+      await sendTelegram(
+        supabase,
+        `${emoji} <b>Conta ${verb}</b>\n\n` +
+          `<b>Cliente:</b> ${escapeHtml(affectedClientName)}\n` +
+          `<b>Plataforma:</b> ${escapeHtml(platform)}\n` +
+          (event.accountName ? `<b>Conta:</b> ${escapeHtml(event.accountName)}\n` : "") +
+          `\n⚠️ Reconecte em <i>Cliente → Integrações</i> para retomar publicações.`,
+      );
+
+      await supabase.from("webhook_events_log").insert({
+        source: "late",
+        event_type: event.type,
+        payload: rawPayload,
+        related_client_id: affectedClientId,
+      });
+
+      return new Response(JSON.stringify({ success: true, eventType: event.type }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -129,14 +232,19 @@ serve(async (req: Request) => {
 
     // For post events, postId is required
     if (!event.postId) {
-      console.log("No postId in event, skipping:", event.type);
+      await supabase.from("webhook_events_log").insert({
+        source: "late",
+        event_type: event.type,
+        payload: rawPayload,
+        processed_ok: true,
+        error_message: "skipped — no postId",
+      });
       return new Response(JSON.stringify({ success: true, message: "Event skipped - no postId" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Find planning item by external_post_id (Late post ID)
     const { data: planningItem, error: findError } = await supabase
       .from("planning_items")
       .select("*")
@@ -144,37 +252,39 @@ serve(async (req: Request) => {
       .single();
 
     if (findError || !planningItem) {
-      console.log("Planning item not found for postId:", event.postId);
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: "No matching planning item found" 
-      }), {
+      await supabase.from("webhook_events_log").insert({
+        source: "late",
+        event_type: event.type,
+        payload: rawPayload,
+        processed_ok: true,
+        error_message: "no matching planning item",
+      });
+      return new Response(JSON.stringify({ success: true, message: "No matching planning item found" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log("Found planning item:", planningItem.id);
+    const item = planningItem as Record<string, any>;
+    const clientName = await getClientName(supabase, item.client_id);
+    const platformLabel = item.platform || event.platform || "—";
 
-    // Handle different event types
-    if (event.type === 'post.published') {
-      const existingMetadata = (planningItem.metadata as Record<string, unknown>) || {};
-      
-      let publishedColumnId = planningItem.column_id;
-      if (planningItem.workspace_id) {
+    // ─────── post.published ───────
+    if (event.type === "post.published") {
+      const existingMetadata = (item.metadata as Record<string, unknown>) || {};
+
+      let publishedColumnId = item.column_id;
+      if (item.workspace_id) {
         const { data: publishedColumn } = await supabase
           .from("kanban_columns")
           .select("id")
-          .eq("workspace_id", planningItem.workspace_id)
+          .eq("workspace_id", item.workspace_id)
           .eq("column_type", "published")
           .single();
-        
-        if (publishedColumn) {
-          publishedColumnId = publishedColumn.id;
-        }
+        if (publishedColumn) publishedColumnId = (publishedColumn as { id: string }).id;
       }
-      
-      const { error: updateError } = await supabase
+
+      await supabase
         .from("planning_items")
         .update({
           status: "published",
@@ -189,70 +299,63 @@ serve(async (req: Request) => {
           },
           updated_at: new Date().toISOString(),
         })
-        .eq("id", planningItem.id);
+        .eq("id", item.id);
 
-      if (updateError) {
-        console.error("Error updating planning item:", updateError);
-        throw updateError;
-      }
-
-      // Add to content library if not already
-      if (!planningItem.added_to_library && planningItem.client_id) {
+      if (!item.added_to_library && item.client_id) {
         const contentTypeMap: Record<string, string> = {
-          twitter: 'tweet',
-          linkedin: 'linkedin_post',
-          instagram: 'instagram_post',
-          facebook: 'facebook_post',
-          tiktok: 'tiktok_video',
-          youtube: 'youtube_video',
-          threads: 'threads_post',
+          twitter: "tweet",
+          linkedin: "linkedin_post",
+          instagram: "instagram_post",
+          facebook: "facebook_post",
+          tiktok: "tiktok_video",
+          youtube: "youtube_video",
+          threads: "threads_post",
         };
 
-        await supabase
-          .from("client_content_library")
-          .insert({
-            client_id: planningItem.client_id,
-            title: (planningItem.content || planningItem.title || '').substring(0, 100),
-            content: planningItem.content || planningItem.title || '',
-            content_type: contentTypeMap[planningItem.platform || ''] || 'post',
-            content_url: event.platformPostUrl,
-            metadata: {
-              platform: planningItem.platform,
-              posted_at: event.timestamp || new Date().toISOString(),
-              late_post_id: event.postId,
-              via_webhook: true,
-            },
-          });
+        await supabase.from("client_content_library").insert({
+          client_id: item.client_id,
+          title: (item.content || item.title || "").substring(0, 100),
+          content: item.content || item.title || "",
+          content_type: contentTypeMap[item.platform || ""] || "post",
+          content_url: event.platformPostUrl,
+          metadata: {
+            platform: item.platform,
+            posted_at: event.timestamp || new Date().toISOString(),
+            late_post_id: event.postId,
+            via_webhook: true,
+          },
+        });
 
-        await supabase
-          .from("planning_items")
-          .update({ added_to_library: true })
-          .eq("id", planningItem.id);
+        await supabase.from("planning_items").update({ added_to_library: true }).eq("id", item.id);
       }
+    }
 
-      console.log("Planning item updated to published:", planningItem.id);
-
-    } else if (event.type === 'post.failed') {
-      const { error: updateError } = await supabase
+    // ─────── post.failed ───────
+    else if (event.type === "post.failed") {
+      await supabase
         .from("planning_items")
         .update({
           status: "failed",
           error_message: event.error || "Falha ao publicar automaticamente",
           updated_at: new Date().toISOString(),
         })
-        .eq("id", planningItem.id);
+        .eq("id", item.id);
 
-      if (updateError) {
-        console.error("Error updating planning item:", updateError);
-        throw updateError;
-      }
+      await sendTelegram(
+        supabase,
+        `🔴 <b>Falha ao publicar</b>\n\n` +
+          `<b>Cliente:</b> ${escapeHtml(clientName)}\n` +
+          `<b>Plataforma:</b> ${escapeHtml(platformLabel)}\n` +
+          `<b>Título:</b> ${escapeHtml(item.title || "—")}\n` +
+          `<b>Erro:</b> <code>${escapeHtml(event.error || "Desconhecido")}</code>\n\n` +
+          `Abra no kAI para revisar e republicar.`,
+      );
+    }
 
-      console.log("Planning item marked as failed:", planningItem.id);
-
-    } else if (event.type === 'post.scheduled') {
-      const existingMetadata = (planningItem.metadata as Record<string, unknown>) || {};
-      
-      const { error: updateError } = await supabase
+    // ─────── post.scheduled ───────
+    else if (event.type === "post.scheduled") {
+      const existingMetadata = (item.metadata as Record<string, unknown>) || {};
+      await supabase
         .from("planning_items")
         .update({
           status: "scheduled",
@@ -263,26 +366,108 @@ serve(async (req: Request) => {
           },
           updated_at: new Date().toISOString(),
         })
-        .eq("id", planningItem.id);
-
-      if (updateError) {
-        console.error("Error updating planning item:", updateError);
-        throw updateError;
-      }
-
-      console.log("Planning item confirmed as scheduled:", planningItem.id);
+        .eq("id", item.id);
     }
 
-    return new Response(JSON.stringify({ 
-      success: true,
-      eventType: event.type,
-    }), {
+    // ─────── post.partial ───────
+    else if (event.type === "post.partial") {
+      const existingMetadata = (item.metadata as Record<string, unknown>) || {};
+      await supabase
+        .from("planning_items")
+        .update({
+          status: "partial",
+          metadata: {
+            ...existingMetadata,
+            failed_platforms: event.failedPlatforms || [],
+            published_url: event.platformPostUrl,
+            partial_at: event.timestamp || new Date().toISOString(),
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.id);
+
+      const failedList = (event.failedPlatforms || [])
+        .map((f) => `• ${f.platform}${f.error ? ` — ${f.error}` : ""}`)
+        .join("\n") || "(plataformas não informadas)";
+
+      await sendTelegram(
+        supabase,
+        `🟡 <b>Publicação parcial</b>\n\n` +
+          `<b>Cliente:</b> ${escapeHtml(clientName)}\n` +
+          `<b>Título:</b> ${escapeHtml(item.title || "—")}\n\n` +
+          `<b>Falhou em:</b>\n<pre>${escapeHtml(failedList)}</pre>`,
+      );
+    }
+
+    // ─────── post.cancelled ───────
+    else if (event.type === "post.cancelled") {
+      const existingMetadata = (item.metadata as Record<string, unknown>) || {};
+      await supabase
+        .from("planning_items")
+        .update({
+          status: "cancelled",
+          metadata: {
+            ...existingMetadata,
+            cancelled_at: event.timestamp || new Date().toISOString(),
+            cancelled_via_webhook: true,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.id);
+
+      await sendTelegram(
+        supabase,
+        `🟡 <b>Post cancelado na Late</b>\n\n` +
+          `<b>Cliente:</b> ${escapeHtml(clientName)}\n` +
+          `<b>Plataforma:</b> ${escapeHtml(platformLabel)}\n` +
+          `<b>Título:</b> ${escapeHtml(item.title || "—")}`,
+      );
+    }
+
+    // ─────── post.recycled ───────
+    else if (event.type === "post.recycled") {
+      const existingMetadata = (item.metadata as Record<string, unknown>) || {};
+      await supabase
+        .from("planning_items")
+        .update({
+          metadata: {
+            ...existingMetadata,
+            recycled_at: event.timestamp || new Date().toISOString(),
+            recycled_post_id: event.platformPostId,
+            recycled_url: event.platformPostUrl,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.id);
+      // silencioso (sem Telegram)
+    }
+
+    await supabase.from("webhook_events_log").insert({
+      source: "late",
+      event_type: event.type,
+      payload: rawPayload,
+      processed_ok: true,
+      related_planning_item_id: item.id,
+      related_client_id: item.client_id,
+    });
+
+    return new Response(JSON.stringify({ success: true, eventType: event.type }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error) {
     console.error("Erro em late-webhook:", error);
+    try {
+      await supabase.from("webhook_events_log").insert({
+        source: "late",
+        event_type: parsedEvent?.type || "unknown",
+        payload: rawPayload,
+        processed_ok: false,
+        error_message: error instanceof Error ? error.message : String(error),
+      });
+    } catch (_) {
+      /* ignore */
+    }
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import Documentation from "@/pages/Documentation";
 import { AIUsageSettings } from "@/components/settings/AIUsageSettings";
+import { WebhookSettings } from "@/components/settings/WebhookSettings";
 
 export function SettingsTab() {
   const { user, signOut } = useAuth();
@@ -42,7 +43,7 @@ export function SettingsTab() {
   
   // Initialize section from URL section parameter
   const sectionParam = searchParams.get("section");
-  const validSections: SettingsSection[] = ["profile", "team", "notifications", "appearance", "docs", "ai-usage"];
+  const validSections: SettingsSection[] = ["profile", "team", "notifications", "appearance", "docs", "ai-usage", "webhooks"];
   const initialSection = validSections.includes(sectionParam as SettingsSection) 
     ? (sectionParam as SettingsSection) 
     : "profile";
@@ -336,6 +337,8 @@ export function SettingsTab() {
         return <Documentation />;
       case "ai-usage":
         return <AIUsageSettings />;
+      case "webhooks":
+        return <WebhookSettings />;
       default:
         return renderProfileSection();
     }

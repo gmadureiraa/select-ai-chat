@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { User, Users, Palette, Bell, BookOpen, Activity } from "lucide-react";
+import { User, Users, Palette, Bell, BookOpen, Activity, Webhook } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
-export type SettingsSection = "profile" | "team" | "notifications" | "appearance" | "docs" | "ai-usage";
+export type SettingsSection = "profile" | "team" | "notifications" | "appearance" | "docs" | "ai-usage" | "webhooks";
 
 interface SettingsNavigationProps {
   activeSection: SettingsSection;
@@ -15,6 +15,7 @@ const sections = [
   { id: "profile" as const, label: "Perfil", icon: User },
   { id: "team" as const, label: "Time", icon: Users, requiresPermission: "team" },
   { id: "notifications" as const, label: "Notificações", icon: Bell },
+  { id: "webhooks" as const, label: "Webhooks", icon: Webhook },
   { id: "appearance" as const, label: "Aparência", icon: Palette },
   { id: "docs" as const, label: "Documentação", icon: BookOpen },
   { id: "ai-usage" as const, label: "Uso de IA", icon: Activity },
