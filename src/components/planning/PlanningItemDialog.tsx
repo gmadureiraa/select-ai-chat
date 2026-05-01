@@ -168,8 +168,13 @@ export function PlanningItemDialog({
   
   // Auto-set default platform when content type changes
   useEffect(() => {
-    if (platform && selectedPlatforms.length === 0) {
-      setSelectedPlatforms([platform]);
+    if (selectedPlatforms.length === 0) {
+      // Thread: paridade automática X + Threads
+      if (contentType === 'thread') {
+        setSelectedPlatforms(['twitter', 'threads']);
+      } else if (platform) {
+        setSelectedPlatforms([platform]);
+      }
     }
   }, [contentType]);
 
