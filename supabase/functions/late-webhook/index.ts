@@ -41,7 +41,11 @@ function escapeHtml(text: string): string {
 }
 
 async function verifyWebhookSignature(req: Request): Promise<{ valid: boolean; body: string }> {
-  const signature = req.headers.get("x-late-signature");
+  // Aceita assinatura tanto do Late (x-late-signature) quanto do Zernio (x-zernio-signature)
+  const signature =
+    req.headers.get("x-late-signature") ||
+    req.headers.get("x-zernio-signature") ||
+    req.headers.get("x-webhook-signature");
   const secret = Deno.env.get("LATE_WEBHOOK_SECRET");
 
   const body = await req.text();
