@@ -486,6 +486,7 @@ export function PlanningItemDialog({
               mediaUrls: mediaItems.map(m => m.url),
               planningItemId: itemId,
               threadItems: isTwitterThread ? threadTweets : undefined,
+              platformOptions,
               ...(willSchedule && finalScheduledAt
                 ? { scheduledFor: finalScheduledAt.toISOString(), publishNow: false }
                 : {}),
