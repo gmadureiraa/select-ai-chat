@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, Instagram, Mail, Twitter, Megaphone, Linkedin, RefreshCw } from "lucide-react";
+import { Eye, Instagram, Mail, Twitter, Megaphone, Linkedin } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { useYouTubeVideos } from "@/hooks/useYouTubeMetrics";
@@ -14,10 +14,7 @@ import { LinkedInDashboard } from "@/components/performance/LinkedInDashboard";
 import { MetaAdsDashboard } from "@/components/performance/MetaAdsDashboard";
 import { Client } from "@/hooks/useClients";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { useSyncLateMetrics } from "@/hooks/useSyncLateMetrics";
-import { AutoSyncStatus } from "@/components/performance/AutoSyncStatus";
-import { cn } from "@/lib/utils";
+import { PlatformSyncButton, type SyncPlatform } from "@/components/performance/PlatformSyncButton";
 
 interface KaiPerformanceTabProps {
   clientId: string;
