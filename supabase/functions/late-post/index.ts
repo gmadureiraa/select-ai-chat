@@ -115,17 +115,30 @@ serve(async (req: Request) => {
     // Use service role for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    const { 
-      clientId, 
-      platform, 
-      content, 
-      mediaUrls, 
+    const {
+      clientId,
+      platform,
+      content,
+      mediaUrls,
       mediaItems: inputMediaItems,
       threadItems,
-      planningItemId, 
-      scheduledFor, 
-      publishNow = true 
+      planningItemId,
+      scheduledFor,
+      publishNow = true,
+      platformOptions,
     }: PostRequest = await req.json();
+
+    // Resolve per-platform options (caption override applies before length validation/truncation)
+    const igOpts: InstagramOptions = platformOptions?.instagram || {};
+    const fbOpts: FacebookOptions = platformOptions?.facebook || {};
+    let resolvedContent = content;
+    if (platform === 'instagram' && igOpts.customCaption?.trim()) {
+      resolvedContent = igOpts.customCaption;
+    } else if (platform === 'facebook' && fbOpts.customCaption?.trim()) {
+      resolvedContent = fbOpts.customCaption;
+    }
+    // Overwrite the local "content" reference for the rest of the function
+    // (kept readable: assign back via a let-bound shadow below)
 
     // === INPUT VALIDATION ===
     
