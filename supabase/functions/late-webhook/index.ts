@@ -234,6 +234,7 @@ serve(async (req: Request) => {
           `<b>Plataforma:</b> ${escapeHtml(platform)}\n` +
           (event.accountName ? `<b>Conta:</b> ${escapeHtml(event.accountName)}\n` : "") +
           `\n⚠️ Reconecte em <i>Cliente → Integrações</i> para retomar publicações.`,
+        affectedClientId,
       );
 
       await supabase.from("webhook_events_log").insert({
@@ -241,6 +242,8 @@ serve(async (req: Request) => {
         event_type: event.type,
         payload: rawPayload,
         related_client_id: affectedClientId,
+        client_id: affectedClientId,
+        processed_ok: true,
       });
 
       return new Response(JSON.stringify({ success: true, eventType: event.type }), {
