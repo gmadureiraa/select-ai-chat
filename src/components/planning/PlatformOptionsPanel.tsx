@@ -19,6 +19,8 @@ export interface InstagramOptions {
   collaborators?: string[];
   firstComment?: string;
   instagramThumbnail?: string;
+  thumbOffset?: number;
+  audioName?: string;
   customCaption?: string;
 }
 
@@ -52,6 +54,22 @@ const FB_TYPES: { value: FBContentType; label: string; emoji: string }[] = [
   { value: 'story', label: 'Story', emoji: '⭕' },
   { value: 'reel', label: 'Reel', emoji: '🎬' },
 ];
+
+function buildZernioPreview(ig: InstagramOptions): Record<string, unknown> {
+  const data: Record<string, unknown> = { contentType: 'reels' };
+  data.shareToFeed = ig.shareToFeed !== false;
+  if (ig.trialReel && ig.trialReel !== 'off') {
+    data.trialParams = {
+      graduationStrategy: ig.trialReel === 'auto' ? 'SS_PERFORMANCE' : 'MANUAL',
+    };
+  }
+  if (ig.instagramThumbnail) data.instagramThumbnail = ig.instagramThumbnail;
+  else if (typeof ig.thumbOffset === 'number') data.thumbOffset = ig.thumbOffset;
+  if (ig.audioName) data.audioName = ig.audioName;
+  if (ig.collaborators?.length) data.collaborators = ig.collaborators.slice(0, 3);
+  if (ig.firstComment?.trim()) data.firstComment = ig.firstComment.trim();
+  return data;
+}
 
 export function PlatformOptionsPanel({ selectedPlatforms, value, onChange, hasMultipleMedia }: Props) {
   const showIG = selectedPlatforms.includes('instagram');
@@ -149,13 +167,53 @@ export function PlatformOptionsPanel({ selectedPlatforms, value, onChange, hasMu
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-[11px]">Capa do Reel (URL)</Label>
+                <Label className="text-[11px]">Capa do Reel (URL JPEG/PNG, 1080x1920)</Label>
                 <Input
                   value={ig.instagramThumbnail || ''}
-                  onChange={(e) => setIG({ instagramThumbnail: e.target.value })}
-                  placeholder="https://… (JPEG/PNG, 1080x1920)"
+                  onChange={(e) => setIG({ instagramThumbnail: e.target.value, thumbOffset: undefined })}
+                  placeholder="https://…"
                   className="h-8 text-xs"
                 />
+              </div>
+
+              {!ig.instagramThumbnail && (
+                <div className="space-y-1.5">
+                  <Label className="text-[11px]">…ou Thumb Offset (segundos do vídeo)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    value={ig.thumbOffset ?? ''}
+                    onChange={(e) => setIG({ thumbOffset: e.target.value === '' ? undefined : Number(e.target.value) })}
+                    placeholder="Ex: 1.5"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Nome do áudio (Instagram Reels)</Label>
+                <Input
+                  value={ig.audioName || ''}
+                  onChange={(e) => setIG({ audioName: e.target.value })}
+                  placeholder="Ex: Madureira Original Sound"
+                  className="h-8 text-xs"
+                />
+              </div>
+
+              {/* Live preview do payload Zernio */}
+              <div className="rounded-md bg-muted/40 border border-border/40 p-2 space-y-1">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                  Prévia do envio (Zernio)
+                </div>
+                <pre className="text-[10px] leading-snug font-mono whitespace-pre-wrap text-foreground/80">
+{JSON.stringify(buildZernioPreview(ig), null, 2)}
+                </pre>
+                {ig.trialReel && ig.trialReel !== 'off' && (
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-tight pt-1">
+                    🧪 Trial Reel ativo — só será exibido para não-seguidores.
+                  </p>
+                )}
               </div>
             </div>
           )}

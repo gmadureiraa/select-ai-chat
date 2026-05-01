@@ -732,6 +732,8 @@ mcpServer.tool("publish_content", {
       instagram_collaborators: { type: "array", items: { type: "string" }, description: "Up to 3 IG usernames (Business/Creator). Not for Stories." },
       instagram_first_comment: { type: "string", description: "Auto-posted as first comment. Not for Stories." },
       instagram_thumbnail_url: { type: "string", description: "Custom Reel cover (JPEG/PNG, 1080x1920)." },
+      instagram_thumb_offset: { type: "number", description: "Reels only. Seconds offset into the video to use as cover (alternative to thumbnail_url)." },
+      instagram_audio_name: { type: "string", description: "Reels only. Custom audio/track display name." },
       instagram_caption_override: { type: "string", description: "Override the caption just for Instagram." },
       // Facebook-specific
       facebook_content_type: { type: "string", enum: ["feed", "story", "reel"], description: "Facebook only." },
@@ -748,6 +750,8 @@ mcpServer.tool("publish_content", {
     if (Array.isArray(args.instagram_collaborators)) ig.collaborators = args.instagram_collaborators;
     if (args.instagram_first_comment) ig.firstComment = args.instagram_first_comment;
     if (args.instagram_thumbnail_url) ig.instagramThumbnail = args.instagram_thumbnail_url;
+    if (typeof args.instagram_thumb_offset === "number") ig.thumbOffset = args.instagram_thumb_offset;
+    if (args.instagram_audio_name) ig.audioName = args.instagram_audio_name;
     if (args.instagram_caption_override) ig.customCaption = args.instagram_caption_override;
     if (Object.keys(ig).length) platformOptions.instagram = ig;
 
