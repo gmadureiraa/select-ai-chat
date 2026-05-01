@@ -328,45 +328,53 @@ Cena 2 (15-30s):
 `,
 
   thread: `
-## REGRAS OBRIGATÓRIAS PARA THREAD
+## REGRAS OBRIGATÓRIAS PARA THREAD (X / Twitter / Threads)
 
-### ESTRUTURA
-- **Tweet 1**: Gancho irresistível que promete valor
-- **Tweets 2-9**: Uma ideia por tweet, máximo 280 caracteres
-- **Tweet final**: CTA + resumo do valor entregue
+### ENTREGA EM JSON ESTRUTURADO (PREFERIDO)
+Sempre que possível, devolva a thread como um array \`thread_items\`. Cada item é um post separado com mídia própria.
 
-### FORMATO DE ENTREGA
-\`\`\`
-Tweet 1/10:
-[Gancho prometendo o que a pessoa vai aprender/ganhar]
-
-Tweet 2/10:
-[Primeiro ponto - uma ideia]
-
-[...]
-
-Tweet 10/10:
-[CTA: Curta, salve, siga para mais]
+\`\`\`json
+{
+  "thread_items": [
+    { "text": "Gancho do post 1 (≤280 chars)", "media_urls": ["https://.../img1.jpg"] },
+    { "text": "Post 2 — uma ideia (≤280)", "media_urls": [] },
+    { "text": "Post 3 — exemplo concreto", "media_urls": ["https://.../img3.jpg", "https://.../img3b.jpg"] },
+    { "text": "Post final com CTA", "media_urls": [] }
+  ]
+}
 \`\`\`
 
-### REGRA DE EMOJI (CRÍTICO)
-- **PADRÃO**: ZERO emojis no corpo dos tweets
-- **EXCEÇÃO**: máximo 1 emoji no tweet final (CTA), SE relevante
-- **NA DÚVIDA**: NÃO use emoji
-- **PROIBIDO**: Emojis decorativos (💡🔥✨🚀💰📈💼🎯 etc.)
+REGRAS DO ARRAY:
+- Cada \`text\` é UM post independente. Quebra de linha (\\n) é permitida DENTRO do mesmo post — não use \\n para criar um post novo.
+- \`media_urls\` é por post. Pode ter 0–4 imagens. Cada post tem suas próprias imagens.
+- Se for X + Threads juntos: respeite 280 chars (limite menor) em cada \`text\`.
+- Se for SÓ Threads: até 500 chars por \`text\`.
+- Mínimo 2 posts, ideal 5–10, máximo 25.
+
+### ESTRUTURA NARRATIVA
+- **Post 1**: Gancho irresistível que promete valor + (opcional) imagem-capa.
+- **Posts 2 a N-1**: Uma ideia por post. Pode anexar imagem/print/screenshot que ilustra exatamente AQUELE ponto.
+- **Post final**: CTA + resumo do valor entregue.
+
+### REGRA DE EMOJI E HASHTAG (CRÍTICO)
+- **PADRÃO**: ZERO emojis no corpo dos posts.
+- **EXCEÇÃO**: máximo 1 emoji no post final (CTA), se relevante.
+- **PROIBIDO**: hashtags em qualquer post. Nunca use.
 
 ### PROIBIÇÕES ABSOLUTAS
-- ❌ Tweets que excedem 280 caracteres
-- ❌ Múltiplas ideias no mesmo tweet
-- ❌ Ganchos vagos
-- ❌ Emojis decorativos no corpo (💡🔥✨🚀💰📈💼🎯)
-- ❌ HASHTAGS (nunca use)
+- ❌ Posts que excedem o limite de chars da plataforma-alvo.
+- ❌ Múltiplas ideias no mesmo post.
+- ❌ Ganchos vagos ou genéricos ("Bora pra thread!", "Segue o fio…").
+- ❌ Numeração tipo "1/10" no texto — a UI já mostra a posição.
+- ❌ Devolver tudo num bloco só com "---" como separador (use o array).
 
 ### TÉCNICAS QUE FUNCIONAM
-- ✅ Numerar os tweets (1/10, 2/10...)
-- ✅ Conectores entre tweets ("Mas tem mais...")
-- ✅ Listas dentro dos tweets
+- ✅ Conectores entre posts ("Mas tem mais...", "E é aí que vira jogo:")
+- ✅ Listas dentro de UM post quando a ideia pede.
+- ✅ Imagem específica no post que precisa de prova visual (print, gráfico, antes/depois).
+- ✅ Capa no post 1 e nada nos meios quando o foco for texto puro.
 `,
+
 
   linkedin: `
 ## REGRAS OBRIGATÓRIAS PARA POST LINKEDIN
