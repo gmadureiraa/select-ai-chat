@@ -271,6 +271,7 @@ export function PlanningItemDialog({
       } else {
         setThreadTweets([{ id: 'tweet-1', text: effectiveItem.content || '', media_urls: [] }]);
       }
+      setPlatformOptions((metadata.platform_options as PlatformOptionsState) || {});
     } else if (!item) {
       // Only reset when there's no item at all (new card)
       setTitle('');
