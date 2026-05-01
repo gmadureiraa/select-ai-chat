@@ -379,6 +379,7 @@ export function PlanningItemDialog({
                 threadItems: isTwitterThread ? threadTweets : undefined,
                 scheduledFor: finalScheduledAt.toISOString(),
                 publishNow: false,
+                platformOptions,
               }
             );
           }
