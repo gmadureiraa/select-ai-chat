@@ -340,6 +340,7 @@ export function PlanningItemDialog({
           content_type: contentType,
           target_platforms: selectedPlatforms,
           ...(isTwitterThread && { thread_tweets: threadTweets }),
+          platform_options: platformOptions,
         },
         recurrence_type: recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null,
         recurrence_days: recurrenceConfig.days.length > 0 ? recurrenceConfig.days : null,
