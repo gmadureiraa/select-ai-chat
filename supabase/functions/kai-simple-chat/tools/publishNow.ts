@@ -187,6 +187,7 @@ export const publishNowTool: RegisteredTool<PublishNowArgs, PublishNowData> = {
             mediaUrls,
             planningItemId: item.id,
             publishNow: true,
+            platformOptions: (item.metadata as Record<string, unknown> | null)?.platform_options,
           }),
         },
       );
