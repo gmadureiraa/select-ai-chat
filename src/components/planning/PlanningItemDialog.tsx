@@ -673,6 +673,7 @@ export function PlanningItemDialog({
                     value={threadTweets}
                     onChange={setThreadTweets}
                     clientId={selectedClientId}
+                    targetPlatforms={selectedPlatforms}
                   />
                 ) : (
                   <RichContentEditor
