@@ -16,6 +16,7 @@ import {
   Home,
   Flame,
   Twitter,
+  Terminal,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
 import { cn } from "@/lib/utils";
@@ -374,6 +375,21 @@ export function KaiSidebar({
 
       {/* Footer */}
       <div className={cn("p-2 space-y-1", collapsed && "p-1.5")}>
+        {/* MCP Docs */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onTabChange("mcp")}
+          className={cn(
+            "w-full flex items-center gap-3 justify-start text-muted-foreground hover:text-foreground",
+            activeTab === "mcp" && "bg-accent text-foreground",
+            collapsed && "justify-center px-2"
+          )}
+        >
+          <Terminal className="h-4 w-4" strokeWidth={1.5} />
+          {!collapsed && <span className="text-sm">MCP kAI</span>}
+        </Button>
+
         {/* Settings */}
         {canViewSettings && (
           <Button
