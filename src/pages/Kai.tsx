@@ -9,6 +9,7 @@ import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 import { KaiAnalyticsTab } from "@/components/kai/KaiAnalyticsTab";
 import { ViralHunterTab } from "@/components/kai/ViralHunterTab";
 import { ViralSequenceTab } from "@/components/kai/ViralSequenceTab";
+import { MCPDocsTab } from "@/components/kai/MCPDocsTab";
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
 import { SettingsTab } from "@/components/settings/SettingsTab";
@@ -155,10 +156,12 @@ export default function Kai() {
 
     // Tools that don't need client (ou que precisam mas tem fallback interno).
     // "viral" e "sequence" renderizam tabs customizadas no switch abaixo.
-    const toolTabs = ["clients", "settings", "automations", "assistant", "analytics", "home", "viral", "sequence"];
+    const toolTabs = ["clients", "settings", "automations", "assistant", "analytics", "home", "viral", "sequence", "mcp"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
+        case "mcp":
+          return <MCPDocsTab />;
         case "home":
           return (
             <HomeDashboard 
