@@ -201,7 +201,7 @@ serve(async (req) => {
       .select("platform, handle").eq("client_id", clientId).limit(20);
 
     // Insert pending
-    const briefNiche = niche || (client.industry ?? "general");
+    const briefNiche = niche || inferredIndustry || "general";
     const { data: brief, error: insertErr } = await admin
       .from("viral_radar_briefs")
       .insert({
