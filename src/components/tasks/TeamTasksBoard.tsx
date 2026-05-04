@@ -73,6 +73,22 @@ export function TeamTasksBoard({ defaultClientId }: { defaultClientId?: string |
 
   const { tasks, isLoading, updateTask } = useTeamTasks({});
 
+  // Auto-open task from ?openTask=<id> (e.g. notification click)
+  useEffect(() => {
+    if (typeof window === "undefined" || !tasks.length) return;
+    const params = new URLSearchParams(window.location.search);
+    const openId = params.get("openTask");
+    if (!openId) return;
+    const t = tasks.find((x) => x.id === openId);
+    if (t) {
+      setEditingTask(t);
+      setDialogOpen(true);
+      params.delete("openTask");
+      const qs = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
+  }, [tasks]);
+
   const memberMap = useMemo(() => {
     const map: Record<string, { name: string; initials: string }> = {};
     members.forEach((m: any) => {
