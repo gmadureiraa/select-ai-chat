@@ -142,6 +142,41 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
         </SelectContent>
       </Select>
 
+      <Select
+        value={filters.assignedTo || 'all'}
+        onValueChange={(v) => onChange({ ...filters, assignedTo: v === 'all' ? undefined : v })}
+      >
+        <SelectTrigger className={cn(
+          "h-7 text-xs border-0 bg-transparent hover:bg-muted/50 focus:ring-0 focus:ring-offset-0 rounded-md",
+          filters.assignedTo && "text-foreground bg-muted/50",
+          inSheet ? "w-full border" : "w-[120px]"
+        )}>
+          <SelectValue placeholder="Responsável" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos</SelectItem>
+          {user?.id && (
+            <SelectItem value={user.id}>👤 Minhas tarefas</SelectItem>
+          )}
+          {members?.filter(m => m.user_id !== user?.id).map(m => (
+            <SelectItem key={m.user_id} value={m.user_id}>
+              {m.profile?.full_name || m.profile?.email || 'Membro'}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {user?.id && !inSheet && (
+        <Button
+          variant={isMineActive ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => onChange({ ...filters, assignedTo: isMineActive ? undefined : user.id })}
+          className="h-7 px-2 text-xs rounded-md"
+        >
+          Minhas
+        </Button>
+      )}
+
       {hasActiveFilters && (
         <Button 
           variant="ghost" 
