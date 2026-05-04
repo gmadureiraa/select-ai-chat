@@ -367,6 +367,53 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
     }
   });
 
+  // Reorder items in batch (drag & drop with @dnd-kit)
+  const reorderItems = useMutation({
+    mutationFn: async (updates: Array<{ id: string; column_id: string; position: number; status?: PlanningStatus }>) => {
+      // Run in parallel
+      const results = await Promise.all(
+        updates.map(u => {
+          const payload: Record<string, unknown> = {
+            column_id: u.column_id,
+            position: u.position,
+          };
+          if (u.status) payload.status = u.status;
+          return supabase.from('planning_items').update(payload).eq('id', u.id);
+        })
+      );
+      const firstError = results.find(r => r.error);
+      if (firstError?.error) throw firstError.error;
+    },
+    onMutate: async (updates) => {
+      await queryClient.cancelQueries({ queryKey: ['planning-items', workspaceId] });
+      const previous = queryClient.getQueryData<PlanningItem[]>(['planning-items', workspaceId]);
+      if (previous) {
+        const updateMap = new Map(updates.map(u => [u.id, u]));
+        const optimistic = previous.map(item => {
+          const u = updateMap.get(item.id);
+          if (!u) return item;
+          return {
+            ...item,
+            column_id: u.column_id,
+            position: u.position,
+            status: u.status ?? item.status,
+          };
+        });
+        queryClient.setQueryData(['planning-items', workspaceId], optimistic);
+      }
+      return { previous };
+    },
+    onError: (error, _vars, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(['planning-items', workspaceId], ctx.previous);
+      }
+      toast.error('Erro ao reordenar: ' + (error as Error).message);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
+    },
+  });
+
   // Move to library
   const moveToLibrary = useMutation({
     mutationFn: async (itemId: string) => {
@@ -488,6 +535,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
     updateItem,
     deleteItem,
     moveToColumn,
+    reorderItems,
     moveToLibrary,
     scheduleItem,
     retryPublication,

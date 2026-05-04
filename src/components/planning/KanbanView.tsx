@@ -1,9 +1,23 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { VirtualizedKanbanColumn } from './VirtualizedKanbanColumn';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import type { PlanningItem, KanbanColumn } from '@/hooks/usePlanningItems';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+  type DragStartEvent,
+  type DragOverEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { PlanningItemCard } from './PlanningItemCard';
+import type { PlanningItem, KanbanColumn, PlanningStatus } from '@/hooks/usePlanningItems';
 import type { ViewSettings } from './ViewSettingsPopover';
 
 interface KanbanViewProps {
@@ -14,12 +28,24 @@ interface KanbanViewProps {
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
   onDuplicate: (item: PlanningItem) => void;
+  /** Legacy: cross-column move with status update */
   onMoveItem: (itemId: string, columnId: string, position: number) => void;
+  /** New: batch reorder for drag & drop (preferred when provided) */
+  onReorder?: (updates: Array<{ id: string; column_id: string; position: number; status?: PlanningStatus }>) => void;
   onAddCard: (columnId: string) => void;
   canDelete?: boolean;
   viewSettings?: ViewSettings;
   memberMap?: Record<string, { name: string; initials: string }>;
 }
+
+const STATUS_MAP: Record<string, PlanningStatus> = {
+  idea: 'idea',
+  draft: 'draft',
+  review: 'review',
+  approved: 'approved',
+  scheduled: 'scheduled',
+  published: 'published',
+};
 
 export function KanbanView({
   columns,
@@ -30,113 +56,233 @@ export function KanbanView({
   onRetry,
   onDuplicate,
   onMoveItem,
+  onReorder,
   onAddCard,
   canDelete = true,
   viewSettings,
   memberMap,
 }: KanbanViewProps) {
   const isMobile = useIsMobile();
-  const [draggedItem, setDraggedItem] = useState<PlanningItem | null>(null);
-  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [activeItem, setActiveItem] = useState<PlanningItem | null>(null);
   const [containerHeight, setContainerHeight] = useState(500);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Calculate container height for virtualization
+  // Local optimistic columns map (so cards appear to move while dragging)
+  const [localColumnsMap, setLocalColumnsMap] = useState<Record<string, PlanningItem[]> | null>(null);
+
+  const baseColumnsMap = useMemo(() => {
+    const map: Record<string, PlanningItem[]> = {};
+    for (const col of columns) {
+      map[col.id] = getItemsByColumn(col.id);
+    }
+    return map;
+  }, [columns, getItemsByColumn]);
+
+  const columnsMap = localColumnsMap ?? baseColumnsMap;
+
+  // Index: itemId -> columnId
+  const itemColumnIndex = useMemo(() => {
+    const idx: Record<string, string> = {};
+    for (const colId in columnsMap) {
+      for (const item of columnsMap[colId]) idx[item.id] = colId;
+    }
+    return idx;
+  }, [columnsMap]);
+
   useEffect(() => {
     const updateHeight = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        // Account for padding and scroll area chrome
         const availableHeight = window.innerHeight - rect.top - 40;
         setContainerHeight(Math.max(400, availableHeight));
       }
     };
-
     updateHeight();
     window.addEventListener('resize', updateHeight);
     return () => window.removeEventListener('resize', updateHeight);
   }, []);
 
-  const handleDragStart = useCallback((e: React.DragEvent, item: PlanningItem) => {
-    setDraggedItem(item);
-    e.dataTransfer.effectAllowed = 'move';
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.style.opacity = '0.5';
-    }
-  }, []);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
-  const handleDragEnd = useCallback((e: React.DragEvent) => {
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.style.opacity = '1';
-    }
-    setDraggedItem(null);
-    setDragOverColumn(null);
-  }, []);
+  const findColumnIdOf = useCallback(
+    (id: string): string | null => {
+      if (columnsMap[id]) return id; // dropped on column itself
+      return itemColumnIndex[id] ?? null;
+    },
+    [columnsMap, itemColumnIndex],
+  );
 
-  const handleDragOver = useCallback((e: React.DragEvent, columnId: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverColumn(columnId);
-  }, []);
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const id = String(event.active.id);
+    const colId = itemColumnIndex[id];
+    const item = colId ? columnsMap[colId].find(i => i.id === id) : null;
+    setActiveItem(item ?? null);
+  }, [columnsMap, itemColumnIndex]);
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    const relatedTarget = e.relatedTarget as HTMLElement;
-    if (!relatedTarget?.closest('[data-column-id]')) {
-      setDragOverColumn(null);
-    }
-  }, []);
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    if (activeId === overId) return;
 
-  const handleDrop = useCallback((e: React.DragEvent, columnId: string) => {
-    e.preventDefault();
-    setDragOverColumn(null);
-    
-    if (draggedItem && draggedItem.column_id !== columnId) {
-      const columnItems = getItemsByColumn(columnId);
-      const newPosition = columnItems.length;
-      onMoveItem(draggedItem.id, columnId, newPosition);
+    const activeCol = findColumnIdOf(activeId);
+    const overCol = findColumnIdOf(overId);
+    if (!activeCol || !overCol) return;
+    if (activeCol === overCol) return;
+
+    setLocalColumnsMap(prev => {
+      const base = prev ?? baseColumnsMap;
+      const activeItems = [...(base[activeCol] ?? [])];
+      const overItems = [...(base[overCol] ?? [])];
+      const activeIdx = activeItems.findIndex(i => i.id === activeId);
+      if (activeIdx === -1) return prev;
+      const [moved] = activeItems.splice(activeIdx, 1);
+
+      // Insert at the position of `over` if it's a card; otherwise at end
+      const overIdx = overItems.findIndex(i => i.id === overId);
+      const insertAt = overIdx === -1 ? overItems.length : overIdx;
+      overItems.splice(insertAt, 0, { ...moved, column_id: overCol });
+
+      return {
+        ...base,
+        [activeCol]: activeItems,
+        [overCol]: overItems,
+      };
+    });
+  }, [baseColumnsMap, findColumnIdOf]);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveItem(null);
+    if (!over) {
+      setLocalColumnsMap(null);
+      return;
     }
-    setDraggedItem(null);
-  }, [draggedItem, getItemsByColumn, onMoveItem]);
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    // Resolve final state from local (already updated in dragOver) or base
+    const finalMap = localColumnsMap ?? baseColumnsMap;
+    const sourceCol = findColumnIdOf(activeId);
+    if (!sourceCol) {
+      setLocalColumnsMap(null);
+      return;
+    }
+
+    // Reorder within the resolved source column if dropping over a sibling card
+    let workingMap = finalMap;
+    const sameColOver = workingMap[sourceCol]?.some(i => i.id === overId);
+    if (sameColOver && activeId !== overId) {
+      const list = [...workingMap[sourceCol]];
+      const fromIdx = list.findIndex(i => i.id === activeId);
+      const toIdx = list.findIndex(i => i.id === overId);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const [moved] = list.splice(fromIdx, 1);
+        list.splice(toIdx, 0, moved);
+        workingMap = { ...workingMap, [sourceCol]: list };
+      }
+    }
+
+    // Compute diffs vs base
+    const updates: Array<{ id: string; column_id: string; position: number; status?: PlanningStatus }> = [];
+    for (const colId in workingMap) {
+      const column = columns.find(c => c.id === colId);
+      const newStatus = column?.column_type ? STATUS_MAP[column.column_type] : undefined;
+      workingMap[colId].forEach((item, idx) => {
+        const baseItem = baseColumnsMap[item.id ? itemColumnIndex[item.id] : '']?.find(i => i.id === item.id);
+        const movedColumn = baseItem?.column_id !== colId;
+        const movedPosition = baseItem?.position !== idx;
+        if (movedColumn || movedPosition) {
+          updates.push({
+            id: item.id,
+            column_id: colId,
+            position: idx,
+            status: movedColumn ? newStatus : undefined,
+          });
+        }
+      });
+    }
+
+    if (updates.length > 0) {
+      if (onReorder) {
+        onReorder(updates);
+      } else {
+        // Fallback: only handle the active item with legacy single-move API
+        const activeUpdate = updates.find(u => u.id === activeId);
+        if (activeUpdate) onMoveItem(activeUpdate.id, activeUpdate.column_id, activeUpdate.position);
+      }
+    }
+
+    setLocalColumnsMap(null);
+  }, [baseColumnsMap, columns, findColumnIdOf, itemColumnIndex, localColumnsMap, onMoveItem, onReorder]);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveItem(null);
+    setLocalColumnsMap(null);
+  }, []);
 
   return (
     <div ref={containerRef} className="h-full w-full">
-      <ScrollArea className="h-full w-full">
-        <div className={cn(
-          "flex pb-4 min-h-full px-2",
-          isMobile ? "gap-3 snap-x snap-mandatory overflow-x-auto" : "gap-4"
-        )}>
-          {columns.map(column => {
-            const items = getItemsByColumn(column.id);
-            
-            return (
-              <VirtualizedKanbanColumn
-                key={column.id}
-                column={column}
-                items={items}
-                onEditItem={onEditItem}
-                onDeleteItem={onDeleteItem}
-                onMoveToLibrary={onMoveToLibrary}
-                onRetry={onRetry}
-                onDuplicate={onDuplicate}
-                onAddCard={onAddCard}
-                canDelete={canDelete}
-                isDropTarget={dragOverColumn === column.id}
-                draggedItemId={draggedItem?.id || null}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                height={containerHeight}
-                className={isMobile ? "w-[90vw] min-w-[90vw] snap-center" : undefined}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <ScrollArea className="h-full w-full">
+          <div className={cn(
+            "flex pb-4 min-h-full px-2",
+            isMobile ? "gap-3 snap-x snap-mandatory overflow-x-auto" : "gap-4"
+          )}>
+            {columns.map(column => {
+              const items = columnsMap[column.id] ?? [];
+              return (
+                <VirtualizedKanbanColumn
+                  key={column.id}
+                  column={column}
+                  items={items}
+                  onEditItem={onEditItem}
+                  onDeleteItem={onDeleteItem}
+                  onMoveToLibrary={onMoveToLibrary}
+                  onRetry={onRetry}
+                  onDuplicate={onDuplicate}
+                  onAddCard={onAddCard}
+                  canDelete={canDelete}
+                  activeItemId={activeItem?.id ?? null}
+                  height={containerHeight}
+                  className={isMobile ? "w-[90vw] min-w-[90vw] snap-center" : undefined}
+                  viewSettings={viewSettings}
+                  memberMap={memberMap}
+                />
+              );
+            })}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+
+        <DragOverlay dropAnimation={null}>
+          {activeItem ? (
+            <div className="rotate-1 opacity-95 shadow-2xl">
+              <PlanningItemCard
+                item={activeItem}
+                onEdit={() => {}}
+                onDelete={() => {}}
+                onMoveToLibrary={() => {}}
+                isDragging
                 viewSettings={viewSettings}
                 memberMap={memberMap}
               />
-            );
-          })}
-        </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }
