@@ -269,6 +269,15 @@ export default function Kai() {
       );
     }
 
+    // Tasks tab - tarefas internas do time (não exigem cliente)
+    if (tab === "tasks") {
+      return (
+        <div className={cn("h-full min-h-0 overflow-hidden flex flex-col", isMobile ? "p-2" : "p-6")}>
+          <TeamTasksBoard defaultClientId={selectedClient?.id} />
+        </div>
+      );
+    }
+
     // Client-dependent tabs
     if (!selectedClient) {
       return (
