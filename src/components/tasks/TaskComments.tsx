@@ -108,14 +108,16 @@ export function TaskComments({ taskId, readOnly }: TaskCommentsProps) {
 
       {!readOnly && taskId && (
         <div className="flex gap-2 items-end pt-2 border-t border-border/40">
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKey}
-            placeholder="Comentar… (use @nome para mencionar) — Cmd+Enter para enviar"
-            rows={2}
-            className="text-sm resize-none"
-          />
+          <div className="flex-1">
+            <MentionableTextarea
+              value={text}
+              onChange={(v, ids) => { setText(v); setMentionIds(ids); }}
+              members={memberOptions}
+              placeholder="Comentar… (use @nome para mencionar) — Cmd+Enter para enviar"
+              rows={2}
+              onSubmit={handleSend}
+            />
+          </div>
           <Button
             size="icon"
             onClick={handleSend}
