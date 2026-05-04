@@ -1,6 +1,6 @@
 import { format, isPast, isToday, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, CheckSquare, ArrowRight, Calendar } from "lucide-react";
+import { CheckCircle2, CheckSquare, ArrowRight, Calendar, Plus } from "lucide-react";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,14 +13,22 @@ interface MyTasksWidgetProps {
   onNavigate: (tab: string) => void;
 }
 
+const priorityDot: Record<string, string> = {
+  urgent: "bg-red-500",
+  high: "bg-orange-500",
+  medium: "bg-blue-500",
+  low: "bg-muted-foreground/40",
+};
+
 export function MyTasksWidget({ onNavigate }: MyTasksWidgetProps) {
-  const { data: tasks = [], isLoading } = useMyTeamTasks(5);
+  const { data: tasks = [], isLoading } = useMyTeamTasks(7);
   const { updateTask } = useTeamTasks();
   const [editing, setEditing] = useState<TeamTask | null>(null);
   const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const overdueCount = tasks.filter(
-    (t) => t.due_date && isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date))
+    (t) => t.due_date && isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date)),
   ).length;
 
   return (
@@ -41,16 +49,33 @@ export function MyTasksWidget({ onNavigate }: MyTasksWidgetProps) {
               </Badge>
             )}
           </div>
-          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => onNavigate("tasks")}>
-            Ver todas <ArrowRight className="h-3 w-3" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => { setEditing(null); setCreating(true); setOpen(true); }}
+              title="Criar tarefa"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => onNavigate("tasks")}>
+              Ver todas <ArrowRight className="h-3 w-3" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="pt-0">
           {isLoading ? (
             <p className="text-xs text-muted-foreground py-3">Carregando…</p>
           ) : tasks.length === 0 ? (
             <p className="text-xs text-muted-foreground py-3">
-              Nenhuma tarefa pendente. <button className="text-primary hover:underline" onClick={() => onNavigate("tasks")}>Criar uma</button>
+              Nenhuma tarefa pendente.{" "}
+              <button
+                className="text-primary hover:underline"
+                onClick={() => { setEditing(null); setCreating(true); setOpen(true); }}
+              >
+                Criar uma
+              </button>
             </p>
           ) : (
             <div className="space-y-1">
@@ -61,8 +86,9 @@ export function MyTasksWidget({ onNavigate }: MyTasksWidgetProps) {
                   <div
                     key={t.id}
                     className="flex items-center gap-2 p-2 rounded hover:bg-muted/40 cursor-pointer group"
-                    onClick={() => { setEditing(t); setOpen(true); }}
+                    onClick={() => { setEditing(t); setCreating(false); setOpen(true); }}
                   >
+                    <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", priorityDot[t.priority])} />
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -88,7 +114,7 @@ export function MyTasksWidget({ onNavigate }: MyTasksWidgetProps) {
         </CardContent>
       </Card>
 
-      <TaskDialog open={open} onOpenChange={setOpen} task={editing} />
+      <TaskDialog open={open} onOpenChange={setOpen} task={creating ? null : editing} />
     </>
   );
 }
