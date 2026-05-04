@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import type { PlanningItem } from '@/hooks/usePlanningItems';
 import { useClientPlatformStatus, type SupportedPlatform } from '@/hooks/useClientPlatformStatus';
 import { EmptyState } from './EmptyState';
+import type { ViewSettings } from './ViewSettingsPopover';
 
 interface CalendarViewProps {
   items: PlanningItem[];
@@ -31,6 +32,8 @@ interface CalendarViewProps {
   onMoveItem?: (itemId: string, newDate: Date) => void;
   canEdit?: boolean;
   isDeleting?: boolean;
+  viewSettings?: ViewSettings;
+  memberMap?: Record<string, { name: string; initials: string }>;
 }
 
 const statusConfig: Record<string, { bg: string; text: string; border: string; dot: string }> = {
@@ -289,6 +292,8 @@ export function CalendarView({
   onMoveItem,
   canEdit = true,
   isDeleting = false,
+  viewSettings: _viewSettings,
+  memberMap: _memberMap,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draggedItem, setDraggedItem] = useState<PlanningItem | null>(null);
