@@ -393,7 +393,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5 text-muted-foreground">
             {/* Priority flag */}
-            {priority && priorityConfig[priority] && (
+            {show.priority && priority && priorityConfig[priority] && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Flag className={cn("h-3.5 w-3.5", priorityConfig[priority].color)} />
@@ -405,7 +405,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             )}
 
             {/* Date */}
-            {displayDate && (
+            {show.dueDate && displayDate && (
               <div className="flex items-center gap-1 text-[11px]">
                 <Calendar className="h-3 w-3" />
                 <span>{format(parseISO(displayDate), 'dd MMM', { locale: ptBR })}</span>
@@ -413,7 +413,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             )}
 
             {/* Client name */}
-            {item.clients && (
+            {show.client && item.clients && (
               <>
                 <span className="text-muted-foreground/30">•</span>
                 <span className="text-[11px] truncate max-w-[80px]">
@@ -433,30 +433,39 @@ export const PlanningItemCard = memo(function PlanningItemCard({
 
           <div className="flex items-center gap-2">
             {/* Status badge */}
-            <PublicationStatusBadge
-              mode={publicationMode}
-              status={item.status}
-              errorMessage={item.error_message}
-              retryCount={item.retry_count}
-              accountName={platformStatus?.accountName}
-              scheduledAt={item.scheduled_at}
-              lateConfirmed={!!(item.external_post_id || (item.metadata as any)?.late_confirmed)}
-              onRetry={onRetry ? () => onRetry(item.id) : undefined}
-              compact
-            />
+            {show.status && (
+              <PublicationStatusBadge
+                mode={show.autoPublish ? publicationMode : undefined}
+                status={item.status}
+                errorMessage={item.error_message}
+                retryCount={item.retry_count}
+                accountName={platformStatus?.accountName}
+                scheduledAt={item.scheduled_at}
+                lateConfirmed={!!(item.external_post_id || (item.metadata as any)?.late_confirmed)}
+                onRetry={onRetry ? () => onRetry(item.id) : undefined}
+                compact
+              />
+            )}
 
             {/* Assignee */}
-            {item.assigned_to && (
+            {show.assignee && item.assigned_to && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Avatar className="h-5 w-5 border border-border">
-                    <AvatarFallback className="text-[9px] bg-muted">
-                      👤
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="flex items-center gap-1.5">
+                    <Avatar className="h-5 w-5 border border-border">
+                      <AvatarFallback className="text-[9px] bg-muted">
+                        {assigneeInfo?.initials || '👤'}
+                      </AvatarFallback>
+                    </Avatar>
+                    {show.assigneeName && assigneeInfo?.name && (
+                      <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">
+                        {assigneeInfo.name}
+                      </span>
+                    )}
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  Responsável
+                  {assigneeInfo?.name || 'Responsável'}
                 </TooltipContent>
               </Tooltip>
             )}
