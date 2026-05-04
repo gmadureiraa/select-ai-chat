@@ -316,8 +316,11 @@ serve(async (req) => {
     try {
       const newsQuery = keywords.slice(0, 5).join(" OR ");
       const ytQuery = keywords.slice(0, 3).join(" | ");
+      const competitorIgHandles = (comps ?? [])
+        .filter((c: any) => c.platform === "instagram")
+        .map((c: any) => c.handle);
 
-      const [news, ytVideos, igTop] = await Promise.all([
+      const [news, ytVideos, igTop, curatedRss, curatedIg] = await Promise.all([
         fetchNews(SUPABASE_URL, SUPABASE_ANON, newsQuery),
         fetchYouTube(SUPABASE_URL, SUPABASE_ANON, ytQuery),
         admin.from("instagram_posts")
@@ -326,35 +329,48 @@ serve(async (req) => {
           .order("likes_count", { ascending: false })
           .limit(8)
           .then((r: any) => r.data ?? []),
+        fetchCuratedRss(briefNiche),
+        fetchTopIgFromCurated(APIFY_KEY, briefNiche, competitorIgHandles),
       ]);
 
       const sourcesSummary = {
         news_count: news.length,
         youtube_count: ytVideos.length,
         own_posts_count: igTop.length,
+        curated_rss_count: curatedRss.length,
+        curated_ig_count: curatedIg.length,
         keywords,
         competitors: (comps ?? []).map((c: any) => `${c.platform}:${c.handle}`),
+        curated_niche: pickCuratedKey(briefNiche),
       };
 
       const userPrompt = `# CONTEXTO DO CLIENTE
 - Nome: ${client.name}
-- Nicho: ${briefNiche}
+- Nicho: ${briefNiche} (curated key: ${sourcesSummary.curated_niche})
 - Keywords monitoradas: ${keywords.join(", ")}
 - Competitors: ${sourcesSummary.competitors.join(", ") || "(nenhum)"}
 
 # SINAIS DE HOJE
 
-## 📰 Notícias (Google News últimos dias) — ${news.length} itens
+## 📰 Notícias Google News — ${news.length} itens
 ${news.map((n, i) => `${i + 1}. [${n.source}] ${n.title} (${new Date(n.publishedAt).toLocaleDateString("pt-BR")})`).join("\n") || "(sem notícias)"}
+
+## 📡 Feeds curados do nicho — ${curatedRss.length} itens
+${curatedRss.map((r, i) => `${i + 1}. [${r.source}] ${r.title}`).join("\n") || "(sem feeds curados)"}
 
 ## 🎬 YouTube top views (últimos 7 dias) — ${ytVideos.length} itens
 ${ytVideos.map((v, i) => `${i + 1}. [${v.channelTitle}] ${v.title} — ${v.viewCount?.toLocaleString() ?? "?"} views`).join("\n") || "(sem dados YouTube — API pode estar bloqueada)"}
+
+## 🌐 Posts top de referência IG (curated + competitors) — ${curatedIg.length} itens
+${curatedIg.map((p, i) => `${i + 1}. @${p.ownerUsername} (${p.likesCount?.toLocaleString() ?? "?"} likes): ${(p.caption ?? "").slice(0, 140).replace(/\n/g, " ")}…`).join("\n") || "(sem dados Apify)"}
 
 ## 📸 Posts top do próprio cliente (Instagram) — ${igTop.length} itens
 ${(igTop as any[]).map((p, i) => `${i + 1}. ${(p.caption ?? "").slice(0, 120)}… — ${p.likes_count} likes / ${p.comments_count} comments`).join("\n") || "(sem posts sincronizados)"}
 
 # TAREFA
-Gere o briefing JSON conforme schema. Foque no que é acionável nas próximas 24-48h.`;
+Gere o briefing JSON conforme schema. Foque no que é acionável nas próximas 24-48h.
+Em cross_pollination identifique tópicos que aparecem em 2+ FONTES DIFERENTES (ex: news + YouTube + IG curated).`;
+
 
       const { result, tokens } = await callGemini(GEMINI_KEY, userPrompt);
 
