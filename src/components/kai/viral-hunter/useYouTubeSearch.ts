@@ -24,12 +24,16 @@ export function useYouTubeSearch(params: {
         body: { query, maxResults, order, publishedAfter },
       });
       if (error) {
-        console.warn("[useYouTubeSearch] erro:", error);
-        return [];
+        // Bubble up to UI so user sees real cause (403, etc)
+        throw new Error((error as any)?.message ?? "Erro YouTube");
+      }
+      if (data?.error) {
+        throw new Error(data.hint ? `${data.error} — ${data.hint}` : data.error);
       }
       return (data?.items ?? []) as YouTubeVideoItem[];
     },
     enabled: enabled && !!query.trim(),
     staleTime: 10 * 60 * 1000,
+    retry: false,
   });
 }
