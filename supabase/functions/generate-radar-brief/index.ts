@@ -95,6 +95,46 @@ const RESPONSE_SCHEMA = {
 
 interface NewsItem { title: string; source: string; publishedAt: string; url: string; }
 interface YTItem { title: string; channelTitle: string; viewCount?: number; publishedAt: string; }
+interface RssItem { title: string; source: string; pubDate: string; link: string; }
+interface IgPost { ownerUsername: string; caption?: string; likesCount?: number; commentsCount?: number; videoPlayCount?: number; url?: string; }
+
+// ─── Curated sources (espelha radar-viral/lib/sources-curated.ts) ─────
+const CURATED: Record<string, { igHandles: string[]; newsRss: { name: string; url: string }[] }> = {
+  crypto: {
+    igHandles: ["investidor4.20", "leobueno_", "mercadobitcoin", "documentingbtc"],
+    newsRss: [
+      { name: "Cointelegraph BR", url: "https://br.cointelegraph.com/rss" },
+      { name: "Portal do Bitcoin", url: "https://portaldobitcoin.uol.com.br/feed/" },
+      { name: "Livecoins", url: "https://livecoins.com.br/feed/" },
+      { name: "CoinDesk", url: "https://www.coindesk.com/arc/outboundfeeds/rss/" },
+      { name: "The Block", url: "https://www.theblock.co/rss.xml" },
+    ],
+  },
+  marketing: {
+    igHandles: ["leadgenman", "matheus.chibebe", "hormozi", "garyvee"],
+    newsRss: [
+      { name: "Marketing Brew", url: "https://www.marketingbrew.com/feed" },
+      { name: "Search Engine Land", url: "https://searchengineland.com/feed" },
+      { name: "MeioMensagem", url: "https://www.meioemensagem.com.br/feed/" },
+      { name: "B9", url: "https://www.b9.com.br/feed/" },
+    ],
+  },
+  ai: {
+    igHandles: ["openai", "anthropicai", "ogmadureira", "hugodoria"],
+    newsRss: [
+      { name: "Hugging Face", url: "https://huggingface.co/blog/feed.xml" },
+      { name: "OpenAI Blog", url: "https://openai.com/blog/rss.xml" },
+      { name: "VentureBeat AI", url: "https://venturebeat.com/category/ai/feed/" },
+    ],
+  },
+};
+
+function pickCuratedKey(niche: string): string {
+  const n = (niche || "").toLowerCase();
+  if (/(crypto|cripto|bitcoin|defi|web3|blockchain)/.test(n)) return "crypto";
+  if (/(ai|ia|llm|gpt|inteligência|inteligencia)/.test(n)) return "ai";
+  return "marketing";
+}
 
 async function fetchNews(supabaseUrl: string, anon: string, query: string): Promise<NewsItem[]> {
   try {
@@ -122,6 +162,64 @@ async function fetchYouTube(supabaseUrl: string, anon: string, query: string): P
     return (data?.items ?? []).slice(0, 10);
   } catch { return []; }
 }
+
+async function fetchRssFeed(name: string, url: string): Promise<RssItem[]> {
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 kAI-Radar" } });
+    if (!res.ok) return [];
+    const xml = await res.text();
+    const items: RssItem[] = [];
+    const re = /<item[\s\S]*?<\/item>/gi;
+    const matches = xml.match(re) ?? [];
+    for (const block of matches.slice(0, 5)) {
+      const title = (block.match(/<title>([\s\S]*?)<\/title>/i)?.[1] ?? "")
+        .replace(/<!\[CDATA\[|\]\]>/g, "").trim();
+      const link = (block.match(/<link>([\s\S]*?)<\/link>/i)?.[1] ?? "").trim();
+      const pubDate = (block.match(/<pubDate>([\s\S]*?)<\/pubDate>/i)?.[1] ?? "").trim();
+      if (title) items.push({ title, source: name, link, pubDate });
+    }
+    return items;
+  } catch { return []; }
+}
+
+async function fetchCuratedRss(niche: string): Promise<RssItem[]> {
+  const c = CURATED[pickCuratedKey(niche)];
+  if (!c) return [];
+  const all = await Promise.all(c.newsRss.map((r) => fetchRssFeed(r.name, r.url)));
+  return all.flat().slice(0, 25);
+}
+
+async function fetchTopIgFromCurated(apifyKey: string | undefined, niche: string, extra: string[]): Promise<IgPost[]> {
+  if (!apifyKey) return [];
+  const c = CURATED[pickCuratedKey(niche)];
+  const handles = Array.from(new Set([...(c?.igHandles ?? []), ...extra])).slice(0, 5);
+  if (handles.length === 0) return [];
+  try {
+    const endpoint = `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${apifyKey}&timeout=45`;
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        directUrls: handles.map((h) => `https://www.instagram.com/${h.replace(/^@/, "")}/`),
+        resultsType: "posts",
+        resultsLimit: 3,
+        addParentData: false,
+      }),
+    });
+    if (!res.ok) return [];
+    const items = await res.json();
+    if (!Array.isArray(items)) return [];
+    return items.slice(0, 15).map((it: any) => ({
+      ownerUsername: it.ownerUsername ?? "",
+      caption: it.caption,
+      likesCount: it.likesCount,
+      commentsCount: it.commentsCount,
+      videoPlayCount: it.videoPlayCount,
+      url: it.url,
+    }));
+  } catch { return []; }
+}
+
 
 async function callGemini(geminiKey: string, userPrompt: string) {
   const res = await fetch(
