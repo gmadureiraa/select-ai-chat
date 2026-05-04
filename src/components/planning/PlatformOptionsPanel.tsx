@@ -55,10 +55,38 @@ const FB_TYPES: { value: FBContentType; label: string; emoji: string }[] = [
   { value: 'reel', label: 'Reel', emoji: '🎬' },
 ];
 
+// Distribuição do Reel (single source of truth — evita estados contraditórios)
+export type ReelDistribution = 'feed' | 'profile_only' | 'trial_manual' | 'trial_auto';
+
+export function getReelDistribution(ig: InstagramOptions): ReelDistribution {
+  if (ig.trialReel === 'auto') return 'trial_auto';
+  if (ig.trialReel === 'manual') return 'trial_manual';
+  if (ig.shareToFeed === false) return 'profile_only';
+  return 'feed';
+}
+
+export function applyReelDistribution(ig: InstagramOptions, dist: ReelDistribution): InstagramOptions {
+  switch (dist) {
+    case 'feed':         return { ...ig, shareToFeed: true,  trialReel: 'off' };
+    case 'profile_only': return { ...ig, shareToFeed: false, trialReel: 'off' };
+    case 'trial_manual': return { ...ig, shareToFeed: false, trialReel: 'manual' };
+    case 'trial_auto':   return { ...ig, shareToFeed: false, trialReel: 'auto' };
+  }
+}
+
+const DISTRIBUTION_OPTIONS: { value: ReelDistribution; label: string; hint: string }[] = [
+  { value: 'feed',         label: '📰 Feed + Reels',          hint: 'Aparece no Feed e na aba Reels (padrão)' },
+  { value: 'profile_only', label: '🎬 Só na aba Reels',        hint: 'Não aparece no Feed dos seguidores' },
+  { value: 'trial_manual', label: '🧪 Trial Reel — Manual',    hint: 'Só não-seguidores. Você decide se promove' },
+  { value: 'trial_auto',   label: '🧪 Trial Reel — Auto',      hint: 'Só não-seguidores. Promove se performar' },
+];
+
 function buildZernioPreview(ig: InstagramOptions): Record<string, unknown> {
   const data: Record<string, unknown> = { contentType: 'reels' };
-  data.shareToFeed = ig.shareToFeed !== false;
-  if (ig.trialReel && ig.trialReel !== 'off') {
+  // Trial Reel SEMPRE força shareToFeed=false
+  const isTrial = ig.trialReel && ig.trialReel !== 'off';
+  data.shareToFeed = isTrial ? false : ig.shareToFeed !== false;
+  if (isTrial) {
     data.trialParams = {
       graduationStrategy: ig.trialReel === 'auto' ? 'SS_PERFORMANCE' : 'MANUAL',
     };
@@ -125,43 +153,35 @@ export function PlatformOptionsPanel({ selectedPlatforms, value, onChange, hasMu
           {/* Reel-only options */}
           {igType === 'reel' && (
             <div className="space-y-3 rounded-md border border-dashed border-border/50 p-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <Label className="text-[11px] flex items-center gap-1.5">
-                  <ImageIcon className="h-3 w-3" />
-                  Mostrar também no Feed
-                </Label>
-                <Switch
-                  checked={ig.shareToFeed !== false}
-                  onCheckedChange={(c) => setIG({ shareToFeed: c })}
-                />
-              </div>
-
               <div className="space-y-1.5">
                 <Label className="text-[11px] flex items-center gap-1.5">
                   <FlaskConical className="h-3 w-3 text-amber-500" />
-                  Trial Reel (teste com não-seguidores)
+                  Distribuição do Reel
                 </Label>
                 <Select
-                  value={ig.trialReel || 'off'}
-                  onValueChange={(v) => setIG({ trialReel: v as TrialReelMode })}
+                  value={getReelDistribution(ig)}
+                  onValueChange={(v) => onChange({
+                    ...value,
+                    instagram: applyReelDistribution(ig, v as ReelDistribution),
+                  })}
                 >
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="off" className="text-xs">Desligado (Reel normal)</SelectItem>
-                    <SelectItem value="manual" className="text-xs">
-                      Manual — você decide se vira público
-                    </SelectItem>
-                    <SelectItem value="auto" className="text-xs">
-                      Auto-graduate — vira público se performar bem
-                    </SelectItem>
+                    {DISTRIBUTION_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                        <div className="flex flex-col">
+                          <span>{opt.label}</span>
+                          <span className="text-[10px] text-muted-foreground">{opt.hint}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                {ig.trialReel && ig.trialReel !== 'off' && (
-                  <p className="text-[10px] text-muted-foreground leading-tight">
-                    O Reel só aparece para quem <strong>não te segue</strong>. Se performar bem,
-                    {ig.trialReel === 'auto' ? ' é promovido automaticamente.' : ' você promove manualmente.'}
+                {(ig.trialReel === 'manual' || ig.trialReel === 'auto') && (
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-tight font-medium">
+                    🧪 Trial Reel: nunca vai para o Feed. Só não-seguidores veem.
                   </p>
                 )}
               </div>
