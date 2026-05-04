@@ -38,9 +38,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { ViralSlide, ViralProfile, ImageSource } from "./types";
+import type { ViralSlide, ViralProfile, ImageSource, ViralTemplateId } from "./types";
 import { getImageUrl } from "./types";
-import { TwitterSlide } from "./TwitterSlide";
+import { TemplateSlide } from "./TemplateSlide";
 import { searchImages, type ImageSearchResult } from "./imageSearch";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -49,13 +49,14 @@ interface SlideEditorProps {
   totalSlides: number;
   profile: ViralProfile;
   clientId: string;
+  templateId: ViralTemplateId;
   onChange: (next: ViralSlide) => void;
   onRemove?: () => void;
   /** Callback que recebe o ref do nó do TwitterSlide — usado pra export PNG/PDF. */
   onSlideNode?: (slideId: string, node: HTMLElement | null) => void;
 }
 
-export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, onSlideNode }: SlideEditorProps) {
+export function SlideEditor({ slide, totalSlides, profile, clientId, templateId, onChange, onSlideNode }: SlideEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
@@ -206,13 +207,12 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
           </span>
         )}
         <div className="drop-shadow-md">
-          <TwitterSlide
+          <TemplateSlide
             ref={(n: HTMLDivElement | null) => onSlideNode?.(slide.id, n)}
-            body={slide.body || "Texto do slide..."}
-            imageUrl={currentImageUrl}
-            slideNumber={slide.order}
-            totalSlides={totalSlides}
+            templateId={templateId}
+            slide={slide}
             profile={profile}
+            totalSlides={totalSlides}
             scale={0.28}
           />
         </div>
@@ -422,12 +422,11 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, onChange, o
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-center p-6 bg-neutral-900">
-            <TwitterSlide
-              body={slide.body || "Texto do slide..."}
-              imageUrl={currentImageUrl}
-              slideNumber={slide.order}
-              totalSlides={totalSlides}
+            <TemplateSlide
+              templateId={templateId}
+              slide={slide}
               profile={profile}
+              totalSlides={totalSlides}
               scale={0.5}
             />
           </div>
