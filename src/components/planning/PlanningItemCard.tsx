@@ -26,6 +26,7 @@ import { PublicationStatusBadge } from './PublicationStatusBadge';
 import { useClientPlatformStatus } from '@/hooks/useClientPlatformStatus';
 import { PLATFORM_COLOR_MAP, getContentTypeLabel } from '@/types/contentTypes';
 import type { PlanningItem } from '@/hooks/usePlanningItems';
+import type { ViewSettings } from './ViewSettingsPopover';
 
 interface PlanningItemCardProps {
   item: PlanningItem;
@@ -37,6 +38,32 @@ interface PlanningItemCardProps {
   isDragging?: boolean;
   compact?: boolean;
   canDelete?: boolean;
+  viewSettings?: ViewSettings;
+  memberMap?: Record<string, { name: string; initials: string }>;
+}
+
+const CLIENT_HUE_PALETTE = [12, 45, 90, 150, 200, 260, 310, 340];
+
+function getAccentColor(item: PlanningItem, colorBy: ViewSettings['colorBy'], primaryPlatform: string): string {
+  if (colorBy === 'status') {
+    return `hsl(var(--status-${item.status || 'idea'}))`;
+  }
+  if (colorBy === 'platform') {
+    return PLATFORM_COLOR_MAP[primaryPlatform] || 'hsl(var(--muted-foreground))';
+  }
+  if (colorBy === 'priority') {
+    const p = (item as any).priority;
+    if (p === 'high') return 'hsl(var(--destructive))';
+    if (p === 'medium') return 'hsl(38 92% 55%)';
+    if (p === 'low') return 'hsl(217 90% 60%)';
+    return 'hsl(var(--muted-foreground) / 0.4)';
+  }
+  if (colorBy === 'client' && item.client_id) {
+    const sum = Array.from(item.client_id).reduce((a, c) => a + c.charCodeAt(0), 0);
+    const hue = CLIENT_HUE_PALETTE[sum % CLIENT_HUE_PALETTE.length];
+    return `hsl(${hue} 75% 55%)`;
+  }
+  return 'transparent';
 }
 
 const platformIcons: Record<string, React.ElementType> = {
