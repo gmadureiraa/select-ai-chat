@@ -113,7 +113,7 @@ export function TaskDialog({
   const [assignedTo, setAssignedTo] = useState<string>("none");
   const [clientId, setClientId] = useState<string>("none");
   const [labels, setLabels] = useState<TaskLabel[]>([]);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [mentionIds, setMentionIds] = useState<string[]>([]);
   const [tab, setTab] = useState<"details" | "comments">("details");
 
   useEffect(() => {
