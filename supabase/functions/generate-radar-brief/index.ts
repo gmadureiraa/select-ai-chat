@@ -180,8 +180,13 @@ serve(async (req) => {
     }
 
     const { data: client } = await admin
-      .from("clients").select("workspace_id, name, industry").eq("id", clientId).single();
+      .from("clients").select("workspace_id, name, tags").eq("id", clientId).single();
     if (!client) throw new Error("Cliente não encontrado");
+    let inferredIndustry: string | null = null;
+    try {
+      const t = client.tags ? (typeof client.tags === "string" ? JSON.parse(client.tags) : client.tags) : null;
+      inferredIndustry = t?.industry ?? t?.niche ?? null;
+    } catch { /* ignore */ }
 
     // Coleta sinais
     const { data: kws } = await admin.from("client_viral_keywords").select("keyword").eq("client_id", clientId);
