@@ -95,14 +95,16 @@ export function ViralRadarTab({ clientId, client }: ViralRadarTabProps) {
 
   async function handleSaveAsIdea(topic: string, source: string) {
     try {
-      const { error } = await supabase.from("planning_items").insert({
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase.from("planning_items").insert([{
         client_id: clientId,
         workspace_id: (client as any).workspace_id,
         title: topic,
         content: `Ideia do Radar Viral · fonte: ${source}`,
         status: "idea",
         platform: "instagram",
-      });
+        created_by: u.user!.id,
+      }]);
       if (error) throw error;
       toast.success("Salvo como ideia no Planning");
     } catch (e: any) {
