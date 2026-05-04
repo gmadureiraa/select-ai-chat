@@ -369,6 +369,17 @@ export function KaiSidebar({
           showLock={!canUseAssistant}
         />
 
+        {/* Radar Viral — briefing diário agregando notícias, YT, IG e competitors. */}
+        <NavItem
+          icon={<Radar className="h-4 w-4" strokeWidth={1.5} />}
+          label="Radar Viral"
+          active={activeTab === "radar"}
+          onClick={() => canUseAssistant ? onTabChange("radar") : showPermissionMessage()}
+          collapsed={collapsed}
+          disabled={!canUseAssistant}
+          showLock={!canUseAssistant}
+        />
+
         {/* Automações - Dev e admins do workspace */}
         {(hasDevAccess || canManageTeam) && (
           <NavItem
