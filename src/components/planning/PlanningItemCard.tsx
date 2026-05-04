@@ -106,7 +106,9 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   onDuplicate,
   isDragging = false,
   compact = false,
-  canDelete = true
+  canDelete = true,
+  viewSettings,
+  memberMap,
 }: PlanningItemCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -144,6 +146,26 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   const firstMediaUrl = hasMedia ? item.media_urls[0] : null;
   const isImage = firstMediaUrl && !firstMediaUrl.match(/\.(mp4|webm|mov)$/i);
 
+  // visibleFields com defaults seguros (preserva visual atual quando viewSettings ausente)
+  const vf = viewSettings?.visibleFields;
+  const show = {
+    format: vf?.format ?? true,
+    platform: vf?.platform ?? true,
+    status: vf?.status ?? true,
+    priority: vf?.priority ?? true,
+    dueDate: vf?.dueDate ?? true,
+    client: vf?.client ?? true,
+    autoPublish: vf?.autoPublish ?? true,
+    assignee: vf?.assignee ?? true,
+    assigneeName: vf?.assigneeName ?? false,
+  };
+
+  const accentColor = viewSettings
+    ? getAccentColor(item, viewSettings.colorBy, primaryPlatform)
+    : undefined;
+
+  const assigneeInfo = item.assigned_to ? memberMap?.[item.assigned_to] : undefined;
+
   return (
     <div
       className={cn(
@@ -154,6 +176,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         isFailed && "border-destructive/30 hover:border-destructive/50",
         isPublished && "border-emerald-500/20 hover:border-emerald-500/30"
       )}
+      style={accentColor ? { borderLeft: `4px solid ${accentColor}` } : undefined}
       onClick={() => {
         if (!lightboxOpen) onEdit(item);
       }}
