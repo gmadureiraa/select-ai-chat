@@ -259,7 +259,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         {/* Row 1: Platform badges + content type */}
         <div className="flex items-center gap-1.5 mb-2 flex-wrap">
           {/* Content type badge */}
-          {contentTypeLabel && (
+          {show.format && contentTypeLabel && (
             <div
               className={cn(
                 "flex items-center gap-1 px-1.5 py-0.5 rounded border",
@@ -280,7 +280,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             </div>
           )}
 
-          {targetPlatforms.slice(0, 3).map((tp) => {
+          {show.platform && targetPlatforms.slice(0, 3).map((tp) => {
             const Icon = platformIcons[tp] || FileText;
             const color = PLATFORM_COLOR_MAP[tp];
             return (
