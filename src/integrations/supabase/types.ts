@@ -3848,6 +3848,77 @@ export type Database = {
           },
         ]
       }
+      viral_radar_briefs: {
+        Row: {
+          brief_date: string
+          carousel_ideas: Json | null
+          client_id: string
+          cost_usd: number | null
+          created_at: string
+          cross_pollination: Json | null
+          duration_ms: number | null
+          error_message: string | null
+          hot_topics: Json | null
+          id: string
+          model_used: string | null
+          narratives: Json | null
+          niche: string
+          sources_summary: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          brief_date?: string
+          carousel_ideas?: Json | null
+          client_id: string
+          cost_usd?: number | null
+          created_at?: string
+          cross_pollination?: Json | null
+          duration_ms?: number | null
+          error_message?: string | null
+          hot_topics?: Json | null
+          id?: string
+          model_used?: string | null
+          narratives?: Json | null
+          niche?: string
+          sources_summary?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          brief_date?: string
+          carousel_ideas?: Json | null
+          client_id?: string
+          cost_usd?: number | null
+          created_at?: string
+          cross_pollination?: Json | null
+          duration_ms?: number | null
+          error_message?: string | null
+          hot_topics?: Json | null
+          id?: string
+          model_used?: string | null
+          narratives?: Json | null
+          niche?: string
+          sources_summary?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viral_radar_briefs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       viral_reels: {
         Row: {
           analysis: Json | null
