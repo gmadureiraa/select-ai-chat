@@ -3336,6 +3336,85 @@ export type Database = {
         }
         Relationships: []
       }
+      team_task_checklist_items: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_done: boolean
+          position: number
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_done?: boolean
+          position?: number
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_done?: boolean
+          position?: number
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_task_checklist_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "team_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_task_comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          mentions: string[]
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          mentions?: string[]
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          mentions?: string[]
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "team_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_tasks: {
         Row: {
           assigned_to: string | null
@@ -3346,6 +3425,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          labels: Json
           position: number
           priority: string
           status: string
@@ -3362,6 +3442,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          labels?: Json
           position?: number
           priority?: string
           status?: string
@@ -3378,6 +3459,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          labels?: Json
           position?: number
           priority?: string
           status?: string
@@ -4644,6 +4726,7 @@ export type Database = {
           role: string
         }[]
       }
+      team_task_workspace: { Args: { _task_id: string }; Returns: string }
       workflow_workspace_accessible: {
         Args: { p_user_id: string; p_workflow_id: string }
         Returns: boolean

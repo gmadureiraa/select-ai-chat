@@ -8,6 +8,11 @@ import { toast } from "sonner";
 export type TaskStatus = "todo" | "in_progress" | "done";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
+export interface TaskLabel {
+  name: string;
+  color: string;
+}
+
 export interface TeamTask {
   id: string;
   workspace_id: string;
@@ -21,6 +26,7 @@ export interface TeamTask {
   created_by: string;
   completed_at: string | null;
   position: number;
+  labels: TaskLabel[];
   created_at: string;
   updated_at: string;
 }
@@ -40,6 +46,7 @@ export interface CreateTeamTaskInput {
   due_date?: string | null;
   assigned_to?: string | null;
   client_id?: string | null;
+  labels?: TaskLabel[];
 }
 
 export function useTeamTasks(filters: TeamTaskFilters = {}) {
@@ -69,7 +76,7 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
 
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as TeamTask[];
+      return ((data || []) as unknown) as TeamTask[];
     },
     enabled: !!workspaceId,
   });
@@ -108,11 +115,12 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
           due_date: input.due_date ?? null,
           assigned_to: input.assigned_to ?? null,
           client_id: input.client_id ?? null,
+          labels: (input.labels ?? []) as any,
         })
         .select()
         .single();
       if (error) throw error;
-      return data as TeamTask;
+      return data as unknown as TeamTask;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-tasks", workspaceId] });
@@ -126,12 +134,12 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
     mutationFn: async ({ id, ...patch }: { id: string } & Partial<TeamTask>) => {
       const { data, error } = await supabase
         .from("team_tasks")
-        .update(patch)
+        .update(patch as any)
         .eq("id", id)
         .select()
         .single();
       if (error) throw error;
-      return data as TeamTask;
+      return data as unknown as TeamTask;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-tasks", workspaceId] });
@@ -153,7 +161,36 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
     onError: (e: Error) => toast.error("Erro ao excluir", { description: e.message }),
   });
 
-  return { tasks, isLoading, createTask, updateTask, deleteTask };
+  const duplicateTask = useMutation({
+    mutationFn: async (task: TeamTask) => {
+      if (!workspaceId || !user?.id) throw new Error("No workspace/user");
+      const { data, error } = await supabase
+        .from("team_tasks")
+        .insert({
+          workspace_id: workspaceId,
+          created_by: user.id,
+          title: `${task.title} (cópia)`,
+          description: task.description,
+          status: "todo",
+          priority: task.priority,
+          due_date: task.due_date,
+          assigned_to: null,
+          client_id: task.client_id,
+          labels: (task.labels ?? []) as any,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data as unknown as TeamTask;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-tasks", workspaceId] });
+      toast.success("Tarefa duplicada");
+    },
+    onError: (e: Error) => toast.error("Erro ao duplicar", { description: e.message }),
+  });
+
+  return { tasks, isLoading, createTask, updateTask, deleteTask, duplicateTask };
 }
 
 // Dashboard hook: tarefas pendentes do usuário logado
@@ -175,7 +212,7 @@ export function useMyTeamTasks(limit = 5) {
         .order("due_date", { ascending: true, nullsFirst: false })
         .limit(limit);
       if (error) throw error;
-      return (data || []) as TeamTask[];
+      return ((data || []) as unknown) as TeamTask[];
     },
     enabled: !!workspaceId && !!user?.id,
   });
