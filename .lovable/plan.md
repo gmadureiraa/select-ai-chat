@@ -1,94 +1,136 @@
-## Contexto
+## Objetivo
 
-O "Webhooks" do print é da própria Late (rebrand para Zernio) — a mesma API que já usamos para publicar. Já temos `supabase/functions/late-webhook/index.ts` recebendo `post.published`, `post.failed`, `post.scheduled` e `account.disconnected/expired`, mas:
+Três entregas no Planning:
 
-- **Falhas hoje só atualizam o status no banco** — você não recebe alerta no Telegram quando um post quebra.
-- Não tratamos os eventos novos da lista do print: `post.partial`, `post.cancelled`, `post.recycled`, `account.ads.initial_sync_completed`, `message.*`, `comment.received`.
-- Não há painel para ver/criar webhooks dentro do kAI.
+1. **Trial Reel × Feed** — seletor único no editor do card, com regra dura no backend: Trial Reel **nunca** vai para o feed.
+2. **Cards coloridos no Board** conforme status (e demais opções já existentes em `colorBy`: cliente, plataforma, prioridade) — hoje a config existe em `Personalizar` mas não chega ao card.
+3. **Personalizar realmente controla o card** — todos os toggles funcionam, mais 2 novos: **Responsável (com nome)** e **Formato**.
 
-## Para que serve (respondendo sua pergunta)
+---
 
-**Sim, vale muito.** Casos de uso priorizados:
+## 1. Seletor único Trial Reel × Feed
 
-1. **Alerta de falha de post no Telegram** (alta prioridade)
-   Quando `post.failed` chega, manda mensagem no bot com cliente, plataforma, motivo do erro e link pro item no Kanban. Hoje você só descobre abrindo o painel.
+### Frontend — `src/components/planning/PlatformOptionsPanel.tsx`
 
-2. **Alerta de conta desconectada/expirada** (alta)
-   `account.disconnected` / `account.expired` → Telegram avisando "⚠️ Instagram do Madureira desconectou, reconecte". Hoje a publicação simplesmente para de funcionar silenciosamente.
+Hoje, dentro de `igType === 'reel'`, há um `Switch` "Mostrar também no Feed" e um `Select` de Trial Reel separados — podem se contradizer. Substituir por **um único `Select` de "Distribuição"** com 4 opções mutuamente exclusivas:
 
-3. **Confirmação de publicação parcial** (`post.partial`)
-   Quando publica em 3 redes mas falha em 1 — hoje marcamos como `published` mesmo. Passar a marcar como `partial` e avisar no Telegram qual rede falhou.
+- `feed` — Reel normal (aparece no Feed e em Reels)
+- `profile_only` — Só na aba Reels (não vai pro Feed)
+- `trial_manual` — Trial Reel: só não-seguidores, você promove depois
+- `trial_auto` — Trial Reel: só não-seguidores, auto-promove se performar
 
-4. **Inbox unificada de comentários e DMs** (média — feature nova)
-   `comment.received` + `message.received` permitem construir uma caixa de entrada dentro do kAI (estilo Engagement Hub, mas para respostas em posts publicados). Roadmap futuro — não entra agora.
-
-5. **Sincronizar cancelamento e reciclagem** (`post.cancelled`, `post.recycled`)
-   Se você cancela/recicla na Late, refletir no Kanban automaticamente.
-
-## Escopo desta entrega
-
-Foco em **#1, #2, #3 e #5**. A inbox de DMs/comentários (#4) fica para depois (precisa schema novo + UI dedicada).
-
-### 1. Estender `late-webhook/index.ts`
-
-- Adicionar handlers para:
-  - `post.partial` → status `partial`, metadata com plataformas que falharam, dispara Telegram.
-  - `post.cancelled` → status `cancelled`.
-  - `post.recycled` → cria novo planning_item linkado ao original (ou só loga em metadata, decidir).
-- Em `post.failed`: chamar `telegram-send-notification` com mensagem formatada + botão "Ver no painel".
-- Em `account.disconnected` / `account.expired`: chamar Telegram com aviso urgente + cliente afetado.
-
-### 2. Novo helper Telegram
-
-Criar função `notifyWebhookEvent(supabase, eventType, planningItem, extra)` dentro do `late-webhook` que:
-- Busca `clients.name` para mostrar qual cliente.
-- Busca `telegram_bot_config.chat_id`.
-- Formata mensagem com emoji por severidade (🔴 falha, 🟡 parcial, ⚠️ conta).
-- Reusa o gateway `https://connector-gateway.lovable.dev/telegram/sendMessage` (mesmo padrão de `telegram-notify`).
-
-### 3. UI: painel de Webhooks no kAI (opcional mas recomendado)
-
-Em **Settings → Integrações**, nova aba "Webhooks Late" mostrando:
-- URL do webhook a configurar na Late: `https://tkbsjtgrumhvwlxkmojg.supabase.co/functions/v1/late-webhook`
-- Lista de eventos suportados com checkboxes (informativo — instrução de marcar todos lá na Late).
-- Status: "Último evento recebido há X min" (lê de uma nova tabela `webhook_events_log` ou de `planning_items.updated_at`).
-- Botão "Testar webhook" que envia um POST fake para validar o secret.
-
-### 4. Tabela de log (para debug)
-
-```sql
-create table webhook_events_log (
-  id uuid primary key default gen_random_uuid(),
-  source text not null default 'late',
-  event_type text not null,
-  payload jsonb,
-  processed_ok boolean,
-  error_message text,
-  created_at timestamptz default now()
-);
+Helpers exportados:
+```ts
+export type ReelDistribution = 'feed' | 'profile_only' | 'trial_manual' | 'trial_auto';
+export function getReelDistribution(ig: InstagramOptions): ReelDistribution
+export function applyReelDistribution(ig, dist): InstagramOptions
 ```
-Insert em todo evento recebido. Útil para debugar quando algo "não chegou".
+
+`applyReelDistribution` sempre escreve **ambos** os campos (`shareToFeed` e `trialReel`) garantindo consistência. `buildZernioPreview` força `shareToFeed=false` quando `trialReel !== 'off'`.
+
+Aviso visual quando trial ativo: "🧪 Não aparece no Feed em hipótese alguma — só não-seguidores."
+
+### Backend — `supabase/functions/late-post/index.ts` (linhas 451-461)
+
+Guard final: se `igOpts.trialReel && igOpts.trialReel !== 'off'`, **forçar** `platformSpecificData.shareToFeed = false`, ignorando `igOpts.shareToFeed`. Protege cards antigos com config inconsistente.
+
+---
+
+## 2. Board colorido por status
+
+### Tokens de status — `src/index.css` + `tailwind.config.ts`
+
+Adicionar variáveis HSL semânticas (compat dark/light):
+```
+--status-idea, --status-draft, --status-review, --status-approved,
+--status-scheduled, --status-publishing, --status-published, --status-failed
+```
+
+Mapear no `tailwind.config.ts` em `colors.status.{idea,draft,...}`.
+
+### Propagação `viewSettings → card`
+
+```text
+PlanningBoard (já tem useViewSettings)
+   │
+   ├─ KanbanView          (nova prop: viewSettings, memberMap)
+   │     └─ VirtualizedKanbanColumn
+   │           └─ PlanningItemCard
+   │
+   ├─ CalendarView        (nova prop: viewSettings, memberMap)
+   │     └─ PlanningItemCard
+   │
+   └─ PlanningListRow     (nova prop: viewSettings, memberMap)
+```
+
+### `PlanningItemCard.tsx`
+
+Nova prop `viewSettings?: ViewSettings` e `memberMap?: Record<string, {name, avatar}>`.
+
+Calcular `accentColor` a partir de `viewSettings.colorBy`:
+- **status**: usa os novos tokens `hsl(var(--status-{item.status}))`
+- **platform**: usa `PLATFORM_COLOR_MAP[primaryPlatform]`
+- **priority**: high=destructive, medium=amber, low=blue
+- **client**: hash determinístico do `client_id` → 1 de 8 hues HSL fixos
+
+Aplicar como **barra lateral esquerda de 4px** no card (`borderLeftColor` inline), preservando o visual ClickUp atual (não conflita com borda superior das thumbs).
+
+---
+
+## 3. Personalizar — toggles funcionais + novos campos
+
+### `ViewSettingsPopover.tsx`
+
+Adicionar a `visibleFields`:
+- `assigneeName: boolean` (padrão `false`) — mostra nome do responsável ao lado do avatar
+- `format: boolean` (padrão `true`) — controla o badge de content type
+
+Atualizar `defaultSettings` e `fieldLabels` (`assigneeName: 'Nome do responsável'`, `format: 'Formato'`).
+
+### `PlanningItemCard.tsx` — respeitar **todos** os flags
+
+| Flag             | O que controla no card                                  |
+|------------------|---------------------------------------------------------|
+| `format`         | Badge de content type (linha ~212)                      |
+| `platform`       | Badges de plataforma (linha ~233)                       |
+| `priority`       | `Flag` de prioridade no footer                          |
+| `dueDate`        | Data no footer                                          |
+| `client`         | Nome do cliente no footer                               |
+| `status`         | `PublicationStatusBadge`                                |
+| `autoPublish`    | Modo (auto/manual) dentro da badge de status            |
+| `assignee`       | Avatar do responsável                                   |
+| `assigneeName`   | Nome curto ao lado do avatar (`João S.`)                |
+| `labels`         | Reservado (no-op por enquanto)                          |
+
+Resolver nome via `memberMap` construído **uma vez** no `PlanningBoard` (`useTeamMembers` + `members.find(m => m.user_id === item.assigned_to)?.profile?.full_name`). Evita N queries.
+
+Card mantém `memo()` — `viewSettings` é estável (vem do hook com `useState`), `memberMap` só muda quando membros do workspace mudam.
+
+---
 
 ## Detalhes técnicos
 
-- **Secret HMAC já implementado** (`LATE_WEBHOOK_SECRET` + header `x-late-signature`). Funciona igual no Zernio.
-- **Severidade Telegram**:
-  - 🔴 `post.failed`, `account.disconnected`, `account.expired`
-  - 🟡 `post.partial`, `post.cancelled`
-  - 🟢 `post.recycled` (silencioso, só log)
-- **Anti-spam**: se 5+ falhas no mesmo cliente em 10 min, agrupar em uma única mensagem ("3 posts do Jornal Cripto falharam no Instagram").
-- **Não mandar Telegram para `post.published`** — já temos isso pelo fluxo de automação atual; evita ruído.
+- Sem migration de banco; tudo em memória/UI.
+- Edge function: 3 linhas defensivas (1 if + 1 atribuição + comentário).
+- Tokens novos seguem padrão HSL do design system (Linear dark + light variants).
+- Default visual preservado: `format=true`, `assigneeName=false`, `colorBy=status` (já era o default).
+- Para `colorBy=client`, hash simples: `Array.from(client_id).reduce((a,c)=>a+c.charCodeAt(0),0) % 8` → índice em paleta de 8 HSL.
 
-## Arquivos
+## Arquivos alterados
 
-- `supabase/functions/late-webhook/index.ts` — estender
-- `supabase/migrations/<timestamp>_webhook_events_log.sql` — nova tabela
-- `src/components/settings/WebhookSettings.tsx` — novo (se aprovar #3)
-- Memory: `mem://features/integrations/late-webhook-event-handling.md`
+- `src/components/planning/PlatformOptionsPanel.tsx` — seletor único + helpers exportados
+- `supabase/functions/late-post/index.ts` — guard `trialReel ⇒ shareToFeed=false`
+- `src/components/planning/ViewSettingsPopover.tsx` — novos campos no enum
+- `src/components/planning/PlanningBoard.tsx` — passar `viewSettings` + `memberMap`
+- `src/components/planning/KanbanView.tsx` — repassar props
+- `src/components/planning/VirtualizedKanbanColumn.tsx` — repassar props
+- `src/components/planning/CalendarView.tsx` — repassar props
+- `src/components/planning/PlanningListRow.tsx` — respeitar `viewSettings`
+- `src/components/planning/PlanningItemCard.tsx` — consumir `viewSettings`, `memberMap`, accent lateral
+- `src/index.css` + `tailwind.config.ts` — tokens `--status-*`
 
-## Fora de escopo (próximos passos)
+## Fora de escopo
 
-- Inbox de `comment.received` / `message.received` (precisa schema + UI nova).
-- `account.ads.initial_sync_completed` (só relevante quando integrarmos Meta Ads via Late).
-
-Posso seguir com #1, #2, #3, #5 + tabela de log + painel simples em Settings?
+- Sistema de labels (apenas reservado o flag)
+- Edição inline de assignee no card
+- Cores customizáveis pelo usuário (paleta fixa por enquanto)
