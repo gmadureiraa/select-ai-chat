@@ -450,15 +450,21 @@ serve(async (req: Request) => {
           }
         } else if (desiredType === 'reel') {
           platformSpecificData.contentType = 'reels';
-          if (igOpts.shareToFeed === false) platformSpecificData.shareToFeed = false;
-          else platformSpecificData.shareToFeed = true;
 
           // Trial Reels (only for Reels)
-          if (igOpts.trialReel && igOpts.trialReel !== 'off') {
+          const isTrialReel = igOpts.trialReel && igOpts.trialReel !== 'off';
+          if (isTrialReel) {
+            // HARD GUARD: Trial Reel NUNCA aparece no Feed (contradição cliente seria silenciosamente ignorada)
+            platformSpecificData.shareToFeed = false;
             platformSpecificData.trialParams = {
               graduationStrategy: igOpts.trialReel === 'auto' ? 'SS_PERFORMANCE' : 'MANUAL',
             };
+          } else if (igOpts.shareToFeed === false) {
+            platformSpecificData.shareToFeed = false;
+          } else {
+            platformSpecificData.shareToFeed = true;
           }
+
 
           // Reel thumbnail / audio
           if (igOpts.instagramThumbnail) platformSpecificData.instagramThumbnail = igOpts.instagramThumbnail;
