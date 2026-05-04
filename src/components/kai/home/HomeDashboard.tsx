@@ -48,6 +48,7 @@ import {
   isTomorrow,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { MyTasksWidget } from "./MyTasksWidget";
 
 interface HomeDashboardProps {
   onNavigate: (tab: string) => void;
