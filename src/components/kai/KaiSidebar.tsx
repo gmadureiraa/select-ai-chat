@@ -19,6 +19,7 @@ import {
   Film,
   Terminal,
   CheckSquare,
+  Radar,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
 import { cn } from "@/lib/utils";
