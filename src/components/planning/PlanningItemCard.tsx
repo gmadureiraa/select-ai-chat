@@ -298,7 +298,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
               </div>
             );
           })}
-          {targetPlatforms.length > 3 && (
+          {show.platform && targetPlatforms.length > 3 && (
             <span className="text-[10px] text-muted-foreground font-medium px-1">
               +{targetPlatforms.length - 3}
             </span>
