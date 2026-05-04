@@ -26,6 +26,7 @@ export function TaskComments({ taskId, readOnly }: TaskCommentsProps) {
   const { members } = useTeamMembers();
   const { comments, addComment, removeComment } = useTaskComments(taskId);
   const [text, setText] = useState("");
+  const [mentionIds, setMentionIds] = useState<string[]>([]);
 
   const memberMap = useMemo(() => {
     const m: Record<string, { name: string; initials: string }> = {};
@@ -36,30 +37,23 @@ export function TaskComments({ taskId, readOnly }: TaskCommentsProps) {
     return m;
   }, [members]);
 
-  const parseMentions = (content: string): string[] => {
-    const ids: string[] = [];
-    members.forEach((mem: any) => {
-      const name = mem.profile?.full_name || mem.profile?.email || "";
-      if (!name) return;
-      const handle = name.split(/\s+/)[0].toLowerCase();
-      const re = new RegExp(`@${handle}\\b`, "i");
-      if (re.test(content)) ids.push(mem.user_id);
-    });
-    return Array.from(new Set(ids));
-  };
+  const memberOptions: MemberOption[] = useMemo(
+    () =>
+      members.map((m: any) => ({
+        user_id: m.user_id,
+        name: m.profile?.full_name || m.profile?.email || "Membro",
+        email: m.profile?.email,
+      })),
+    [members],
+  );
 
   const handleSend = () => {
     const v = text.trim();
     if (!v || !taskId) return;
-    addComment.mutate({ content: v, mentions: parseMentions(v) });
+    const ids = mentionIds.length ? mentionIds : extractMentionedIds(v, memberOptions);
+    addComment.mutate({ content: v, mentions: ids });
     setText("");
-  };
-
-  const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      handleSend();
-    }
+    setMentionIds([]);
   };
 
   return (
