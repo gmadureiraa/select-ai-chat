@@ -19,6 +19,7 @@ import {
   Film,
   Terminal,
   CheckSquare,
+  Radar,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
 import { cn } from "@/lib/utils";
@@ -364,6 +365,17 @@ export function KaiSidebar({
           label="Reels Viral"
           active={activeTab === "reels"}
           onClick={() => canUseAssistant ? onTabChange("reels") : showPermissionMessage()}
+          collapsed={collapsed}
+          disabled={!canUseAssistant}
+          showLock={!canUseAssistant}
+        />
+
+        {/* Radar Viral — briefing diário agregando notícias, YT, IG e competitors. */}
+        <NavItem
+          icon={<Radar className="h-4 w-4" strokeWidth={1.5} />}
+          label="Radar Viral"
+          active={activeTab === "radar"}
+          onClick={() => canUseAssistant ? onTabChange("radar") : showPermissionMessage()}
           collapsed={collapsed}
           disabled={!canUseAssistant}
           showLock={!canUseAssistant}

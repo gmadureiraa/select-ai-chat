@@ -53,8 +53,59 @@ Deno.serve(async (req) => {
     const searchRes = await fetch(searchUrl.toString());
     if (!searchRes.ok) {
       const errText = await searchRes.text().catch(() => "");
+      // Fallback Apify quando Data API está bloqueada/quotada
+      const apifyKey = Deno.env.get("APIFY_API_KEY") ?? Deno.env.get("APIFY_API_TOKEN");
+      if (apifyKey && (searchRes.status === 403 || searchRes.status === 429)) {
+        try {
+          const apifyRes = await fetch(
+            `https://api.apify.com/v2/acts/streamers~youtube-scraper/run-sync-get-dataset-items?token=${apifyKey}&timeout=60`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                searchKeywords: query,
+                maxResults,
+                sortBy: order === "viewCount" ? "v" : order === "date" ? "u" : "r",
+              }),
+            },
+          );
+          if (apifyRes.ok) {
+            const apifyItems = await apifyRes.json();
+            const mapped = (Array.isArray(apifyItems) ? apifyItems : [])
+              .filter((v: any) => v?.id || v?.url)
+              .map((v: any) => {
+                const id = v.id ?? v.url?.match(/v=([^&]+)/)?.[1] ?? "";
+                return {
+                  id,
+                  title: v.title ?? "",
+                  channelTitle: v.channelName ?? v.channel ?? "",
+                  channelId: v.channelId ?? "",
+                  thumbnailUrl: v.thumbnailUrl ?? `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+                  publishedAt: v.date ?? new Date().toISOString(),
+                  description: v.text ?? "",
+                  url: v.url ?? `https://www.youtube.com/watch?v=${id}`,
+                  viewCount: typeof v.viewCount === "number" ? v.viewCount : undefined,
+                  likeCount: undefined,
+                  commentCount: undefined,
+                };
+              });
+            return new Response(JSON.stringify({ items: mapped, source: "apify-fallback" }), {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } catch (apifyErr) {
+          console.warn("[youtube-search] Apify fallback failed:", apifyErr);
+        }
+      }
       return new Response(
-        JSON.stringify({ error: `YouTube API ${searchRes.status}`, details: errText.slice(0, 500) }),
+        JSON.stringify({
+          error: `YouTube API ${searchRes.status}`,
+          details: errText.slice(0, 500),
+          hint: searchRes.status === 403
+            ? "YouTube Data API v3 está bloqueada para esta key. Habilite em console.cloud.google.com ou configure APIFY_API_KEY pra fallback."
+            : undefined,
+        }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
