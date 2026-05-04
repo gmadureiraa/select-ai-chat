@@ -23,6 +23,7 @@ import { TabCompetitors } from "./viral-hunter/TabCompetitors";
 import { TabYouTube } from "./viral-hunter/TabYouTube";
 import { TabNews } from "./viral-hunter/TabNews";
 import { TabIdeas } from "./viral-hunter/TabIdeas";
+import { TabTrends } from "./viral-hunter/TabTrends";
 import type { ViralHunterTabId } from "./viral-hunter/types";
 
 interface ViralHunterTabProps {
@@ -43,7 +44,7 @@ const TABS: TabDef[] = [
   { id: "competitors", label: "Concorrentes", icon: Users, description: "Perfis do nicho pra monitorar" },
   { id: "youtube", label: "YouTube", icon: Youtube, description: "Vídeos virais por keywords" },
   { id: "news", label: "Notícias", icon: Newspaper, description: "Google News do nicho em tempo real" },
-  { id: "trends", label: "Tendências", icon: TrendingUp, description: "Termos em alta (em breve)" },
+  { id: "trends", label: "Tendências", icon: TrendingUp, description: "Top buscas no Google Trends BR (atualiza diário)" },
   { id: "ideas", label: "Ideas", icon: Lightbulb, description: "Gerar e gerenciar ideias de conteúdo" },
 ];
 
@@ -115,7 +116,9 @@ export const ViralHunterTab = ({
         {active === "news" && (
           <TabNews clientId={clientId} onUseAsInspiration={handleInspire} />
         )}
-        {active === "trends" && <TrendsPlaceholder />}
+        {active === "trends" && (
+          <TabTrends clientId={clientId} workspaceId={(client as any).workspace_id} onUseAsInspiration={handleInspire} />
+        )}
         {active === "ideas" && (
           <TabIdeas clientId={clientId} clientName={client.name} onUseAsInspiration={handleInspire} />
         )}
