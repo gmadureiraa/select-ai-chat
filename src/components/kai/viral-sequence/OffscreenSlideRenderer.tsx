@@ -5,21 +5,20 @@
  */
 
 import { useEffect } from "react";
-import { TwitterSlide } from "./TwitterSlide";
+import { TemplateSlide } from "./TemplateSlide";
 import { CANVAS_H, CANVAS_W, type ViralCarousel } from "./types";
 
 interface OffscreenSlideRendererProps {
   carousel: ViralCarousel;
   /** Recebe os refs por slideId — usados pelo exportCarousel. */
   registerRef: (slideId: string, node: HTMLDivElement | null) => void;
-  /** Reescreve URL da imagem (proxy CORS opcional). */
+  /** Reescreve URL da imagem (proxy CORS opcional). Não usado pelos templates portados — eles têm `resolveImgSrc` próprio. */
   rewriteImageUrl?: (url: string) => string;
 }
 
 export function OffscreenSlideRenderer({
   carousel,
   registerRef,
-  rewriteImageUrl,
 }: OffscreenSlideRendererProps) {
   useEffect(() => {
     return () => {
@@ -53,15 +52,14 @@ export function OffscreenSlideRenderer({
             height: CANVAS_H,
           }}
         >
-          <TwitterSlide
+          <TemplateSlide
             ref={(n) => registerRef(slide.id, n)}
-            body={slide.body || ""}
-            imageUrl={slide.image.kind === "none" || slide.image.kind === "skip" ? undefined : slide.image.url}
-            slideNumber={slide.order}
-            totalSlides={carousel.slides.length}
+            templateId={carousel.template}
+            slide={slide}
             profile={carousel.profile}
+            totalSlides={carousel.slides.length}
             scale={1}
-            rewriteImageUrl={rewriteImageUrl}
+            exportMode
           />
         </div>
       ))}

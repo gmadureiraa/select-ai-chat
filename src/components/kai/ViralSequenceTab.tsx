@@ -66,6 +66,7 @@ import {
 import { CarouselFullPreview } from "./viral-sequence/CarouselFullPreview";
 import { SavedCarouselsSidebar } from "./viral-sequence/SavedCarouselsSidebar";
 import { OffscreenSlideRenderer } from "./viral-sequence/OffscreenSlideRenderer";
+import { TemplatePicker } from "./viral-sequence/TemplatePicker";
 import { searchImages } from "./viral-sequence/imageSearch";
 
 interface ViralSequenceTabProps {
@@ -848,6 +849,12 @@ Responda APENAS com JSON no formato: {"queries": [{"id": "...", "q": "..."}]}. N
           {/* Grid de slides */}
           {hasAnySlideFilled ? (
             <div className="max-w-7xl mx-auto w-full">
+              <TemplatePicker
+                value={carousel.template}
+                onChange={(t) =>
+                  setCarousel((c) => ({ ...c, template: t, updatedAt: new Date().toISOString() }))
+                }
+              />
               <div className="flex items-center gap-2 mb-4">
                 <Layers className="h-4 w-4 text-muted-foreground" />
                 <h3 className="text-sm font-semibold">Slides</h3>
@@ -867,6 +874,7 @@ Responda APENAS com JSON no formato: {"queries": [{"id": "...", "q": "..."}]}. N
                     totalSlides={carousel.slides.length}
                     profile={carousel.profile}
                     clientId={clientId}
+                    templateId={carousel.template}
                     onSlideNode={registerSlideNode}
                     onChange={(next) =>
                       setCarousel((c) => ({

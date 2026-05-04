@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { TwitterSlide } from "./TwitterSlide";
+import { TemplateSlide } from "./TemplateSlide";
 import type { ViralCarousel } from "./types";
 
 interface CarouselFullPreviewProps {
@@ -85,15 +85,11 @@ export function CarouselFullPreview({
           </Button>
 
           <div className="transition-all duration-200">
-            <TwitterSlide
-              body={current.body || "(slide vazio)"}
-              imageUrl={imageUrl}
-              imageAttribution={
-                current.image.kind === "search" ? current.image.attribution : undefined
-              }
-              slideNumber={current.order}
-              totalSlides={total}
+            <TemplateSlide
+              templateId={carousel.template}
+              slide={current}
               profile={carousel.profile}
+              totalSlides={total}
               scale={0.5}
             />
           </div>
@@ -122,12 +118,11 @@ export function CarouselFullPreview({
               )}
               title={`Slide ${s.order}`}
             >
-              <TwitterSlide
-                body={s.body}
-                imageUrl={s.image.kind === "none" || s.image.kind === "skip" ? undefined : s.image.url}
-                slideNumber={s.order}
-                totalSlides={total}
+              <TemplateSlide
+                templateId={carousel.template}
+                slide={s}
                 profile={carousel.profile}
+                totalSlides={total}
                 scale={0.08}
               />
             </button>

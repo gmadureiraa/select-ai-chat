@@ -9,7 +9,19 @@
 export const CANVAS_W = 1080;
 export const CANVAS_H = 1350;
 
-export type ViralTemplateId = "twitter"; // MVP: só twitter
+/**
+ * IDs dos 8 templates visuais (portados do repo gmadureiraa/sequencia-viral).
+ * Carrosséis legados sem templateId caem no default "twitter".
+ */
+export type ViralTemplateId =
+  | "manifesto"
+  | "futurista"
+  | "autoral"
+  | "twitter"
+  | "ambitious"
+  | "blank"
+  | "bohdan"
+  | "paper-mono";
 
 export type ImageSource =
   | { kind: "none" }
