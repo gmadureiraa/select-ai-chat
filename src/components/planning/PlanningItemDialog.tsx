@@ -1085,6 +1085,39 @@ export function PlanningItemDialog({
       onGenerate={handleGenerateImage}
       isGenerating={isGeneratingImage}
     />
+
+    <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir este card?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta ação não pode ser desfeita. O card e todo o conteúdo serão removidos.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={isDeleting}
+            onClick={async (e) => {
+              e.preventDefault();
+              if (!effectiveItem || !onDelete) return;
+              setIsDeleting(true);
+              try {
+                await onDelete(effectiveItem.id);
+                setConfirmDelete(false);
+                onOpenChange(false);
+              } finally {
+                setIsDeleting(false);
+              }
+            }}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+            Excluir
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
