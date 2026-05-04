@@ -256,6 +256,7 @@ serve(async (req) => {
     const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
     if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY não configurada");
+    const APIFY_KEY = Deno.env.get("APIFY_API_KEY_INSTAGRAM") || Deno.env.get("APIFY_API_KEY");
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON, {
