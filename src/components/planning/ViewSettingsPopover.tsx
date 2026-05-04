@@ -18,9 +18,11 @@ export interface ViewSettings {
     status: boolean;
     priority: boolean;
     assignee: boolean;
+    assigneeName: boolean;
     labels: boolean;
     dueDate: boolean;
     autoPublish: boolean;
+    format: boolean;
   };
 }
 
@@ -33,10 +35,12 @@ const defaultSettings: ViewSettings = {
     platform: true,
     status: true,
     priority: true,
-    assignee: false,
+    assignee: true,
+    assigneeName: false,
     labels: true,
     dueDate: true,
     autoPublish: true,
+    format: true,
   },
 };
 
@@ -51,9 +55,11 @@ const fieldLabels: Record<keyof ViewSettings['visibleFields'], string> = {
   status: 'Status',
   priority: 'Prioridade',
   assignee: 'Responsável',
+  assigneeName: 'Nome do responsável',
   labels: 'Labels',
   dueDate: 'Data',
   autoPublish: 'Auto/Manual',
+  format: 'Formato',
 };
 
 export function useViewSettings() {
