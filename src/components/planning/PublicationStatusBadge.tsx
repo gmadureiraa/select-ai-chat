@@ -11,7 +11,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface PublicationStatusBadgeProps {
-  mode: 'auto' | 'manual';
+  mode?: 'auto' | 'manual';
   status?: 'idea' | 'draft' | 'review' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'failed';
   errorMessage?: string | null;
   retryCount?: number;
