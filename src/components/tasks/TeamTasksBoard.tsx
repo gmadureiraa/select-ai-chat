@@ -23,7 +23,8 @@ import { useTeamTasks, type TeamTask, type TaskStatus } from "@/hooks/useTeamTas
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useClients } from "@/hooks/useClients";
 import { useAuth } from "@/hooks/useAuth";
-import { useWorkspace, useWorkspaceContext } from "@/hooks/useWorkspace";
+import { useWorkspace } from "@/hooks/useWorkspace";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { useTasksViewPrefs, type TasksGroupBy } from "@/hooks/useTasksViewPrefs";
 import { TaskCard } from "./TaskCard";
 import { TaskDialog } from "./TaskDialog";
