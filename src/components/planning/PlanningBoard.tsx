@@ -52,7 +52,25 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
   }, [members, workspace?.id]);
   
   const { clientIds: viewerClientIds } = useMemberClientAccess(currentMember?.id);
-  
+
+  // memberMap: user_id -> { name, initials } para o card mostrar nome do responsável sem N queries
+  const memberMap = useMemo(() => {
+    const map: Record<string, { name: string; initials: string }> = {};
+    members.forEach((m: any) => {
+      const profile = m.profile;
+      if (!profile) return;
+      const fullName: string = profile.full_name || profile.email || 'Membro';
+      const parts = fullName.trim().split(/\s+/);
+      const initials = (parts[0]?.[0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '');
+      // Nome curto: "João S."
+      const shortName = parts.length > 1
+        ? `${parts[0]} ${parts[parts.length - 1][0]}.`
+        : parts[0];
+      map[m.user_id] = { name: shortName, initials: initials.toUpperCase() || '👤' };
+    });
+    return map;
+  }, [members]);
+
   // For viewers, force the clientId filter to only show allowed clients
   const [localFilters, setLocalFilters] = useState<PlanningFilters>({});
   
@@ -294,6 +312,8 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
             onMoveItem={(itemId, columnId, position) => moveToColumn.mutate({ itemId, columnId, newPosition: position })}
             onAddCard={(columnId) => handleNewCard(columnId)}
             canDelete={!isViewer}
+            viewSettings={settings}
+            memberMap={memberMap}
           />
         )}
 
@@ -308,6 +328,8 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
             onMoveItem={handleMoveToDate}
             canEdit={!isViewer}
             isDeleting={deleteItem.isPending}
+            viewSettings={settings}
+            memberMap={memberMap}
           />
         )}
 
