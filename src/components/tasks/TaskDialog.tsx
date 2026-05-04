@@ -175,7 +175,6 @@ export function TaskDialog({
       labels,
       mentions: ids,
     } as any;
-    };
     if (task) {
       await updateTask.mutateAsync({ id: task.id, ...payload });
     } else {
