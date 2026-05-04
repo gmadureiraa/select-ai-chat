@@ -128,6 +128,7 @@ export function TaskDialog({
       setAssignedTo(task.assigned_to || "none");
       setClientId(task.client_id || "none");
       setLabels(task.labels || []);
+      setMentionIds(((task as any).mentions as string[]) || []);
     } else {
       setTitle("");
       setDescription("");
@@ -137,6 +138,7 @@ export function TaskDialog({
       setAssignedTo("none");
       setClientId(defaultClientId || "none");
       setLabels([]);
+      setMentionIds([]);
     }
     setTab("details");
   }, [open, task, defaultStatus, defaultClientId, defaultDueDate]);
