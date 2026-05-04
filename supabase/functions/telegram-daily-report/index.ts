@@ -34,40 +34,47 @@ serve(async () => {
   const today = new Date().toISOString().split('T')[0];
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
-  // Gather stats
-  const [pending, approved, publishedYesterday, publishedToday, rejected] = await Promise.all([
-    supabase.from('planning_items').select('*', { count: 'exact', head: true }).eq('status', 'idea'),
+  // Gather stats — only real pending work (drafts/review aguardando ação)
+  const [drafts, inReview, approved, publishedYesterday, publishedToday] = await Promise.all([
+    supabase.from('planning_items').select('*', { count: 'exact', head: true }).eq('status', 'draft'),
+    supabase.from('planning_items').select('*', { count: 'exact', head: true }).eq('status', 'review'),
     supabase.from('planning_items').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
     supabase.from('planning_items').select('*', { count: 'exact', head: true }).eq('status', 'published').gte('updated_at', yesterday).lt('updated_at', today),
     supabase.from('planning_items').select('*', { count: 'exact', head: true }).eq('status', 'published').gte('updated_at', today),
-    supabase.from('planning_items').select('*', { count: 'exact', head: true }).eq('status', 'rejected').gte('updated_at', yesterday),
   ]);
 
-  // Get upcoming scheduled items
+  const totalPending = (drafts.count || 0) + (inReview.count || 0);
+
+  // Get upcoming scheduled items (next 7 days, scheduled OR approved)
+  const in7Days = new Date(Date.now() + 7 * 86400000).toISOString();
   const { data: upcoming } = await supabase
     .from('planning_items')
-    .select('title, platform, scheduled_at')
-    .eq('status', 'approved')
+    .select('title, platform, scheduled_at, status')
+    .in('status', ['scheduled', 'approved'])
     .not('scheduled_at', 'is', null)
-    .gte('scheduled_at', today)
+    .gte('scheduled_at', new Date().toISOString())
+    .lte('scheduled_at', in7Days)
     .order('scheduled_at', { ascending: true })
-    .limit(5);
+    .limit(8);
 
   const upcomingText = upcoming && upcoming.length > 0
-    ? '\n\n📅 <b>Próximos agendados:</b>\n' + upcoming.map((i: any) => {
+    ? '\n\n📅 <b>Próximos 7 dias:</b>\n' + upcoming.map((i: any) => {
         const date = new Date(i.scheduled_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-        return `• ${i.title?.substring(0, 50)} (${i.platform || 'N/A'}) — ${date}`;
+        return `• ${(i.title || '').substring(0, 50)} (${i.platform || 'N/A'}) — ${date}`;
       }).join('\n')
-    : '';
+    : '\n\n✨ Nenhum agendado para os próximos 7 dias.';
+
+  const pendingLine = totalPending === 0
+    ? `🎉 <b>Zero pendências!</b> Tudo em dia.`
+    : `📝 Pendentes: <b>${totalPending}</b> (${drafts.count || 0} rascunhos, ${inReview.count || 0} em revisão)`;
 
   const message = [
     `☀️ <b>Relatório Diário — kAI</b>`,
     ``,
-    `📝 Pendentes: <b>${pending.count || 0}</b>`,
-    `✅ Aprovados: <b>${approved.count || 0}</b>`,
+    pendingLine,
+    `✅ Aprovados aguardando agendamento: <b>${approved.count || 0}</b>`,
     `📤 Publicados ontem: <b>${publishedYesterday.count || 0}</b>`,
     `📤 Publicados hoje: <b>${publishedToday.count || 0}</b>`,
-    `❌ Reprovados ontem: <b>${rejected.count || 0}</b>`,
     upcomingText,
   ].join('\n');
 

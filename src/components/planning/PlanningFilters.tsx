@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Search, X, SlidersHorizontal } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import type { PlanningFilters as FilterType, PlanningPlatform, PlanningStatus, PlanningPriority } from '@/hooks/usePlanningItems';
@@ -44,6 +46,8 @@ const priorities: { value: PlanningPriority; label: string }[] = [
 
 export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
   const { clients } = useClients();
+  const { members } = useTeamMembers();
+  const { user } = useAuth();
   const isMobile = useIsMobile();
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -52,7 +56,8 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
     filters.platform,
     filters.status,
     filters.priority,
-    filters.search
+    filters.search,
+    filters.assignedTo,
   ].filter(Boolean).length;
 
   const hasActiveFilters = activeFiltersCount > 0;
@@ -60,6 +65,8 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
   const clearFilters = () => {
     onChange({});
   };
+
+  const isMineActive = filters.assignedTo && filters.assignedTo === user?.id;
 
   const FiltersContent = ({ inSheet = false }: { inSheet?: boolean }) => (
     <div className={cn(
@@ -134,6 +141,41 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
           ))}
         </SelectContent>
       </Select>
+
+      <Select
+        value={filters.assignedTo || 'all'}
+        onValueChange={(v) => onChange({ ...filters, assignedTo: v === 'all' ? undefined : v })}
+      >
+        <SelectTrigger className={cn(
+          "h-7 text-xs border-0 bg-transparent hover:bg-muted/50 focus:ring-0 focus:ring-offset-0 rounded-md",
+          filters.assignedTo && "text-foreground bg-muted/50",
+          inSheet ? "w-full border" : "w-[120px]"
+        )}>
+          <SelectValue placeholder="Responsável" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos</SelectItem>
+          {user?.id && (
+            <SelectItem value={user.id}>👤 Minhas tarefas</SelectItem>
+          )}
+          {members?.filter(m => m.user_id !== user?.id).map(m => (
+            <SelectItem key={m.user_id} value={m.user_id}>
+              {m.profile?.full_name || m.profile?.email || 'Membro'}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {user?.id && !inSheet && (
+        <Button
+          variant={isMineActive ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => onChange({ ...filters, assignedTo: isMineActive ? undefined : user.id })}
+          className="h-7 px-2 text-xs rounded-md"
+        >
+          Minhas
+        </Button>
+      )}
 
       {hasActiveFilters && (
         <Button 
