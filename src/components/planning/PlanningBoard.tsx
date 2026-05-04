@@ -109,6 +109,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
     updateItem,
     deleteItem,
     moveToColumn,
+    reorderItems,
     moveToLibrary,
     retryPublication,
     getItemsByColumn,
