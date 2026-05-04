@@ -53,9 +53,10 @@ export function resolveImgSrc(
     if (isPublicCorsHost(u.hostname)) {
       return url;
     }
-    // Hosts desconhecidos — ai sim passa pelo proxy (proxy tem whitelist
-    // interna + fallback auth, cobre IG CDN etc).
-    return `/api/img-proxy?url=${encodeURIComponent(url)}`;
+    // Hosts desconhecidos — em kAI não temos img-proxy interno; retorna
+    // direto. Em modo export, host sem CORS pode tainted o canvas — nesse
+    // caso o caller deve passar a imagem pelo Supabase Storage antes.
+    return url;
   } catch {
     return url;
   }
