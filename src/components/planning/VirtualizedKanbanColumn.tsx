@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { PlanningItemCard } from './PlanningItemCard';
 import type { PlanningItem, KanbanColumn } from '@/hooks/usePlanningItems';
+import type { ViewSettings } from './ViewSettingsPopover';
 
 const columnConfig: Record<string, { 
   dotColor: string;
@@ -37,6 +38,8 @@ interface VirtualizedKanbanColumnProps {
   onDrop: (e: React.DragEvent, columnId: string) => void;
   height: number;
   className?: string;
+  viewSettings?: ViewSettings;
+  memberMap?: Record<string, { name: string; initials: string }>;
 }
 
 export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
@@ -58,6 +61,8 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
   onDrop,
   height,
   className,
+  viewSettings,
+  memberMap,
 }: VirtualizedKanbanColumnProps) {
   const config = columnConfig[column.column_type || ''] || columnConfig.idea;
   const failedCount = items.filter(i => i.status === 'failed').length;
@@ -173,6 +178,8 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
                     isDragging={draggedItemId === item.id}
                     compact={false}
                     canDelete={canDelete}
+                    viewSettings={viewSettings}
+                    memberMap={memberMap}
                   />
                 </div>
               ))}

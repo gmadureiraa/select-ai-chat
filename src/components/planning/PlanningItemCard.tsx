@@ -26,6 +26,7 @@ import { PublicationStatusBadge } from './PublicationStatusBadge';
 import { useClientPlatformStatus } from '@/hooks/useClientPlatformStatus';
 import { PLATFORM_COLOR_MAP, getContentTypeLabel } from '@/types/contentTypes';
 import type { PlanningItem } from '@/hooks/usePlanningItems';
+import type { ViewSettings } from './ViewSettingsPopover';
 
 interface PlanningItemCardProps {
   item: PlanningItem;
@@ -37,6 +38,32 @@ interface PlanningItemCardProps {
   isDragging?: boolean;
   compact?: boolean;
   canDelete?: boolean;
+  viewSettings?: ViewSettings;
+  memberMap?: Record<string, { name: string; initials: string }>;
+}
+
+const CLIENT_HUE_PALETTE = [12, 45, 90, 150, 200, 260, 310, 340];
+
+function getAccentColor(item: PlanningItem, colorBy: ViewSettings['colorBy'], primaryPlatform: string): string {
+  if (colorBy === 'status') {
+    return `hsl(var(--status-${item.status || 'idea'}))`;
+  }
+  if (colorBy === 'platform') {
+    return PLATFORM_COLOR_MAP[primaryPlatform] || 'hsl(var(--muted-foreground))';
+  }
+  if (colorBy === 'priority') {
+    const p = (item as any).priority;
+    if (p === 'high') return 'hsl(var(--destructive))';
+    if (p === 'medium') return 'hsl(38 92% 55%)';
+    if (p === 'low') return 'hsl(217 90% 60%)';
+    return 'hsl(var(--muted-foreground) / 0.4)';
+  }
+  if (colorBy === 'client' && item.client_id) {
+    const sum = Array.from(item.client_id).reduce((a, c) => a + c.charCodeAt(0), 0);
+    const hue = CLIENT_HUE_PALETTE[sum % CLIENT_HUE_PALETTE.length];
+    return `hsl(${hue} 75% 55%)`;
+  }
+  return 'transparent';
 }
 
 const platformIcons: Record<string, React.ElementType> = {
@@ -79,7 +106,9 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   onDuplicate,
   isDragging = false,
   compact = false,
-  canDelete = true
+  canDelete = true,
+  viewSettings,
+  memberMap,
 }: PlanningItemCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -117,6 +146,26 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   const firstMediaUrl = hasMedia ? item.media_urls[0] : null;
   const isImage = firstMediaUrl && !firstMediaUrl.match(/\.(mp4|webm|mov)$/i);
 
+  // visibleFields com defaults seguros (preserva visual atual quando viewSettings ausente)
+  const vf = viewSettings?.visibleFields;
+  const show = {
+    format: vf?.format ?? true,
+    platform: vf?.platform ?? true,
+    status: vf?.status ?? true,
+    priority: vf?.priority ?? true,
+    dueDate: vf?.dueDate ?? true,
+    client: vf?.client ?? true,
+    autoPublish: vf?.autoPublish ?? true,
+    assignee: vf?.assignee ?? true,
+    assigneeName: vf?.assigneeName ?? false,
+  };
+
+  const accentColor = viewSettings
+    ? getAccentColor(item, viewSettings.colorBy, primaryPlatform)
+    : undefined;
+
+  const assigneeInfo = item.assigned_to ? memberMap?.[item.assigned_to] : undefined;
+
   return (
     <div
       className={cn(
@@ -127,6 +176,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         isFailed && "border-destructive/30 hover:border-destructive/50",
         isPublished && "border-emerald-500/20 hover:border-emerald-500/30"
       )}
+      style={accentColor ? { borderLeft: `4px solid ${accentColor}` } : undefined}
       onClick={() => {
         if (!lightboxOpen) onEdit(item);
       }}
@@ -209,7 +259,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         {/* Row 1: Platform badges + content type */}
         <div className="flex items-center gap-1.5 mb-2 flex-wrap">
           {/* Content type badge */}
-          {contentTypeLabel && (
+          {show.format && contentTypeLabel && (
             <div
               className={cn(
                 "flex items-center gap-1 px-1.5 py-0.5 rounded border",
@@ -230,7 +280,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             </div>
           )}
 
-          {targetPlatforms.slice(0, 3).map((tp) => {
+          {show.platform && targetPlatforms.slice(0, 3).map((tp) => {
             const Icon = platformIcons[tp] || FileText;
             const color = PLATFORM_COLOR_MAP[tp];
             return (
@@ -248,7 +298,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
               </div>
             );
           })}
-          {targetPlatforms.length > 3 && (
+          {show.platform && targetPlatforms.length > 3 && (
             <span className="text-[10px] text-muted-foreground font-medium px-1">
               +{targetPlatforms.length - 3}
             </span>
@@ -343,7 +393,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5 text-muted-foreground">
             {/* Priority flag */}
-            {priority && priorityConfig[priority] && (
+            {show.priority && priority && priorityConfig[priority] && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Flag className={cn("h-3.5 w-3.5", priorityConfig[priority].color)} />
@@ -355,7 +405,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             )}
 
             {/* Date */}
-            {displayDate && (
+            {show.dueDate && displayDate && (
               <div className="flex items-center gap-1 text-[11px]">
                 <Calendar className="h-3 w-3" />
                 <span>{format(parseISO(displayDate), 'dd MMM', { locale: ptBR })}</span>
@@ -363,7 +413,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             )}
 
             {/* Client name */}
-            {item.clients && (
+            {show.client && item.clients && (
               <>
                 <span className="text-muted-foreground/30">•</span>
                 <span className="text-[11px] truncate max-w-[80px]">
@@ -383,30 +433,39 @@ export const PlanningItemCard = memo(function PlanningItemCard({
 
           <div className="flex items-center gap-2">
             {/* Status badge */}
-            <PublicationStatusBadge
-              mode={publicationMode}
-              status={item.status}
-              errorMessage={item.error_message}
-              retryCount={item.retry_count}
-              accountName={platformStatus?.accountName}
-              scheduledAt={item.scheduled_at}
-              lateConfirmed={!!(item.external_post_id || (item.metadata as any)?.late_confirmed)}
-              onRetry={onRetry ? () => onRetry(item.id) : undefined}
-              compact
-            />
+            {show.status && (
+              <PublicationStatusBadge
+                mode={show.autoPublish ? publicationMode : undefined}
+                status={item.status}
+                errorMessage={item.error_message}
+                retryCount={item.retry_count}
+                accountName={platformStatus?.accountName}
+                scheduledAt={item.scheduled_at}
+                lateConfirmed={!!(item.external_post_id || (item.metadata as any)?.late_confirmed)}
+                onRetry={onRetry ? () => onRetry(item.id) : undefined}
+                compact
+              />
+            )}
 
             {/* Assignee */}
-            {item.assigned_to && (
+            {show.assignee && item.assigned_to && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Avatar className="h-5 w-5 border border-border">
-                    <AvatarFallback className="text-[9px] bg-muted">
-                      👤
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="flex items-center gap-1.5">
+                    <Avatar className="h-5 w-5 border border-border">
+                      <AvatarFallback className="text-[9px] bg-muted">
+                        {assigneeInfo?.initials || '👤'}
+                      </AvatarFallback>
+                    </Avatar>
+                    {show.assigneeName && assigneeInfo?.name && (
+                      <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">
+                        {assigneeInfo.name}
+                      </span>
+                    )}
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  Responsável
+                  {assigneeInfo?.name || 'Responsável'}
                 </TooltipContent>
               </Tooltip>
             )}

@@ -72,6 +72,16 @@
     --chart-4: 320 25% 82%;
     --chart-5: 320 15% 88%;
     --chart-6: 320 10% 92%;
+
+    /* Planning status colors (light) */
+    --status-idea: 270 70% 60%;
+    --status-draft: 217 90% 60%;
+    --status-review: 38 92% 55%;
+    --status-approved: 142 70% 45%;
+    --status-scheduled: 25 95% 55%;
+    --status-publishing: 25 85% 60%;
+    --status-published: 215 15% 55%;
+    --status-failed: 0 80% 58%;
   }
 
   .dark {
@@ -130,6 +140,16 @@
     --chart-4: 150 45% 35%;
     --chart-5: 150 35% 30%;
     --chart-6: 150 25% 25%;
+
+    /* Planning status colors (dark) */
+    --status-idea: 270 80% 70%;
+    --status-draft: 217 95% 65%;
+    --status-review: 42 95% 60%;
+    --status-approved: 150 80% 55%;
+    --status-scheduled: 25 95% 60%;
+    --status-publishing: 25 90% 65%;
+    --status-published: 215 15% 60%;
+    --status-failed: 0 85% 65%;
   }
 }
 
