@@ -867,6 +867,7 @@ Responda APENAS com JSON no formato: {"queries": [{"id": "...", "q": "..."}]}. N
                     totalSlides={carousel.slides.length}
                     profile={carousel.profile}
                     clientId={clientId}
+                    templateId={carousel.template}
                     onSlideNode={registerSlideNode}
                     onChange={(next) =>
                       setCarousel((c) => ({
