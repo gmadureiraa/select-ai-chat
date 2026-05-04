@@ -95,6 +95,46 @@ const RESPONSE_SCHEMA = {
 
 interface NewsItem { title: string; source: string; publishedAt: string; url: string; }
 interface YTItem { title: string; channelTitle: string; viewCount?: number; publishedAt: string; }
+interface RssItem { title: string; source: string; pubDate: string; link: string; }
+interface IgPost { ownerUsername: string; caption?: string; likesCount?: number; commentsCount?: number; videoPlayCount?: number; url?: string; }
+
+// ─── Curated sources (espelha radar-viral/lib/sources-curated.ts) ─────
+const CURATED: Record<string, { igHandles: string[]; newsRss: { name: string; url: string }[] }> = {
+  crypto: {
+    igHandles: ["investidor4.20", "leobueno_", "mercadobitcoin", "documentingbtc"],
+    newsRss: [
+      { name: "Cointelegraph BR", url: "https://br.cointelegraph.com/rss" },
+      { name: "Portal do Bitcoin", url: "https://portaldobitcoin.uol.com.br/feed/" },
+      { name: "Livecoins", url: "https://livecoins.com.br/feed/" },
+      { name: "CoinDesk", url: "https://www.coindesk.com/arc/outboundfeeds/rss/" },
+      { name: "The Block", url: "https://www.theblock.co/rss.xml" },
+    ],
+  },
+  marketing: {
+    igHandles: ["leadgenman", "matheus.chibebe", "hormozi", "garyvee"],
+    newsRss: [
+      { name: "Marketing Brew", url: "https://www.marketingbrew.com/feed" },
+      { name: "Search Engine Land", url: "https://searchengineland.com/feed" },
+      { name: "MeioMensagem", url: "https://www.meioemensagem.com.br/feed/" },
+      { name: "B9", url: "https://www.b9.com.br/feed/" },
+    ],
+  },
+  ai: {
+    igHandles: ["openai", "anthropicai", "ogmadureira", "hugodoria"],
+    newsRss: [
+      { name: "Hugging Face", url: "https://huggingface.co/blog/feed.xml" },
+      { name: "OpenAI Blog", url: "https://openai.com/blog/rss.xml" },
+      { name: "VentureBeat AI", url: "https://venturebeat.com/category/ai/feed/" },
+    ],
+  },
+};
+
+function pickCuratedKey(niche: string): string {
+  const n = (niche || "").toLowerCase();
+  if (/(crypto|cripto|bitcoin|defi|web3|blockchain)/.test(n)) return "crypto";
+  if (/(ai|ia|llm|gpt|inteligência|inteligencia)/.test(n)) return "ai";
+  return "marketing";
+}
 
 async function fetchNews(supabaseUrl: string, anon: string, query: string): Promise<NewsItem[]> {
   try {
@@ -122,6 +162,64 @@ async function fetchYouTube(supabaseUrl: string, anon: string, query: string): P
     return (data?.items ?? []).slice(0, 10);
   } catch { return []; }
 }
+
+async function fetchRssFeed(name: string, url: string): Promise<RssItem[]> {
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 kAI-Radar" } });
+    if (!res.ok) return [];
+    const xml = await res.text();
+    const items: RssItem[] = [];
+    const re = /<item[\s\S]*?<\/item>/gi;
+    const matches = xml.match(re) ?? [];
+    for (const block of matches.slice(0, 5)) {
+      const title = (block.match(/<title>([\s\S]*?)<\/title>/i)?.[1] ?? "")
+        .replace(/<!\[CDATA\[|\]\]>/g, "").trim();
+      const link = (block.match(/<link>([\s\S]*?)<\/link>/i)?.[1] ?? "").trim();
+      const pubDate = (block.match(/<pubDate>([\s\S]*?)<\/pubDate>/i)?.[1] ?? "").trim();
+      if (title) items.push({ title, source: name, link, pubDate });
+    }
+    return items;
+  } catch { return []; }
+}
+
+async function fetchCuratedRss(niche: string): Promise<RssItem[]> {
+  const c = CURATED[pickCuratedKey(niche)];
+  if (!c) return [];
+  const all = await Promise.all(c.newsRss.map((r) => fetchRssFeed(r.name, r.url)));
+  return all.flat().slice(0, 25);
+}
+
+async function fetchTopIgFromCurated(apifyKey: string | undefined, niche: string, extra: string[]): Promise<IgPost[]> {
+  if (!apifyKey) return [];
+  const c = CURATED[pickCuratedKey(niche)];
+  const handles = Array.from(new Set([...(c?.igHandles ?? []), ...extra])).slice(0, 5);
+  if (handles.length === 0) return [];
+  try {
+    const endpoint = `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${apifyKey}&timeout=45`;
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        directUrls: handles.map((h) => `https://www.instagram.com/${h.replace(/^@/, "")}/`),
+        resultsType: "posts",
+        resultsLimit: 3,
+        addParentData: false,
+      }),
+    });
+    if (!res.ok) return [];
+    const items = await res.json();
+    if (!Array.isArray(items)) return [];
+    return items.slice(0, 15).map((it: any) => ({
+      ownerUsername: it.ownerUsername ?? "",
+      caption: it.caption,
+      likesCount: it.likesCount,
+      commentsCount: it.commentsCount,
+      videoPlayCount: it.videoPlayCount,
+      url: it.url,
+    }));
+  } catch { return []; }
+}
+
 
 async function callGemini(geminiKey: string, userPrompt: string) {
   const res = await fetch(
@@ -158,6 +256,7 @@ serve(async (req) => {
     const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_AI_STUDIO_API_KEY");
     if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY não configurada");
+    const APIFY_KEY = Deno.env.get("APIFY_API_KEY_INSTAGRAM") || Deno.env.get("APIFY_API_KEY");
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON, {
@@ -180,8 +279,13 @@ serve(async (req) => {
     }
 
     const { data: client } = await admin
-      .from("clients").select("workspace_id, name, industry").eq("id", clientId).single();
+      .from("clients").select("workspace_id, name, tags").eq("id", clientId).single();
     if (!client) throw new Error("Cliente não encontrado");
+    let inferredIndustry: string | null = null;
+    try {
+      const t = client.tags ? (typeof client.tags === "string" ? JSON.parse(client.tags) : client.tags) : null;
+      inferredIndustry = t?.industry ?? t?.niche ?? null;
+    } catch { /* ignore */ }
 
     // Coleta sinais
     const { data: kws } = await admin.from("client_viral_keywords").select("keyword").eq("client_id", clientId);
@@ -196,7 +300,7 @@ serve(async (req) => {
       .select("platform, handle").eq("client_id", clientId).limit(20);
 
     // Insert pending
-    const briefNiche = niche || (client.industry ?? "general");
+    const briefNiche = niche || inferredIndustry || "general";
     const { data: brief, error: insertErr } = await admin
       .from("viral_radar_briefs")
       .insert({
@@ -213,8 +317,11 @@ serve(async (req) => {
     try {
       const newsQuery = keywords.slice(0, 5).join(" OR ");
       const ytQuery = keywords.slice(0, 3).join(" | ");
+      const competitorIgHandles = (comps ?? [])
+        .filter((c: any) => c.platform === "instagram")
+        .map((c: any) => c.handle);
 
-      const [news, ytVideos, igTop] = await Promise.all([
+      const [news, ytVideos, igTop, curatedRss, curatedIg] = await Promise.all([
         fetchNews(SUPABASE_URL, SUPABASE_ANON, newsQuery),
         fetchYouTube(SUPABASE_URL, SUPABASE_ANON, ytQuery),
         admin.from("instagram_posts")
@@ -223,35 +330,48 @@ serve(async (req) => {
           .order("likes_count", { ascending: false })
           .limit(8)
           .then((r: any) => r.data ?? []),
+        fetchCuratedRss(briefNiche),
+        fetchTopIgFromCurated(APIFY_KEY, briefNiche, competitorIgHandles),
       ]);
 
       const sourcesSummary = {
         news_count: news.length,
         youtube_count: ytVideos.length,
         own_posts_count: igTop.length,
+        curated_rss_count: curatedRss.length,
+        curated_ig_count: curatedIg.length,
         keywords,
         competitors: (comps ?? []).map((c: any) => `${c.platform}:${c.handle}`),
+        curated_niche: pickCuratedKey(briefNiche),
       };
 
       const userPrompt = `# CONTEXTO DO CLIENTE
 - Nome: ${client.name}
-- Nicho: ${briefNiche}
+- Nicho: ${briefNiche} (curated key: ${sourcesSummary.curated_niche})
 - Keywords monitoradas: ${keywords.join(", ")}
 - Competitors: ${sourcesSummary.competitors.join(", ") || "(nenhum)"}
 
 # SINAIS DE HOJE
 
-## 📰 Notícias (Google News últimos dias) — ${news.length} itens
+## 📰 Notícias Google News — ${news.length} itens
 ${news.map((n, i) => `${i + 1}. [${n.source}] ${n.title} (${new Date(n.publishedAt).toLocaleDateString("pt-BR")})`).join("\n") || "(sem notícias)"}
+
+## 📡 Feeds curados do nicho — ${curatedRss.length} itens
+${curatedRss.map((r, i) => `${i + 1}. [${r.source}] ${r.title}`).join("\n") || "(sem feeds curados)"}
 
 ## 🎬 YouTube top views (últimos 7 dias) — ${ytVideos.length} itens
 ${ytVideos.map((v, i) => `${i + 1}. [${v.channelTitle}] ${v.title} — ${v.viewCount?.toLocaleString() ?? "?"} views`).join("\n") || "(sem dados YouTube — API pode estar bloqueada)"}
+
+## 🌐 Posts top de referência IG (curated + competitors) — ${curatedIg.length} itens
+${curatedIg.map((p, i) => `${i + 1}. @${p.ownerUsername} (${p.likesCount?.toLocaleString() ?? "?"} likes): ${(p.caption ?? "").slice(0, 140).replace(/\n/g, " ")}…`).join("\n") || "(sem dados Apify)"}
 
 ## 📸 Posts top do próprio cliente (Instagram) — ${igTop.length} itens
 ${(igTop as any[]).map((p, i) => `${i + 1}. ${(p.caption ?? "").slice(0, 120)}… — ${p.likes_count} likes / ${p.comments_count} comments`).join("\n") || "(sem posts sincronizados)"}
 
 # TAREFA
-Gere o briefing JSON conforme schema. Foque no que é acionável nas próximas 24-48h.`;
+Gere o briefing JSON conforme schema. Foque no que é acionável nas próximas 24-48h.
+Em cross_pollination identifique tópicos que aparecem em 2+ FONTES DIFERENTES (ex: news + YouTube + IG curated).`;
+
 
       const { result, tokens } = await callGemini(GEMINI_KEY, userPrompt);
 

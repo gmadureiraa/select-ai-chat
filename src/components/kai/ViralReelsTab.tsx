@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Loader2, Film, Wand2, History, Trash2, Eye, Copy, ExternalLink } from "lucide-react";
+import { Loader2, Film, Wand2, History, Trash2, Eye, Copy, ExternalLink, Lightbulb, BookmarkPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -157,6 +157,74 @@ export function ViralReelsTab({ clientId, client }: ViralReelsTabProps) {
     toast.success(`${label} copiado!`);
   }
 
+  async function saveAsIdea(reel: ReelRow) {
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const title = reel.script?.titulo ?? reel.tema;
+      const body = [
+        `Roteiro adaptado do reel @${reel.source_meta?.ownerUsername ?? "—"}`,
+        reel.source_url,
+        "",
+        `Hook: ${reel.script?.hook ?? ""}`,
+        "",
+        reel.script?.roteiroCompleto ?? "",
+      ].join("\n");
+      const { error } = await supabase.from("planning_items").insert([{
+        client_id: clientId,
+        workspace_id: (client as any).workspace_id,
+        title,
+        content: body,
+        status: "idea",
+        platform: "instagram",
+        created_by: u.user!.id,
+      }]);
+      if (error) throw error;
+      toast.success("Salvo como ideia no Planning");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao salvar");
+    }
+  }
+
+  async function saveToLibrary(reel: ReelRow) {
+    try {
+      const title = reel.script?.titulo ?? reel.tema;
+      const content = [
+        `# ${title}`,
+        ``,
+        `**Hook:** ${reel.script?.hook ?? ""}`,
+        ``,
+        `## Roteiro completo`,
+        reel.script?.roteiroCompleto ?? "",
+        ``,
+        `## Caption sugerida`,
+        reel.script?.captionSugerida ?? "",
+        ``,
+        `## Cenas`,
+        ...(reel.script?.scenes ?? []).map((s: any) => `- #${s.n} (${s.tempo}) [${s.papel}] ${s.copy}`),
+        ``,
+        `Fonte: ${reel.source_url} (@${reel.source_meta?.ownerUsername ?? "—"})`,
+      ].join("\n");
+      const { error } = await supabase.from("client_content_library").insert([{
+        client_id: clientId,
+        title,
+        content,
+        content_type: "reel_script",
+        metadata: {
+          source: "viral-reels",
+          reelId: reel.id,
+          sourceUrl: reel.source_url,
+          ownerUsername: reel.source_meta?.ownerUsername,
+          objetivo: reel.objetivo,
+          cta: reel.cta,
+        },
+      }]);
+      if (error) throw error;
+      toast.success("Salvo na Library");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao salvar");
+    }
+  }
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Sidebar histórico */}
@@ -298,6 +366,12 @@ export function ViralReelsTab({ clientId, client }: ViralReelsTabProps) {
                     <span>{selected.source_meta?.videoPlayCount?.toLocaleString() ?? "—"} views</span>
                   </div>
                 </div>
+                <Button variant="ghost" size="sm" onClick={() => saveAsIdea(selected)} title="Salvar como ideia no Planning">
+                  <Lightbulb className="h-4 w-4 mr-1" /> Ideia
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => saveToLibrary(selected)} title="Salvar na Library">
+                  <BookmarkPlus className="h-4 w-4 mr-1" /> Library
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => handleDelete(selected.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
