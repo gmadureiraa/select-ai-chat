@@ -1,14 +1,14 @@
-import { useState, KeyboardEvent, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTaskComments } from "@/hooks/useTaskComments";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { MentionableTextarea, extractMentionedIds, type MemberOption } from "./MentionableTextarea";
 
 interface TaskCommentsProps {
   taskId: string | null;
