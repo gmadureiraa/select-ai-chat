@@ -3848,6 +3848,100 @@ export type Database = {
           },
         ]
       }
+      viral_reels: {
+        Row: {
+          analysis: Json | null
+          client_id: string
+          cost_usd: number | null
+          created_at: string
+          cta: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          nicho: string | null
+          objetivo: string
+          persona: string | null
+          planning_item_id: string | null
+          script: Json | null
+          source_meta: Json | null
+          source_short_code: string | null
+          source_url: string
+          status: string
+          tema: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          analysis?: Json | null
+          client_id: string
+          cost_usd?: number | null
+          created_at?: string
+          cta: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          nicho?: string | null
+          objetivo: string
+          persona?: string | null
+          planning_item_id?: string | null
+          script?: Json | null
+          source_meta?: Json | null
+          source_short_code?: string | null
+          source_url: string
+          status?: string
+          tema: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          analysis?: Json | null
+          client_id?: string
+          cost_usd?: number | null
+          created_at?: string
+          cta?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          nicho?: string | null
+          objetivo?: string
+          persona?: string | null
+          planning_item_id?: string | null
+          script?: Json | null
+          source_meta?: Json | null
+          source_short_code?: string | null
+          source_url?: string
+          status?: string
+          tema?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viral_reels_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "viral_reels_planning_item_id_fkey"
+            columns: ["planning_item_id"]
+            isOneToOne: false
+            referencedRelation: "planning_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "viral_reels_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhook_alert_preferences: {
         Row: {
           alerts_enabled: boolean
