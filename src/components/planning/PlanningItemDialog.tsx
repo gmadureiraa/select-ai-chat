@@ -966,8 +966,20 @@ export function PlanningItemDialog({
 
           {/* Footer - Actions */}
           <div className="px-6 py-3 border-t border-border/40 flex items-center justify-between gap-2 bg-background">
-            {/* Left: Approval actions when in review */}
+            {/* Left: Delete + Approval actions when in review */}
             <div className="flex items-center gap-2">
+              {!readOnly && effectiveItem && onDelete && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmDelete(true)}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Excluir
+                </Button>
+              )}
               {!readOnly && effectiveItem?.status === 'review' && onUpdate && (
                 <>
                   <Button
