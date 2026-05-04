@@ -10,7 +10,17 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check, Flag, CheckCircle2, MessageSquare, XCircle, Layers, ExternalLink } from 'lucide-react';
+import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check, Flag, CheckCircle2, MessageSquare, XCircle, Layers, ExternalLink, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
@@ -56,6 +66,7 @@ interface PlanningItemDialogProps {
   defaultClientId?: string;
   onSave: (data: CreatePlanningItemInput) => Promise<{ id: string } | void>;
   onUpdate?: (id: string, data: Partial<PlanningItem>) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
   readOnly?: boolean;
 }
 
@@ -85,6 +96,7 @@ export function PlanningItemDialog({
   defaultClientId,
   onSave,
   onUpdate,
+  onDelete,
   readOnly = false
 }: PlanningItemDialogProps) {
   const isMobile = useIsMobile();
