@@ -294,10 +294,11 @@ export function TaskDialog({
                   <TabsContent value="details" className="mt-4 space-y-5">
                     <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground">Descrição</Label>
-                      <Textarea
+                      <MentionableTextarea
                         value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Adicione detalhes, links, contexto…"
+                        onChange={(v, ids) => { setDescription(v); setMentionIds(ids); }}
+                        members={memberOptions}
+                        placeholder="Adicione detalhes, links, contexto… use @nome para mencionar"
                         rows={4}
                       />
                     </div>
@@ -312,10 +313,11 @@ export function TaskDialog({
                 <div className="space-y-4 mt-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Descrição</Label>
-                    <Textarea
+                    <MentionableTextarea
                       value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Adicione detalhes, links, contexto…"
+                      onChange={(v, ids) => { setDescription(v); setMentionIds(ids); }}
+                      members={memberOptions}
+                      placeholder="Adicione detalhes, links, contexto… use @nome para mencionar"
                       rows={5}
                     />
                   </div>
