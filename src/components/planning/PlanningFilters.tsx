@@ -46,6 +46,8 @@ const priorities: { value: PlanningPriority; label: string }[] = [
 
 export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
   const { clients } = useClients();
+  const { members } = useTeamMembers();
+  const { user } = useAuth();
   const isMobile = useIsMobile();
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -54,7 +56,8 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
     filters.platform,
     filters.status,
     filters.priority,
-    filters.search
+    filters.search,
+    filters.assignedTo,
   ].filter(Boolean).length;
 
   const hasActiveFilters = activeFiltersCount > 0;
@@ -62,6 +65,8 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
   const clearFilters = () => {
     onChange({});
   };
+
+  const isMineActive = filters.assignedTo && filters.assignedTo === user?.id;
 
   const FiltersContent = ({ inSheet = false }: { inSheet?: boolean }) => (
     <div className={cn(
