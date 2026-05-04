@@ -152,8 +152,18 @@ export function TaskDialog({
     return m;
   }, [members]);
 
+  const memberOptions: MemberOption[] = useMemo(
+    () => members.map((m: any) => ({
+      user_id: m.user_id,
+      name: m.profile?.full_name || m.profile?.email || "Membro",
+      email: m.profile?.email,
+    })),
+    [members],
+  );
+
   const handleSave = async () => {
     if (!title.trim()) return;
+    const ids = mentionIds.length ? mentionIds : extractMentionedIds(description, memberOptions);
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
@@ -163,6 +173,8 @@ export function TaskDialog({
       assigned_to: assignedTo === "none" ? null : assignedTo,
       client_id: clientId === "none" ? null : clientId,
       labels,
+      mentions: ids,
+    } as any;
     };
     if (task) {
       await updateTask.mutateAsync({ id: task.id, ...payload });
