@@ -16,6 +16,7 @@ import {
   Home,
   Flame,
   Twitter,
+  Film,
   Terminal,
   CheckSquare,
 } from "lucide-react";
@@ -352,6 +353,17 @@ export function KaiSidebar({
           label="Sequência Viral"
           active={activeTab === "sequence"}
           onClick={() => canUseAssistant ? onTabChange("sequence") : showPermissionMessage()}
+          collapsed={collapsed}
+          disabled={!canUseAssistant}
+          showLock={!canUseAssistant}
+        />
+
+        {/* Reels Viral — engenharia reversa de Reels (link → análise + roteiro adaptado). */}
+        <NavItem
+          icon={<Film className="h-4 w-4" strokeWidth={1.5} />}
+          label="Reels Viral"
+          active={activeTab === "reels"}
+          onClick={() => canUseAssistant ? onTabChange("reels") : showPermissionMessage()}
           collapsed={collapsed}
           disabled={!canUseAssistant}
           showLock={!canUseAssistant}

@@ -9,6 +9,7 @@ import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
 import { KaiAnalyticsTab } from "@/components/kai/KaiAnalyticsTab";
 import { ViralHunterTab } from "@/components/kai/ViralHunterTab";
 import { ViralSequenceTab } from "@/components/kai/ViralSequenceTab";
+import { ViralReelsTab } from "@/components/kai/ViralReelsTab";
 import { MCPDocsTab } from "@/components/kai/MCPDocsTab";
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
@@ -157,7 +158,7 @@ export default function Kai() {
 
     // Tools that don't need client (ou que precisam mas tem fallback interno).
     // "viral" e "sequence" renderizam tabs customizadas no switch abaixo.
-    const toolTabs = ["clients", "settings", "automations", "assistant", "analytics", "home", "viral", "sequence", "mcp"];
+    const toolTabs = ["clients", "settings", "automations", "assistant", "analytics", "home", "viral", "sequence", "reels", "mcp"];
     
     if (toolTabs.includes(tab)) {
       switch (tab) {
@@ -250,6 +251,22 @@ export default function Kai() {
             <div className="flex items-center justify-center h-full">
               <div className="text-center text-muted-foreground">
                 <p>Selecione um cliente para criar carrossel</p>
+              </div>
+            </div>
+          );
+        case "reels":
+          return selectedClient ? (
+            <div className="h-full overflow-hidden">
+              <ViralReelsTab
+                key={selectedClient.id}
+                clientId={selectedClient.id}
+                client={selectedClient}
+              />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-muted-foreground">
+                <p>Selecione um cliente para gerar roteiros de Reels</p>
               </div>
             </div>
           );
