@@ -12,6 +12,7 @@ import { ViralSequenceTab } from "@/components/kai/ViralSequenceTab";
 import { MCPDocsTab } from "@/components/kai/MCPDocsTab";
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
+import { TeamTasksBoard } from "@/components/tasks";
 import { SettingsTab } from "@/components/settings/SettingsTab";
 import { AutomationsTab } from "@/components/automations/AutomationsTab";
 import { OnboardingFlow } from "@/components/onboarding";
