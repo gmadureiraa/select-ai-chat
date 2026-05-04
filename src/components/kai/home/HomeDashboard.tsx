@@ -377,6 +377,9 @@ export function HomeDashboard({ onNavigate, onOpenItem, selectedClientId }: Home
           )}
         </AnimatePresence>
 
+        {/* ─── Suas tarefas internas ─── */}
+        <MyTasksWidget onNavigate={onNavigate} />
+
         {/* ─── KPI Row ─── */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
