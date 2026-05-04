@@ -60,6 +60,7 @@ import {
 import { TaskChecklist } from "./TaskChecklist";
 import { TaskComments } from "./TaskComments";
 import { TaskLabelsEditor } from "./TaskLabelsEditor";
+import { MentionableTextarea, extractMentionedIds, type MemberOption } from "./MentionableTextarea";
 import { useTaskComments } from "@/hooks/useTaskComments";
 import { cn } from "@/lib/utils";
 
@@ -112,6 +113,7 @@ export function TaskDialog({
   const [assignedTo, setAssignedTo] = useState<string>("none");
   const [clientId, setClientId] = useState<string>("none");
   const [labels, setLabels] = useState<TaskLabel[]>([]);
+  const [mentionIds, setMentionIds] = useState<string[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [tab, setTab] = useState<"details" | "comments">("details");
 
@@ -126,6 +128,7 @@ export function TaskDialog({
       setAssignedTo(task.assigned_to || "none");
       setClientId(task.client_id || "none");
       setLabels(task.labels || []);
+      setMentionIds(((task as any).mentions as string[]) || []);
     } else {
       setTitle("");
       setDescription("");
@@ -135,6 +138,7 @@ export function TaskDialog({
       setAssignedTo("none");
       setClientId(defaultClientId || "none");
       setLabels([]);
+      setMentionIds([]);
     }
     setTab("details");
   }, [open, task, defaultStatus, defaultClientId, defaultDueDate]);
@@ -148,8 +152,18 @@ export function TaskDialog({
     return m;
   }, [members]);
 
+  const memberOptions: MemberOption[] = useMemo(
+    () => members.map((m: any) => ({
+      user_id: m.user_id,
+      name: m.profile?.full_name || m.profile?.email || "Membro",
+      email: m.profile?.email,
+    })),
+    [members],
+  );
+
   const handleSave = async () => {
     if (!title.trim()) return;
+    const ids = mentionIds.length ? mentionIds : extractMentionedIds(description, memberOptions);
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
@@ -159,7 +173,8 @@ export function TaskDialog({
       assigned_to: assignedTo === "none" ? null : assignedTo,
       client_id: clientId === "none" ? null : clientId,
       labels,
-    };
+      mentions: ids,
+    } as any;
     if (task) {
       await updateTask.mutateAsync({ id: task.id, ...payload });
     } else {
@@ -279,10 +294,11 @@ export function TaskDialog({
                   <TabsContent value="details" className="mt-4 space-y-5">
                     <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground">Descrição</Label>
-                      <Textarea
+                      <MentionableTextarea
                         value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Adicione detalhes, links, contexto…"
+                        onChange={(v, ids) => { setDescription(v); setMentionIds(ids); }}
+                        members={memberOptions}
+                        placeholder="Adicione detalhes, links, contexto… use @nome para mencionar"
                         rows={4}
                       />
                     </div>
@@ -297,10 +313,11 @@ export function TaskDialog({
                 <div className="space-y-4 mt-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Descrição</Label>
-                    <Textarea
+                    <MentionableTextarea
                       value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Adicione detalhes, links, contexto…"
+                      onChange={(v, ids) => { setDescription(v); setMentionIds(ids); }}
+                      members={memberOptions}
+                      placeholder="Adicione detalhes, links, contexto… use @nome para mencionar"
                       rows={5}
                     />
                   </div>

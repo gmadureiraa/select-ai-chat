@@ -147,11 +147,12 @@ export function NotificationBell({ variant = 'default', collapsed = false }: Not
       markAsRead.mutate(notification.id);
     }
 
-    // Navigate based on entity type
+    const slug = workspace?.slug || '';
     if (notification.entity_type === 'planning_item' && notification.entity_id) {
-      const slug = workspace?.slug || '';
-      // Navigate to planning tab with the item ID to open
       navigate(`/${slug}?tab=planning&openItem=${notification.entity_id}`);
+      setOpen(false);
+    } else if (notification.entity_type === 'team_task' && notification.entity_id) {
+      navigate(`/${slug}?tab=tasks&openTask=${notification.entity_id}`);
       setOpen(false);
     }
   };

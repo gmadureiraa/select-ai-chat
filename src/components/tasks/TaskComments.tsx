@@ -1,14 +1,14 @@
-import { useState, KeyboardEvent, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTaskComments } from "@/hooks/useTaskComments";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { MentionableTextarea, extractMentionedIds, type MemberOption } from "./MentionableTextarea";
 
 interface TaskCommentsProps {
   taskId: string | null;
@@ -26,6 +26,7 @@ export function TaskComments({ taskId, readOnly }: TaskCommentsProps) {
   const { members } = useTeamMembers();
   const { comments, addComment, removeComment } = useTaskComments(taskId);
   const [text, setText] = useState("");
+  const [mentionIds, setMentionIds] = useState<string[]>([]);
 
   const memberMap = useMemo(() => {
     const m: Record<string, { name: string; initials: string }> = {};
@@ -36,30 +37,23 @@ export function TaskComments({ taskId, readOnly }: TaskCommentsProps) {
     return m;
   }, [members]);
 
-  const parseMentions = (content: string): string[] => {
-    const ids: string[] = [];
-    members.forEach((mem: any) => {
-      const name = mem.profile?.full_name || mem.profile?.email || "";
-      if (!name) return;
-      const handle = name.split(/\s+/)[0].toLowerCase();
-      const re = new RegExp(`@${handle}\\b`, "i");
-      if (re.test(content)) ids.push(mem.user_id);
-    });
-    return Array.from(new Set(ids));
-  };
+  const memberOptions: MemberOption[] = useMemo(
+    () =>
+      members.map((m: any) => ({
+        user_id: m.user_id,
+        name: m.profile?.full_name || m.profile?.email || "Membro",
+        email: m.profile?.email,
+      })),
+    [members],
+  );
 
   const handleSend = () => {
     const v = text.trim();
     if (!v || !taskId) return;
-    addComment.mutate({ content: v, mentions: parseMentions(v) });
+    const ids = mentionIds.length ? mentionIds : extractMentionedIds(v, memberOptions);
+    addComment.mutate({ content: v, mentions: ids });
     setText("");
-  };
-
-  const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      handleSend();
-    }
+    setMentionIds([]);
   };
 
   return (
@@ -114,14 +108,16 @@ export function TaskComments({ taskId, readOnly }: TaskCommentsProps) {
 
       {!readOnly && taskId && (
         <div className="flex gap-2 items-end pt-2 border-t border-border/40">
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKey}
-            placeholder="Comentar… (use @nome para mencionar) — Cmd+Enter para enviar"
-            rows={2}
-            className="text-sm resize-none"
-          />
+          <div className="flex-1">
+            <MentionableTextarea
+              value={text}
+              onChange={(v, ids) => { setText(v); setMentionIds(ids); }}
+              members={memberOptions}
+              placeholder="Comentar… (use @nome para mencionar) — Cmd+Enter para enviar"
+              rows={2}
+              onSubmit={handleSend}
+            />
+          </div>
           <Button
             size="icon"
             onClick={handleSend}
