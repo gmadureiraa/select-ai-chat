@@ -2185,6 +2185,39 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          channel: string
+          created_at: string
+          enabled: boolean
+          id: string
+          type: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          type: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -3426,6 +3459,7 @@ export type Database = {
           due_date: string | null
           id: string
           labels: Json
+          mentions: string[]
           position: number
           priority: string
           status: string
@@ -3443,6 +3477,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           labels?: Json
+          mentions?: string[]
           position?: number
           priority?: string
           status?: string
@@ -3460,6 +3495,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           labels?: Json
+          mentions?: string[]
           position?: number
           priority?: string
           status?: string
@@ -4697,6 +4733,15 @@ export type Database = {
         Returns: string
       }
       mask_email: { Args: { email: string }; Returns: string }
+      notif_pref_enabled: {
+        Args: {
+          _channel: string
+          _type: string
+          _user: string
+          _workspace: string
+        }
+        Returns: boolean
+      }
       search_knowledge_semantic: {
         Args: {
           match_count?: number
