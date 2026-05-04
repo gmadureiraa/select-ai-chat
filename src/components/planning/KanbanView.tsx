@@ -4,6 +4,7 @@ import { VirtualizedKanbanColumn } from './VirtualizedKanbanColumn';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import type { PlanningItem, KanbanColumn } from '@/hooks/usePlanningItems';
+import type { ViewSettings } from './ViewSettingsPopover';
 
 interface KanbanViewProps {
   columns: KanbanColumn[];
@@ -16,6 +17,8 @@ interface KanbanViewProps {
   onMoveItem: (itemId: string, columnId: string, position: number) => void;
   onAddCard: (columnId: string) => void;
   canDelete?: boolean;
+  viewSettings?: ViewSettings;
+  memberMap?: Record<string, { name: string; initials: string }>;
 }
 
 export function KanbanView({
@@ -29,6 +32,8 @@ export function KanbanView({
   onMoveItem,
   onAddCard,
   canDelete = true,
+  viewSettings,
+  memberMap,
 }: KanbanViewProps) {
   const isMobile = useIsMobile();
   const [draggedItem, setDraggedItem] = useState<PlanningItem | null>(null);
@@ -124,6 +129,8 @@ export function KanbanView({
                 onDrop={handleDrop}
                 height={containerHeight}
                 className={isMobile ? "w-[90vw] min-w-[90vw] snap-center" : undefined}
+                viewSettings={viewSettings}
+                memberMap={memberMap}
               />
             );
           })}
