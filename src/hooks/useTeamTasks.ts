@@ -76,7 +76,7 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
 
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as TeamTask[];
+      return ((data || []) as unknown) as TeamTask[];
     },
     enabled: !!workspaceId,
   });
@@ -120,7 +120,7 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
         .select()
         .single();
       if (error) throw error;
-      return data as TeamTask;
+      return data as unknown as TeamTask;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-tasks", workspaceId] });
@@ -134,12 +134,12 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
     mutationFn: async ({ id, ...patch }: { id: string } & Partial<TeamTask>) => {
       const { data, error } = await supabase
         .from("team_tasks")
-        .update(patch)
+        .update(patch as any)
         .eq("id", id)
         .select()
         .single();
       if (error) throw error;
-      return data as TeamTask;
+      return data as unknown as TeamTask;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-tasks", workspaceId] });
@@ -212,7 +212,7 @@ export function useMyTeamTasks(limit = 5) {
         .order("due_date", { ascending: true, nullsFirst: false })
         .limit(limit);
       if (error) throw error;
-      return (data || []) as TeamTask[];
+      return ((data || []) as unknown) as TeamTask[];
     },
     enabled: !!workspaceId && !!user?.id,
   });
