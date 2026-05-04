@@ -60,6 +60,7 @@ import {
 import { TaskChecklist } from "./TaskChecklist";
 import { TaskComments } from "./TaskComments";
 import { TaskLabelsEditor } from "./TaskLabelsEditor";
+import { MentionableTextarea, extractMentionedIds, type MemberOption } from "./MentionableTextarea";
 import { useTaskComments } from "@/hooks/useTaskComments";
 import { cn } from "@/lib/utils";
 
