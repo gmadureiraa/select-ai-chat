@@ -385,6 +385,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
         defaultClientId={localFilters.clientId || clientId}
         onSave={handleCreateItem}
         onUpdate={handleUpdateItem}
+        onDelete={isViewer ? undefined : async (id) => { await deleteItem.mutateAsync(id); }}
       />
 
       {/* ClickUp Import */}

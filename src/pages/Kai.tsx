@@ -12,6 +12,7 @@ import { ViralSequenceTab } from "@/components/kai/ViralSequenceTab";
 import { MCPDocsTab } from "@/components/kai/MCPDocsTab";
 import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
 import { PlanningBoard } from "@/components/planning/PlanningBoard";
+import { TeamTasksBoard } from "@/components/tasks";
 import { SettingsTab } from "@/components/settings/SettingsTab";
 import { AutomationsTab } from "@/components/automations/AutomationsTab";
 import { OnboardingFlow } from "@/components/onboarding";
@@ -264,6 +265,15 @@ export default function Kai() {
             isEnterprise={true}
             onClientChange={handleClientChange}
           />
+        </div>
+      );
+    }
+
+    // Tasks tab - tarefas internas do time (não exigem cliente)
+    if (tab === "tasks") {
+      return (
+        <div className={cn("h-full min-h-0 overflow-hidden flex flex-col", isMobile ? "p-2" : "p-6")}>
+          <TeamTasksBoard defaultClientId={selectedClient?.id} />
         </div>
       );
     }

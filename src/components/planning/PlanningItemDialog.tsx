@@ -10,7 +10,17 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check, Flag, CheckCircle2, MessageSquare, XCircle, Layers, ExternalLink } from 'lucide-react';
+import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check, Flag, CheckCircle2, MessageSquare, XCircle, Layers, ExternalLink, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
@@ -56,6 +66,7 @@ interface PlanningItemDialogProps {
   defaultClientId?: string;
   onSave: (data: CreatePlanningItemInput) => Promise<{ id: string } | void>;
   onUpdate?: (id: string, data: Partial<PlanningItem>) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
   readOnly?: boolean;
 }
 
@@ -85,6 +96,7 @@ export function PlanningItemDialog({
   defaultClientId,
   onSave,
   onUpdate,
+  onDelete,
   readOnly = false
 }: PlanningItemDialogProps) {
   const isMobile = useIsMobile();
@@ -94,6 +106,8 @@ export function PlanningItemDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const [freshItem, setFreshItem] = useState<PlanningItem | null>(null);
   const [isFetchingItem, setIsFetchingItem] = useState(false);
@@ -952,8 +966,20 @@ export function PlanningItemDialog({
 
           {/* Footer - Actions */}
           <div className="px-6 py-3 border-t border-border/40 flex items-center justify-between gap-2 bg-background">
-            {/* Left: Approval actions when in review */}
+            {/* Left: Delete + Approval actions when in review */}
             <div className="flex items-center gap-2">
+              {!readOnly && effectiveItem && onDelete && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmDelete(true)}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Excluir
+                </Button>
+              )}
               {!readOnly && effectiveItem?.status === 'review' && onUpdate && (
                 <>
                   <Button
@@ -1059,6 +1085,39 @@ export function PlanningItemDialog({
       onGenerate={handleGenerateImage}
       isGenerating={isGeneratingImage}
     />
+
+    <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir este card?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta ação não pode ser desfeita. O card e todo o conteúdo serão removidos.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={isDeleting}
+            onClick={async (e) => {
+              e.preventDefault();
+              if (!effectiveItem || !onDelete) return;
+              setIsDeleting(true);
+              try {
+                await onDelete(effectiveItem.id);
+                setConfirmDelete(false);
+                onOpenChange(false);
+              } finally {
+                setIsDeleting(false);
+              }
+            }}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+            Excluir
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }

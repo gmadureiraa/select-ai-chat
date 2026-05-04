@@ -1,136 +1,92 @@
-## Objetivo
+## Aba "Tarefas" + delete no card aberto
 
-Três entregas no Planning:
+Criar uma área de **Tarefas internas** do time, separada do Planejamento (que é só para posts/conteúdo), e adicionar botão de excluir dentro do dialog do card.
 
-1. **Trial Reel × Feed** — seletor único no editor do card, com regra dura no backend: Trial Reel **nunca** vai para o feed.
-2. **Cards coloridos no Board** conforme status (e demais opções já existentes em `colorBy`: cliente, plataforma, prioridade) — hoje a config existe em `Personalizar` mas não chega ao card.
-3. **Personalizar realmente controla o card** — todos os toggles funcionam, mais 2 novos: **Responsável (com nome)** e **Formato**.
+### 1. Nova tabela `team_tasks` (migração)
 
----
-
-## 1. Seletor único Trial Reel × Feed
-
-### Frontend — `src/components/planning/PlatformOptionsPanel.tsx`
-
-Hoje, dentro de `igType === 'reel'`, há um `Switch` "Mostrar também no Feed" e um `Select` de Trial Reel separados — podem se contradizer. Substituir por **um único `Select` de "Distribuição"** com 4 opções mutuamente exclusivas:
-
-- `feed` — Reel normal (aparece no Feed e em Reels)
-- `profile_only` — Só na aba Reels (não vai pro Feed)
-- `trial_manual` — Trial Reel: só não-seguidores, você promove depois
-- `trial_auto` — Trial Reel: só não-seguidores, auto-promove se performar
-
-Helpers exportados:
-```ts
-export type ReelDistribution = 'feed' | 'profile_only' | 'trial_manual' | 'trial_auto';
-export function getReelDistribution(ig: InstagramOptions): ReelDistribution
-export function applyReelDistribution(ig, dist): InstagramOptions
-```
-
-`applyReelDistribution` sempre escreve **ambos** os campos (`shareToFeed` e `trialReel`) garantindo consistência. `buildZernioPreview` força `shareToFeed=false` quando `trialReel !== 'off'`.
-
-Aviso visual quando trial ativo: "🧪 Não aparece no Feed em hipótese alguma — só não-seguidores."
-
-### Backend — `supabase/functions/late-post/index.ts` (linhas 451-461)
-
-Guard final: se `igOpts.trialReel && igOpts.trialReel !== 'off'`, **forçar** `platformSpecificData.shareToFeed = false`, ignorando `igOpts.shareToFeed`. Protege cards antigos com config inconsistente.
-
----
-
-## 2. Board colorido por status
-
-### Tokens de status — `src/index.css` + `tailwind.config.ts`
-
-Adicionar variáveis HSL semânticas (compat dark/light):
-```
---status-idea, --status-draft, --status-review, --status-approved,
---status-scheduled, --status-publishing, --status-published, --status-failed
-```
-
-Mapear no `tailwind.config.ts` em `colors.status.{idea,draft,...}`.
-
-### Propagação `viewSettings → card`
+Tarefa interna não é um post — não tem plataforma, não publica, não vai pra biblioteca. Tabela enxuta:
 
 ```text
-PlanningBoard (já tem useViewSettings)
-   │
-   ├─ KanbanView          (nova prop: viewSettings, memberMap)
-   │     └─ VirtualizedKanbanColumn
-   │           └─ PlanningItemCard
-   │
-   ├─ CalendarView        (nova prop: viewSettings, memberMap)
-   │     └─ PlanningItemCard
-   │
-   └─ PlanningListRow     (nova prop: viewSettings, memberMap)
+team_tasks
+- id uuid pk
+- workspace_id uuid (RLS scope)
+- client_id uuid nullable (tarefa pode ou não estar ligada a um perfil)
+- title text
+- description text
+- status text default 'todo'   (todo | in_progress | done)
+- priority text default 'medium' (low | medium | high)
+- due_date date nullable
+- assigned_to uuid nullable (profiles.id)
+- created_by uuid not null
+- completed_at timestamptz nullable
+- position integer default 0
+- created_at, updated_at
 ```
 
-### `PlanningItemCard.tsx`
+RLS: membros do workspace podem ler/criar/editar; deletar restrito a owner/admin/criador (mesmo padrão dos planning_items).
 
-Nova prop `viewSettings?: ViewSettings` e `memberMap?: Record<string, {name, avatar}>`.
+### 2. Nova aba "Tarefas" no menu lateral
 
-Calcular `accentColor` a partir de `viewSettings.colorBy`:
-- **status**: usa os novos tokens `hsl(var(--status-{item.status}))`
-- **platform**: usa `PLATFORM_COLOR_MAP[primaryPlatform]`
-- **priority**: high=destructive, medium=amber, low=blue
-- **client**: hash determinístico do `client_id` → 1 de 8 hues HSL fixos
+Em `KaiSidebar.tsx`, adicionar `NavItem` com ícone `CheckSquare` logo abaixo de "Planejamento". Disponível para todos os roles (até viewer pode ver, mas só edita se `canModifyData`).
 
-Aplicar como **barra lateral esquerda de 4px** no card (`borderLeftColor` inline), preservando o visual ClickUp atual (não conflita com borda superior das thumbs).
+Em `Kai.tsx`:
+- Adicionar `tab === "tasks"` que renderiza `<TeamTasksBoard workspaceId={...} clientId={selectedClient?.id} />`.
+- Tasks NÃO exigem cliente selecionado (são do time inteiro).
 
----
+### 3. Componente `TeamTasksBoard` (nova pasta `src/components/tasks/`)
 
-## 3. Personalizar — toggles funcionais + novos campos
+Estilo Linear/dark, alinhado ao resto do app:
 
-### `ViewSettingsPopover.tsx`
+- **Header**: título "Tarefas do time", filtros (Todos / Minhas / Atribuídas a alguém / por cliente opcional), botão "+ Nova tarefa".
+- **3 visualizações** via `ViewToggle` reaproveitado:
+  - **Kanban** (3 colunas: A fazer · Em andamento · Concluído) — drag-and-drop muda status.
+  - **Lista** — linha por tarefa, checkbox para concluir inline.
+  - **Calendário** — tarefas com `due_date` em grid mensal.
+- **Card** mostra: título, avatar do responsável, prioridade (cor), due date (vermelho se atrasada), nome do cliente se houver.
+- **Dialog `TaskDialog`**: título, descrição (textarea simples, sem editor rico — não precisa), status, prioridade, due date, responsável (lista de membros do workspace via `useTeamMembers`), cliente opcional (dropdown de `useClients`), e **botão "Excluir tarefa"** no rodapé.
 
-Adicionar a `visibleFields`:
-- `assigneeName: boolean` (padrão `false`) — mostra nome do responsável ao lado do avatar
-- `format: boolean` (padrão `true`) — controla o badge de content type
+Hook `useTeamTasks(filters)` espelha o padrão de `usePlanningItems`: queries com React Query, mutations create/update/delete, realtime via canal `team_tasks:workspace_id=...`.
 
-Atualizar `defaultSettings` e `fieldLabels` (`assigneeName: 'Nome do responsável'`, `format: 'Formato'`).
+### 4. Tasks no Dashboard de cada um
 
-### `PlanningItemCard.tsx` — respeitar **todos** os flags
+No `HomeDashboard.tsx`, adicionar bloco **"Suas tarefas"** abaixo do card de "Hoje" / próximas publicações:
 
-| Flag             | O que controla no card                                  |
-|------------------|---------------------------------------------------------|
-| `format`         | Badge de content type (linha ~212)                      |
-| `platform`       | Badges de plataforma (linha ~233)                       |
-| `priority`       | `Flag` de prioridade no footer                          |
-| `dueDate`        | Data no footer                                          |
-| `client`         | Nome do cliente no footer                               |
-| `status`         | `PublicationStatusBadge`                                |
-| `autoPublish`    | Modo (auto/manual) dentro da badge de status            |
-| `assignee`       | Avatar do responsável                                   |
-| `assigneeName`   | Nome curto ao lado do avatar (`João S.`)                |
-| `labels`         | Reservado (no-op por enquanto)                          |
+- Lista as próximas 5 tarefas onde `assigned_to = user.id` e `status != 'done'`, ordenadas por due_date (atrasadas no topo, em vermelho).
+- Cada item: checkbox para concluir, título, due date, badge de prioridade.
+- Clicar abre o `TaskDialog` (mesmo dialog do board).
+- Link "Ver todas →" navega para `tab=tasks`.
 
-Resolver nome via `memberMap` construído **uma vez** no `PlanningBoard` (`useTeamMembers` + `members.find(m => m.user_id === item.assigned_to)?.profile?.full_name`). Evita N queries.
+Também adicionar contadores no topo do dashboard: "X tarefas pendentes · Y atrasadas".
 
-Card mantém `memo()` — `viewSettings` é estável (vem do hook com `useState`), `memberMap` só muda quando membros do workspace mudam.
+### 5. Botão "Excluir" no dialog do card (Planejamento)
 
----
+Em `PlanningItemDialog.tsx`, no rodapé adicionar botão `Trash2` "Excluir" (variant ghost destructive, à esquerda dos botões de ação) que:
 
-## Detalhes técnicos
+- Mostra `AlertDialog` de confirmação ("Excluir este card? Esta ação não pode ser desfeita.").
+- Chama `deleteItem.mutate(itemId)` (já existe em `usePlanningItems`).
+- Fecha o dialog ao concluir e mostra toast de sucesso.
 
-- Sem migration de banco; tudo em memória/UI.
-- Edge function: 3 linhas defensivas (1 if + 1 atribuição + comentário).
-- Tokens novos seguem padrão HSL do design system (Linear dark + light variants).
-- Default visual preservado: `format=true`, `assigneeName=false`, `colorBy=status` (já era o default).
-- Para `colorBy=client`, hash simples: `Array.from(client_id).reduce((a,c)=>a+c.charCodeAt(0),0) % 8` → índice em paleta de 8 HSL.
+Permissão: visível só se `canModifyData` ou `created_by === user.id`. Bloqueado para viewer.
 
-## Arquivos alterados
+### Arquivos novos
+- `supabase/migrations/<timestamp>_team_tasks.sql` (tabela + RLS + trigger updated_at + realtime publication)
+- `src/hooks/useTeamTasks.ts`
+- `src/components/tasks/TeamTasksBoard.tsx`
+- `src/components/tasks/TaskCard.tsx`
+- `src/components/tasks/TaskDialog.tsx`
+- `src/components/tasks/TaskKanban.tsx`
+- `src/components/tasks/TaskList.tsx`
+- `src/components/tasks/TaskCalendar.tsx`
+- `src/components/tasks/index.ts`
 
-- `src/components/planning/PlatformOptionsPanel.tsx` — seletor único + helpers exportados
-- `supabase/functions/late-post/index.ts` — guard `trialReel ⇒ shareToFeed=false`
-- `src/components/planning/ViewSettingsPopover.tsx` — novos campos no enum
-- `src/components/planning/PlanningBoard.tsx` — passar `viewSettings` + `memberMap`
-- `src/components/planning/KanbanView.tsx` — repassar props
-- `src/components/planning/VirtualizedKanbanColumn.tsx` — repassar props
-- `src/components/planning/CalendarView.tsx` — repassar props
-- `src/components/planning/PlanningListRow.tsx` — respeitar `viewSettings`
-- `src/components/planning/PlanningItemCard.tsx` — consumir `viewSettings`, `memberMap`, accent lateral
-- `src/index.css` + `tailwind.config.ts` — tokens `--status-*`
+### Arquivos editados
+- `src/components/kai/KaiSidebar.tsx` (NavItem "Tarefas")
+- `src/pages/Kai.tsx` (case "tasks" no switch)
+- `src/components/kai/home/HomeDashboard.tsx` (bloco "Suas tarefas")
+- `src/components/planning/PlanningItemDialog.tsx` (botão Excluir + AlertDialog)
 
-## Fora de escopo
-
-- Sistema de labels (apenas reservado o flag)
-- Edição inline de assignee no card
-- Cores customizáveis pelo usuário (paleta fixa por enquanto)
+### Fora de escopo
+- Subtarefas / checklists dentro de uma tarefa
+- Comentários em tarefas (pode vir depois reusando `usePlanningComments`)
+- Notificações Telegram de tarefas (pode vir depois reusando o trigger de assignment)
+- Recorrência de tarefas
