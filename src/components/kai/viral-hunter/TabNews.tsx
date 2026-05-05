@@ -2,7 +2,8 @@
  * Tab Notícias — busca Google News RSS por keywords do cliente.
  */
 
-import { useGoogleNews } from "./useGoogleNews";
+import { useGoogleNews, useGoogleNewsHistory } from "./useGoogleNews";
+import { History } from "lucide-react";
 import { useViralHunterConfig } from "./useViralHunterConfig";
 import { KeywordsChips } from "./KeywordsChips";
 import { saveAsIdea, buildSequenceUrl } from "./saveAsIdea";
@@ -42,10 +43,13 @@ export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
   const navigate = useNavigate();
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const query = config.keywords.join(" OR ");
-  const { data: news = [], isLoading, isFetching, refetch, error } = useGoogleNews({
-    query,
-    enabled: config.keywords.length > 0,
+  const { data: liveNews = [], isLoading, isFetching, refetch, error } = useGoogleNews({
+    query, enabled: config.keywords.length > 0,
+    clientId, workspaceId: workspace?.id,
   });
+  const showHistory = !!error || (!isLoading && liveNews.length === 0 && config.keywords.length > 0);
+  const { data: history } = useGoogleNewsHistory({ clientId, enabled: showHistory });
+  const news = liveNews.length > 0 ? liveNews : (history?.items ?? []);
 
   const handleUse = (n: typeof news[number]) => {
     const prompt = [
@@ -137,6 +141,13 @@ export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
         </div>
         <KeywordsChips keywords={config.keywords} onChange={(next) => save({ ...config, keywords: next })} />
       </div>
+
+      {showHistory && history && (
+        <div className="text-xs px-3 py-2 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-300 flex items-center gap-2">
+          <History className="h-3.5 w-3.5" />
+          Mostrando histórico salvo de {new Date(history.cachedAt).toLocaleString("pt-BR")}.
+        </div>
+      )}
 
       {config.keywords.length === 0 ? (
         <div className="text-center py-16 max-w-md mx-auto">

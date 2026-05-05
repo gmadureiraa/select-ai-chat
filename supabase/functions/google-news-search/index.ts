@@ -5,11 +5,14 @@
  * Body: { query: string, lang?: string, region?: string }
  */
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 
 interface NewsBody {
   query: string;
   lang?: string;
   region?: string;
+  clientId?: string;
+  workspaceId?: string;
 }
 
 function parseRSS(xml: string) {
@@ -101,6 +104,26 @@ Deno.serve(async (req) => {
         snippet,
       };
     });
+
+    // Cache automático
+    if (body.clientId && body.workspaceId && items.length > 0) {
+      try {
+        const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        const authHeader = req.headers.get("authorization");
+        let userId: string | null = null;
+        if (authHeader) {
+          const { data } = await sb.auth.getUser(authHeader.replace("Bearer ", ""));
+          userId = data.user?.id ?? null;
+        }
+        await sb.from("viral_search_cache").insert({
+          workspace_id: body.workspaceId, client_id: body.clientId,
+          source: "news", query, items, item_count: items.length,
+          is_fallback: false, created_by: userId,
+        });
+      } catch (e) {
+        console.warn("[google-news-search] cache failed:", (e as Error).message);
+      }
+    }
 
     return new Response(JSON.stringify({ items }), {
       status: 200,
