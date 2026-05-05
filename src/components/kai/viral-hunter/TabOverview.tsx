@@ -20,8 +20,18 @@ import {
   Award,
   Zap,
   CalendarRange,
+  Search,
+  ArrowUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -29,6 +39,24 @@ import type { Client } from "@/hooks/useClients";
 
 type Platform = "instagram" | "linkedin" | "twitter" | "youtube";
 type PeriodFilter = "all" | "30" | "90" | "180";
+type MediaTab = "all" | "reels" | "carousels" | "images";
+type SortBy = "viral" | "recent" | "likes";
+
+const MEDIA_TABS: { id: MediaTab; label: string }[] = [
+  { id: "all", label: "TODOS" },
+  { id: "reels", label: "REELS" },
+  { id: "carousels", label: "CARROSSÉIS" },
+  { id: "images", label: "IMAGENS" },
+];
+
+function matchesMediaTab(post: { platform: Platform; post_type?: string | null }, tab: MediaTab): boolean {
+  if (tab === "all") return true;
+  const pt = (post.post_type ?? "").toLowerCase();
+  if (tab === "reels") return pt.includes("reel") || pt === "video" || post.platform === "youtube";
+  if (tab === "carousels") return pt.includes("carousel") || pt.includes("sidecar");
+  if (tab === "images") return pt === "image" || pt === "photo" || (post.platform === "instagram" && !pt);
+  return true;
+}
 
 interface ViralPost {
   id: string;
@@ -82,6 +110,9 @@ interface TabOverviewProps {
 
 export function TabOverview({ clientId, client, onUseAsInspiration }: TabOverviewProps) {
   const [period, setPeriod] = useState<PeriodFilter>("all");
+  const [mediaTab, setMediaTab] = useState<MediaTab>("all");
+  const [sortBy, setSortBy] = useState<SortBy>("viral");
+  const [search, setSearch] = useState("");
 
   const { data: posts = [], isLoading, isFetching, refetch } = useQuery<ViralPost[]>({
     queryKey: ["viral-hunter-own-posts", clientId],
@@ -134,21 +165,47 @@ export function TabOverview({ clientId, client, onUseAsInspiration }: TabOvervie
       }
 
       results.sort((a, b) => b.engagement_rate - a.engagement_rate);
-      return results.slice(0, 24);
+      return results.slice(0, 60);
     },
     enabled: !!clientId,
     staleTime: 5 * 60 * 1000,
   });
 
-  const filtered = useMemo(() => {
+  // Filtra primeiro por período (base pra contadores das tabs).
+  const periodFiltered = useMemo(() => {
     const cutoff = period === "all" ? null : new Date(Date.now() - parseInt(period, 10) * 86_400_000);
     return posts.filter((p) => !cutoff || !p.posted_at || new Date(p.posted_at) >= cutoff);
   }, [posts, period]);
 
+  // Contadores por tipo de mídia (mostra na pílula da tab).
+  const tabCounts = useMemo(() => {
+    const c: Record<MediaTab, number> = { all: periodFiltered.length, reels: 0, carousels: 0, images: 0 };
+    for (const p of periodFiltered) {
+      if (matchesMediaTab(p, "reels")) c.reels++;
+      else if (matchesMediaTab(p, "carousels")) c.carousels++;
+      else if (matchesMediaTab(p, "images")) c.images++;
+    }
+    return c;
+  }, [periodFiltered]);
+
+  // Aplica filtro de tab + busca + sort.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = periodFiltered
+      .filter((p) => matchesMediaTab(p, mediaTab))
+      .filter((p) => !q || p.caption.toLowerCase().includes(q));
+    const sorted = [...list];
+    if (sortBy === "viral") sorted.sort((a, b) => b.engagement_rate - a.engagement_rate);
+    else if (sortBy === "likes") sorted.sort((a, b) => b.likes - a.likes);
+    else sorted.sort((a, b) => new Date(b.posted_at ?? 0).getTime() - new Date(a.posted_at ?? 0).getTime());
+    return sorted;
+  }, [periodFiltered, mediaTab, search, sortBy]);
+
   const stats = useMemo(() => {
     if (filtered.length === 0) return null;
+    const sortedByER = [...filtered].sort((a, b) => b.engagement_rate - a.engagement_rate);
     return {
-      best: filtered[0],
+      best: sortedByER[0],
       avg: filtered.reduce((a, p) => a + p.engagement_rate, 0) / filtered.length,
       totalLikes: filtered.reduce((a, p) => a + p.likes, 0),
     };
@@ -220,6 +277,60 @@ export function TabOverview({ clientId, client, onUseAsInspiration }: TabOvervie
             <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
           </Button>
         </div>
+      </div>
+
+      {/* Tabs por tipo de mídia (TODOS · REELS · CARROSSÉIS · IMAGENS) */}
+      <div className="flex items-center gap-1 border-b border-border/40 -mx-1 px-1 overflow-x-auto">
+        {MEDIA_TABS.map((t) => {
+          const isActive = mediaTab === t.id;
+          const count = tabCounts[t.id];
+          return (
+            <button
+              key={t.id}
+              onClick={() => setMediaTab(t.id)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold tracking-wider uppercase border-b-2 transition-colors whitespace-nowrap",
+                isActive
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t.label}
+              <span
+                className={cn(
+                  "tabular-nums px-1.5 py-0.5 rounded text-[10px]",
+                  isActive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground",
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search + Sort */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por @ ou legenda…"
+            className="pl-8 h-8 text-xs"
+          />
+        </div>
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+          <SelectTrigger className="h-8 w-[160px] text-xs">
+            <ArrowUpDown className="h-3 w-3 mr-1.5" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="viral">Viral Score</SelectItem>
+            <SelectItem value="recent">Mais recentes</SelectItem>
+            <SelectItem value="likes">Mais curtidas</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {stats && (
