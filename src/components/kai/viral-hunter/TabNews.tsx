@@ -142,6 +142,13 @@ export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
         <KeywordsChips keywords={config.keywords} onChange={(next) => save({ ...config, keywords: next })} />
       </div>
 
+      {showHistory && history && (
+        <div className="text-xs px-3 py-2 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-300 flex items-center gap-2">
+          <History className="h-3.5 w-3.5" />
+          Mostrando histórico salvo de {new Date(history.cachedAt).toLocaleString("pt-BR")}.
+        </div>
+      )}
+
       {config.keywords.length === 0 ? (
         <div className="text-center py-16 max-w-md mx-auto">
           <div className="p-3 rounded-full bg-muted inline-flex mb-3">
