@@ -160,8 +160,15 @@ export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
           </p>
         </div>
       ) : error ? (
-        <div className="text-center py-8 text-sm text-muted-foreground">
-          Falha ao buscar notícias: {(error as Error).message}
+        <div className="text-center py-8 max-w-md mx-auto">
+          <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/20 inline-flex mb-3">
+            <Newspaper className="h-5 w-5 text-red-600 dark:text-red-400" />
+          </div>
+          <h3 className="text-sm font-semibold mb-1">Falha ao buscar notícias</h3>
+          <p className="text-xs text-muted-foreground mb-3">{(error as Error).message}</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>
+            <RefreshCw className="h-3 w-3 mr-1.5" /> Tentar novamente
+          </Button>
         </div>
       ) : isLoading ? (
         <div className="space-y-3">

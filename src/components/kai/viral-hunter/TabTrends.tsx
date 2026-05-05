@@ -31,7 +31,7 @@ export function TabTrends({ clientId, workspaceId, onUseAsInspiration }: Props) 
   async function load() {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("google-trends-br", { body: {} });
+      const { data, error } = await supabase.functions.invoke("google-trends-br", { body: { clientId, workspaceId } });
       if (error) throw error;
       setItems((data?.items ?? []) as TrendItem[]);
       setUpdatedAt(new Date());

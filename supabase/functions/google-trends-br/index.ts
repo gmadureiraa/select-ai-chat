@@ -1,9 +1,9 @@
 /**
  * google-trends-br
  * Lista as buscas em alta do Brasil via Google Trends RSS público.
- * Retorna { items: [{ title, traffic, pubDate, picture }] }
+ * Salva opcionalmente no viral_search_cache se clientId+workspaceId vierem no body.
  */
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { cacheViralSearch } from "../_shared/viralCache.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,9 +12,10 @@ const corsHeaders = {
 
 const FEED = "https://trends.google.com/trending/rss?geo=BR";
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const res = await fetch(FEED, { headers: { "User-Agent": "Mozilla/5.0 kAI-Trends" } });
     if (!res.ok) throw new Error(`Trends HTTP ${res.status}`);
     const xml = await res.text();
@@ -29,12 +30,23 @@ serve(async (req) => {
         link: get(/<link>([\s\S]*?)<\/link>/i),
       };
     });
+
+    await cacheViralSearch({
+      workspaceId: body?.workspaceId as string | undefined,
+      clientId: body?.clientId as string | undefined,
+      source: "trends",
+      query: "google-trends-br",
+      items,
+      filters: { geo: "BR" },
+      authHeader: req.headers.get("authorization"),
+    });
+
     return new Response(JSON.stringify({ items }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err?.message ?? "erro", items: [] }), {
+  } catch (err) {
+    return new Response(JSON.stringify({ error: (err as Error)?.message ?? "erro", items: [] }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

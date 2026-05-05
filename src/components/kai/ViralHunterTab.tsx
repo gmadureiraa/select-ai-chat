@@ -15,12 +15,13 @@
  */
 
 import { useState } from "react";
-import { Flame, Users, Youtube, Newspaper, TrendingUp, Lightbulb, Sparkles } from "lucide-react";
+import { Flame, Users, Youtube, Newspaper, TrendingUp, Lightbulb, Instagram } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Client } from "@/hooks/useClients";
 import { TabOverview } from "./viral-hunter/TabOverview";
 import { TabCompetitors } from "./viral-hunter/TabCompetitors";
 import { TabYouTube } from "./viral-hunter/TabYouTube";
+import { TabInstagram } from "./viral-hunter/TabInstagram";
 import { TabNews } from "./viral-hunter/TabNews";
 import { TabIdeas } from "./viral-hunter/TabIdeas";
 import { TabTrends } from "./viral-hunter/TabTrends";
@@ -43,6 +44,7 @@ const TABS: TabDef[] = [
   { id: "overview", label: "Overview", icon: Flame, description: "Meus posts de maior engajamento" },
   { id: "competitors", label: "Concorrentes", icon: Users, description: "Perfis do nicho pra monitorar" },
   { id: "youtube", label: "YouTube", icon: Youtube, description: "Vídeos virais por keywords" },
+  { id: "instagram", label: "Instagram", icon: Instagram, description: "Top posts por hashtag (Apify)" },
   { id: "news", label: "Notícias", icon: Newspaper, description: "Google News do nicho em tempo real" },
   { id: "trends", label: "Tendências", icon: TrendingUp, description: "Top buscas no Google Trends BR (atualiza diário)" },
   { id: "ideas", label: "Ideas", icon: Lightbulb, description: "Gerar e gerenciar ideias de conteúdo" },
@@ -112,6 +114,9 @@ export const ViralHunterTab = ({
         )}
         {active === "youtube" && (
           <TabYouTube clientId={clientId} onUseAsInspiration={handleInspire} />
+        )}
+        {active === "instagram" && (
+          <TabInstagram clientId={clientId} onUseAsInspiration={handleInspire} />
         )}
         {active === "news" && (
           <TabNews clientId={clientId} onUseAsInspiration={handleInspire} />

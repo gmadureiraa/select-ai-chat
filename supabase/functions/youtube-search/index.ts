@@ -8,7 +8,7 @@
  *     clientId?: string, workspaceId?: string }  // pra cache
  */
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
+import { cacheViralSearch } from "../_shared/viralCache.ts";
 
 const YT_API_BASE = "https://www.googleapis.com/youtube/v3";
 
@@ -20,38 +20,6 @@ interface SearchBody {
   pageToken?: string;
   clientId?: string;
   workspaceId?: string;
-}
-
-async function cacheItems(args: {
-  clientId?: string; workspaceId?: string; query: string;
-  items: any[]; isFallback: boolean; nextPageToken?: string | null;
-  authHeader?: string | null;
-}) {
-  if (!args.clientId || !args.workspaceId || args.items.length === 0) return;
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const sb = createClient(supabaseUrl, serviceKey);
-    let userId: string | null = null;
-    if (args.authHeader) {
-      const token = args.authHeader.replace("Bearer ", "");
-      const { data } = await sb.auth.getUser(token);
-      userId = data.user?.id ?? null;
-    }
-    await sb.from("viral_search_cache").insert({
-      workspace_id: args.workspaceId,
-      client_id: args.clientId,
-      source: "youtube",
-      query: args.query,
-      items: args.items,
-      item_count: args.items.length,
-      is_fallback: args.isFallback,
-      next_page_token: args.nextPageToken ?? null,
-      created_by: userId,
-    });
-  } catch (e) {
-    console.warn("[youtube-search] cache insert failed:", (e as Error).message);
-  }
 }
 
 Deno.serve(async (req) => {
@@ -148,9 +116,10 @@ Deno.serve(async (req) => {
                     };
                   });
                 console.log(`[youtube-search] Apify fallback returned ${mapped.length} items`);
-                await cacheItems({
-                  clientId: body.clientId, workspaceId: body.workspaceId, query,
-                  items: mapped, isFallback: true, authHeader,
+                await cacheViralSearch({
+                  workspaceId: body.workspaceId, clientId: body.clientId, source: "youtube",
+                  query, items: mapped, isFallback: true, authHeader,
+                  filters: { order, publishedAfter: body.publishedAfter, maxResults },
                 });
                 return new Response(JSON.stringify({ items: mapped, source: "apify-fallback", nextPageToken: null }), {
                   status: 200,
@@ -227,9 +196,10 @@ Deno.serve(async (req) => {
 
     // Cache só na primeira página pra não duplicar
     if (!body.pageToken) {
-      await cacheItems({
-        clientId: body.clientId, workspaceId: body.workspaceId, query,
-        items: results, isFallback: false, nextPageToken, authHeader,
+      await cacheViralSearch({
+        workspaceId: body.workspaceId, clientId: body.clientId, source: "youtube",
+        query, items: results, isFallback: false, nextPageToken, authHeader,
+        filters: { order, publishedAfter: body.publishedAfter, maxResults },
       });
     }
 

@@ -177,7 +177,7 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
       {config.keywords.length === 0 ? (
         <EmptyKeywords />
       ) : error && !history ? (
-        <ErrorState message={(error as Error).message} />
+        <ErrorState message={(error as Error).message} onRetry={() => refetch()} />
       ) : isLoading ? (
         <Grid>{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} />)}</Grid>
       ) : videos.length === 0 ? (
@@ -277,14 +277,19 @@ function EmptyKeywords() {
   );
 }
 
-function ErrorState({ message }: { message: string }) {
+function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="text-center py-8 max-w-md mx-auto">
       <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/20 inline-flex mb-3">
         <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
       </div>
       <h3 className="text-sm font-semibold mb-1">Falha ao buscar do YouTube</h3>
-      <p className="text-xs text-muted-foreground">{message}</p>
+      <p className="text-xs text-muted-foreground mb-3">{message}</p>
+      {onRetry && (
+        <Button size="sm" variant="outline" onClick={onRetry}>
+          <RefreshCw className="h-3 w-3 mr-1.5" /> Tentar novamente
+        </Button>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ export type ViralHunterTabId =
   | "overview"
   | "competitors"
   | "youtube"
+  | "instagram"
   | "news"
   | "trends"
   | "ideas";
