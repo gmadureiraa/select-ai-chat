@@ -110,6 +110,9 @@ interface TabOverviewProps {
 
 export function TabOverview({ clientId, client, onUseAsInspiration }: TabOverviewProps) {
   const [period, setPeriod] = useState<PeriodFilter>("all");
+  const [mediaTab, setMediaTab] = useState<MediaTab>("all");
+  const [sortBy, setSortBy] = useState<SortBy>("viral");
+  const [search, setSearch] = useState("");
 
   const { data: posts = [], isLoading, isFetching, refetch } = useQuery<ViralPost[]>({
     queryKey: ["viral-hunter-own-posts", clientId],
