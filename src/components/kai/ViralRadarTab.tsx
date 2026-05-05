@@ -93,6 +93,16 @@ export function ViralRadarTab({ clientId, client }: ViralRadarTabProps) {
     navigate(`/${(client as any)?.workspace_slug ?? ""}?${params.toString()}`);
   }
 
+  function handleUseAsReel(topic: string, summary?: string) {
+    const params = new URLSearchParams({
+      client: clientId,
+      tab: "reels",
+      tema: topic,
+      ...(summary ? { briefing: summary } : {}),
+    });
+    navigate(`/${(client as any)?.workspace_slug ?? ""}?${params.toString()}`);
+  }
+
   async function handleSaveAsIdea(topic: string, source: string) {
     try {
       const { data: u } = await supabase.auth.getUser();
