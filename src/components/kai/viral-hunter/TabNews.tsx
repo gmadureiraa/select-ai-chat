@@ -43,10 +43,13 @@ export function TabNews({ clientId, onUseAsInspiration }: TabNewsProps) {
   const navigate = useNavigate();
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const query = config.keywords.join(" OR ");
-  const { data: news = [], isLoading, isFetching, refetch, error } = useGoogleNews({
-    query,
-    enabled: config.keywords.length > 0,
+  const { data: liveNews = [], isLoading, isFetching, refetch, error } = useGoogleNews({
+    query, enabled: config.keywords.length > 0,
+    clientId, workspaceId: workspace?.id,
   });
+  const showHistory = !!error || (!isLoading && liveNews.length === 0 && config.keywords.length > 0);
+  const { data: history } = useGoogleNewsHistory({ clientId, enabled: showHistory });
+  const news = liveNews.length > 0 ? liveNews : (history?.items ?? []);
 
   const handleUse = (n: typeof news[number]) => {
     const prompt = [
