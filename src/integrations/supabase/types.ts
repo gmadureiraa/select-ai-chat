@@ -4018,12 +4018,14 @@ export type Database = {
           client_id: string
           created_at: string
           created_by: string | null
+          filters: Json
           id: string
           is_fallback: boolean
           item_count: number
           items: Json
           next_page_token: string | null
           query: string
+          query_normalized: string | null
           source: string
           updated_at: string
           workspace_id: string
@@ -4032,12 +4034,14 @@ export type Database = {
           client_id: string
           created_at?: string
           created_by?: string | null
+          filters?: Json
           id?: string
           is_fallback?: boolean
           item_count?: number
           items?: Json
           next_page_token?: string | null
           query: string
+          query_normalized?: string | null
           source: string
           updated_at?: string
           workspace_id: string
@@ -4046,12 +4050,14 @@ export type Database = {
           client_id?: string
           created_at?: string
           created_by?: string | null
+          filters?: Json
           id?: string
           is_fallback?: boolean
           item_count?: number
           items?: Json
           next_page_token?: string | null
           query?: string
+          query_normalized?: string | null
           source?: string
           updated_at?: string
           workspace_id?: string
