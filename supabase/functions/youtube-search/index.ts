@@ -55,21 +55,24 @@ Deno.serve(async (req) => {
       const errText = await searchRes.text().catch(() => "");
       // Fallback Apify quando Data API está bloqueada/quotada
       const apifyKey = Deno.env.get("APIFY_API_KEY") ?? Deno.env.get("APIFY_API_TOKEN");
-      if (apifyKey && (searchRes.status === 403 || searchRes.status === 429)) {
+      if (apifyKey && (searchRes.status === 403 || searchRes.status === 429 || searchRes.status === 400)) {
+        console.log("[youtube-search] YT Data API failed, trying Apify fallback");
         try {
-          const apifyRes = await fetch(
-            `https://api.apify.com/v2/acts/streamers~youtube-scraper/run-sync-get-dataset-items?token=${apifyKey}&timeout=60`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                searchKeywords: query,
-                maxResults,
-                sortBy: order === "viewCount" ? "v" : order === "date" ? "u" : "r",
-              }),
-            },
-          );
-          if (apifyRes.ok) {
+          const apifyUrl = `https://api.apify.com/v2/acts/streamers~youtube-scraper/run-sync-get-dataset-items?token=${apifyKey}&timeout=90&memory=1024`;
+          const apifyRes = await fetch(apifyUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              searchQueries: [query],
+              maxResults,
+              maxResultsShorts: 0,
+              maxResultStreams: 0,
+            }),
+          });
+          if (!apifyRes.ok) {
+            const apifyErrText = await apifyRes.text().catch(() => "");
+            console.error("[youtube-search] Apify fallback HTTP", apifyRes.status, apifyErrText.slice(0, 300));
+          } else {
             const apifyItems = await apifyRes.json();
             const mapped = (Array.isArray(apifyItems) ? apifyItems : [])
               .filter((v: any) => v?.id || v?.url)
@@ -80,22 +83,23 @@ Deno.serve(async (req) => {
                   title: v.title ?? "",
                   channelTitle: v.channelName ?? v.channel ?? "",
                   channelId: v.channelId ?? "",
-                  thumbnailUrl: v.thumbnailUrl ?? `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
-                  publishedAt: v.date ?? new Date().toISOString(),
-                  description: v.text ?? "",
+                  thumbnailUrl: v.thumbnailUrl ?? (id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : ""),
+                  publishedAt: v.date ?? v.uploadDate ?? new Date().toISOString(),
+                  description: v.text ?? v.description ?? "",
                   url: v.url ?? `https://www.youtube.com/watch?v=${id}`,
-                  viewCount: typeof v.viewCount === "number" ? v.viewCount : undefined,
-                  likeCount: undefined,
-                  commentCount: undefined,
+                  viewCount: typeof v.viewCount === "number" ? v.viewCount : (v.viewCountText ? parseInt(String(v.viewCountText).replace(/\D/g, ""), 10) || undefined : undefined),
+                  likeCount: typeof v.likes === "number" ? v.likes : undefined,
+                  commentCount: typeof v.commentsCount === "number" ? v.commentsCount : undefined,
                 };
               });
+            console.log(`[youtube-search] Apify fallback returned ${mapped.length} items`);
             return new Response(JSON.stringify({ items: mapped, source: "apify-fallback" }), {
               status: 200,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
         } catch (apifyErr) {
-          console.warn("[youtube-search] Apify fallback failed:", apifyErr);
+          console.error("[youtube-search] Apify fallback exception:", apifyErr);
         }
       }
       return new Response(
