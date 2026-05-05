@@ -5,11 +5,14 @@
  * Body: { query: string, lang?: string, region?: string }
  */
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 
 interface NewsBody {
   query: string;
   lang?: string;
   region?: string;
+  clientId?: string;
+  workspaceId?: string;
 }
 
 function parseRSS(xml: string) {
