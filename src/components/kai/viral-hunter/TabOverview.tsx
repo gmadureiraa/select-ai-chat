@@ -279,6 +279,60 @@ export function TabOverview({ clientId, client, onUseAsInspiration }: TabOvervie
         </div>
       </div>
 
+      {/* Tabs por tipo de mídia (TODOS · REELS · CARROSSÉIS · IMAGENS) */}
+      <div className="flex items-center gap-1 border-b border-border/40 -mx-1 px-1 overflow-x-auto">
+        {MEDIA_TABS.map((t) => {
+          const isActive = mediaTab === t.id;
+          const count = tabCounts[t.id];
+          return (
+            <button
+              key={t.id}
+              onClick={() => setMediaTab(t.id)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold tracking-wider uppercase border-b-2 transition-colors whitespace-nowrap",
+                isActive
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t.label}
+              <span
+                className={cn(
+                  "tabular-nums px-1.5 py-0.5 rounded text-[10px]",
+                  isActive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground",
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Search + Sort */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por @ ou legenda…"
+            className="pl-8 h-8 text-xs"
+          />
+        </div>
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+          <SelectTrigger className="h-8 w-[160px] text-xs">
+            <ArrowUpDown className="h-3 w-3 mr-1.5" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="viral">Viral Score</SelectItem>
+            <SelectItem value="recent">Mais recentes</SelectItem>
+            <SelectItem value="likes">Mais curtidas</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {stats && (
         <div className="grid grid-cols-3 gap-3">
           <StatCard icon={<Award className="h-4 w-4" />} label="Melhor" value={`${stats.best.engagement_rate.toFixed(1)}%`} accent="emerald" />
