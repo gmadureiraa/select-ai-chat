@@ -79,7 +79,7 @@ export function TabInstagram({ clientId, onUseAsInspiration }: Props) {
           `Post viral de @${p.ownerUsername} (${fmt(p.likesCount)} likes · ${fmt(p.videoPlayCount ?? p.videoViewCount)} views).`,
           "Ângulo sugerido: adaptar a abordagem desse post pro feed do cliente.",
         ].join("\n"),
-        source: { kind: "instagram" as any, url: p.url, sourceName: `@${p.ownerUsername}`, thumbnail: p.thumbnailUrl, publishedAt: p.timestamp ?? undefined },
+        source: { kind: "instagram", url: p.url, sourceName: `@${p.ownerUsername}`, thumbnail: p.thumbnailUrl, publishedAt: p.timestamp ?? undefined },
       });
       toast.success("Salvo como ideia no Planejamento");
     } catch (err) {
