@@ -5,7 +5,7 @@
  * Body: { query: string, lang?: string, region?: string }
  */
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
+import { cacheViralSearch } from "../_shared/viralCache.ts";
 
 interface NewsBody {
   query: string;

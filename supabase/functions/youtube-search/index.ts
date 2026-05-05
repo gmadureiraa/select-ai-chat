@@ -116,9 +116,10 @@ Deno.serve(async (req) => {
                     };
                   });
                 console.log(`[youtube-search] Apify fallback returned ${mapped.length} items`);
-                await cacheItems({
-                  clientId: body.clientId, workspaceId: body.workspaceId, query,
-                  items: mapped, isFallback: true, authHeader,
+                await cacheViralSearch({
+                  workspaceId: body.workspaceId, clientId: body.clientId, source: "youtube",
+                  query, items: mapped, isFallback: true, authHeader,
+                  filters: { order, publishedAfter: body.publishedAfter, maxResults },
                 });
                 return new Response(JSON.stringify({ items: mapped, source: "apify-fallback", nextPageToken: null }), {
                   status: 200,
@@ -195,9 +196,10 @@ Deno.serve(async (req) => {
 
     // Cache só na primeira página pra não duplicar
     if (!body.pageToken) {
-      await cacheItems({
-        clientId: body.clientId, workspaceId: body.workspaceId, query,
-        items: results, isFallback: false, nextPageToken, authHeader,
+      await cacheViralSearch({
+        workspaceId: body.workspaceId, clientId: body.clientId, source: "youtube",
+        query, items: results, isFallback: false, nextPageToken, authHeader,
+        filters: { order, publishedAfter: body.publishedAfter, maxResults },
       });
     }
 
