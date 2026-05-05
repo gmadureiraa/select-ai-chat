@@ -1,26 +1,18 @@
 /**
- * Tab YouTube do Viral Hunter — busca vídeos do nicho ordenados por views.
+ * Tab YouTube do Viral Hunter — busca vídeos com infinite scroll +
+ * fallback de histórico salvo quando a API live falhar.
  */
 
-import { useMemo, useState } from "react";
-import { useYouTubeSearch } from "./useYouTubeSearch";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useYouTubeSearchInfinite, useYouTubeSearchHistory } from "./useYouTubeSearch";
 import { KeywordsChips } from "./KeywordsChips";
 import { useViralHunterConfig } from "./useViralHunterConfig";
 import { saveAsIdea, buildSequenceUrl } from "./saveAsIdea";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { useNavigate } from "react-router-dom";
 import {
-  Play,
-  Eye,
-  ThumbsUp,
-  MessageSquare,
-  ExternalLink,
-  RefreshCw,
-  Sparkles,
-  AlertTriangle,
-  Youtube,
-  Lightbulb,
-  Layers,
+  Play, Eye, ThumbsUp, MessageSquare, ExternalLink, RefreshCw, Sparkles,
+  AlertTriangle, Youtube, Lightbulb, Layers, History, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -53,6 +45,7 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
   const navigate = useNavigate();
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [period, setPeriod] = useState<"7d" | "30d" | "90d" | "all">("30d");
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const publishedAfter = useMemo(() => {
     if (period === "all") return undefined;
@@ -61,14 +54,34 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
   }, [period]);
 
   const query = config.keywords.join(" | ");
-  const hasKey = true; // chave agora é server-side via edge function
-  const { data: videos = [], isLoading, isFetching, refetch, error } = useYouTubeSearch({
-    query,
-    publishedAfter,
-    order: "viewCount",
-    maxResults: 20,
+
+  const {
+    data, isLoading, isFetching, error, refetch,
+    fetchNextPage, hasNextPage, isFetchingNextPage,
+  } = useYouTubeSearchInfinite({
+    query, publishedAfter, order: "viewCount", maxResults: 20,
     enabled: config.keywords.length > 0,
+    clientId, workspaceId: workspace?.id,
   });
+
+  const liveItems = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data]);
+  const usedFallback = data?.pages.some((p) => p.source === "apify-fallback") ?? false;
+
+  // Histórico — só consultado se busca live falhar ou retornar 0 itens
+  const showHistory = !!error || (!isLoading && liveItems.length === 0 && config.keywords.length > 0);
+  const { data: history } = useYouTubeSearchHistory({ clientId, enabled: showHistory });
+  const videos = liveItems.length > 0 ? liveItems : (history?.items ?? []);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasNextPage) return;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting && !isFetchingNextPage) fetchNextPage();
+    }, { rootMargin: "300px" });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const handleSaveKeywords = async (next: string[]) => {
     await save({ ...config, keywords: next });
@@ -87,39 +100,23 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
   };
 
   const handleSaveAsIdea = async (v: typeof videos[number]) => {
-    if (!workspace?.id) {
-      toast.error("Workspace não encontrado");
-      return;
-    }
+    if (!workspace?.id) { toast.error("Workspace não encontrado"); return; }
     setSavingIds((s) => new Set(s).add(v.id));
     try {
       await saveAsIdea({
-        clientId,
-        workspaceId: workspace.id,
-        title: v.title,
+        clientId, workspaceId: workspace.id, title: v.title,
         briefing: [
-          v.description?.slice(0, 400) ?? "",
-          "",
+          v.description?.slice(0, 400) ?? "", "",
           `Vídeo viral de "${v.channelTitle}" (${fmt(v.viewCount)} views).`,
           "Ângulo sugerido: adaptar o hook desse vídeo pro formato preferido do cliente.",
         ].join("\n"),
-        source: {
-          kind: "youtube",
-          url: v.url,
-          sourceName: v.channelTitle,
-          thumbnail: v.thumbnailUrl,
-          publishedAt: v.publishedAt,
-        },
+        source: { kind: "youtube", url: v.url, sourceName: v.channelTitle, thumbnail: v.thumbnailUrl, publishedAt: v.publishedAt },
       });
       toast.success("Salvo como ideia no Planejamento");
     } catch (err) {
       toast.error("Falha ao salvar: " + (err as Error).message);
     } finally {
-      setSavingIds((s) => {
-        const next = new Set(s);
-        next.delete(v.id);
-        return next;
-      });
+      setSavingIds((s) => { const next = new Set(s); next.delete(v.id); return next; });
     }
   };
 
@@ -130,14 +127,9 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
       v.description ? `\nDescrição: ${v.description.slice(0, 400)}` : "",
       `\nLink: ${v.url}`,
       v.thumbnailUrl ? `Capa de referência: ${v.thumbnailUrl}` : "",
-      "\nObjetivo: criar carrossel adaptando o ângulo desse vídeo viral pro feed do cliente. Slide 1 com headline editorial forte, slides 2-7 desenvolvendo os pontos-chave do vídeo no tom do cliente, slide 8 chamada pra ação/discussão.",
+      "\nObjetivo: criar carrossel adaptando o ângulo desse vídeo viral pro feed do cliente.",
     ].join("\n");
-    const url = buildSequenceUrl({
-      clientId,
-      title: v.title,
-      briefing,
-    });
-    navigate(url);
+    navigate(buildSequenceUrl({ clientId, title: v.title, briefing }));
     toast.success("Abrindo Sequência Viral com briefing pronto…");
   };
 
@@ -147,35 +139,19 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
       <div className="bg-card border border-border/30 rounded-xl p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-              Keywords do nicho
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Adicione termos-chave. O KAI busca vídeos virais que mencionem esses termos.
-            </p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Keywords do nicho</p>
+            <p className="text-xs text-muted-foreground">Adicione termos-chave. O KAI busca vídeos virais e faz scroll infinito.</p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {(["7d", "30d", "90d", "all"] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={cn(
-                  "text-[10px] px-2 py-0.5 rounded-full border",
-                  period === p
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background hover:bg-muted border-border text-muted-foreground",
-                )}
-              >
+              <button key={p} onClick={() => setPeriod(p)}
+                className={cn("text-[10px] px-2 py-0.5 rounded-full border",
+                  period === p ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background hover:bg-muted border-border text-muted-foreground")}>
                 {p === "all" ? "Tudo" : p}
               </button>
             ))}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2"
-              onClick={() => refetch()}
-              disabled={isFetching}
-            >
+            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
             </Button>
           </div>
@@ -183,107 +159,88 @@ export function TabYouTube({ clientId, onUseAsInspiration }: TabYouTubeProps) {
         <KeywordsChips keywords={config.keywords} onChange={handleSaveKeywords} />
       </div>
 
+      {/* Banners de status */}
+      {usedFallback && (
+        <div className="text-xs px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 flex items-center gap-2">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          YouTube Data API indisponível — usando fallback Apify (sem paginação automática).
+        </div>
+      )}
+      {showHistory && history && (
+        <div className="text-xs px-3 py-2 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-300 flex items-center gap-2">
+          <History className="h-3.5 w-3.5" />
+          Mostrando histórico salvo de {new Date(history.cachedAt).toLocaleString("pt-BR")} (busca "{history.query}").
+        </div>
+      )}
+
       {/* Results */}
       {config.keywords.length === 0 ? (
         <EmptyKeywords />
-      ) : error ? (
+      ) : error && !history ? (
         <ErrorState message={(error as Error).message} />
       ) : isLoading ? (
-        <Grid>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} />
-          ))}
-        </Grid>
+        <Grid>{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} />)}</Grid>
       ) : videos.length === 0 ? (
         <div className="text-center py-12 text-sm text-muted-foreground">
           Nenhum vídeo encontrado com essas keywords no período selecionado.
         </div>
       ) : (
-        <Grid>
-          {videos.map((v) => (
-            <div
-              key={v.id}
-              className="bg-card border border-border/40 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col"
-            >
-              <a
-                href={v.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="relative block aspect-video bg-muted"
-              >
-                <img
-                  src={v.thumbnailUrl}
-                  alt=""
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-black/30 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Play className="h-10 w-10 text-white fill-white" />
-                </div>
-                <span className="absolute top-2 right-2 text-[10px] font-semibold bg-black/70 text-white px-1.5 py-0.5 rounded">
-                  {daysAgo(v.publishedAt)}
-                </span>
-              </a>
-              <div className="p-3 flex-1 flex flex-col gap-2">
-                <h4 className="text-sm font-semibold leading-snug line-clamp-2">{v.title}</h4>
-                <p className="text-xs text-muted-foreground truncate">{v.channelTitle}</p>
-                <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-auto">
-                  <span className="flex items-center gap-1">
-                    <Eye className="h-3 w-3" />
-                    {fmt(v.viewCount)}
+        <>
+          <Grid>
+            {videos.map((v) => (
+              <div key={v.id} className="bg-card border border-border/40 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                <a href={v.url} target="_blank" rel="noopener noreferrer" className="relative block aspect-video bg-muted">
+                  <img src={v.thumbnailUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  <div className="absolute inset-0 bg-black/30 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Play className="h-10 w-10 text-white fill-white" />
+                  </div>
+                  <span className="absolute top-2 right-2 text-[10px] font-semibold bg-black/70 text-white px-1.5 py-0.5 rounded">
+                    {daysAgo(v.publishedAt)}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <ThumbsUp className="h-3 w-3" />
-                    {fmt(v.likeCount)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <MessageSquare className="h-3 w-3" />
-                    {fmt(v.commentCount)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 pt-1">
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs gap-1 flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-                    onClick={() => handleUseVideo(v)}
-                  >
-                    <Sparkles className="h-3 w-3" />
-                    Usar no KAI
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2 text-xs gap-1"
-                    onClick={() => handleSaveAsIdea(v)}
-                    disabled={savingIds.has(v.id)}
-                    title="Salvar como ideia no Planejamento"
-                  >
-                    <Lightbulb className="h-3 w-3" />
-                    {savingIds.has(v.id) ? "…" : "Ideia"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2 text-xs gap-1 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30"
-                    onClick={() => handleGenerateCarousel(v)}
-                    title="Abrir Sequência Viral com briefing desse vídeo"
-                  >
-                    <Layers className="h-3 w-3" />
-                    Carrossel
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 w-7 p-0"
-                    onClick={() => window.open(v.url, "_blank")}
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
+                </a>
+                <div className="p-3 flex-1 flex flex-col gap-2">
+                  <h4 className="text-sm font-semibold leading-snug line-clamp-2">{v.title}</h4>
+                  <p className="text-xs text-muted-foreground truncate">{v.channelTitle}</p>
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-auto">
+                    <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{fmt(v.viewCount)}</span>
+                    <span className="flex items-center gap-1"><ThumbsUp className="h-3 w-3" />{fmt(v.likeCount)}</span>
+                    <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" />{fmt(v.commentCount)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <Button size="sm" className="h-7 text-xs gap-1 flex-1 bg-orange-600 hover:bg-orange-700 text-white" onClick={() => handleUseVideo(v)}>
+                      <Sparkles className="h-3 w-3" /> Usar no KAI
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1" onClick={() => handleSaveAsIdea(v)} disabled={savingIds.has(v.id)}>
+                      <Lightbulb className="h-3 w-3" />{savingIds.has(v.id) ? "…" : "Ideia"}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30"
+                      onClick={() => handleGenerateCarousel(v)} title="Abrir Sequência Viral">
+                      <Layers className="h-3 w-3" />Carrossel
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => window.open(v.url, "_blank")}>
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </div>
+            ))}
+          </Grid>
+
+          {/* Infinite scroll sentinel — só pra busca live (não cache) */}
+          {liveItems.length > 0 && (
+            <div ref={sentinelRef} className="py-6 flex justify-center">
+              {isFetchingNextPage ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Carregando mais vídeos…
+                </div>
+              ) : hasNextPage ? (
+                <Button variant="outline" size="sm" onClick={() => fetchNextPage()}>Carregar mais</Button>
+              ) : (
+                <span className="text-[11px] text-muted-foreground">Fim dos resultados</span>
+              )}
             </div>
-          ))}
-        </Grid>
+          )}
+        </>
       )}
     </div>
   );
