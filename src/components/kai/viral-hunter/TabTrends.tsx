@@ -1,9 +1,16 @@
 /**
  * Tab Tendências — Google Trends BR (top searches do dia).
- * Mostra termos em alta + permite "Salvar como ideia" e "Usar como prompt".
+ * Padronizada com o resto do Viral Hunter:
+ *  - skeleton de loading
+ *  - estado de erro com "Tentar novamente"
+ *  - fallback de histórico (viral_search_cache) quando o feed live falhar
  */
-import { useEffect, useState } from "react";
-import { Loader2, RefreshCw, TrendingUp, ExternalLink, Lightbulb, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Loader2, RefreshCw, TrendingUp, ExternalLink, Lightbulb, Sparkles,
+  AlertTriangle, History,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -26,23 +33,51 @@ interface Props {
 export function TabTrends({ clientId, workspaceId, onUseAsInspiration }: Props) {
   const [items, setItems] = useState<TrendItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
   async function load() {
     setLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase.functions.invoke("google-trends-br", { body: { clientId, workspaceId } });
       if (error) throw error;
+      if (data?.error && !(data.items?.length)) throw new Error(data.error);
       setItems((data?.items ?? []) as TrendItem[]);
       setUpdatedAt(new Date());
     } catch (e: any) {
-      toast.error(e?.message ?? "Falha ao carregar tendências");
+      setError(e?.message ?? "Falha ao carregar tendências");
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  // Histórico — só quando live falhou ou veio vazio
+  const showHistory = !!error || (!loading && items.length === 0);
+  const { data: history } = useQuery({
+    queryKey: ["trends-history", clientId],
+    enabled: showHistory && !!clientId,
+    queryFn: async (): Promise<{ items: TrendItem[]; cachedAt: string } | null> => {
+      const { data } = await supabase
+        .from("viral_search_cache")
+        .select("items, created_at")
+        .eq("client_id", clientId)
+        .eq("source", "trends")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!data) return null;
+      return { items: (data.items as unknown as TrendItem[]) ?? [], cachedAt: data.created_at };
+    },
+    staleTime: 60_000,
+  });
+
+  const display = useMemo(
+    () => (items.length > 0 ? items : (history?.items ?? [])),
+    [items, history],
+  );
 
   async function saveIdea(t: TrendItem) {
     try {
@@ -80,49 +115,73 @@ export function TabTrends({ clientId, workspaceId, onUseAsInspiration }: Props) 
         </Button>
       </div>
 
-      {loading && items.length === 0 && (
-        <div className="text-center py-12 text-sm text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" /> Carregando…
+      {showHistory && history && (
+        <div className="text-xs px-3 py-2 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-300 flex items-center gap-2">
+          <History className="h-3.5 w-3.5" />
+          Mostrando histórico salvo de {new Date(history.cachedAt).toLocaleString("pt-BR")}.
         </div>
       )}
 
-      {!loading && items.length === 0 && (
+      {loading && display.length === 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="rounded-md border border-border bg-card p-3 animate-pulse h-14" />
+          ))}
+        </div>
+      )}
+
+      {!loading && error && !history && (
+        <div className="text-center py-8 max-w-md mx-auto">
+          <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/20 inline-flex mb-3">
+            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+          </div>
+          <h3 className="text-sm font-semibold mb-1">Falha ao carregar tendências</h3>
+          <p className="text-xs text-muted-foreground mb-3">{error}</p>
+          <Button size="sm" variant="outline" onClick={load}>
+            <RefreshCw className="h-3 w-3 mr-1.5" /> Tentar novamente
+          </Button>
+        </div>
+      )}
+
+      {!loading && !error && display.length === 0 && (
         <div className="text-center py-12 text-sm text-muted-foreground">
           Nenhuma tendência disponível.
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        {items.map((t, i) => (
-          <div key={i} className="flex items-start gap-3 rounded-md border border-border bg-card p-3">
-            <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-              {i + 1}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{t.title}</div>
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                {t.traffic && <Badge variant="secondary" className="text-[10px]">{t.traffic} buscas</Badge>}
-                {t.pubDate && <span>{new Date(t.pubDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>}
+      {display.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {display.map((t, i) => (
+            <div key={i} className="flex items-start gap-3 rounded-md border border-border bg-card p-3">
+              <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                {i + 1}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{t.title}</div>
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                  {t.traffic && <Badge variant="secondary" className="text-[10px]">{t.traffic} buscas</Badge>}
+                  {t.pubDate && <span>{new Date(t.pubDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>}
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                {onUseAsInspiration && (
+                  <Button size="sm" variant="ghost" onClick={() => onUseAsInspiration(`Crie um conteúdo conectando o nicho do cliente com o tema em alta hoje no Brasil: "${t.title}"`)}>
+                    <Sparkles className="h-3 w-3" />
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => saveIdea(t)} title="Salvar como ideia">
+                  <Lightbulb className="h-3 w-3" />
+                </Button>
+                {t.link && (
+                  <a href={t.link} target="_blank" rel="noreferrer" className="p-1.5 hover:bg-accent rounded">
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-1">
-              {onUseAsInspiration && (
-                <Button size="sm" variant="ghost" onClick={() => onUseAsInspiration(`Crie um conteúdo conectando o nicho do cliente com o tema em alta hoje no Brasil: "${t.title}"`)}>
-                  <Sparkles className="h-3 w-3" />
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" onClick={() => saveIdea(t)} title="Salvar como ideia">
-                <Lightbulb className="h-3 w-3" />
-              </Button>
-              {t.link && (
-                <a href={t.link} target="_blank" rel="noreferrer" className="p-1.5 hover:bg-accent rounded">
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
