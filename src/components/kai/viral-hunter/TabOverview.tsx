@@ -165,21 +165,47 @@ export function TabOverview({ clientId, client, onUseAsInspiration }: TabOvervie
       }
 
       results.sort((a, b) => b.engagement_rate - a.engagement_rate);
-      return results.slice(0, 24);
+      return results.slice(0, 60);
     },
     enabled: !!clientId,
     staleTime: 5 * 60 * 1000,
   });
 
-  const filtered = useMemo(() => {
+  // Filtra primeiro por período (base pra contadores das tabs).
+  const periodFiltered = useMemo(() => {
     const cutoff = period === "all" ? null : new Date(Date.now() - parseInt(period, 10) * 86_400_000);
     return posts.filter((p) => !cutoff || !p.posted_at || new Date(p.posted_at) >= cutoff);
   }, [posts, period]);
 
+  // Contadores por tipo de mídia (mostra na pílula da tab).
+  const tabCounts = useMemo(() => {
+    const c: Record<MediaTab, number> = { all: periodFiltered.length, reels: 0, carousels: 0, images: 0 };
+    for (const p of periodFiltered) {
+      if (matchesMediaTab(p, "reels")) c.reels++;
+      else if (matchesMediaTab(p, "carousels")) c.carousels++;
+      else if (matchesMediaTab(p, "images")) c.images++;
+    }
+    return c;
+  }, [periodFiltered]);
+
+  // Aplica filtro de tab + busca + sort.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = periodFiltered
+      .filter((p) => matchesMediaTab(p, mediaTab))
+      .filter((p) => !q || p.caption.toLowerCase().includes(q));
+    const sorted = [...list];
+    if (sortBy === "viral") sorted.sort((a, b) => b.engagement_rate - a.engagement_rate);
+    else if (sortBy === "likes") sorted.sort((a, b) => b.likes - a.likes);
+    else sorted.sort((a, b) => new Date(b.posted_at ?? 0).getTime() - new Date(a.posted_at ?? 0).getTime());
+    return sorted;
+  }, [periodFiltered, mediaTab, search, sortBy]);
+
   const stats = useMemo(() => {
     if (filtered.length === 0) return null;
+    const sortedByER = [...filtered].sort((a, b) => b.engagement_rate - a.engagement_rate);
     return {
-      best: filtered[0],
+      best: sortedByER[0],
       avg: filtered.reduce((a, p) => a + p.engagement_rate, 0) / filtered.length,
       totalLikes: filtered.reduce((a, p) => a + p.likes, 0),
     };
