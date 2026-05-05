@@ -11,7 +11,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-export type IdeaSourceKind = "news" | "youtube" | "competitor";
+export type IdeaSourceKind = "news" | "youtube" | "competitor" | "instagram";
 
 export interface SaveAsIdeaInput {
   clientId: string;
