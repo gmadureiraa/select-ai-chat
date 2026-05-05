@@ -4013,6 +4013,59 @@ export type Database = {
           },
         ]
       }
+      viral_search_cache: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_fallback: boolean
+          item_count: number
+          items: Json
+          next_page_token: string | null
+          query: string
+          source: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_fallback?: boolean
+          item_count?: number
+          items?: Json
+          next_page_token?: string | null
+          query: string
+          source: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_fallback?: boolean
+          item_count?: number
+          items?: Json
+          next_page_token?: string | null
+          query?: string
+          source?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viral_search_cache_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhook_alert_preferences: {
         Row: {
           alerts_enabled: boolean
