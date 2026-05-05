@@ -2,7 +2,8 @@
  * Tab Notícias — busca Google News RSS por keywords do cliente.
  */
 
-import { useGoogleNews } from "./useGoogleNews";
+import { useGoogleNews, useGoogleNewsHistory } from "./useGoogleNews";
+import { History } from "lucide-react";
 import { useViralHunterConfig } from "./useViralHunterConfig";
 import { KeywordsChips } from "./KeywordsChips";
 import { saveAsIdea, buildSequenceUrl } from "./saveAsIdea";
