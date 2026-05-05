@@ -22,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useSearchParams } from "react-router-dom";
 import type { Client } from "@/hooks/useClients";
 
 interface ViralReelsTabProps {
@@ -92,6 +93,27 @@ export function ViralReelsTab({ clientId, client }: ViralReelsTabProps) {
   useEffect(() => {
     if (!nicho && (client as any)?.industry) setNicho((client as any).industry);
   }, [client, nicho]);
+
+  // Pre-fill via query params (?tema=...&briefing=...) — vindo do Radar Viral.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const t = searchParams.get("tema");
+    const b = searchParams.get("briefing");
+    let consumed = false;
+    if (t && !tema) { setTema(t); consumed = true; }
+    if (b && !cta) {
+      // briefing/source_summary do Radar vira nota inicial; user ajusta CTA depois
+      setCta((c) => c || `Ângulo: ${b}`);
+      consumed = true;
+    }
+    if (consumed) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("tema"); next.delete("briefing");
+      setSearchParams(next, { replace: true });
+      toast.info("Briefing puxado do Radar Viral.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleGenerate() {
     if (!sourceUrl.trim() || !tema.trim() || !cta.trim()) {

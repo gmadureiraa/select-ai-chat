@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Loader2, Radar as RadarIcon, RefreshCw, Sparkles, Flame, Lightbulb, Layers, ExternalLink, AlertTriangle, History, Clock } from "lucide-react";
+import { Loader2, Radar as RadarIcon, RefreshCw, Sparkles, Flame, Lightbulb, Layers, ExternalLink, AlertTriangle, History, Clock, Film, BookmarkPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -89,6 +89,16 @@ export function ViralRadarTab({ clientId, client }: ViralRadarTabProps) {
       client: clientId,
       tab: "sequence",
       prompt: `Tema: ${idea.hook}\n\nÂngulo: ${idea.angle}`,
+    });
+    navigate(`/${(client as any)?.workspace_slug ?? ""}?${params.toString()}`);
+  }
+
+  function handleUseAsReel(topic: string, summary?: string) {
+    const params = new URLSearchParams({
+      client: clientId,
+      tab: "reels",
+      tema: topic,
+      ...(summary ? { briefing: summary } : {}),
     });
     navigate(`/${(client as any)?.workspace_slug ?? ""}?${params.toString()}`);
   }
@@ -222,20 +232,58 @@ export function ViralRadarTab({ clientId, client }: ViralRadarTabProps) {
               </Section>
 
               {/* Hot Topics */}
-              <Section title="Hot topics" icon={Flame}>
+              <Section title="Temas em alta" icon={Flame}>
                 <div className="space-y-1.5">
                   {selected.hot_topics?.map((t: any, i: number) => (
-                    <div key={i} className="flex items-start gap-3 rounded-md border border-border bg-card p-3">
-                      <div className="shrink-0 w-8 h-8 rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center text-xs font-bold">
-                        {t.signal_count}
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex items-center gap-3 rounded-md border p-3 transition-colors",
+                        i === 0
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border bg-card hover:bg-accent/30",
+                      )}
+                    >
+                      <div className="shrink-0 w-10 h-10 rounded-md bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center text-xs font-bold tabular-nums">
+                        #{i + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium">{t.topic}</div>
-                        <div className="text-xs text-muted-foreground">{t.source_summary}</div>
+                        <div className="text-sm font-medium truncate flex items-center gap-2">
+                          {t.topic}
+                          <Badge variant="secondary" className="text-[10px] tabular-nums">
+                            {t.signal_count} sinais
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">{t.source_summary}</div>
                       </div>
-                      <Button size="sm" variant="ghost" onClick={() => handleSaveAsIdea(t.topic, t.source_summary)}>
-                        <Lightbulb className="h-3 w-3 mr-1" /> Ideia
-                      </Button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => handleUseAsCarousel({ hook: t.topic, angle: t.source_summary ?? "" })}
+                          title="Virar carrossel na Sequência Viral"
+                        >
+                          <Layers className="h-3 w-3" /> Carrossel SV
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => handleUseAsReel(t.topic, t.source_summary)}
+                          title="Adaptar como Reel"
+                        >
+                          <Film className="h-3 w-3" /> Reel RV
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => handleSaveAsIdea(t.topic, t.source_summary)}
+                        >
+                          <BookmarkPlus className="h-3 w-3" /> Salvar
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
