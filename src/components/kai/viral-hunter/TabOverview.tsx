@@ -20,8 +20,18 @@ import {
   Award,
   Zap,
   CalendarRange,
+  Search,
+  ArrowUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -29,6 +39,24 @@ import type { Client } from "@/hooks/useClients";
 
 type Platform = "instagram" | "linkedin" | "twitter" | "youtube";
 type PeriodFilter = "all" | "30" | "90" | "180";
+type MediaTab = "all" | "reels" | "carousels" | "images";
+type SortBy = "viral" | "recent" | "likes";
+
+const MEDIA_TABS: { id: MediaTab; label: string }[] = [
+  { id: "all", label: "TODOS" },
+  { id: "reels", label: "REELS" },
+  { id: "carousels", label: "CARROSSÉIS" },
+  { id: "images", label: "IMAGENS" },
+];
+
+function matchesMediaTab(post: { platform: Platform; post_type?: string | null }, tab: MediaTab): boolean {
+  if (tab === "all") return true;
+  const pt = (post.post_type ?? "").toLowerCase();
+  if (tab === "reels") return pt.includes("reel") || pt === "video" || post.platform === "youtube";
+  if (tab === "carousels") return pt.includes("carousel") || pt.includes("sidecar");
+  if (tab === "images") return pt === "image" || pt === "photo" || (post.platform === "instagram" && !pt);
+  return true;
+}
 
 interface ViralPost {
   id: string;
