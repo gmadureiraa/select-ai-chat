@@ -22,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useSearchParams } from "react-router-dom";
 import type { Client } from "@/hooks/useClients";
 
 interface ViralReelsTabProps {
