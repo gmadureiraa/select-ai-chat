@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Loader2, Radar as RadarIcon, RefreshCw, Sparkles, Flame, Lightbulb, Layers, ExternalLink, AlertTriangle, History, Clock } from "lucide-react";
+import { Loader2, Radar as RadarIcon, RefreshCw, Sparkles, Flame, Lightbulb, Layers, ExternalLink, AlertTriangle, History, Clock, Film, BookmarkPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
