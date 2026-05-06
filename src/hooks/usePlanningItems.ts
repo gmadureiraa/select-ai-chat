@@ -123,38 +123,54 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
     queryFn: async () => {
       if (!workspaceId) return [];
 
-      let query = supabase
-        .from('planning_items')
-        .select(`
-          *,
-          clients:client_id (id, name, avatar_url),
-          kanban_columns:column_id (id, name, color, column_type)
-        `)
-        .eq('workspace_id', workspaceId)
-        .order('position', { ascending: true })
-        .limit(5000);
+      const pageSize = 1000;
+      const allData: unknown[] = [];
 
-      if (filters.clientId) {
-        query = query.eq('client_id', filters.clientId);
-      }
-      if (filters.platform) {
-        query = query.eq('platform', filters.platform);
-      }
-      if (filters.status) {
-        query = query.eq('status', filters.status);
-      }
-      if (filters.priority) {
-        query = query.eq('priority', filters.priority);
-      }
-      if (filters.assignedTo) {
-        query = query.eq('assigned_to', filters.assignedTo);
-      }
-      if (filters.search) {
-        query = query.ilike('title', `%${filters.search}%`);
+      for (let from = 0; ; from += pageSize) {
+        let query = supabase
+          .from('planning_items')
+          .select(`
+            *,
+            clients:client_id (id, name, avatar_url),
+            kanban_columns:column_id (id, name, color, column_type)
+          `)
+          .eq('workspace_id', workspaceId)
+          .order('position', { ascending: true })
+          .range(from, from + pageSize - 1);
+
+        if (filters.clientId) {
+          query = query.eq('client_id', filters.clientId);
+        }
+        if (filters.platform) {
+          query = query.eq('platform', filters.platform);
+        }
+        if (filters.status) {
+          query = query.eq('status', filters.status);
+        }
+        if (filters.priority) {
+          query = query.eq('priority', filters.priority);
+        }
+        if (filters.assignedTo) {
+          query = query.eq('assigned_to', filters.assignedTo);
+        }
+        if (filters.search) {
+          query = query.ilike('title', `%${filters.search}%`);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        allData.push(...(data || []));
+        if (!data || data.length < pageSize) break;
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const data = allData as Array<{
+        labels: unknown;
+        media_urls: unknown;
+        metadata: unknown;
+        priority: string | null;
+        status: string | null;
+      }>;
 
       return (data || []).map(item => ({
         ...item,
