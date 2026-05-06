@@ -175,7 +175,6 @@ export default function Kai() {
                 params.set("openItem", itemId);
                 setSearchParams(params);
               }}
-              selectedClientId={selectedClient?.id}
             />
           );
         case "clients":
@@ -342,7 +341,6 @@ export default function Kai() {
         return (
           <HomeDashboard 
             onNavigate={handleTabChange}
-            selectedClientId={selectedClient?.id}
             onOpenItem={(itemId) => {
               const params = new URLSearchParams(searchParams);
               params.set("tab", "planning");
