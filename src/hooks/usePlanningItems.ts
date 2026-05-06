@@ -131,7 +131,8 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
           kanban_columns:column_id (id, name, color, column_type)
         `)
         .eq('workspace_id', workspaceId)
-        .order('position', { ascending: true });
+        .order('position', { ascending: true })
+        .limit(5000);
 
       if (filters.clientId) {
         query = query.eq('client_id', filters.clientId);
