@@ -193,7 +193,8 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
   return { tasks, isLoading, createTask, updateTask, deleteTask, duplicateTask };
 }
 
-// Dashboard hook: tarefas pendentes do usuário logado
+// Dashboard hook: tarefas relevantes para o usuário (atribuídas a mim
+// OU sem responsável e com vencimento próximo) — nunca filtra por cliente.
 export function useMyTeamTasks(limit = 5) {
   const { user } = useAuth();
   const { workspace } = useWorkspaceContext();
@@ -203,12 +204,15 @@ export function useMyTeamTasks(limit = 5) {
     queryKey: ["my-team-tasks", workspaceId, user?.id, limit],
     queryFn: async () => {
       if (!workspaceId || !user?.id) return [];
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      const todayIso = today.toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from("team_tasks")
         .select("*")
         .eq("workspace_id", workspaceId)
-        .eq("assigned_to", user.id)
         .neq("status", "done")
+        .or(`assigned_to.eq.${user.id},and(assigned_to.is.null,due_date.lte.${todayIso})`)
         .order("due_date", { ascending: true, nullsFirst: false })
         .limit(limit);
       if (error) throw error;

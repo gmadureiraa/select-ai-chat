@@ -146,13 +146,19 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
     queryKey: ["home-dashboard-items", workspaceId],
     queryFn: async () => {
       if (!workspaceId) return [];
+      // Fetch only the dashboard-relevant window (past 60d + next 90d) so
+      // we never hit the 1000-row default cap and always include "today".
+      const from = addDays(new Date(), -60).toISOString();
+      const to = addDays(new Date(), 90).toISOString();
       const { data } = await supabase
         .from("planning_items")
         .select(
           "id, title, status, scheduled_at, client_id, platform, assigned_to, updated_at, content_type, priority"
         )
         .eq("workspace_id", workspaceId)
-        .order("scheduled_at", { ascending: true })
+        .gte("scheduled_at", from)
+        .lte("scheduled_at", to)
+        .order("scheduled_at", { ascending: false })
         .limit(2000);
       return data || [];
     },
