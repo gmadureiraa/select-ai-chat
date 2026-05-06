@@ -124,7 +124,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       if (!workspaceId) return [];
 
       const pageSize = 1000;
-      const allData: unknown[] = [];
+      const allData: Record<string, any>[] = [];
 
       for (let from = 0; ; from += pageSize) {
         let query = supabase
@@ -164,13 +164,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
         if (!data || data.length < pageSize) break;
       }
 
-      const data = allData as Array<{
-        labels: unknown;
-        media_urls: unknown;
-        metadata: unknown;
-        priority: string | null;
-        status: string | null;
-      }>;
+      const data = allData;
 
       return (data || []).map(item => ({
         ...item,
