@@ -153,7 +153,9 @@ export function ContentPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+      <DialogContent
+        className="max-w-4xl h-[90vh] flex flex-col bg-background border-2 shadow-2xl"
+      >
         <DialogHeader className="flex-shrink-0 pb-3 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
