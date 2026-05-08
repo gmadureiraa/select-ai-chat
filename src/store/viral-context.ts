@@ -20,7 +20,13 @@
 
 import { create } from "zustand";
 
-export type ViralBridgeSource = "radar" | "reels" | "sv" | "manual";
+export type ViralBridgeSource =
+  | "radar"
+  | "reels"
+  | "sv"
+  | "manual"
+  | "library"
+  | "kai-chat";
 
 export interface PendingBriefingPayload {
   source: ViralBridgeSource;

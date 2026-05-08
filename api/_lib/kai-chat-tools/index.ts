@@ -53,3 +53,5 @@ export { publishNowTool } from './publishNow.js';
 export { scheduleForTool } from './scheduleFor.js';
 export { connectAccountTool } from './connectAccount.js';
 export { getMetricsTool } from './getMetrics.js';
+export { analyzeViralReelTool } from './analyzeViralReel.js';
+export { createRadarBriefTool } from './createRadarBrief.js';

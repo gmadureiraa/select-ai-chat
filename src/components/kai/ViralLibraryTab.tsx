@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { CrossAppActions } from "@/components/kai/viral/CrossAppActions";
 
 type LibraryIdea = {
   id: string;
@@ -98,6 +99,17 @@ function IdeaCard({ idea }: { idea: LibraryIdea }) {
           </a>
         </Button>
       )}
+
+      <div className="pt-2 border-t border-border/50">
+        <CrossAppActions
+          source="library"
+          topic={idea.title}
+          briefing={[idea.hook, idea.description].filter(Boolean).join("\n\n")}
+          url={idea.source_url ?? undefined}
+          metadata={{ ideaId: idea.id, category: idea.category }}
+          showIdea={false}
+        />
+      </div>
     </Card>
   );
 }
@@ -177,6 +189,23 @@ function ReelCard({ reel }: { reel: LibraryReel }) {
             {reel.category}
           </Badge>
         )}
+
+        <div className="pt-2 border-t border-border/50">
+          <CrossAppActions
+            source="library"
+            topic={reel.title ?? reel.author_handle ?? "Reel viral"}
+            briefing={[reel.title, reel.caption, ...(reel.hooks ?? [])]
+              .filter(Boolean)
+              .join("\n\n")}
+            url={reel.source_url}
+            metadata={{
+              reelId: reel.id,
+              author: reel.author_handle,
+              views: reel.views,
+            }}
+            showIdea={false}
+          />
+        </div>
       </div>
     </Card>
   );

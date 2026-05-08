@@ -28,6 +28,8 @@ import {
   scheduleForTool,
   connectAccountTool,
   getMetricsTool,
+  analyzeViralReelTool,
+  createRadarBriefTool,
   type ToolExecutionContext,
 } from '../_lib/kai-chat-tools/index.js';
 
@@ -2161,6 +2163,8 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
       registry.register(scheduleForTool);
       registry.register(connectAccountTool);
       registry.register(getMetricsTool);
+      registry.register(analyzeViralReelTool);
+      registry.register(createRadarBriefTool);
 
       setSseHeaders(res);
       const emit = createKAIEmitter(res);
