@@ -117,6 +117,7 @@ export const handlerLoaders: Record<string, () => Promise<any>> = {
   'voice-ingest': () => import('./_handlers/voice-ingest.js'),
   'images': () => import('./_handlers/images.js'),
   'transcribe-video': () => import('./_handlers/transcribe-video.js'),
+  'dev-test-flows': () => import('./_handlers/dev-test-flows.js'),
   'scrape-newsletter': () => import('./_handlers/scrape-newsletter.js'),
   'scrape-website': () => import('./_handlers/scrape-website.js'),
   'search-knowledge': () => import('./_handlers/search-knowledge.js'),

@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
-  Plus, Search, Trash2, ExternalLink, Loader2,
+  Plus, Search, Trash2, ExternalLink, Loader2, Edit,
   FileText, Video, Mic, BookOpen, MessageSquare, ScrollText,
   Layers, Film, Image as ImageIcon, Mail, AtSign, Eye
 } from "lucide-react";
@@ -57,6 +57,10 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
   const [content, setContent] = useState("");
   const [referenceType, setReferenceType] = useState<ReferenceType>("article");
   const [sourceUrl, setSourceUrl] = useState("");
+  const [format, setFormat] = useState<string>("static");
+  const [tagsInput, setTagsInput] = useState("");
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [sourceHandle, setSourceHandle] = useState("");
 
   const filteredReferences = useMemo(() => {
     if (!searchQuery.trim()) return references;
@@ -73,11 +77,26 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
     setContent("");
     setReferenceType("article");
     setSourceUrl("");
+    setFormat("static");
+    setTagsInput("");
+    setThumbnailUrl("");
+    setSourceHandle("");
     setEditingRef(null);
   };
 
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) return;
+    const tagsArr = tagsInput
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const existingMeta = (editingRef?.metadata as Record<string, any> | null) ?? {};
+    const newMetadata = {
+      ...existingMeta,
+      format,
+      tags: tagsArr.length > 0 ? tagsArr : existingMeta.tags ?? [],
+      ...(sourceHandle ? { source_handle: sourceHandle } : {}),
+    };
 
     if (editingRef) {
       await updateReference.mutateAsync({
@@ -87,7 +106,9 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
           content,
           reference_type: referenceType,
           source_url: sourceUrl || null,
-        }
+          thumbnail_url: thumbnailUrl || null,
+          metadata: newMetadata,
+        } as any,
       });
     } else {
       await createReference.mutateAsync({
@@ -95,7 +116,9 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
         content,
         reference_type: referenceType,
         source_url: sourceUrl || null,
-      });
+        thumbnail_url: thumbnailUrl || null,
+        metadata: newMetadata,
+      } as any);
     }
 
     resetForm();
@@ -103,11 +126,20 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
   };
 
   const handleEdit = (ref: ReferenceItem) => {
+    const meta = (ref.metadata as Record<string, any> | null) ?? {};
     setEditingRef(ref);
     setTitle(ref.title);
     setContent(ref.content);
     setReferenceType(ref.reference_type);
     setSourceUrl(ref.source_url || "");
+    setThumbnailUrl(ref.thumbnail_url || "");
+    setFormat((meta.format as string) ?? "static");
+    setSourceHandle((meta.source_handle as string) ?? "");
+    setTagsInput(
+      Array.isArray(meta.tags)
+        ? (meta.tags as string[]).join(", ")
+        : "",
+    );
     setIsAddDialogOpen(true);
   };
 
@@ -221,6 +253,60 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
                   onChange={(e) => setSourceUrl(e.target.value)}
                   placeholder="https://..."
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Formato</Label>
+                  <Select value={format} onValueChange={setFormat}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="carousel">Carrossel</SelectItem>
+                      <SelectItem value="reel">Reel</SelectItem>
+                      <SelectItem value="static">Imagem única</SelectItem>
+                      <SelectItem value="tweet">Tweet</SelectItem>
+                      <SelectItem value="thread">Thread</SelectItem>
+                      <SelectItem value="newsletter">Newsletter</SelectItem>
+                      <SelectItem value="article">Artigo</SelectItem>
+                      <SelectItem value="email">Email mkt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Handle origem (opcional)</Label>
+                  <Input
+                    value={sourceHandle}
+                    onChange={(e) => setSourceHandle(e.target.value)}
+                    placeholder="@criador"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tags (separadas por vírgula)</Label>
+                <Input
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  placeholder="ex: viral, hook, marketing"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>URL Thumbnail (opcional)</Label>
+                <Input
+                  value={thumbnailUrl}
+                  onChange={(e) => setThumbnailUrl(e.target.value)}
+                  placeholder="https://blob.vercel-storage.com/..."
+                />
+                {thumbnailUrl && (
+                  <img
+                    src={thumbnailUrl}
+                    alt="preview"
+                    className="w-20 h-20 object-cover rounded-md border mt-2"
+                  />
+                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -343,18 +429,35 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
                     </Badge>
                   )}
 
-                  {/* Delete button — visible on hover */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 p-0 backdrop-blur-sm bg-background/90 hover:bg-destructive hover:text-destructive-foreground"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(ref.id);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {/* Edit + Delete buttons — visible on hover */}
+                  <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Editar"
+                      aria-label="Editar referência"
+                      className="h-7 w-7 p-0 backdrop-blur-sm bg-background/90 hover:bg-primary hover:text-primary-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(ref);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Excluir"
+                      aria-label="Excluir referência"
+                      className="h-7 w-7 p-0 backdrop-blur-sm bg-background/90 hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(ref.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Body — title + handle + CrossAppActions */}
@@ -363,14 +466,26 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
                     <p className="font-medium text-xs leading-snug line-clamp-2">
                       {ref.title}
                     </p>
-                    {sourceHandle && (
-                      <Badge
-                        variant="secondary"
-                        className="w-fit text-[9px]"
-                      >
-                        @{sourceHandle}
-                      </Badge>
-                    )}
+                    <div className="flex flex-wrap gap-1">
+                      {sourceHandle && (
+                        <Badge variant="secondary" className="text-[9px]">
+                          @{sourceHandle}
+                        </Badge>
+                      )}
+                      {Array.isArray(refMeta.tags) &&
+                        (refMeta.tags as string[])
+                          .filter((t) => !["swipe", "inspiration", fmtKey].includes(t))
+                          .slice(0, 3)
+                          .map((tag) => (
+                            <Badge
+                              key={tag}
+                              variant="outline"
+                              className="text-[9px] py-0 px-1.5"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                    </div>
                   </div>
 
                   {/* CrossAppActions — base pra Carrossel/Reels Viral */}
