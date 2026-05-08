@@ -74,7 +74,10 @@ interface TweetRaw {
 }
 
 const TWEETS_PER_HANDLE = 20;
-const ACTOR_ID = process.env.APIFY_TWITTER_ACTOR || 'xtdata~twitter-x-scraper';
+// 2026-05-08 — padronizado pra `apidojo~twitter-scraper-lite` (mais leve, mais barato)
+// alinhado com `import-client-social-content.ts`. Audit E identificou conflito anterior
+// com `xtdata~twitter-x-scraper`. Pode ser overrided via env APIFY_TWITTER_ACTOR.
+const ACTOR_ID = process.env.APIFY_TWITTER_ACTOR || 'apidojo~twitter-scraper-lite';
 
 function parseCount(val: any): number {
   if (val === null || val === undefined) return 0;

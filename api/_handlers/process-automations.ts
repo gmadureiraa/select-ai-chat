@@ -675,6 +675,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         target_platforms: targetPlatforms,
       };
 
+      // Status inicial honra o dropdown da AutomationDialog (Audit F).
+      // auto_publish=true sobrescreve depois (vai pra published).
+      const initialStatus =
+        (automation as any).status_after_generation === 'draft' ? 'draft' :
+        (automation as any).status_after_generation === 'approved' ? 'approved' :
+        'idea';
+
       const newItem = await insertRow<any>('planning_items', {
         workspace_id: automation.workspace_id,
         client_id: automation.client_id,
@@ -684,7 +691,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         platform: derivedPlatform,
         content_type: automation.content_type,
         position,
-        status: 'idea',
+        status: initialStatus,
         media_urls: mediaUrls,
         created_by: automation.created_by || '00000000-0000-0000-0000-000000000000',
         metadata: JSON.stringify(metadata),

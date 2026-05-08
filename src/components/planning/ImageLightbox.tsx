@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Download, X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, FolderDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import JSZip from 'jszip';
+// 2026-05-08 — `jszip` é lazy-loaded em handleDownloadAll. Audit B (perf bundle).
+import type JSZipType from 'jszip';
 
 interface ImageLightboxProps {
   images: { url: string; type: 'image' | 'video' }[];
@@ -110,7 +111,8 @@ export function ImageLightbox({
     if (downloadingAll || images.length === 0) return;
     
     setDownloadingAll(true);
-    const zip = new JSZip();
+    const { default: JSZip } = await import('jszip');
+    const zip: JSZipType = new JSZip();
     let successCount = 0;
     
     try {

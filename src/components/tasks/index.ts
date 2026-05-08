@@ -5,3 +5,4 @@ export { TaskChecklist } from "./TaskChecklist";
 export { TaskComments } from "./TaskComments";
 export { TaskLabelsEditor } from "./TaskLabelsEditor";
 export { TaskEmptyState } from "./TaskEmptyState";
+export { TasksCalendarView } from "./TasksCalendarView";

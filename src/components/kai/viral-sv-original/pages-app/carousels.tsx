@@ -674,7 +674,10 @@ function CarouselCard({
       h = (h * 31 + carousel.id.charCodeAt(i)) >>> 0;
     return palette[h % palette.length];
   })();
-  const tmpl = (carousel.designTemplate ?? "sv").toUpperCase();
+  // Badge de template: prefere `visualTemplate` (manifesto/twitter/etc — o que
+  // o user escolheu no SV picker) e cai pra `designTemplate` (legado) ou "SV".
+  // Isso faz o card refletir o tratamento real (twitter vs manifesto vs ambitious).
+  const tmpl = (carousel.visualTemplate ?? carousel.designTemplate ?? "sv").toUpperCase();
 
   return (
     <motion.article

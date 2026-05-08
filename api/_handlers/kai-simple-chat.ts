@@ -32,6 +32,14 @@ import {
   createRadarBriefTool,
   createTeamTaskTool,
   saveToLibraryTool,
+  createAutomationTool,
+  listAutomationsTool,
+  toggleAutomationTool,
+  updateClientTool,
+  searchRefsTool,
+  listClientsTool,
+  createClientTool,
+  addToPlanningTool,
   type ToolExecutionContext,
 } from '../_lib/kai-chat-tools/index.js';
 
@@ -2169,6 +2177,14 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
       registry.register(createRadarBriefTool);
       registry.register(createTeamTaskTool);
       registry.register(saveToLibraryTool);
+      registry.register(createAutomationTool);
+      registry.register(listAutomationsTool);
+      registry.register(toggleAutomationTool);
+      registry.register(updateClientTool);
+      registry.register(searchRefsTool);
+      registry.register(listClientsTool);
+      registry.register(createClientTool);
+      registry.register(addToPlanningTool);
 
       setSseHeaders(res);
       const emit = createKAIEmitter(res);

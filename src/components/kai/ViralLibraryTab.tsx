@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, Eye, Heart, MessageCircle, Bookmark, Library as LibraryIcon, Lightbulb, Film, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ExternalLink, Eye, Heart, MessageCircle, Bookmark, Library as LibraryIcon, Lightbulb, Film, Loader2, Download, Radar } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CrossAppActions } from "@/components/kai/viral/CrossAppActions";
+import { TabHeader } from "@/components/kai/TabHeader";
 
 type LibraryIdea = {
   id: string;
@@ -211,18 +213,32 @@ function ReelCard({ reel }: { reel: LibraryReel }) {
   );
 }
 
-function EmptyState({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
+    <div className="flex flex-col items-center justify-center py-20 text-center px-6">
       <div className="text-muted-foreground/40 mb-4">{icon}</div>
-      <h3 className="font-medium text-base mb-1">{title}</h3>
-      <p className="text-sm text-muted-foreground max-w-sm">{description}</p>
+      <h3 className="font-medium text-base mb-1.5 text-foreground">{title}</h3>
+      <p className="text-sm text-muted-foreground max-w-md leading-relaxed mb-4">
+        {description}
+      </p>
+      {action}
     </div>
   );
 }
 
 export function ViralLibraryTab() {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
 
   const ideasQuery = useQuery({
     queryKey: ["library_ideas"],
@@ -253,16 +269,22 @@ export function ViralLibraryTab() {
   return (
     <div className={cn("h-full overflow-auto", isMobile ? "p-3" : "p-6")}>
       <div className="max-w-7xl mx-auto flex flex-col gap-6">
-        {/* Header */}
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <LibraryIcon className="h-5 w-5 text-primary" strokeWidth={1.5} />
-            <h1 className="text-xl font-semibold">Biblioteca Viral</h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Curadoria global de ideias e reels para alimentar a produção de conteúdo. Acessível para todos os workspaces.
-          </p>
-        </div>
+        <TabHeader
+          icon={LibraryIcon}
+          title="Biblioteca Viral"
+          description="Curadoria global de ideias e reels para alimentar a produção de conteúdo. Acessível para todos os workspaces."
+          actions={
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => navigate("/kaleidos?tab=viral-radar-page")}
+            >
+              <Radar className="h-3.5 w-3.5" />
+              Abrir Radar
+            </Button>
+          }
+        />
 
         <Tabs defaultValue="ideas" className="flex flex-col gap-4">
           <TabsList className="w-fit">
@@ -300,8 +322,34 @@ export function ViralLibraryTab() {
             ) : !ideasQuery.data || ideasQuery.data.length === 0 ? (
               <EmptyState
                 icon={<Lightbulb className="h-12 w-12" strokeWidth={1.2} />}
-                title="Nenhuma ideia ainda"
-                description="As Kaleidos 100 vão aparecer aqui assim que importarmos do Notion."
+                title="Biblioteca de ideias vazia"
+                description="Curadoria global das melhores ideias virais ainda não foi importada. Abre o Radar Viral pra ver hooks que estão bombando hoje, ou importa as Kaleidos 100 do Notion."
+                action={
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => navigate("/kaleidos?tab=viral-radar-page")}
+                      className="gap-1.5"
+                    >
+                      <Radar className="h-3.5 w-3.5" />
+                      Abrir Radar agora
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() =>
+                        window.open(
+                          "https://www.notion.so/kaleidos/Kaleidos-100",
+                          "_blank",
+                        )
+                      }
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Importar Kaleidos 100
+                    </Button>
+                  </div>
+                }
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -327,7 +375,17 @@ export function ViralLibraryTab() {
               <EmptyState
                 icon={<Film className="h-12 w-12" strokeWidth={1.2} />}
                 title="Nenhum reel curado ainda"
-                description="A curadoria global de reels virais aparece aqui. Em breve."
+                description="A curadoria global de reels virais é populada pelo cron do Radar Viral. Cola um link de reel no Radar pra começar a alimentar."
+                action={
+                  <Button
+                    size="sm"
+                    onClick={() => navigate("/kaleidos?tab=viral-reels-page")}
+                    className="gap-1.5"
+                  >
+                    <Film className="h-3.5 w-3.5" />
+                    Analisar primeiro reel
+                  </Button>
+                }
               />
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">

@@ -514,6 +514,62 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
           )}
         </AnimatePresence>
 
+        {/* ─── Onboarding card — workspace novo (sem clientes OU sem itens) ─── */}
+        {((clients?.length ?? 0) === 0 || stats.totalItems === 0) && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 }}
+          >
+            <Card className="relative overflow-hidden border-primary/30 bg-gradient-to-br from-primary/8 via-primary/5 to-transparent">
+              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+              <CardContent className="relative p-5 md:p-6">
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base md:text-lg font-semibold text-foreground">
+                      {(clients?.length ?? 0) === 0
+                        ? "Bem-vindo ao KAI"
+                        : "Seu primeiro conteúdo está a 1 clique"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                      {(clients?.length ?? 0) === 0
+                        ? "Pra começar a usar o KAI, cadastre seu primeiro cliente — vai liberar geração de conteúdo, planejamento, automações e analytics."
+                        : "Você já tem cliente cadastrado. Bora pedir pro KAI gerar o primeiro post, thread ou carrossel?"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 shrink-0">
+                    {(clients?.length ?? 0) === 0 ? (
+                      <Button size="sm" onClick={() => onNavigate("clients")} className="gap-1.5">
+                        <Users className="h-3.5 w-3.5" />
+                        Cadastrar cliente
+                      </Button>
+                    ) : (
+                      <>
+                        <Button size="sm" onClick={() => onNavigate("assistant")} className="gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Abrir KAI Chat
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onNavigate("planning")}
+                          className="gap-1.5"
+                        >
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          Ver planejamento
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
         {/* ─── Workspace Stats Cards (clientes, agendados, publicados, tokens) ─── */}
         <WorkspaceStatsCards onNavigate={onNavigate} />
 

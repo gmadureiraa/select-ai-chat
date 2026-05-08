@@ -74,8 +74,10 @@ interface LinkedInPostRaw {
 }
 
 const POSTS_PER_PROFILE = 10;
-// Default actors. Override per-source kind via env.
-const DEFAULT_PROFILE_ACTOR = process.env.APIFY_LINKEDIN_PROFILE_ACTOR || 'apify~linkedin-profile-scraper';
+// 2026-05-08 — DEFAULT_PROFILE_ACTOR padronizado pra `harvestapi~linkedin-profile-scraper`
+// (mais reliable) alinhado com `import-client-social-content.ts`. Audit E identificou
+// conflito anterior com `apify~linkedin-profile-scraper`. Pode ser overrided via env.
+const DEFAULT_PROFILE_ACTOR = process.env.APIFY_LINKEDIN_PROFILE_ACTOR || 'harvestapi~linkedin-profile-scraper';
 const DEFAULT_SEARCH_ACTOR  = process.env.APIFY_LINKEDIN_SEARCH_ACTOR  || 'apimaestro~linkedin-post-search-scraper';
 const DEFAULT_COMPANY_ACTOR = process.env.APIFY_LINKEDIN_COMPANY_ACTOR || 'apify~linkedin-company-scraper';
 

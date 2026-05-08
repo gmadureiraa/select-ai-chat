@@ -13,7 +13,8 @@ import {
   Linkedin,
   MoreHorizontal
 } from "lucide-react";
-import { toPng } from "html-to-image";
+// 2026-05-08 — `html-to-image` é lazy-loaded em handleExportPng pra não inflar o
+// bundle inicial (~300kB extra). Audit B (perf) bundling.
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -93,6 +94,7 @@ export const PostPreviewCard = ({
 
     setIsExporting(true);
     try {
+      const { toPng } = await import("html-to-image");
       const dataUrl = await toPng(cardRef.current, {
         quality: 1.0,
         pixelRatio: 2,

@@ -1,5 +1,9 @@
 // Migrated from supabase/functions/late-post/index.ts (simplified)
 // Note: this is a minimal port covering the main publish flow.
+//
+// @deprecated 2026-05-08: use `postiz-post` handler. Mantido como fallback durante migração
+// Late.ai → Postiz. Será removido depois que todo front estiver no postiz-* e env Late
+// estiver vazio em prod (LATE_API_KEY/LATE_WEBHOOK_SECRET unset).
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
 

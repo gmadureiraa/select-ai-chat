@@ -27,6 +27,12 @@ export type TriggerConfig = ScheduleConfig | RSSConfig | WebhookConfig;
 
 export type ImageStyle = 'photographic' | 'illustration' | 'minimalist' | 'vibrant';
 
+/**
+ * Status inicial do planning_item criado pela automação.
+ * Aplicável só quando auto_publish=false. Default 'idea' (precisa aprovação manual).
+ */
+export type StatusAfterGeneration = 'idea' | 'draft' | 'approved';
+
 export interface PlanningAutomation {
   id: string;
   workspace_id: string;
@@ -42,6 +48,8 @@ export interface PlanningAutomation {
   auto_generate_content: boolean;
   prompt_template: string | null;
   auto_publish: boolean;
+  /** Status inicial do card quando auto_publish=false. Default 'idea'. */
+  status_after_generation: StatusAfterGeneration;
   // Image generation fields
   auto_generate_image: boolean;
   image_prompt_template: string | null;
@@ -67,6 +75,7 @@ export interface CreateAutomationInput {
   auto_generate_content?: boolean;
   prompt_template?: string | null;
   auto_publish?: boolean;
+  status_after_generation?: StatusAfterGeneration;
   // Image generation
   auto_generate_image?: boolean;
   image_prompt_template?: string | null;
@@ -139,6 +148,7 @@ export function usePlanningAutomations() {
           auto_generate_content: input.auto_generate_content || false,
           prompt_template: input.prompt_template,
           auto_publish: input.auto_publish || false,
+          status_after_generation: input.status_after_generation || 'idea',
           auto_generate_image: input.auto_generate_image || false,
           image_prompt_template: input.image_prompt_template,
           image_style: input.image_style || 'photographic',
@@ -179,6 +189,7 @@ export function usePlanningAutomations() {
       if (input.auto_generate_content !== undefined) updateData.auto_generate_content = input.auto_generate_content;
       if (input.prompt_template !== undefined) updateData.prompt_template = input.prompt_template;
       if (input.auto_publish !== undefined) updateData.auto_publish = input.auto_publish;
+      if (input.status_after_generation !== undefined) updateData.status_after_generation = input.status_after_generation;
       if (input.auto_generate_image !== undefined) updateData.auto_generate_image = input.auto_generate_image;
       if (input.image_prompt_template !== undefined) updateData.image_prompt_template = input.image_prompt_template;
       if (input.image_style !== undefined) updateData.image_style = input.image_style;

@@ -218,7 +218,7 @@ export function KaiAnalyticsTab({ clientId, client }: KaiAnalyticsTabProps) {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Métricas em tempo real via Late API — {client?.name}
+            Métricas em tempo real via Postiz — {client?.name}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -263,7 +263,7 @@ export function KaiAnalyticsTab({ clientId, client }: KaiAnalyticsTabProps) {
         <div className="flex items-center justify-center py-20">
           <div className="text-center space-y-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-            <p className="text-sm text-muted-foreground">Buscando métricas da Late API...</p>
+            <p className="text-sm text-muted-foreground">Buscando métricas da Postiz...</p>
           </div>
         </div>
       )}
@@ -284,7 +284,7 @@ export function KaiAnalyticsTab({ clientId, client }: KaiAnalyticsTabProps) {
           <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
           <h3 className="font-medium">Nenhuma plataforma conectada</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            {data.message || "Conecte plataformas via Late para ver métricas em tempo real."}
+            {data.message || "Conecte plataformas via Postiz para ver métricas em tempo real."}
           </p>
         </div>
       )}

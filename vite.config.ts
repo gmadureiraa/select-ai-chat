@@ -72,6 +72,18 @@ export default defineConfig(({ mode }) => ({
           "chart-vendor": ["recharts"],
           // Bibliotecas pesadas usadas só em features específicas (export PDF/imagem,
           // upload XLSX, animações). Ficam em chunks próprios pra não inflar o initial.
+          //
+          // 2026-05-08 — `export-vendor` mede ~960kB raw / 314kB gzip (Audit B perf).
+          // Mitigação aplicada: todos os call-sites em `src/components/posts`,
+          // `src/components/planning` e `src/components/kai/library` agora usam
+          // `await import('html-to-image' | 'jspdf' | 'jszip')` dentro dos handlers
+          // de exportação. Os imports estáticos restantes vivem em
+          // `src/components/kai/viral-sv-original/lib/` (cópia literal do app
+          // standalone — preservação de paridade UI). Como esses tabs já são
+          // lazy() no Kai.tsx, eles só carregam quando o usuário abre a Sequência
+          // Viral. `xlsx` ainda fica empacotado mas não é estaticamente importado
+          // por nenhum src/ — é deixado aqui só pra cobrir possíveis dynamic imports
+          // futuros. TODO opcional: dividir em chunks por feature (zip vs png vs pdf).
           "export-vendor": ["jspdf", "jszip", "html-to-image", "xlsx"],
           "motion-vendor": ["framer-motion"],
           "flow-vendor": ["reactflow"],

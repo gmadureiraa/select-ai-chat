@@ -1,4 +1,6 @@
 // Migrated from supabase/functions/late-analytics/index.ts
+// @deprecated 2026-05-08: Postiz tem `getPlatformAnalytics(integrationId, days)` em
+// _lib/integrations/postiz.ts. Criar handler dedicado quando o front migrar.
 import { authedPost } from '../_lib/handler.js';
 import { query } from '../_lib/db.js';
 

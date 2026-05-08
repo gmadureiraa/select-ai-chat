@@ -59,9 +59,9 @@ const KaiAnalyticsTab = lazy(() =>
 // _legacy/viral-replaced-2026-05-08/.
 const ViralSequenceTab = lazy(() =>
   // 2026-05-08 — substituído pela cópia LITERAL do app standalone
-  // (`code/sequencia-viral/`), preservando UI/CSS/cores/fontes/layouts
-  // ~95%+. A versão antiga (estilo KAI/Tailwind) ficou em
-  // ViralSequenceTab.legacy.tsx pra referência histórica.
+  // (`code/sequencia-viral/`), preservando UI/CSS/cores/fontes/layouts ~95%+.
+  // A versão antiga estilo KAI foi removida (era ViralSequenceTab.legacy.tsx +
+  // pasta viral-sequence/, ambos órfãos desde a port).
   import("@/components/kai/viral-sv-original/MainApp").then((m) => ({
     default: m.ViralSequenceTab,
   })),
@@ -69,17 +69,16 @@ const ViralSequenceTab = lazy(() =>
 const ViralReelsTab = lazy(() =>
   // 2026-05-08 — substituído pela cópia LITERAL do app standalone
   // (`code/reels-viral/`), preservando UI/CSS/cores/fontes/layouts ~95%+.
-  // A versão antiga (estilo KAI/Tailwind) ficou em
-  // ViralReelsTab.legacy.tsx pra referência histórica.
+  // A versão antiga estilo KAI foi removida (era ViralReelsTab.legacy.tsx +
+  // pasta viral-reels-v2/, ambos órfãos desde a port).
   import("@/components/kai/viral-reels-original/MainApp").then((m) => ({
     default: m.default,
   })),
 );
 const ViralRadarTab = lazy(() =>
   // 2026-05-08 — substituído pela cópia LITERAL do app standalone
-  // (`code/radar-viral/`), preservando UI/CSS/cores/fontes/layouts
-  // ~95%+. A versão antiga (estilo KAI/Tailwind) ficou em
-  // ViralRadarTab.legacy.tsx pra referência histórica.
+  // (`code/radar-viral/`), preservando UI/CSS/cores/fontes/layouts ~95%+.
+  // A versão antiga estilo KAI foi removida (era ViralRadarTab.legacy.tsx, órfã).
   import("@/components/kai/viral-radar-original/MainApp").then((m) => ({
     default: m.ViralRadarTab,
   })),

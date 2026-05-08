@@ -112,6 +112,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await Promise.allSettled(SCRAPERS.map((h) => fireScraper(h, client.id)));
   }
 
+  // 2.5. Refresh MVIEW client_top_content fire-and-forget. Migration 0019 criou
+  // `refresh_client_top_content_mview()` mas Hobby tem só 2 daily crons então
+  // piggyback aqui após scrapers (que populam viral_*_posts). Erros são apenas logados.
+  let mviewRefreshed = false;
+  try {
+    await query("SELECT public.refresh_client_top_content_mview()");
+    mviewRefreshed = true;
+  } catch (e: any) {
+    console.warn("[cron-master][mview-refresh]", e?.message);
+  }
+
   // 3. Roda workflows Madureira daquele dia (Hobby plan workaround — 1 cron daily)
   // Fire-and-forget: handler dedicado decide quais workflows estão "due today"
   // baseado no schedule_cron de cada ai_workflow.
@@ -139,6 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     pro_clients: proClients.length,
     triggered_count: triggered.length,
     madureira_workflows_triggered: madureiraTriggered,
+    mview_refreshed: mviewRefreshed,
     triggered,
     errors,
     note: "Scrapers + Madureira workflows continuam rodando em background. Verifique DB pra resultados.",

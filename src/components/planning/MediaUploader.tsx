@@ -5,7 +5,9 @@ import { cn } from '@/lib/utils';
 import { blobStorage } from '@/integrations/storage/blob-client';
 import { toast } from 'sonner';
 import { ImageLightbox } from './ImageLightbox';
-import JSZip from 'jszip';
+// 2026-05-08 — `jszip` é lazy-loaded em handleDownloadAll pra não inflar o bundle
+// inicial. Audit B (perf bundle).
+import type JSZipType from 'jszip';
 
 // Helper to convert any URL (HTTP or Data URL) to Blob
 const urlToBlob = async (url: string): Promise<Blob> => {
@@ -83,7 +85,8 @@ export function MediaUploader({
     if (downloadingAll || value.length === 0) return;
     
     setDownloadingAll(true);
-    const zip = new JSZip();
+    const { default: JSZip } = await import('jszip');
+    const zip: JSZipType = new JSZip();
     let successCount = 0;
     
     try {

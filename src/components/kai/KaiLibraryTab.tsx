@@ -21,6 +21,7 @@ import { VisualReferenceUploader } from "@/components/kai/library/VisualReferenc
 import { Client } from "@/hooks/useClients";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { TabHeader } from "@/components/kai/TabHeader";
 
 interface KaiLibraryTabProps {
   clientId: string;
@@ -203,32 +204,30 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Library className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold">Biblioteca</h2>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-          {/* Global Search - always visible */}
-          <div className="relative flex-1 sm:flex-initial">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar na biblioteca..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 w-full sm:w-56 lg:w-64"
-            />
-          </div>
-          
-          <Button onClick={handleAddButtonClick} className="shrink-0">
-            <Plus className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Adicionar</span>
-            <span className="sm:hidden">Novo</span>
-          </Button>
-        </div>
-      </div>
+      <TabHeader
+        icon={Library}
+        title="Biblioteca"
+        breadcrumb={client?.name}
+        description="Conteúdos publicados, refs, estudos de caso e visuais salvos pro cliente."
+        actions={
+          <>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar na biblioteca..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-full sm:w-56 lg:w-64 h-9"
+              />
+            </div>
+            <Button onClick={handleAddButtonClick} className="shrink-0 h-9">
+              <Plus className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Adicionar</span>
+              <span className="sm:hidden">Novo</span>
+            </Button>
+          </>
+        }
+      />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedItems(new Set()); }} className="flex-1 flex flex-col overflow-hidden mt-4">

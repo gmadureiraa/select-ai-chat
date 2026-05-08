@@ -1,6 +1,8 @@
 // Migrated from supabase/functions/late-webhook/index.ts
 // POST handler — receives webhook events from Late API. Validates HMAC SHA-256 signature.
 // Defensive fallback: if LATE_WEBHOOK_SECRET not configured, returns 503.
+//
+// @deprecated 2026-05-08: use `postiz-webhook`. Fallback durante migração.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight } from '../_lib/cors.js';
 import { getPool, query, queryOne } from '../_lib/db.js';

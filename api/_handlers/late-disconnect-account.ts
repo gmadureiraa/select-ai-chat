@@ -1,4 +1,6 @@
 // Migrated from supabase/functions/late-disconnect-account/index.ts
+// @deprecated 2026-05-08: Postiz tem deleteIntegration via `postiz-integrations` (mode TBD)
+// e `client_social_credentials` é deletado direto pelo handler de UI. Fallback durante migração.
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
 

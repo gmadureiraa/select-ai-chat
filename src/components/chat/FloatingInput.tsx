@@ -21,6 +21,11 @@ interface FloatingInputProps {
   contentLibrary?: Array<{ id: string; title: string; content_type: string; content: string }>;
   referenceLibrary?: Array<{ id: string; title: string; reference_type: string; content: string }>;
   selectedMode?: ChatMode; // Mode from ModeSelector - used as base when no format citation
+  /** Conteúdo externo que populará o input (ex: clique em sugestão da KaiToolsTray).
+   *  Trocar o valor reseta o input pro novo conteúdo e foca o textarea. */
+  externalInput?: { value: string; nonce: number } | null;
+  /** Slot de ação extra renderizado ao lado do botão de imagem (ex: tools tray). */
+  leftActions?: React.ReactNode;
 }
 
 const modeConfig = {
@@ -61,6 +66,8 @@ export const FloatingInput = ({
   contentLibrary = [],
   referenceLibrary = [],
   selectedMode,
+  externalInput,
+  leftActions,
 }: FloatingInputProps) => {
   const [input, setInput] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -100,6 +107,20 @@ export const FloatingInput = ({
       textareaRef.current.focus();
     }
   }, [disabled]);
+
+  // Sync external input (ex: tray de tools sugerindo prompt). O `nonce` força
+  // re-render quando o user clica na mesma sugestão duas vezes seguidas.
+  useEffect(() => {
+    if (!externalInput) return;
+    setInput(externalInput.value);
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      ta.focus();
+      const len = externalInput.value.length;
+      ta.setSelectionRange(len, len);
+    });
+  }, [externalInput?.nonce, externalInput?.value]);
 
   // Detectar @ para abrir popover de citação
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -510,14 +531,19 @@ export const FloatingInput = ({
         </div>
       </div>
 
-      {/* Mode indicator based on citations */}
-      {templateType === "content" && (
-        <div className="flex items-center justify-center">
-          <div className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
-            <span>Use</span>
-            <span className="font-medium text-foreground/80">@</span>
-            <span>para marcar formatos ou biblioteca</span>
+      {/* Footer row: tools tray (left) + hint (center) */}
+      {(leftActions || templateType === "content") && (
+        <div className="flex items-center justify-between gap-2 px-1">
+          <div className="flex items-center gap-2">
+            {leftActions}
           </div>
+          {templateType === "content" && (
+            <div className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
+              <span>Use</span>
+              <span className="font-medium text-foreground/80">@</span>
+              <span>para marcar formatos ou biblioteca</span>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,5 +1,8 @@
 // Migrated from supabase/functions/fetch-late-metrics/index.ts
 // Pulls analytics + follower stats from Late API and upserts into Neon tables.
+//
+// @deprecated 2026-05-08: use Postiz analytics (`getPlatformAnalytics` em
+// _lib/integrations/postiz.ts). Migração de cron pendente.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, query, queryOne } from '../_lib/db.js';

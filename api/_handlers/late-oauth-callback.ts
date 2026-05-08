@@ -1,6 +1,8 @@
 // Migrated from supabase/functions/late-oauth-callback/index.ts
 // GET handler — receives Late callback after OAuth flow completes.
 // Defensive fallback: if LATE_API_KEY not configured, returns 503.
+//
+// @deprecated 2026-05-08: use `postiz-oauth-callback`. Fallback durante migração.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight } from '../_lib/cors.js';
 import { getPool, query, queryOne } from '../_lib/db.js';

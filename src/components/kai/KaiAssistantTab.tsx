@@ -10,6 +10,7 @@ import { Citation } from "@/components/chat/CitationChip";
 import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { PipelineProgress } from "@/components/chat/PipelineProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
+import { KaiToolsTray } from "@/components/chat/KaiToolsTray";
 import type { ChatMode } from "@/components/chat/ModeSelector";
 import { Client } from "@/hooks/useClients";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -66,6 +67,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   const chatMode: ChatMode = "content";
   const [planningDialogOpen, setPlanningDialogOpen] = useState(false);
   const [contentForPlanning, setContentForPlanning] = useState("");
+  const [trayPrompt, setTrayPrompt] = useState<{ value: string; nonce: number } | null>(null);
   
   const { columns, createItem } = usePlanningItems();
   const hasPlanningAccess = columns.length > 0;
@@ -435,6 +437,14 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
               contentLibrary={contentLibrary || []}
               referenceLibrary={referenceLibrary || []}
               selectedMode={chatMode}
+              externalInput={trayPrompt}
+              leftActions={
+                <KaiToolsTray
+                  onPickPrompt={(p) =>
+                    setTrayPrompt({ value: p, nonce: Date.now() })
+                  }
+                />
+              }
             />
           </div>
         </div>

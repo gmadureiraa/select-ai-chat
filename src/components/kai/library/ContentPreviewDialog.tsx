@@ -14,7 +14,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { UnifiedContentItem } from "@/hooks/useUnifiedContent";
 import { toast } from "sonner";
-import JSZip from "jszip";
+// 2026-05-08 — `jszip` é lazy-loaded em downloadAllImages. Audit B (perf bundle).
+import type JSZipType from "jszip";
 
 interface ContentPreviewDialogProps {
   item: UnifiedContentItem | null;
@@ -116,7 +117,8 @@ export function ContentPreviewDialog({
     
     setIsDownloadingAll(true);
     try {
-      const zip = new JSZip();
+      const { default: JSZip } = await import("jszip");
+      const zip: JSZipType = new JSZip();
       
       for (let i = 0; i < images.length; i++) {
         try {

@@ -19,7 +19,8 @@ export interface ClientPlatformStatuses {
   [key: string]: PlatformStatus;
 }
 
-// Platforms that support auto-publishing via Late API
+// Platforms that support auto-publishing via Postiz (substituiu Late API em 2026-05-08).
+// Constante mantém o nome legado por compat com componentes que importam.
 const LATE_API_PLATFORMS: SupportedPlatform[] = ['twitter', 'linkedin', 'instagram', 'facebook', 'threads', 'tiktok', 'youtube'];
 
 export function useClientPlatformStatus(clientId: string | null | undefined) {
@@ -59,7 +60,8 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
       for (const cred of credentials || []) {
         const platform = cred.platform as SupportedPlatform;
         const metadata = cred.metadata as Record<string, unknown> | null;
-        const isLateApi = !!(metadata?.late_account_id || metadata?.late_profile_id);
+        // isLateApi nome legado — true tb pra Postiz (provider unificado de scheduling).
+        const isLateApi = !!(metadata?.postiz_integration_id || metadata?.late_account_id || metadata?.late_profile_id);
         
         if (statusMap[platform]) {
           statusMap[platform] = {
@@ -101,8 +103,8 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
     mutationFn: async () => {
       if (!clientId) return null;
       
-      const { data, error } = await apiInvoke('late-verify-accounts', {
-        body: { clientId }
+      const { data, error } = await apiInvoke('postiz-integrations', {
+        body: { clientId, mode: 'verify' }
       });
       
       if (error) throw error;

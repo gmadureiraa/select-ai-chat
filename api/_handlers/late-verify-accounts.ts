@@ -1,4 +1,5 @@
 // Migrated from supabase/functions/late-verify-accounts/index.ts
+// @deprecated 2026-05-08: use `postiz-integrations` (POST com clientId verifica e atualiza).
 import { authedPost } from '../_lib/handler.js';
 import { getPool, query } from '../_lib/db.js';
 

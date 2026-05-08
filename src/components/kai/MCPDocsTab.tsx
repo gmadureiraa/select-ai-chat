@@ -64,7 +64,7 @@ const TOOLS: Tool[] = [
   { name: "get_file_url", category: "files", description: "Gera URL pública de um arquivo." },
 
   // Publish
-  { name: "publish_content", category: "publish", description: "Publica direto via Late em IG, TikTok, X, LinkedIn, YouTube, Threads, Facebook. Suporta Reels, Stories, Carrossel, Threads nativas, agendamento, primeiro comentário, colab tags, custom thumbnail." },
+  { name: "publish_content", category: "publish", description: "Publica direto via Postiz em IG, TikTok, X, LinkedIn, YouTube, Threads, Facebook. Suporta Reels, Stories, Carrossel, Threads nativas, agendamento, primeiro comentário, colab tags, custom thumbnail." },
   { name: "create_viral_carousel", category: "publish", description: "Gera carrossel completo (slides + copy + capa) baseado em referência viral." },
 
   // AI
@@ -450,7 +450,7 @@ export function MCPDocsTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[
               { t: "Gestão de planning", d: "Criar, editar e mover cards do Kanban com qualquer cliente." },
-              { t: "Publicação multi-plataforma", d: "Subir Reels/Posts/Threads/Tweets/Vídeos via Late, agendado ou imediato." },
+              { t: "Publicação multi-plataforma", d: "Subir Reels/Posts/Threads/Tweets/Vídeos via Postiz, agendado ou imediato." },
               { t: "Análise de performance", d: "Puxar métricas, comparar períodos, sugerir temas baseado em dados reais." },
               { t: "Geração de conteúdo", d: "Acionar pipeline unified-content-api com voz, identidade e referências do cliente." },
               { t: "Manipulação de assets", d: "Upload de mp4, imagens, PDFs pro storage e uso em publicações." },
@@ -502,7 +502,7 @@ export function MCPDocsTab() {
                 fix: "Cliente MCP não recarregou a lista. Roda tools/list de novo ou reinicia o cliente. A lista atual tem " + TOOLS.length + " tools.",
               },
               {
-                code: "Late API: account not connected",
+                code: "Postiz: account not connected",
                 fix: "O cliente não tem credencial válida pra essa plataforma. Conecta em Configurações → Contas Sociais antes de publicar.",
               },
               {

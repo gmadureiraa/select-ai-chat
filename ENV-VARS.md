@@ -112,7 +112,16 @@ NEON_JWKS_URL=$VITE_NEON_JWKS_URL
 | `TWITTER_CONSUMER_SECRET` | O | mesmo | OAuth |
 | `TWITTER_REDIRECT_URI` | O | default `https://<host>/api/twitter-oauth-callback` | OAuth callback |
 
-### Late (publishing aggregator)
+### Postiz (publishing aggregator — substituiu Late.ai em 2026-05-08)
+| Var | R/O | Origem | Uso |
+|---|---|---|---|
+| `POSTIZ_API_KEY` | R | Settings → Developers → Public API em app.postiz.com (cloud) ou self-host | Auth header em todos os handlers `postiz-*` |
+| `POSTIZ_API_URL` | O | default `https://api.postiz.com/public/v1` (cloud); pra self-host: `https://<host>/api/public/v1` | Base URL do client |
+| `POSTIZ_WEBHOOK_SECRET` | O | gerar manualmente, configurar em automação Postiz/n8n | HMAC SHA-256 de `postiz-webhook` |
+| `POSTIZ_OAUTH_CALLBACK_BASE` | O | default monta de `req.headers.host` | Base URL do callback OAuth |
+| `POSTIZ_CONNECT_URL_TEMPLATE` | O | só pra self-host com fluxo customizado, ex: `https://app.postiz.com/launches?platform={platform}&attempt={attemptId}&redirect={callback}` | Template do authUrl quando user clica "Conectar" |
+
+### Late (legado — DEPRECATED 2026-05-08, mantido como fallback)
 | Var | R/O | Origem | Uso |
 |---|---|---|---|
 | `LATE_API_KEY` | O | https://late.so | `late-post`, `late-oauth-callback`, `late-analytics`, etc. |
@@ -263,6 +272,11 @@ process.env.INTERNAL_SERVICE_TOKEN
 process.env.LATE_API_KEY
 process.env.LATE_OAUTH_CALLBACK_BASE
 process.env.LATE_WEBHOOK_SECRET
+process.env.POSTIZ_API_KEY
+process.env.POSTIZ_API_URL
+process.env.POSTIZ_WEBHOOK_SECRET
+process.env.POSTIZ_OAUTH_CALLBACK_BASE
+process.env.POSTIZ_CONNECT_URL_TEMPLATE
 process.env.LINKEDIN_CLIENT_ID
 process.env.LINKEDIN_CLIENT_SECRET
 process.env.LINKEDIN_REDIRECT_URI

@@ -1,6 +1,6 @@
 import { useState, useRef, KeyboardEvent, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Paperclip, X, FileText, Image, Loader2, File, FileSpreadsheet, AtSign, BookOpen, Layers, Square } from "lucide-react";
+import { Send, Paperclip, X, FileText, Image, File, FileSpreadsheet, AtSign, BookOpen, Layers, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SimpleCitation } from "@/hooks/useKAISimpleChat";
+import { KaiToolsTray } from "@/components/chat/KaiToolsTray";
 
 interface GlobalKAIInputMinimalProps {
   onSend: (message: string, files?: File[], citations?: SimpleCitation[]) => Promise<void>;
@@ -465,15 +466,27 @@ export function GlobalKAIInputMinimal({
         )}
       </div>
 
-      {/* Footer with hints and character counter */}
-      <div className="flex items-center justify-between mt-2">
-        <p className="text-[10px] text-muted-foreground/60">
-          Enter para enviar · @ para citar · Shift+Enter para nova linha
-        </p>
-        
-        {/* Character counter */}
+      {/* Footer with hints, tools tray and character counter */}
+      <div className="flex items-center justify-between mt-2 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <KaiToolsTray
+            onPickPrompt={(p) => {
+              setMessage(p);
+              setTimeout(() => {
+                const ta = textareaRef.current;
+                if (!ta) return;
+                ta.focus();
+                ta.setSelectionRange(p.length, p.length);
+              }, 0);
+            }}
+          />
+          <p className="text-[10px] text-muted-foreground/60 hidden sm:block truncate">
+            Enter envia · @ cita · Shift+Enter nova linha
+          </p>
+        </div>
+
         {showCharCount && (
-          <p className={cn("text-[10px]", charCountColor)}>
+          <p className={cn("text-[10px] shrink-0", charCountColor)}>
             {charCount.toLocaleString()} / {MAX_MESSAGE_LENGTH.toLocaleString()}
           </p>
         )}

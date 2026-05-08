@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calendar, Rss, Webhook, Sparkles, Send, AlertCircle, Loader2, CheckCircle2, XCircle, Image, ExternalLink, Copy, ChevronDown, ChevronUp, Palette, Twitter, Linkedin, Instagram, AtSign, Video, Youtube, Facebook, Mail, FileText, Check } from 'lucide-react';
+import { Calendar, Rss, Webhook, Sparkles, Send, AlertCircle, Loader2, CheckCircle2, XCircle, Image, ExternalLink, Copy, ChevronDown, ChevronUp, Palette, Twitter, Linkedin, Instagram, AtSign, Video, Youtube, Facebook, Mail, FileText, Check, Lightbulb, FileEdit, ThumbsUp } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,13 +28,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { 
-  usePlanningAutomations, 
-  PlanningAutomation, 
+import {
+  usePlanningAutomations,
+  PlanningAutomation,
   TriggerType,
   ScheduleConfig,
   RSSConfig,
   ImageStyle,
+  StatusAfterGeneration,
 } from '@/hooks/usePlanningAutomations';
 import { useClients } from '@/hooks/useClients';
 import { usePlanningItems } from '@/hooks/usePlanningItems';
@@ -96,6 +97,37 @@ const IMAGE_STYLES: { value: ImageStyle; label: string; description: string }[] 
   { value: 'vibrant', label: 'Vibrante', description: 'Cores intensas, alto contraste' },
 ];
 
+// Status inicial do card gerado (quando auto_publish=false). Audit F gap fix.
+const STATUS_AFTER_GENERATION_OPTIONS: {
+  value: StatusAfterGeneration;
+  label: string;
+  description: string;
+  icon: React.ElementType;
+  badgeClass: string;
+}[] = [
+  {
+    value: 'idea',
+    label: 'Idea',
+    description: 'Card cai como ideia. Você precisa aprovar antes de virar conteúdo.',
+    icon: Lightbulb,
+    badgeClass: 'bg-amber-500/10 text-amber-600 border-amber-500/30',
+  },
+  {
+    value: 'draft',
+    label: 'Draft',
+    description: 'Rascunho editável, ainda não aprovado. Bom pra iterar antes de agendar.',
+    icon: FileEdit,
+    badgeClass: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+  },
+  {
+    value: 'approved',
+    label: 'Approved',
+    description: 'Já aprovado, pronto pra agendar. Use só se confia 100% no template.',
+    icon: ThumbsUp,
+    badgeClass: 'bg-green-500/10 text-green-600 border-green-500/30',
+  },
+];
+
 interface RSSItemPreview {
   title: string;
   description?: string;
@@ -147,6 +179,9 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
 
   // Auto publish
   const [autoPublish, setAutoPublish] = useState(false);
+
+  // Status inicial do card (quando NÃO auto-publish)
+  const [statusAfterGeneration, setStatusAfterGeneration] = useState<StatusAfterGeneration>('idea');
 
   // Image generation
   const [autoGenerateImage, setAutoGenerateImage] = useState(false);
@@ -210,7 +245,8 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setPromptTemplate(automation.prompt_template || '');
 
       setAutoPublish((automation as any).auto_publish || false);
-      
+      setStatusAfterGeneration(((automation as any).status_after_generation as StatusAfterGeneration) || 'idea');
+
       // Image generation fields
       setAutoGenerateImage(automation.auto_generate_image || false);
       setImagePromptTemplate(automation.image_prompt_template || '');
@@ -246,6 +282,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       setScheduleTime('10:00');
       setRssUrl('');
       setAutoPublish(false);
+      setStatusAfterGeneration('idea');
       // Image generation defaults
       setAutoGenerateImage(false);
       setImagePromptTemplate('');
@@ -359,6 +396,9 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
       auto_generate_content: autoGenerate,
       prompt_template: autoGenerate ? promptTemplate : null,
       auto_publish: autoPublish,
+      // Quando auto_publish=true, status_after_generation é ignorado pelo handler (vai pra publishing).
+      // Mas mandamos mesmo assim pra preservar a intenção caso o user desligue auto_publish depois.
+      status_after_generation: statusAfterGeneration,
       // Image generation
       auto_generate_image: autoGenerateImage,
       image_prompt_template: autoGenerateImage ? imagePromptTemplate : null,
@@ -1025,6 +1065,53 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
               </p>
             )}
           </div>
+
+          {/* Status do item após geração (Audit F: aprovação explícita) */}
+          {!autoPublish && (
+            <div className="space-y-3 p-4 border rounded-lg">
+              <div className="flex items-start gap-2">
+                <Lightbulb className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <Label className="text-base">Status do item após geração</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Em qual estado o card cai no planejamento depois que a IA gera. Sem auto-publish, você decide quando aprovar.
+                  </p>
+                </div>
+              </div>
+
+              <Select
+                value={statusAfterGeneration}
+                onValueChange={(v) => setStatusAfterGeneration(v as StatusAfterGeneration)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_AFTER_GENERATION_OPTIONS.map((opt) => {
+                    const Icon = opt.icon;
+                    return (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-4 w-4" />
+                          <span className="font-medium">{opt.label}</span>
+                          <span className="text-xs text-muted-foreground">— {opt.description}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+
+              {statusAfterGeneration === 'approved' && (
+                <div className="flex items-start gap-2 p-2.5 bg-amber-500/10 rounded-md">
+                  <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Cards entrarão como aprovados sem revisão. Use só com templates já validados.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>

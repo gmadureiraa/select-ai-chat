@@ -5,8 +5,6 @@ import {
   List as ListIcon,
   CalendarDays,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
   Search as SearchIcon,
   X as XIcon,
 } from "lucide-react";
@@ -29,23 +27,9 @@ import { useTasksViewPrefs, type TasksGroupBy } from "@/hooks/useTasksViewPrefs"
 import { TaskCard } from "./TaskCard";
 import { TaskDialog } from "./TaskDialog";
 import { TaskEmptyState } from "./TaskEmptyState";
+import { TasksCalendarView } from "./TasksCalendarView";
 import { cn } from "@/lib/utils";
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-  parseISO,
-  isPast,
-  isToday,
-  addMonths,
-  subMonths,
-} from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { format, parseISO, isPast, isToday } from "date-fns";
 
 const COLUMN_META: Record<TaskStatus, { title: string; dot: string; bar: string }> = {
   todo:        { title: "A fazer",       dot: "bg-blue-500",    bar: "bg-blue-500/60" },
@@ -366,13 +350,18 @@ export function TeamTasksBoard({ defaultClientId }: { defaultClientId?: string |
             onToggleDone={toggleDone}
           />
         ) : (
-          <CalendarView
+          <TasksCalendarView
             tasks={filtered}
             memberMap={memberMap}
             clientMap={clientMap}
             onCardClick={openEdit}
             onDayClick={(d) => !isViewer && openNew("todo", d)}
             onToggleDone={toggleDone}
+            onMoveTask={(taskId, newDate) => {
+              const due_date = newDate ? format(newDate, "yyyy-MM-dd") : null;
+              updateTask.mutate({ id: taskId, due_date });
+            }}
+            isViewer={isViewer}
           />
         )}
       </div>
@@ -591,127 +580,5 @@ function ListView({
   );
 }
 
-// ---------------- Calendar ----------------
-function CalendarView({
-  tasks, memberMap, clientMap, onCardClick, onToggleDone, onDayClick,
-}: {
-  tasks: TeamTask[];
-  memberMap: Record<string, { name: string; initials: string }>;
-  clientMap: Record<string, { name: string }>;
-  onCardClick: (t: TeamTask) => void;
-  onToggleDone: (t: TeamTask) => void;
-  onDayClick?: (d: Date) => void;
-}) {
-  const [month, setMonth] = useState(new Date());
-
-  const days = useMemo(() => {
-    const start = startOfWeek(startOfMonth(month), { weekStartsOn: 0 });
-    const end = endOfWeek(endOfMonth(month), { weekStartsOn: 0 });
-    return eachDayOfInterval({ start, end });
-  }, [month]);
-
-  const tasksByDay = useMemo(() => {
-    const map = new Map<string, TeamTask[]>();
-    tasks.forEach((t) => {
-      if (!t.due_date) return;
-      if (!map.has(t.due_date)) map.set(t.due_date, []);
-      map.get(t.due_date)!.push(t);
-    });
-    return map;
-  }, [tasks]);
-
-  const undated = tasks.filter((t) => !t.due_date);
-  const priorityClass: Record<string, string> = {
-    urgent: "bg-red-500/20 text-red-300 hover:bg-red-500/30",
-    high: "bg-orange-500/20 text-orange-300 hover:bg-orange-500/30",
-    medium: "bg-blue-500/20 text-blue-300 hover:bg-blue-500/30",
-    low: "bg-muted text-muted-foreground hover:bg-muted/80",
-  };
-
-  return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center justify-between pb-2">
-        <span className="text-sm font-medium capitalize">
-          {format(month, "MMMM yyyy", { locale: ptBR })}
-        </span>
-        <div className="flex gap-1">
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setMonth(subMonths(month, 1))}>
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="outline" size="sm" className="h-7" onClick={() => setMonth(new Date())}>Hoje</Button>
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setMonth(addMonths(month, 1))}>
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-7 gap-px bg-border rounded-md overflow-hidden flex-1 min-h-0">
-        {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
-          <div key={d} className="bg-muted/40 px-2 py-1 text-[10px] text-muted-foreground font-medium">{d}</div>
-        ))}
-        {days.map((day) => {
-          const key = format(day, "yyyy-MM-dd");
-          const inMonth = isSameMonth(day, month);
-          const dayTasks = tasksByDay.get(key) || [];
-          const today = isSameDay(day, new Date());
-          return (
-            <div
-              key={key}
-              onClick={(e) => {
-                if ((e.target as HTMLElement).closest("button")) return;
-                onDayClick?.(day);
-              }}
-              className={cn(
-                "bg-background min-h-[110px] p-1.5 flex flex-col gap-0.5 cursor-pointer hover:bg-muted/20 transition-colors",
-                !inMonth && "opacity-40",
-                today && "ring-1 ring-primary/40",
-              )}
-            >
-              <span className={cn("text-[10px] font-medium", today && "text-primary")}>
-                {format(day, "d")}
-              </span>
-              <div className="space-y-0.5 overflow-hidden">
-                {dayTasks.slice(0, 4).map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={(e) => { e.stopPropagation(); onCardClick(t); }}
-                    className={cn(
-                      "w-full text-left text-[10px] px-1.5 py-0.5 rounded truncate transition-colors",
-                      t.status === "done"
-                        ? "bg-emerald-500/15 text-emerald-300 line-through"
-                        : priorityClass[t.priority],
-                    )}
-                    title={t.title}
-                  >
-                    {t.title}
-                  </button>
-                ))}
-                {dayTasks.length > 4 && (
-                  <span className="text-[9px] text-muted-foreground">+{dayTasks.length - 4}</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {undated.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-border/40">
-          <p className="text-xs text-muted-foreground mb-2">Sem data ({undated.length})</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-            {undated.map((t) => (
-              <TaskCard
-                key={t.id}
-                task={t}
-                memberMap={memberMap}
-                clientMap={clientMap}
-                onClick={() => onCardClick(t)}
-                onToggleDone={() => onToggleDone(t)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// 2026-05-08 — CalendarView interno foi extraído pra `./TasksCalendarView.tsx`
+// (componente próprio, agora com drag-and-drop e sidebar "Sem data").

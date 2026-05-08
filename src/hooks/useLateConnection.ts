@@ -51,10 +51,15 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
   useEffect(() => {
     // Listen for postMessage from OAuth callback popup
     const handleMessage = (event: MessageEvent) => {
-      // Only process our OAuth messages
-      if (!event.data?.type?.startsWith('late_oauth_')) {
+      // Only process our OAuth messages — aceita ambos late_oauth_* e postiz_oauth_*
+      // durante migração Late→Postiz (2026-05-08).
+      if (!event.data?.type?.startsWith('late_oauth_') && !event.data?.type?.startsWith('postiz_oauth_')) {
         return;
       }
+      // Normaliza pra string base sem prefixo provider — facilita switch abaixo.
+      const messageType = event.data.type as string;
+      const isSuccess = messageType.endsWith('_success');
+      const isError = messageType.endsWith('_error');
 
       const messageClientId = event.data.clientId as string | undefined;
       const messagePlatform = event.data.platform as LatePlatform | undefined;
@@ -62,7 +67,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       // Validate that this message corresponds to our current connection attempt
       const expected = expectedConnectionRef.current;
       
-      if (event.data.type === 'late_oauth_success') {
+      if (isSuccess) {
         // Always invalidate queries for the clientId that actually got connected
         if (messageClientId) {
           queryClient.invalidateQueries({ queryKey: ['social-credentials', messageClientId] });
@@ -102,7 +107,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
         }
         // If platform doesn't match, ignore (stale message from another attempt)
         
-      } else if (event.data.type === 'late_oauth_error') {
+      } else if (isError) {
         // Only show error if it matches our expected connection
         if (expected && (!messagePlatform || messagePlatform === expected.platform)) {
           cleanup();
@@ -136,7 +141,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       // Store expected connection for correlation
       expectedConnectionRef.current = { clientId, platform };
 
-      const { data, error } = await apiInvoke('late-oauth-start', {
+      const { data, error } = await apiInvoke('postiz-oauth-start', {
         body: { clientId, platform }
       });
 
@@ -228,7 +233,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
 
       const isScheduling = !!options?.scheduledFor && options?.publishNow === false;
 
-      const { data, error } = await apiInvoke('late-post', {
+      const { data, error } = await apiInvoke('postiz-post', {
         body: {
           clientId,
           platform,
@@ -308,6 +313,9 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       setCurrentPlatform(platform);
 
       // Call edge function to disconnect from Late API and delete local credential
+      // Mantido como late-disconnect-account temporariamente: Postiz não tem endpoint público
+      // de disconnect-by-client. Esse handler deleta a credencial local e tenta deletar
+      // do Late se tiver late_account_id legado. Pra Postiz, ainda funciona (só apaga local).
       const { error } = await apiInvoke('late-disconnect-account', {
         body: { clientId, platform }
       });

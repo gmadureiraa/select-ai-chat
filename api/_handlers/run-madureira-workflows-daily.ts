@@ -120,6 +120,12 @@ function findViolations(text: string, allowHashtag = false): string[] {
   return violations;
 }
 
+function isBatchWorkflow(cfg: Record<string, any>): boolean {
+  if (cfg.platform === 'twitter' && cfg.content_type === 'tweet') return true;
+  if (cfg.platform === 'tiktok') return true;
+  return false;
+}
+
 function buildPrompt(workflow: WorkflowRow, agent: AgentRow): string {
   const cfg = workflow.config ?? {};
   const kb = agent.knowledge_base ?? {};
@@ -138,24 +144,60 @@ function buildPrompt(workflow: WorkflowRow, agent: AgentRow): string {
     switch (workflow.config?.platform) {
       case 'instagram':
         if (workflow.config?.content_type === 'instagram_reel') {
-          return `REEL Instagram. Duração 30-60s. Hook nos 3 primeiros segundos passa nos 3 testes. Caption ≤500 chars, zero hashtag. Se face_cam: cena Kaleidos real no body.`;
+          return `REEL Instagram. Duração 30-60s. Hook nos 3 primeiros segundos passa nos 3 testes. Caption ≤500 chars, zero hashtag. Se face_cam: cena Kaleidos real no body. Estrutura content: { formato_reel, hook_3s, body_script, cta_script, duracao_segundos }.`;
         }
-        return `CARROSSEL Instagram, ${cfg.slides_min ?? 8}-${cfg.slides_max ?? 12} slides. Capa ${cfg.capa_format ?? 'F1'}. Slide 02 OBRIGATÓRIO com cena Kaleidos real (eu/a gente/na Kaleidos/cliente real). 3+ dados específicos. Caption 100-800 chars com pilar + dado + CTA orgânico, ZERO hashtag.`;
+        return `CARROSSEL Instagram, ${cfg.slides_min ?? 8}-${cfg.slides_max ?? 12} slides. Capa ${cfg.capa_format ?? 'F1'}. Slide 02 OBRIGATÓRIO com cena Kaleidos real (eu/a gente/na Kaleidos/cliente real). 3+ dados específicos. Caption 100-800 chars com pilar + dado + CTA orgânico, ZERO hashtag. Estrutura content: { capa_format, cena_kaleidos, dados_concretos: [...], slides: [{ index, type, text }] }.`;
       case 'linkedin':
-        return `POST LinkedIn ${cfg.rotation_by_weekday?.[new Date().getUTCDay()] ?? 'curto'}. Primeira linha ≤200 chars (LI corta após 3 linhas). Cena Kaleidos OBRIGATÓRIA. ≥1 dado numérico real (R$/%/clientes/meses). Zero hashtag, zero emoji em rajada. CTA = pergunta específica OU convite reflexão (NÃO "comenta aí").`;
+        return `POST LinkedIn ${cfg.rotation_by_weekday?.[new Date().getUTCDay()] ?? 'curto'}. Primeira linha ≤200 chars (LI corta após 3 linhas). Cena Kaleidos OBRIGATÓRIA. ≥1 dado numérico real (R$/%/clientes/meses). Zero hashtag, zero emoji em rajada. CTA = pergunta específica OU convite reflexão (NÃO "comenta aí"). Use o campo "caption" como o post completo (LinkedIn não tem texto separado de caption).`;
       case 'twitter':
         if (workflow.config?.content_type === 'thread') {
-          return `THREAD X em PT-BR rigoroso (nunca inglês). ${cfg.tweets_min ?? 12}-${cfg.tweets_max ?? 18} tweets. Tweet 1: hook completo passa nos 3 testes + cena Kaleidos OU número. Tweets 2-12: 1 ideia/tweet com prova. Penúltimo tweet: takeaway forte. Último tweet: CTA orgânico. Zero hashtag, zero "🧵 Thread".`;
+          return `THREAD X em PT-BR rigoroso (nunca inglês). ${cfg.tweets_min ?? 12}-${cfg.tweets_max ?? 18} tweets. Tweet 1: hook completo passa nos 3 testes + cena Kaleidos OU número. Tweets 2-12: 1 ideia/tweet com prova. Penúltimo tweet: takeaway forte. Último tweet: CTA orgânico. Zero hashtag, zero "🧵 Thread". Estrutura content: { tweets: ["tweet 1", "tweet 2", ...] }. Use também caption = todos os tweets concatenados separados por "\\n\\n---\\n\\n".`;
         }
+        // Batch tweets
         return `BATCH de ${cfg.batch_size ?? 5} TWEETS em PT-BR. Distribuição: 1 hot take cena Kaleidos, 1 dado-shock IA/marketing, 1 repurpose carrossel/thread, 1 pergunta provocativa, 1 contrarian. Cada ≤280 chars. Hook nos primeiros 50 chars. 0-1 emoji. Sem hashtag, sem "thread 🧵".`;
       case 'threads':
-        return `POST Threads. Espelho de último carrossel IG ou thread X aprovado. Adicione 1-2 hot takes nativos. Caption ≤500 chars, zero hashtag.`;
+        return `POST Threads. Hot take nativo direto (1ª pessoa) + cena Kaleidos curta + dado. Caption ≤500 chars, zero hashtag, zero "comenta aí".`;
       case 'tiktok':
         return `BATCH de ${cfg.batch_size ?? 5} ROTEIROS TikTok. Hook nos 3 primeiros segundos OBRIGATÓRIO. Duração ${cfg.duration_min ?? 30}-${cfg.duration_max ?? 90}s. PT-BR. Caption ≤300 chars. ${cfg.hashtags_min ?? 5}-${cfg.hashtags_max ?? 8} hashtags niche. Se face_cam: cena Kaleidos real.`;
       default:
         return '';
     }
   })();
+
+  const isBatch = isBatchWorkflow(workflow.config ?? {});
+  const batchSize = workflow.config?.batch_size ?? 5;
+
+  if (isBatch) {
+    return `Você é o ${agent.name} do KAI gerando conteúdo pro Gabriel Madureira (@ogmadureira).
+
+CLIENTE: Madureira (KAI client_id ${cfg.client_id})
+PILAR DE HOJE: ${pilarHoje}
+SKILL OBRIGATÓRIA: ${agent.skill_id ?? 'copywriting-madureira@1.2'}
+TÉCNICAS OBRIGATÓRIAS: ${tecnicas}
+FRAMES PROIBIDOS (NUNCA USAR): ${proibidos}
+
+REGRA #1: Skill v1.2 obrigatória. Cena Kaleidos real, primeira pessoa, dado numérico no 1º ou 2º parágrafo, voz ativa, CTA orgânico (nunca "comenta aí" / "salva isso" / "se você chegou até aqui").
+REGRA #2: PT-BR rigoroso. Português brasileiro coloquial mas direto.
+REGRA #3: Travessão (—) PROIBIDO no corpo. Use vírgula/dois-pontos/parênteses.
+
+${platformRules}
+
+OUTPUT OBRIGATÓRIO: ARRAY JSON com EXATAMENTE ${batchSize} items. Cada item:
+{
+  "tema": "...",
+  "pilar": "${pilarHoje}",
+  "title": "título curto (≤80 chars)",
+  "caption": "TEXTO PUBLICÁVEL DIRETO (o tweet/roteiro completo)",
+  "metadata": {
+    "skill_aplicada": "copywriting-madureira@1.2",
+    "formato": "${cfg.format ?? 'unknown'}",
+    "pilar": "${pilarHoje}",
+    "tipo_no_batch": "hot_take|dado_shock|repurpose|pergunta|contrarian"
+  }
+}
+
+Retorne ARRAY JSON puro, sem markdown wrapper, sem texto antes/depois.`;
+  }
 
   return `Você é o ${agent.name} do KAI gerando conteúdo pro Gabriel Madureira (@ogmadureira).
 
@@ -167,17 +209,17 @@ FRAMES PROIBIDOS (NUNCA USAR): ${proibidos}
 
 REGRA #1: Skill v1.2 obrigatória. Cena Kaleidos real, primeira pessoa, dado numérico no 1º ou 2º parágrafo, voz ativa, CTA orgânico (nunca "comenta aí" / "salva isso" / "se você chegou até aqui").
 REGRA #2: PT-BR rigoroso. Português brasileiro coloquial mas direto.
-REGRA #3: Travessão (—) PROIBIDO no corpo.
+REGRA #3: Travessão (—) PROIBIDO no corpo. Use vírgula/dois-pontos/parênteses.
 
 ${platformRules}
 
-OUTPUT: JSON com:
+OUTPUT OBRIGATÓRIO: JSON único, sem markdown wrapper:
 {
   "tema": "...",
   "pilar": "${pilarHoje}",
-  "title": "título curto pro card",
+  "title": "título curto pro card (≤80 chars)",
   "content": { /* estrutura específica do formato — ver platformRules */ },
-  "caption": "...",
+  "caption": "TEXTO PUBLICÁVEL DIRETO (caption IG/post LinkedIn/post Threads). Para LinkedIn = post completo. Para IG = caption do carrossel. Para X thread = todos os tweets concatenados.",
   "metadata": {
     "skill_aplicada": "copywriting-madureira@1.2",
     "formato": "${cfg.format ?? 'unknown'}",
@@ -215,12 +257,48 @@ async function callGemini(prompt: string, model: string): Promise<{ ok: boolean;
   }
 }
 
+async function getCreatedByForWorkspace(workspaceId: string): Promise<string | null> {
+  const owner = await queryOne<{ owner_id: string }>(
+    `SELECT owner_id FROM public.workspaces WHERE id = $1`,
+    [workspaceId],
+  );
+  return owner?.owner_id ?? null;
+}
+
+/**
+ * Map workflow.config.content_type → valid public.content_type enum value.
+ * Enum: newsletter, carousel, reel_script, video_script, blog_post, social_post, other,
+ *       stories, static_image, short_video, long_video, tweet, thread, x_article,
+ *       linkedin_post, instagram_post, case_study, report.
+ */
+function normalizeContentType(raw: string | null | undefined): string {
+  if (!raw) return 'social_post';
+  const map: Record<string, string> = {
+    instagram_reel: 'reel_script',
+    tiktok_video: 'short_video',
+    threads_post: 'social_post',
+    twitter_thread: 'thread',
+    twitter_tweet: 'tweet',
+  };
+  if (map[raw]) return map[raw];
+  // Already a valid enum value
+  const valid = [
+    'newsletter', 'carousel', 'reel_script', 'video_script', 'blog_post',
+    'social_post', 'other', 'stories', 'static_image', 'short_video',
+    'long_video', 'tweet', 'thread', 'x_article', 'linkedin_post',
+    'instagram_post', 'case_study', 'report',
+  ];
+  if (valid.includes(raw)) return raw;
+  return 'social_post';
+}
+
 async function runWorkflow(workflow: WorkflowRow, agent: AgentRow): Promise<{
   ok: boolean;
   planningItemIds: string[];
   violations: string[];
   error?: string;
   durationMs: number;
+  rawOutput?: string;
 }> {
   const started = Date.now();
   const prompt = buildPrompt(workflow, agent);
@@ -245,17 +323,13 @@ async function runWorkflow(workflow: WorkflowRow, agent: AgentRow): Promise<{
       ok: false,
       planningItemIds: [],
       violations: [`parse_error`],
-      error: 'JSON invalid',
+      error: `JSON invalid: ${gen.text.slice(0, 200)}`,
       durationMs: Date.now() - started,
+      rawOutput: gen.text,
     };
   }
 
   const allowHashtag = workflow.config?.platform === 'tiktok';
-  const flat = JSON.stringify(parsed);
-  const violations = findViolations(flat, allowHashtag);
-
-  // Insere planning_item mesmo com violations (status='pending-validation' se houver)
-  const status = violations.length > 0 ? 'pending-validation' : (workflow.config?.status_after_generation ?? 'idea');
   const dueOffsetDays = Number(workflow.config?.due_date_offset_days ?? 0);
   const dueDate = new Date();
   dueDate.setUTCDate(dueDate.getUTCDate() + dueOffsetDays);
@@ -263,44 +337,73 @@ async function runWorkflow(workflow: WorkflowRow, agent: AgentRow): Promise<{
 
   const items: any[] = Array.isArray(parsed) ? parsed : [parsed];
   const insertedIds: string[] = [];
+  const aggregatedViolations: string[] = [];
+  const createdBy = await getCreatedByForWorkspace(workflow.workspace_id);
+
+  if (!createdBy) {
+    return {
+      ok: false,
+      planningItemIds: [],
+      violations: [],
+      error: `workspace ${workflow.workspace_id} has no owner_id`,
+      durationMs: Date.now() - started,
+    };
+  }
 
   for (const item of items) {
+    // Per-item validation — each post in a batch evaluated independently.
+    const itemText = item?.caption ?? item?.content?.body ?? JSON.stringify(item ?? {});
+    const itemViolations = findViolations(itemText, allowHashtag);
+    aggregatedViolations.push(...itemViolations);
+    const itemStatus =
+      itemViolations.length > 0
+        ? 'pending-validation'
+        : (workflow.config?.status_after_generation ?? 'idea');
+
     try {
       const r = await query<{ id: string }>(
         `INSERT INTO public.planning_items
            (workspace_id, client_id, platform, content_type, status,
-            title, content, due_date, metadata)
+            title, content, due_date, metadata, created_by)
          VALUES ($1, $2, $3, $4::content_type, $5,
-                 $6, $7, $8::date, $9::jsonb)
+                 $6, $7, $8::date, $9::jsonb, $10)
          RETURNING id`,
         [
           workflow.workspace_id,
           workflow.config?.client_id,
           workflow.config?.platform,
-          workflow.config?.content_type ?? 'social_post',
-          status,
+          normalizeContentType(workflow.config?.content_type),
+          itemStatus,
           (item.title ?? item.tema ?? `${workflow.name} ${dueDateIso}`).slice(0, 180),
-          item.content?.body ?? item.caption ?? JSON.stringify(item).slice(0, 5000),
+          item.caption ?? item.content?.body ?? JSON.stringify(item).slice(0, 5000),
           dueDateIso,
           JSON.stringify({
             workflow_id: workflow.id,
             workflow_name: workflow.name,
             agent: agent.name,
             generated: item,
-            violations,
+            violations: itemViolations,
           }),
+          createdBy,
         ],
       );
       if (r?.[0]?.id) insertedIds.push(r[0].id);
     } catch (insErr: any) {
-      console.error(`[madureira] insert failed:`, insErr?.message);
+      console.error(`[madureira] insert failed for ${workflow.name}:`, insErr?.message);
+      return {
+        ok: false,
+        planningItemIds: insertedIds,
+        violations: aggregatedViolations,
+        error: `insert_failed: ${insErr?.message}`,
+        durationMs: Date.now() - started,
+      };
     }
   }
 
   return {
     ok: insertedIds.length > 0,
     planningItemIds: insertedIds,
-    violations,
+    violations: aggregatedViolations,
     durationMs: Date.now() - started,
   };
 }
@@ -365,9 +468,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const todoWorkflows = due.filter((w) => !skipNames.includes(w.name));
 
-  // 5. Executa cada workflow sequencial (pra não estourar Gemini rate-limit)
-  const results: any[] = [];
-  for (const w of todoWorkflows) {
+  // 5. Executa workflows em paralelo (Lambda Vercel = 60s timeout, sequencial estourava
+  //    com 4+ workflows × ~25s/Gemini-call cada). Gemini Flash aguenta 60 RPM no free
+  //    tier, então 4 requests paralelas é seguro.
+  async function runOne(w: WorkflowRow) {
     let runId: string | null = null;
     try {
       const ins = await query<{ id: string }>(
@@ -379,13 +483,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       runId = ins?.[0]?.id ?? null;
 
       const out = await runWorkflow(w, agent);
-      results.push({
-        workflow: w.name,
-        ok: out.ok,
-        items: out.planningItemIds.length,
-        violations: out.violations,
-        error: out.error,
-      });
 
       if (runId) {
         await query(
@@ -412,17 +509,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `UPDATE ai_workflows SET last_run_at = now() WHERE id = $1`,
         [w.id],
       );
+
+      return {
+        workflow: w.name,
+        ok: out.ok,
+        items: out.planningItemIds.length,
+        violations: out.violations,
+        error: out.error,
+      };
     } catch (err: any) {
       console.error(`[madureira] workflow ${w.name} crashed:`, err?.message);
-      results.push({ workflow: w.name, ok: false, error: err?.message });
       if (runId) {
         await query(
           `UPDATE ai_workflow_runs SET status = 'crashed', error = $1, finished_at = now() WHERE id = $2`,
           [err?.message ?? 'unknown', runId],
         );
       }
+      return { workflow: w.name, ok: false, error: err?.message };
     }
   }
+
+  const results = await Promise.all(todoWorkflows.map(runOne));
 
   return res.status(200).json({
     ok: true,

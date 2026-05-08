@@ -1,4 +1,5 @@
 // Migrated from supabase/functions/late-oauth-start/index.ts
+// @deprecated 2026-05-08: use `postiz-oauth-start`. Fallback durante migração.
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne, query } from '../_lib/db.js';
 

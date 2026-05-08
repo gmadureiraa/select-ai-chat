@@ -10,7 +10,14 @@ import {
   Zap,
   Building2,
   TrendingUp,
+  AlertTriangle,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Card,
   CardContent,
@@ -100,6 +107,16 @@ function txLabel(t: TokenTransaction["type"]): { label: string; color: string } 
       return { label: "Ajuste", color: "bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-200" };
   }
 }
+
+// Detecta se Stripe está configurado no ambiente. Se a flag VITE_STRIPE_ENABLED
+// estiver explicitamente "false" / "0" / "off", desabilita os botões de assinatura
+// e mostra tooltip avisando o admin. Default = enabled (compat com setups que
+// não definem a flag explicitamente — backend ainda valida via 503).
+const STRIPE_ENABLED = (() => {
+  const raw = (import.meta.env.VITE_STRIPE_ENABLED ?? "").toString().toLowerCase().trim();
+  if (raw === "false" || raw === "0" || raw === "off" || raw === "no") return false;
+  return true;
+})();
 
 export function BillingTab() {
   const { toast } = useToast();
@@ -355,6 +372,20 @@ export function BillingTab() {
         </CardContent>
       </Card>
 
+      {/* Banner Stripe disabled — só aparece quando flag VITE_STRIPE_ENABLED=false */}
+      {!STRIPE_ENABLED && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-medium">Stripe não configurado</p>
+            <p className="text-xs">
+              Cobrança automática está desabilitada nesse ambiente. Os botões de
+              assinatura ficam desativados — fale com o admin pra liberar.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Card 2 — Planos disponíveis */}
       <Card>
         <CardHeader>
@@ -470,24 +501,56 @@ export function BillingTab() {
                       )}
                     </ul>
 
-                    <Button
-                      className="w-full"
-                      variant={isCurrent ? "outline" : "default"}
-                      disabled={isCurrent || checkoutLoading === plan.id || plan.type === "free"}
-                      onClick={() => handleCheckout(plan)}
-                    >
-                      {checkoutLoading === plan.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : isCurrent ? (
-                        "Plano atual"
-                      ) : plan.type === "free" ? (
-                        "Tier inicial"
-                      ) : currentPlan && currentPlan.type !== "free" ? (
-                        "Mudar de plano"
-                      ) : (
-                        "Assinar"
-                      )}
-                    </Button>
+                    {(() => {
+                      const stripeBlocked = !STRIPE_ENABLED && plan.type !== "free";
+                      const isDisabled =
+                        isCurrent ||
+                        checkoutLoading === plan.id ||
+                        plan.type === "free" ||
+                        stripeBlocked;
+
+                      const button = (
+                        <Button
+                          className="w-full"
+                          variant={isCurrent ? "outline" : "default"}
+                          disabled={isDisabled}
+                          onClick={() => handleCheckout(plan)}
+                          aria-disabled={isDisabled}
+                        >
+                          {checkoutLoading === plan.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : isCurrent ? (
+                            "Plano atual"
+                          ) : plan.type === "free" ? (
+                            "Tier inicial"
+                          ) : currentPlan && currentPlan.type !== "free" ? (
+                            "Mudar de plano"
+                          ) : (
+                            "Assinar"
+                          )}
+                        </Button>
+                      );
+
+                      if (!stripeBlocked) return button;
+
+                      return (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              {/* span wrapper porque botão disabled não dispara hover */}
+                              <span tabIndex={0} className="block w-full">
+                                {button}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p className="text-xs max-w-[220px]">
+                                Stripe não configurado — fale com admin.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })()}
                   </div>
                 );
               })}

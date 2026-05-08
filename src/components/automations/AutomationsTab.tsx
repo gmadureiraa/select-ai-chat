@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Zap, Calendar, Rss, Webhook, MoreVertical, Pause, Play, Trash2, Pencil, TestTube2, History, Loader2, Filter, Users, Twitter, Linkedin, Instagram, Youtube, Facebook, AtSign, Video, Mail, FileText, Globe } from 'lucide-react';
+import { Plus, Zap, Calendar, Rss, Webhook, MoreVertical, Pause, Play, Trash2, Pencil, TestTube2, History, Loader2, Filter, Users, Twitter, Linkedin, Instagram, Youtube, Facebook, AtSign, Video, Mail, FileText, Globe, Sparkles, ListChecks, Brain, Clock, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,9 +30,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { usePlanningAutomations, PlanningAutomation, ScheduleConfig, RSSConfig } from '@/hooks/usePlanningAutomations';
+import { useAiWorkflows, AiWorkflow, describeCron, estimateNextRun } from '@/hooks/useAiWorkflows';
+import { useAiWorkflowRuns, useLatestRunsByWorkflow, AiWorkflowRun } from '@/hooks/useAiWorkflowRuns';
 import { useClients } from '@/hooks/useClients';
 import { AutomationDialog } from '@/components/planning/AutomationDialog';
 import { AutomationHistoryDialog } from './AutomationHistoryDialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -87,6 +97,9 @@ const contentTypeLabels: Record<string, string> = {
 
 export function AutomationsTab() {
   const { automations, isLoading, toggleAutomation, deleteAutomation, triggerAutomation } = usePlanningAutomations();
+  const { workflows, agents, isLoading: workflowsLoading, toggleWorkflow } = useAiWorkflows();
+  const workflowIds = useMemo(() => workflows.map(w => w.id), [workflows]);
+  const { data: latestRunsByWorkflow = {} } = useLatestRunsByWorkflow(workflowIds);
   const { clients } = useClients();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAutomation, setEditingAutomation] = useState<PlanningAutomation | null>(null);
@@ -95,6 +108,7 @@ export function AutomationsTab() {
   const [testingId, setTestingId] = useState<string | null>(null);
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [triggerFilter, setTriggerFilter] = useState<string>('all');
+  const [workflowRunsId, setWorkflowRunsId] = useState<string | null>(null);
 
   const handleEdit = (automation: PlanningAutomation) => {
     setEditingAutomation(automation);
@@ -412,6 +426,24 @@ export function AutomationsTab() {
         </Card>
       )}
 
+      {/* ─── Workflows AI (read-only por enquanto: madureira-redes etc) ─── */}
+      <AiWorkflowsSection
+        workflows={workflows}
+        agents={agents}
+        isLoading={workflowsLoading}
+        latestRunsByWorkflow={latestRunsByWorkflow}
+        onToggle={(id, is_active) => toggleWorkflow.mutate({ id, is_active })}
+        onViewRuns={(id) => setWorkflowRunsId(id)}
+      />
+
+      {/* Modal de runs de um workflow */}
+      <AiWorkflowRunsDialog
+        workflowId={workflowRunsId}
+        workflow={workflows.find(w => w.id === workflowRunsId) ?? null}
+        open={!!workflowRunsId}
+        onOpenChange={(open) => { if (!open) setWorkflowRunsId(null); }}
+      />
+
       {/* Dialogs */}
       <AutomationDialog
         open={dialogOpen}
@@ -602,6 +634,409 @@ function AutomationCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// AI Workflows section — read-only por enquanto (toggle is_active e ver runs).
+// Mostra seedados Madureira (10 workflows). Plano futuro: criar/editar via UI.
+// ────────────────────────────────────────────────────────────────────────
+
+type WorkflowHealth = 'healthy' | 'stale' | 'paused';
+
+function getWorkflowHealth(
+  workflow: AiWorkflow,
+  lastRun: AiWorkflowRun | undefined,
+): { state: WorkflowHealth; label: string; description: string } {
+  if (!workflow.is_active) {
+    return { state: 'paused', label: 'Pausado', description: 'Workflow desativado, não roda no cron.' };
+  }
+
+  if (!lastRun) {
+    return {
+      state: 'stale',
+      label: 'Sem execuções',
+      description: 'Workflow ativo mas ainda nunca rodou. Espere o próximo cron ou teste manualmente.',
+    };
+  }
+
+  const startedAt = new Date(lastRun.started_at).getTime();
+  const ageHours = (Date.now() - startedAt) / (1000 * 60 * 60);
+
+  const success = lastRun.status === 'success' || lastRun.status === 'partial';
+  if (success && ageHours < 24) {
+    return { state: 'healthy', label: 'OK', description: `Última execução com sucesso há ${formatHours(ageHours)}.` };
+  }
+
+  if (!success) {
+    return {
+      state: 'stale',
+      label: 'Erro na última run',
+      description: `Última run terminou em '${lastRun.status}'. Confira detalhes.`,
+    };
+  }
+
+  return {
+    state: 'stale',
+    label: 'Sem run recente',
+    description: `Última execução há ${formatHours(ageHours)}.`,
+  };
+}
+
+function formatHours(hours: number): string {
+  if (hours < 1) return `${Math.round(hours * 60)} min`;
+  if (hours < 24) return `${Math.round(hours)} h`;
+  return `${Math.round(hours / 24)} d`;
+}
+
+const HEALTH_STYLES: Record<WorkflowHealth, { dot: string; bg: string; text: string }> = {
+  healthy: { dot: 'bg-green-500', bg: 'bg-green-500/10 border-green-500/30', text: 'text-green-600' },
+  stale: { dot: 'bg-amber-500', bg: 'bg-amber-500/10 border-amber-500/30', text: 'text-amber-600' },
+  paused: { dot: 'bg-muted-foreground/40', bg: 'bg-muted/40 border-muted', text: 'text-muted-foreground' },
+};
+
+interface AiWorkflowsSectionProps {
+  workflows: AiWorkflow[];
+  agents: Array<{ id: string; name: string; model: string | null }>;
+  isLoading: boolean;
+  latestRunsByWorkflow: Record<string, AiWorkflowRun>;
+  onToggle: (id: string, is_active: boolean) => void;
+  onViewRuns: (id: string) => void;
+}
+
+function AiWorkflowsSection({
+  workflows,
+  agents,
+  isLoading,
+  latestRunsByWorkflow,
+  onToggle,
+  onViewRuns,
+}: AiWorkflowsSectionProps) {
+  // Hooks ANTES de qualquer return condicional (regra de hooks).
+  const grouped = useMemo(() => {
+    const out: Record<string, AiWorkflow[]> = {};
+    for (const w of workflows) {
+      const key = w.agent_id;
+      if (!out[key]) out[key] = [];
+      out[key].push(w);
+    }
+    return out;
+  }, [workflows]);
+
+  if (isLoading) return null;
+  if (workflows.length === 0) return null;
+
+  const healthyCount = workflows.filter((w) => {
+    const h = getWorkflowHealth(w, latestRunsByWorkflow[w.id]);
+    return h.state === 'healthy';
+  }).length;
+  const staleCount = workflows.filter((w) => {
+    const h = getWorkflowHealth(w, latestRunsByWorkflow[w.id]);
+    return h.state === 'stale';
+  }).length;
+  const pausedCount = workflows.filter((w) => !w.is_active).length;
+
+  return (
+    <div className="space-y-4">
+      {/* Section header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Brain className="h-5 w-5 text-purple-500" />
+            Workflows AI
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Agentes de conteúdo rodando em cron próprio (Madureira, etc). Read-only por enquanto, edição via SQL.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          {healthyCount > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-green-500" />
+              {healthyCount} saudável{healthyCount !== 1 ? 'eis' : ''}
+            </span>
+          )}
+          {staleCount > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              {staleCount} atenção
+            </span>
+          )}
+          {pausedCount > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+              {pausedCount} pausado{pausedCount !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {Object.entries(grouped).map(([agentId, agentWorkflows]) => {
+        const agent = agents.find(a => a.id === agentId);
+        return (
+          <Card key={agentId}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-purple-500" />
+                  {agent?.name ?? 'Agent desconhecido'}
+                  <Badge variant="secondary" className="text-xs">
+                    {agentWorkflows.length} workflow{agentWorkflows.length !== 1 ? 's' : ''}
+                  </Badge>
+                  {agent?.model && (
+                    <Badge variant="outline" className="text-xs font-mono">
+                      {agent.model}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {agentWorkflows.map((workflow) => (
+                <AiWorkflowCard
+                  key={workflow.id}
+                  workflow={workflow}
+                  lastRun={latestRunsByWorkflow[workflow.id]}
+                  onToggle={onToggle}
+                  onViewRuns={onViewRuns}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+interface AiWorkflowCardProps {
+  workflow: AiWorkflow;
+  lastRun: AiWorkflowRun | undefined;
+  onToggle: (id: string, is_active: boolean) => void;
+  onViewRuns: (id: string) => void;
+}
+
+function AiWorkflowCard({ workflow, lastRun, onToggle, onViewRuns }: AiWorkflowCardProps) {
+  const health = getWorkflowHealth(workflow, lastRun);
+  const styles = HEALTH_STYLES[health.state];
+  const cron = describeCron(workflow.schedule_cron);
+  const nextRun = workflow.is_active ? estimateNextRun(workflow.schedule_cron) : null;
+  const platform = workflow.config?.platform as string | undefined;
+  const PIcon = platform ? (platformLucideIcons[platform] || Globe) : null;
+
+  return (
+    <div
+      className={cn(
+        'flex items-center justify-between p-3 border rounded-lg transition-colors',
+        workflow.is_active ? 'hover:bg-muted/50' : 'opacity-60 bg-muted/20',
+      )}
+    >
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {/* Health dot */}
+        <div className={cn('flex flex-col items-center gap-1 shrink-0')}>
+          <span
+            className={cn('h-2.5 w-2.5 rounded-full', styles.dot)}
+            title={health.description}
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h4 className="font-medium text-sm truncate">{workflow.name}</h4>
+            {PIcon && platform && (
+              <Badge variant="outline" className="text-xs gap-1 shrink-0">
+                <PIcon className="h-3 w-3" />
+                {platform}
+              </Badge>
+            )}
+            {workflow.config?.content_type && (
+              <Badge variant="outline" className="text-xs shrink-0">
+                {String(workflow.config.content_type)}
+              </Badge>
+            )}
+            <Badge
+              variant="outline"
+              className={cn('text-xs shrink-0', styles.bg, styles.text)}
+            >
+              {health.label}
+            </Badge>
+          </div>
+
+          {workflow.description && (
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+              {workflow.description}
+            </p>
+          )}
+
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {cron}
+            </span>
+            {workflow.last_run_at && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Última: {formatDistanceToNow(new Date(workflow.last_run_at), { addSuffix: true, locale: ptBR })}
+              </span>
+            )}
+            {nextRun && (
+              <span className="flex items-center gap-1">
+                <ListChecks className="h-3 w-3" />
+                Próxima: {formatDistanceToNow(nextRun, { addSuffix: true, locale: ptBR })}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onViewRuns(workflow.id)}
+          className="h-8"
+          title="Ver últimas execuções"
+        >
+          <History className="h-4 w-4 mr-1" />
+          <span className="hidden sm:inline">Runs</span>
+        </Button>
+        <Switch
+          checked={workflow.is_active}
+          onCheckedChange={(checked) => onToggle(workflow.id, checked)}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface AiWorkflowRunsDialogProps {
+  workflowId: string | null;
+  workflow: AiWorkflow | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function AiWorkflowRunsDialog({ workflowId, workflow, open, onOpenChange }: AiWorkflowRunsDialogProps) {
+  const { data: runs = [], isLoading } = useAiWorkflowRuns(workflowId, 20);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[85vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <History className="h-5 w-5 text-purple-500" />
+            {workflow?.name ?? 'Execuções do workflow'}
+          </DialogTitle>
+          <DialogDescription>
+            Últimas 20 execuções do cron. Output = planning_items criados, violations = frames proibidos detectados.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading && (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            Carregando execuções...
+          </div>
+        )}
+
+        {!isLoading && runs.length === 0 && (
+          <div className="py-12 text-center text-muted-foreground">
+            <History className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
+            <p>Nenhuma execução registrada ainda.</p>
+          </div>
+        )}
+
+        {!isLoading && runs.length > 0 && (
+          <ScrollArea className="max-h-[60vh] pr-3">
+            <div className="space-y-2">
+              {runs.map((run) => (
+                <RunRow key={run.id} run={run} />
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RunRow({ run }: { run: AiWorkflowRun }) {
+  const isSuccess = run.status === 'success' || run.status === 'partial';
+  const isFailed = run.status === 'failed' || run.status === 'failed_validation';
+  const StatusIcon = isSuccess ? CheckCircle2 : isFailed ? XCircle : Loader2;
+  const iconColor = isSuccess ? 'text-green-500' : isFailed ? 'text-red-500' : 'text-amber-500';
+  const itemsCreated = Array.isArray(run.output) ? run.output.length : 0;
+  const violationsCount = Array.isArray(run.violations) ? run.violations.length : 0;
+
+  return (
+    <div className="border rounded-lg p-3 space-y-2 hover:bg-muted/30 transition-colors">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <StatusIcon className={cn('h-4 w-4 shrink-0', iconColor, !isSuccess && !isFailed && 'animate-spin')} />
+          <Badge variant="outline" className="text-xs">
+            {run.status}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {formatDistanceToNow(new Date(run.started_at), { addSuffix: true, locale: ptBR })}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+          {run.duration_ms !== null && (
+            <span>{run.duration_ms}ms</span>
+          )}
+          {run.cost_usd !== null && (
+            <span className="font-mono">${Number(run.cost_usd).toFixed(4)}</span>
+          )}
+          {run.attempts > 1 && (
+            <span>{run.attempts} tentativas</span>
+          )}
+        </div>
+      </div>
+
+      {/* Itens criados */}
+      {itemsCreated > 0 && (
+        <div className="flex items-center gap-2 text-xs">
+          <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+          <span className="text-muted-foreground">
+            {itemsCreated} planning_item{itemsCreated !== 1 ? 's' : ''} criado{itemsCreated !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
+
+      {/* Violations */}
+      {violationsCount > 0 && (
+        <div className="flex items-start gap-2 text-xs p-2 bg-amber-500/10 rounded">
+          <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <p className="text-amber-700 dark:text-amber-400 font-medium">
+              {violationsCount} violação{violationsCount !== 1 ? 'ões' : ''}
+            </p>
+            <ul className="text-muted-foreground mt-1 space-y-0.5">
+              {run.violations.slice(0, 3).map((v, i) => (
+                <li key={i} className="truncate">
+                  {v.matched ? `"${v.matched}"` : ''}
+                  {v.rule ? ` — ${v.rule}` : ''}
+                  {v.message ? ` (${v.message})` : ''}
+                </li>
+              ))}
+              {run.violations.length > 3 && (
+                <li className="italic">+ {run.violations.length - 3} mais...</li>
+              )}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Error message */}
+      {run.error && (
+        <div className="flex items-start gap-2 text-xs p-2 bg-red-500/10 rounded">
+          <XCircle className="h-3 w-3 text-red-500 shrink-0 mt-0.5" />
+          <p className="text-red-700 dark:text-red-400 break-all">
+            {run.error}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

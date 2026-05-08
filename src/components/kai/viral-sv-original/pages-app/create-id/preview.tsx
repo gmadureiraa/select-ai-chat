@@ -18,6 +18,12 @@ import FeedbackModal from "@sv/components/app/FeedbackModal";
 import { ScheduleZernioModal } from "@sv/components/app/zernio/schedule-modal";
 import { PlannedPostModal } from "@sv/components/app/zernio/planned-post-modal";
 
+// KAI integration: salvar carrossel finalizado na biblioteca de conteúdo do
+// cliente. Usa o handler `save-to-library` (mesmo endpoint do KaiAssistant).
+// `useSVClient` expõe o clientId selecionado no shell do Kai (Sidebar).
+import { apiInvoke } from "@/lib/apiInvoke";
+import { useSVClient } from "../../MainApp";
+
 // Mesmo injector que o edit usa — garante que a fonte display escolhida
 // esteja disponível no momento do export PNG/PDF.
 const DISPLAY_FONTS_HREF =
@@ -159,6 +165,17 @@ export default function PreviewPage(props: {
   const canPlanInCalendar =
     isAdmin || profile?.plan === "pro" || profile?.plan === "business";
   const [plannedModalOpenPreview, setPlannedModalOpenPreview] = useState(false);
+
+  // ── Salvar na biblioteca do cliente (KAI integration) ─────────────────
+  // O carrossel finalizado vira um item em `client_content_library` (destination
+  // 'content', porque é conteúdo PRÓPRIO gerado, não inspiração externa).
+  // Disponível só quando há clientId selecionado no shell do KAI.
+  const { clientId, client } = useSVClient();
+  const [savingToLibrary, setSavingToLibrary] = useState(false);
+  const [savedLibraryItemId, setSavedLibraryItemId] = useState<string | null>(
+    null,
+  );
+
   // Conta entries no calendário linkadas ao draft atual (carouselId).
   // Mostra "X agendamentos" como feedback contextual. Atualiza quando
   // user adiciona via modal.
@@ -408,6 +425,121 @@ export default function PreviewPage(props: {
       }
     };
   }, []);
+
+  /**
+   * Salva o carrossel finalizado na biblioteca de conteúdo do cliente atual.
+   * O destino é "content" (não "references") porque é peça gerada PARA o
+   * cliente — não material de inspiração externa.
+   *
+   * Body:
+   *   - clientId (do useSVClient context)
+   *   - title (draft.title)
+   *   - content (concatenação dos textos dos slides)
+   *   - source_url null (gerado dentro do KAI)
+   *   - thumbnail_url (primeira imagem do carousel)
+   *   - format 'carousel' → backend mapeia pra content_type 'carousel'
+   *   - destination 'content'
+   *   - tags: ['gerado', 'kai-sv'] + visualTemplate (manifesto/twitter/...)
+   *
+   * Toast de sucesso linka pra Biblioteca do cliente (?tab=library).
+   */
+  async function handleSaveToLibrary() {
+    if (!draft) {
+      toast.error("Carrossel ainda carregando.");
+      return;
+    }
+    if (!clientId) {
+      toast.error("Selecione um cliente no menu lateral antes de salvar.");
+      return;
+    }
+    if (savingToLibrary) return;
+    setSavingToLibrary(true);
+    try {
+      const slidesText = slides
+        .map((s, i) => {
+          const heading = (s.heading ?? "").trim();
+          const body = (s.body ?? "").trim();
+          const parts: string[] = [`Slide ${i + 1}`];
+          if (heading) parts.push(heading);
+          if (body) parts.push(body);
+          return parts.join("\n");
+        })
+        .join("\n\n");
+      const captionBlock = caption.trim()
+        ? `\n\n---\n\nLegenda:\n${caption.trim()}${
+            hashtags.length > 0 ? `\n\n${hashtags.join(" ")}` : ""
+          }`
+        : "";
+      const fullContent = `${slidesText}${captionBlock}`.slice(0, 10000);
+
+      const thumbnailUrl =
+        slides.find((s) => typeof s.imageUrl === "string" && s.imageUrl.trim())
+          ?.imageUrl ?? null;
+
+      const tags = ["gerado", "kai-sv"];
+      if (templateId) tags.push(`template-${templateId}`);
+
+      const { data, error } = await apiInvoke<{
+        ok: boolean;
+        id?: string;
+        item?: { id?: string };
+        error?: string;
+      }>("save-to-library", {
+        body: {
+          client_id: clientId,
+          title: (draft.title || "Carrossel sem título").slice(0, 200),
+          content: fullContent,
+          source_url: undefined, // gerado pelo KAI, sem URL externa
+          thumbnail_url: thumbnailUrl ?? undefined,
+          format: "carousel" as const,
+          destination: "content" as const,
+          tags,
+          metadata: {
+            carouselId: draft.id,
+            visualTemplate: templateId,
+            slideCount: slides.length,
+            hasCaption: caption.trim().length > 0,
+          },
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Falha ao salvar.");
+      }
+      const itemId =
+        data?.id ?? data?.item?.id ?? null;
+      if (itemId) setSavedLibraryItemId(itemId);
+
+      const clientName = client?.name?.trim();
+      toast.success("Salvo na biblioteca do cliente", {
+        description: clientName
+          ? `Disponível em ${clientName} → Biblioteca`
+          : "Disponível em Biblioteca do cliente",
+        action: {
+          label: "Abrir biblioteca",
+          onClick: () => {
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.set("tab", "library");
+              if (clientId) url.searchParams.set("client", clientId);
+              url.hash = "";
+              window.history.pushState({}, "", url.toString());
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            } catch {
+              /* ignore */
+            }
+          },
+        },
+        duration: 6000,
+      });
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Falha ao salvar na biblioteca.";
+      toast.error(msg);
+    } finally {
+      setSavingToLibrary(false);
+    }
+  }
 
   function handleCopyHashtag(tag: string) {
     try {
@@ -1008,6 +1140,94 @@ export default function PreviewPage(props: {
                   </span>
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Salvar na biblioteca do cliente (KAI-only) — só aparece quando
+              há clientId selecionado no shell. Conteúdo gerado vai pra
+              client_content_library com destination='content'. */}
+          {clientId && draft?.id && (
+            <div
+              style={{
+                padding: 22,
+                background: "var(--sv-white)",
+                border: "1.5px solid var(--sv-ink)",
+                boxShadow: "3px 3px 0 0 var(--sv-pink, #D262B2)",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 9.5,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "var(--sv-ink)",
+                  marginBottom: 10,
+                  fontWeight: 700,
+                }}
+              >
+                Nº 02 · Biblioteca
+              </div>
+              <h4
+                className="sv-display"
+                style={{
+                  fontSize: 22,
+                  letterSpacing: "-0.01em",
+                  marginBottom: 8,
+                }}
+              >
+                Salvar na{" "}
+                <em>
+                  biblioteca{client?.name ? ` de ${client.name}` : " do cliente"}
+                </em>
+                .
+              </h4>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "var(--sv-soft, var(--sv-muted))",
+                  marginBottom: 14,
+                  lineHeight: 1.45,
+                }}
+              >
+                Salva esse carrossel na biblioteca de conteúdo
+                {client?.name ? ` do ${client.name}` : " do cliente atual"} —
+                fica disponível só pra esse perfil, não vira referência global.
+                Útil pra reaproveitar texto, repurpose em outros formatos ou
+                referenciar no Kai Assistant depois.
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleSaveToLibrary()}
+                disabled={savingToLibrary || isExporting || slides.length === 0}
+                className="sv-btn sv-btn-primary"
+                style={{
+                  width: "100%",
+                  padding: "11px 12px",
+                  opacity: savingToLibrary || slides.length === 0 ? 0.6 : 1,
+                  cursor: savingToLibrary ? "wait" : "pointer",
+                }}
+              >
+                {savingToLibrary
+                  ? "Salvando..."
+                  : savedLibraryItemId
+                    ? "Salvar de novo"
+                    : `Salvar na biblioteca${client?.name ? ` de ${client.name}` : ""}`}
+              </button>
+              {savedLibraryItemId && (
+                <div
+                  className="mt-2"
+                  style={{
+                    fontFamily: "var(--sv-mono)",
+                    fontSize: 9,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: "var(--sv-muted)",
+                  }}
+                >
+                  ● Salvo · ID {savedLibraryItemId.slice(0, 8)}
+                </div>
+              )}
             </div>
           )}
 

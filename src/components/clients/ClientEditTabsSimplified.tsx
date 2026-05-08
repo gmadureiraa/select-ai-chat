@@ -14,6 +14,7 @@ import {
 import { useImportClientSocialContent } from "@/hooks/useImportClientSocialContent";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { SocialIntegrationsTab } from "./SocialIntegrationsTab";
+import { SocialIntegrationsPanel } from "./SocialIntegrationsPanel";
 import { ClientReferencesManager } from "./ClientReferencesManager";
 import { ClientDocumentsManager } from "./ClientDocumentsManager";
 import { VisualReferencesManager } from "./VisualReferencesManager";
@@ -305,7 +306,10 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
         </TabsContent>
 
         {/* Tab: Integrações */}
-        <TabsContent value="integrations" className="mt-4">
+        <TabsContent value="integrations" className="mt-4 space-y-4">
+          {/* Painel novo (resumo + conectar nova) */}
+          <SocialIntegrationsPanel clientId={client.id} />
+          {/* Cards detalhados legacy (todas plataformas, com descrições) */}
           <SocialIntegrationsTab clientId={client.id} />
         </TabsContent>
 

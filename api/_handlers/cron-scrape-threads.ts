@@ -55,8 +55,11 @@ interface ThreadsRaw {
 }
 
 const POSTS_PER_HANDLE = 12;
-// Default actor: apify/threads-scraper. Can be overridden via env.
-const DEFAULT_ACTOR = process.env.APIFY_THREADS_ACTOR || 'apify~threads-scraper';
+// 2026-05-08 — padronizado pra `curious_coder~threads-scraper` (actor mais novo,
+// melhor cobertura) alinhado com `import-client-social-content.ts`. Audit E
+// identificou conflito anterior com `apify~threads-scraper`. Pode ser overrided
+// via env APIFY_THREADS_ACTOR.
+const DEFAULT_ACTOR = process.env.APIFY_THREADS_ACTOR || 'curious_coder~threads-scraper';
 
 function extractHandle(value: string): string | null {
   if (!value) return null;
