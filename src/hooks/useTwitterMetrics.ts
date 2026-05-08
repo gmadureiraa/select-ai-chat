@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TwitterPost } from "@/types/twitter";
+import { toast } from "sonner";
+import type { TwitterPost } from "@/types/twitter";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export const useTwitterPosts = (clientId: string, limit: number = 100) => {
   return useQuery({
@@ -116,6 +118,10 @@ export const useImportTwitterCSV = () => {
       queryClient.invalidateQueries({ queryKey: ['performance-metrics'] });
       queryClient.invalidateQueries({ queryKey: ['import-history'] });
     },
+    onError: (error: Error) => {
+      console.error('[useImportTwitterCSV]', error);
+      toast.error('Erro ao importar CSV do Twitter', { description: error.message });
+    },
   });
 };
 
@@ -124,7 +130,7 @@ export const useFetchTwitterApify = () => {
 
   return useMutation({
     mutationFn: async ({ clientId, twitterHandle, maxResults }: { clientId: string; twitterHandle: string; maxResults?: number }) => {
-      const { data, error } = await supabase.functions.invoke('fetch-twitter-apify', {
+      const { data, error } = await apiInvoke('fetch-twitter-apify', {
         body: { clientId, twitterHandle, maxResults },
       });
 
@@ -136,6 +142,10 @@ export const useFetchTwitterApify = () => {
       queryClient.invalidateQueries({ queryKey: ['twitter-posts'] });
       queryClient.invalidateQueries({ queryKey: ['twitter-metrics'] });
       queryClient.invalidateQueries({ queryKey: ['performance-metrics'] });
+    },
+    onError: (error: Error) => {
+      console.error('[useFetchTwitterApify]', error);
+      toast.error('Erro ao sincronizar Twitter', { description: error.message });
     },
   });
 };
@@ -154,6 +164,10 @@ export const useUpdateTwitterPost = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['twitter-posts'] });
+    },
+    onError: (error: Error) => {
+      console.error('[useUpdateTwitterPost]', error);
+      toast.error('Erro ao atualizar tweet', { description: error.message });
     },
   });
 };

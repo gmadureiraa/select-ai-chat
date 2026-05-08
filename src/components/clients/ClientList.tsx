@@ -1,4 +1,4 @@
-import { MessageSquare, Loader2, Pencil, Trash2, FileText, Globe, Library, Bookmark } from "lucide-react";
+import { MessageSquare, Loader2, Pencil, Trash2, FileText, Globe, Library, Bookmark, Users, Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Client } from "@/hooks/useClients";
@@ -9,6 +9,7 @@ import { DeleteClientDialog } from "./DeleteClientDialog";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface ClientListProps {
   clients: Client[];
@@ -64,13 +65,12 @@ export const ClientList = ({ clients, isLoading }: ClientListProps) => {
 
   if (clients.length === 0) {
     return (
-      <div className="text-center py-20">
-        <MessageSquare className="h-10 w-10 mx-auto mb-4 text-muted-foreground/50" />
-        <h3 className="text-lg font-semibold mb-2">Nenhum cliente cadastrado</h3>
-        <p className="text-sm text-muted-foreground">
-          Crie seu primeiro cliente para começar
-        </p>
-      </div>
+      <EmptyState
+        icon={Users}
+        title="Nenhum cliente cadastrado"
+        description="Cadastre seu primeiro cliente para começar a planejar conteúdo, gerar carrosséis e centralizar tudo do projeto em um só lugar."
+        variant="default"
+      />
     );
   }
 

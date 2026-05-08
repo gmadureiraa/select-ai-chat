@@ -8,10 +8,12 @@ import { FolderPlus, Loader2, Image as ImageIcon, ExternalLink, CheckCircle } fr
 import { InstagramPost } from "@/hooks/useInstagramPosts";
 import { useContentLibrary, ContentType } from "@/hooks/useContentLibrary";
 import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { transcribeImagesChunked } from "@/lib/transcribeImages";
+import { apiInvoke } from '../../lib/apiInvoke';
 
 interface SyncToLibraryDialogProps {
   post: InstagramPost | null;
@@ -31,7 +33,7 @@ interface AttachedItem {
 function getStoragePublicUrl(path: string): string {
   // If already a full URL, return as-is
   if (path.startsWith('http')) return path;
-  const { data } = supabase.storage.from('client-files').getPublicUrl(path);
+  const { data } = blobStorage.from('client-files').getPublicUrl(path);
   return data.publicUrl;
 }
 
@@ -65,7 +67,7 @@ export function SyncToLibraryDialog({ post, open, onOpenChange, clientId }: Sync
       if (post.permalink && downloadImages) {
         setSyncStatus("Extraindo e salvando imagens...");
         try {
-          const { data, error } = await supabase.functions.invoke('extract-instagram', {
+          const { data, error } = await apiInvoke('extract-instagram', {
             body: { 
               url: post.permalink,
               clientId,

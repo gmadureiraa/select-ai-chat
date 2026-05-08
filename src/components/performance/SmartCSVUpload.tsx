@@ -11,6 +11,7 @@ import { CSVValidationAgent } from "@/components/performance/CSVValidationAgent"
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
+import { apiInvoke } from '../../lib/apiInvoke';
 
 interface SmartCSVUploadProps {
   clientId: string;
@@ -194,7 +195,7 @@ export function SmartCSVUpload({ clientId, platform, onImportComplete }: SmartCS
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
 
-      const { data, error } = await supabase.functions.invoke("validate-csv-import", {
+      const { data, error } = await apiInvoke("validate-csv-import", {
         body: {
           clientId,
           platform,

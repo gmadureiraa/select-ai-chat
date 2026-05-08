@@ -27,7 +27,7 @@ import { MetaAdsDataTable } from "./MetaAdsCampaignsTable";
 import { EnhancedKPICard } from "./EnhancedKPICard";
 import { DonutChart } from "./DonutChart";
 import { HorizontalBarRank } from "./HorizontalBarRank";
-import { MetaAdsCampaign, MetaAdsKPIs } from "@/types/metaAds";
+import type { MetaAdsCampaign, MetaAdsKPIs } from "@/types/metaAds";
 import { cn } from "@/lib/utils";
 import {
   AreaChart,

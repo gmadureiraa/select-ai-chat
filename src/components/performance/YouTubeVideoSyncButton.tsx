@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { apiInvoke } from '../../lib/apiInvoke';
 
 interface YouTubeVideoSyncButtonProps {
   videoId: string;
@@ -48,7 +49,7 @@ export const YouTubeVideoSyncButton = ({
       setSyncStatus("Atualizando métricas...");
       
       try {
-        const { data: apifyData, error: apifyError } = await supabase.functions.invoke(
+        const { data: apifyData, error: apifyError } = await apiInvoke(
           "fetch-youtube-apify",
           {
             body: {
@@ -71,7 +72,7 @@ export const YouTubeVideoSyncButton = ({
       // Step 2: Extract transcript
       setSyncStatus("Extraindo transcrição...");
       
-      const { data: extractData, error: extractError } = await supabase.functions.invoke(
+      const { data: extractData, error: extractError } = await apiInvoke(
         "extract-youtube",
         {
           body: {

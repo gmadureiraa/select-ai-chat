@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
+import { apiInvoke } from '../lib/apiInvoke';
 
 export type TriggerType = 'schedule' | 'rss' | 'webhook';
 
@@ -250,7 +251,7 @@ export function usePlanningAutomations() {
   // Manually trigger an automation (for testing)
   const triggerAutomation = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase.functions.invoke('process-automations', {
+      const { data, error } = await apiInvoke('process-automations', {
         body: { automationId: id },
       });
       

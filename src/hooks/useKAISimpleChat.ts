@@ -226,9 +226,9 @@ export function useKAISimpleChat({
         throw new Error("Não autenticado");
       }
 
-      // Call the simple chat endpoint
+      // Migrated 2026-05-07: Supabase edge function -> Vercel Function /api/kai-simple-chat
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-simple-chat`,
+        `/api/kai-simple-chat`,
         {
           method: "POST",
           headers: {

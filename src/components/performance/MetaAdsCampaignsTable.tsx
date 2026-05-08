@@ -21,7 +21,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { MetaAdsCampaign, MetaAdsAdSet, MetaAdsAd } from "@/types/metaAds";
+import type { MetaAdsCampaign, MetaAdsAdSet, MetaAdsAd } from "@/types/metaAds";
 import { cn } from "@/lib/utils";
 
 type DataType = 'campaigns' | 'adsets' | 'ads';

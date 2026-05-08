@@ -6,7 +6,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
-import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { toast } from "sonner";
 
 interface RichContentEditorProps {
@@ -69,13 +69,13 @@ export function RichContentEditor({
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `${clientId || 'content'}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await blobStorage
         .from('client-files')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage
+      const { data } = blobStorage
         .from('client-files')
         .getPublicUrl(filePath);
 

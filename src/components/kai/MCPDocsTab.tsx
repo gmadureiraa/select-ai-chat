@@ -23,7 +23,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
-const MCP_URL = "https://tkbsjtgrumhvwlxkmojg.supabase.co/functions/v1/mcp-reader";
+const MCP_URL = "/api/mcp-reader";
 const FUNCTION_NAME = "mcp-reader";
 
 type Tool = {

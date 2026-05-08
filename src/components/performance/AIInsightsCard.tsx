@@ -10,6 +10,7 @@ import ReactMarkdown from "react-markdown";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { apiInvoke } from '../../lib/apiInvoke';
 
 interface AIInsightsCardProps {
   clientId: string;
@@ -92,7 +93,7 @@ export function AIInsightsCard({
         },
       };
 
-      const { data, error } = await supabase.functions.invoke('generate-performance-insights', {
+      const { data, error } = await apiInvoke('generate-performance-insights', {
         body: { 
           clientId, 
           clientName: clientName || "Cliente",

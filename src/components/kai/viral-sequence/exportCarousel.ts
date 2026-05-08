@@ -13,11 +13,13 @@
  * Usa html-to-image + jszip + jspdf (já no package.json).
  */
 
-import { toPng } from "html-to-image";
-import jsPDF from "jspdf";
-import JSZip from "jszip";
+// html-to-image, jspdf, jszip são lazy-loaded dentro de cada função de export
+// pra não inflar o bundle de quem só está vendo carrosséis (sem exportar).
 import type { ViralCarousel } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
+
+// Tipo helper local pra deixar a assinatura de captureNodeAsPng explícita.
+type ToPngFn = typeof import("html-to-image").toPng;
 
 // 1×1 transparente — substitui imagens que falharem por CORS no canvas.
 const PLACEHOLDER_1X1 =
@@ -68,7 +70,7 @@ async function waitForExportReady(nodes: HTMLElement[]): Promise<void> {
   await new Promise((r) => setTimeout(r, 500));
 }
 
-async function captureNodeAsPng(node: HTMLElement): Promise<string> {
+async function captureNodeAsPng(toPng: ToPngFn, node: HTMLElement): Promise<string> {
   return toPng(node, {
     width: CANVAS_W,
     height: CANVAS_H,
@@ -135,6 +137,10 @@ export async function exportCarouselAsZip(
     return { ok: 0, failed: carousel.slides.length };
   }
   await waitForExportReady(nodes);
+  const [{ default: JSZip }, { toPng }] = await Promise.all([
+    import("jszip"),
+    import("html-to-image"),
+  ]);
   const zip = new JSZip();
   let ok = 0;
   let failed = missing.length;
@@ -143,7 +149,7 @@ export async function exportCarouselAsZip(
     const node = slideNodes.get(slide.id);
     if (!node) continue;
     try {
-      const dataUrl = await captureNodeAsPng(node);
+      const dataUrl = await captureNodeAsPng(toPng, node);
       const base64 = dataUrl.split(",")[1] ?? "";
       if (!base64) {
         failed++;
@@ -179,6 +185,7 @@ export async function exportCarouselAsPngs(
 ): Promise<{ ok: number; failed: number }> {
   const { nodes, missing } = collectNodes(carousel, slideNodes);
   await waitForExportReady(nodes);
+  const { toPng } = await import("html-to-image");
   let ok = 0;
   let failed = missing.length;
   const base = baseFilename(carousel);
@@ -186,7 +193,7 @@ export async function exportCarouselAsPngs(
     const node = slideNodes.get(slide.id);
     if (!node) continue;
     try {
-      const png = await captureNodeAsPng(node);
+      const png = await captureNodeAsPng(toPng, node);
       downloadDataUrl(
         png,
         `${base}-${String(slide.order).padStart(2, "0")}.png`,
@@ -211,6 +218,10 @@ export async function exportCarouselAsPdf(
 ): Promise<{ ok: number; failed: number }> {
   const { nodes, missing } = collectNodes(carousel, slideNodes);
   await waitForExportReady(nodes);
+  const [{ default: jsPDF }, { toPng }] = await Promise.all([
+    import("jspdf"),
+    import("html-to-image"),
+  ]);
   const pdf = new jsPDF({
     orientation: "portrait",
     unit: "px",
@@ -224,7 +235,7 @@ export async function exportCarouselAsPdf(
     const node = slideNodes.get(slide.id);
     if (!node) continue;
     try {
-      const png = await captureNodeAsPng(node);
+      const png = await captureNodeAsPng(toPng, node);
       if (ok > 0) pdf.addPage([CANVAS_W, CANVAS_H], "portrait");
       pdf.addImage(png, "PNG", 0, 0, CANVAS_W, CANVAS_H, undefined, "FAST");
       ok++;

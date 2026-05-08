@@ -6,7 +6,8 @@ import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import kaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -141,29 +142,41 @@ const Login = () => {
 
   if (checkingRedirect) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <main
+        id="main-content"
+        className="min-h-screen bg-background flex items-center justify-center p-4"
+        aria-live="polite"
+      >
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
           <p className="text-muted-foreground">Carregando seu workspace...</p>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <main
+      id="main-content"
+      className="min-h-screen bg-background flex items-center justify-center p-4 relative"
+    >
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4">
           <div className="flex items-center justify-center gap-4">
-            <img src={kaleidosLogo} alt="Kaleidos" className="h-12 w-12" />
+            <img src={kaleidosLogo} alt="" aria-hidden="true" className="h-12 w-12" />
             <h1 className="text-4xl font-bold">
+              <span className="sr-only">KAI - </span>
               k<span className="text-primary">AI</span>
             </h1>
           </div>
           <div>
-            <CardTitle className="text-2xl text-center">
+            {/* a11y: usamos h2 direto (CardTitle default = h3 e quebra heading-order h1→h3) */}
+            <h2 className="text-2xl text-center font-semibold leading-none tracking-tight">
               Entrar
-            </CardTitle>
+            </h2>
             <CardDescription className="text-center">
               Entre com suas credenciais
             </CardDescription>
@@ -250,7 +263,7 @@ const Login = () => {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 };
 

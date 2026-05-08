@@ -12,7 +12,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { useClientVisualReferences, ClientVisualReference } from "@/hooks/useClientVisualReferences";
-import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { getPublicUrl } from "@/lib/storage";
 import { 
   Loader2, Trash2, Star, StarOff, Image, 
@@ -119,7 +119,7 @@ export const VisualReferencesManager = ({
       const fileExt = file.name.split(".").pop();
       const filePath = `visual-references/${clientId}/${Date.now()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await blobStorage
         .from("client-files")
         .upload(filePath, file);
 

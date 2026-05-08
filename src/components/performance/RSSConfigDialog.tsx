@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, Rss, Save, ExternalLink, RefreshCw } from "lucide-react";
+import { apiInvoke } from '../../lib/apiInvoke';
 
 interface RSSConfigDialogProps {
   open: boolean;
@@ -68,7 +69,7 @@ export function RSSConfigDialog({ open, onOpenChange, clientId, platform, onSave
   const syncToLibrary = async (feedUrl: string) => {
     setIsSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("sync-rss-to-library", {
+      const { data, error } = await apiInvoke("sync-rss-to-library", {
         body: { 
           clientId,
           platform: "newsletter",

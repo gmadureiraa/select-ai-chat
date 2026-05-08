@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -79,26 +78,12 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
       return ((data || []) as unknown) as TeamTask[];
     },
     enabled: !!workspaceId,
+    // Substitui Supabase Realtime: poll a cada 15s para refletir
+    // alterações em tasks vindas de outros membros do workspace
+    // (kanban colaborativo). Mutations locais já invalidam imediato.
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
-
-  // Realtime
-  useEffect(() => {
-    if (!workspaceId) return;
-    const channel = supabase
-      .channel(`team_tasks:${workspaceId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "team_tasks", filter: `workspace_id=eq.${workspaceId}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["team-tasks", workspaceId] });
-          queryClient.invalidateQueries({ queryKey: ["my-team-tasks", workspaceId] });
-        }
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [workspaceId, queryClient]);
 
   const createTask = useMutation({
     mutationFn: async (input: CreateTeamTaskInput) => {

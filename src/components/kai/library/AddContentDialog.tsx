@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, Plus, Instagram, Youtube, Mail, Linkedin, BookOpen, FileBarChart } from "lucide-react";
@@ -59,13 +60,13 @@ export function AddContentDialog({ open, onOpenChange, clientId, defaultContentT
       const fileExt = file.name.split('.').pop();
       const fileName = `${clientId}/covers/${Date.now()}.${fileExt}`;
       
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await blobStorage
         .from('client-files')
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage.from('client-files').getPublicUrl(fileName);
+      const { data } = blobStorage.from('client-files').getPublicUrl(fileName);
       setThumbnailUrl(data.publicUrl);
       toast.success("Capa carregada!");
     } catch (error) {

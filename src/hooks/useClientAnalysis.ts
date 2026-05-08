@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { apiInvoke } from '../lib/apiInvoke';
 
 
 export interface ClientAnalysis {
@@ -113,7 +114,7 @@ export function useClientAnalysis() {
         });
       }, 600);
 
-      const { data, error: fnError } = await supabase.functions.invoke('analyze-client-onboarding', {
+      const { data, error: fnError } = await apiInvoke('analyze-client-onboarding', {
         body: { clientData }
       });
 

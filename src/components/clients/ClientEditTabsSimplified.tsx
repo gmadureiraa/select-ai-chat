@@ -5,10 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  User, Loader2, Globe, Instagram, Twitter, 
+import {
+  User, Loader2, Globe, Instagram, Twitter,
   Linkedin, Youtube, Mail, Megaphone, Check,
-  Building, MessageSquare, Users, Target, Plug, FileText, Brain
+  Building, MessageSquare, Users, Target, Plug, FileText, Brain,
+  BarChart3
 } from "lucide-react";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { SocialIntegrationsTab } from "./SocialIntegrationsTab";
@@ -16,6 +17,7 @@ import { ClientReferencesManager } from "./ClientReferencesManager";
 import { ClientDocumentsManager } from "./ClientDocumentsManager";
 import { VisualReferencesManager } from "./VisualReferencesManager";
 import { AIContextTab } from "./AIContextTab";
+import { ClientAnalyticsTab } from "./ClientAnalyticsTab";
 import { Client, useClients } from "@/hooks/useClients";
 import { useClientWebsites } from "@/hooks/useClientWebsites";
 import { useClientDocuments } from "@/hooks/useClientDocuments";
@@ -130,9 +132,9 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
         </div>
       </div>
 
-      {/* Simplified Tabs: 5 tabs with AI Context as final */}
+      {/* Simplified Tabs: 6 tabs (added Analytics as final) */}
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="profile" className="text-xs gap-1">
             <User className="h-3.5 w-3.5" />
             Perfil
@@ -152,6 +154,10 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
           <TabsTrigger value="ai-context" className="text-xs gap-1">
             <Brain className="h-3.5 w-3.5" />
             Contexto IA
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="text-xs gap-1">
+            <BarChart3 className="h-3.5 w-3.5" />
+            Analytics
           </TabsTrigger>
         </TabsList>
 
@@ -299,7 +305,7 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
           <SocialIntegrationsTab clientId={client.id} />
         </TabsContent>
 
-        {/* Tab: AI Context - Final tab */}
+        {/* Tab: AI Context */}
         <TabsContent value="ai-context" className="mt-4">
           <AIContextTab
             clientId={client.id}
@@ -307,6 +313,11 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
             clientUpdatedAt={client.updated_at}
             onContextUpdate={handleContextUpdate}
           />
+        </TabsContent>
+
+        {/* Tab: Analytics — viral stats, top content, tokens, atividade */}
+        <TabsContent value="analytics" className="mt-4">
+          <ClientAnalyticsTab clientId={client.id} />
         </TabsContent>
       </Tabs>
 

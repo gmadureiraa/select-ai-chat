@@ -126,14 +126,14 @@ export async function generateCarouselCopies(
   const token = sessionData?.session?.access_token;
   if (!token) throw new Error("Não autenticado");
 
+  // Migrated 2026-05-07: Supabase edge function -> Vercel Function /api/kai-content-agent
   const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-content-agent`,
+    `/api/kai-content-agent`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
-        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
       },
       body: JSON.stringify({
         clientId: input.clientId,

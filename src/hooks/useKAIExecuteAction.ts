@@ -5,6 +5,7 @@ import {
   PendingAction, 
   CSVAnalysisResult 
 } from "@/types/kaiActions";
+import { apiInvoke } from '../lib/apiInvoke';
 import { toast } from "sonner";
 
 interface ExecuteActionParams {
@@ -107,7 +108,7 @@ async function executeUploadMetrics(
   setProgress(40);
 
   // Validate and import
-  const { data, error } = await supabase.functions.invoke("validate-csv-import", {
+  const { data, error } = await apiInvoke("validate-csv-import", {
     body: {
       clientId,
       platform: csvData.platform,
@@ -267,7 +268,7 @@ async function executeCreateContent(
 ): Promise<ExecuteActionResult> {
   const { format, description } = action.params;
 
-  const { data, error } = await supabase.functions.invoke("unified-content-api", {
+  const { data, error } = await apiInvoke("unified-content-api", {
     body: {
       clientId,
       title: description || "Criar conteúdo",

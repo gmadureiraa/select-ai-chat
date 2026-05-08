@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { useToast } from "@/hooks/use-toast";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export interface StyleAnalysis {
   style_summary: string;
@@ -78,14 +80,14 @@ export const useClientVisualReferences = (clientId: string) => {
       
       // If it's a storage path, get the public URL
       if (!imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
-        const { data: urlData } = supabase.storage
+        const { data: urlData } = blobStorage
           .from("client-files")
           .getPublicUrl(imageUrl);
         imageUrl = urlData.publicUrl;
       }
 
       // Call analyze-style edge function
-      const { data, error } = await supabase.functions.invoke("analyze-style", {
+      const { data, error } = await apiInvoke("analyze-style", {
         body: {
           imageUrls: [imageUrl],
           clientId: clientId,

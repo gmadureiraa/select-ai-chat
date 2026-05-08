@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { apiInvoke } from '../lib/apiInvoke';
 
 interface WebPushState {
   isSupported: boolean;
@@ -83,7 +84,7 @@ export function useWebPushSubscription() {
       }
 
       // Get VAPID public key from server
-      const { data: keyData, error: keyError } = await supabase.functions.invoke(
+      const { data: keyData, error: keyError } = await apiInvoke(
         "get-vapid-public-key"
       );
 

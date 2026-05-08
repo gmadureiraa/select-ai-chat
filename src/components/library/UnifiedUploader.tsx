@@ -17,6 +17,7 @@ import {
   File,
   ExternalLink
 } from "lucide-react";
+import { apiInvoke } from '../../lib/apiInvoke';
 import { cn } from "@/lib/utils";
 
 interface AttachedItem {
@@ -182,7 +183,7 @@ export function UnifiedUploader({
         try {
           switch (item.type) {
             case 'link': {
-              const { data, error } = await supabase.functions.invoke("scrape-newsletter", {
+              const { data, error } = await apiInvoke("scrape-newsletter", {
                 body: { url: item.url }
               });
               if (error) throw error;
@@ -202,7 +203,7 @@ export function UnifiedUploader({
             }
 
             case 'youtube': {
-              const { data, error } = await supabase.functions.invoke("extract-youtube", {
+              const { data, error } = await apiInvoke("extract-youtube", {
                 body: { url: item.url, userId }
               });
               if (error) throw error;
@@ -219,7 +220,7 @@ export function UnifiedUploader({
             }
 
             case 'pdf': {
-              const { data, error } = await supabase.functions.invoke("extract-pdf", {
+              const { data, error } = await apiInvoke("extract-pdf", {
                 body: { fileUrl: item.url, fileName: item.name, userId }
               });
               if (error) throw error;
@@ -232,7 +233,7 @@ export function UnifiedUploader({
             }
 
             case 'video': {
-              const { data, error } = await supabase.functions.invoke("transcribe-video", {
+              const { data, error } = await apiInvoke("transcribe-video", {
                 body: { videoUrl: item.url, userId }
               });
               if (error) throw error;

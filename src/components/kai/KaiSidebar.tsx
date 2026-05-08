@@ -14,14 +14,16 @@ import {
   Lock,
   MessageSquare,
   Home,
-  Flame,
   Twitter,
   Film,
   Terminal,
   CheckSquare,
   Radar,
+  Users,
+  CreditCard,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -37,6 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { ClientDialog } from "@/components/clients/ClientDialog";
@@ -119,21 +122,23 @@ export function KaiSidebar({
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
   const { clients } = useClients();
-  const { 
-    canViewPerformance, 
-    canViewClients, 
-    canViewSettings, 
+  const {
+    canViewPerformance,
+    canViewClients,
+    canViewSettings,
     canViewPlanning,
     canViewLibrary,
     isViewer,
     canUseAssistant,
     canManageTeam,
-    workspace 
+    isOwner,
+    workspace
   } = useWorkspace();
   
   const { user } = useAuth();
   
   const { hasDevAccess } = useDevAccess();
+  const { isSuperAdmin } = useSuperAdmin();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
   const [showClientDialog, setShowClientDialog] = useState(false);
   const hasClients = clients && clients.length > 0;
@@ -164,14 +169,25 @@ export function KaiSidebar({
   };
 
   return (
-    <aside className={cn(
-      "h-screen bg-sidebar flex flex-col transition-all duration-200",
-      !isMobile && "border-r border-sidebar-border",
-      collapsed ? "w-16" : "w-60"
-    )}>
+    <aside
+      aria-label="Barra lateral KAI"
+      className={cn(
+        "h-screen bg-sidebar flex flex-col transition-all duration-200",
+        !isMobile && "border-r border-sidebar-border",
+        collapsed ? "w-16" : "w-60"
+      )}
+    >
       {/* Workspace */}
       <div className="p-3">
         <WorkspaceSwitcher collapsed={collapsed} />
+        {!collapsed && (
+          <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground/70 px-1">
+            <span>Busca rápida</span>
+            <kbd className="px-1.5 py-0.5 rounded border border-border bg-muted/50 font-mono text-[9px] tracking-wider">
+              ⌘K
+            </kbd>
+          </div>
+        )}
       </div>
 
       {/* Profile Selector */}
@@ -277,7 +293,10 @@ export function KaiSidebar({
       <ClientDialog open={showClientDialog} onOpenChange={setShowClientDialog} />
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 space-y-1 overflow-y-auto scrollbar-hide">
+      <nav
+        aria-label="Navegação principal do workspace"
+        className="flex-1 px-2 space-y-1 overflow-y-auto scrollbar-hide"
+      >
         {/* Home Dashboard */}
         <NavItem
           icon={<Home className="h-4 w-4" strokeWidth={1.5} />}
@@ -335,51 +354,56 @@ export function KaiSidebar({
           collapsed={collapsed}
         />
 
-        {/* Viral Hunter — posts de maior engajamento do cliente como
-            inspiração pro KAI. Precisa do mesmo acesso do assistant. */}
+        {/* Grupo "Viral" — quick wins Fase 1 do combo-viral-integration.
+            Itens GLOBAIS (não dependem de cliente): biblioteca + atalhos pros
+            apps standalone (Sequência Viral, Reels Viral, Radar Viral). */}
+        {!collapsed && (
+          <div className="px-3 pt-3 pb-1">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">
+              Viral
+            </span>
+          </div>
+        )}
+
         <NavItem
-          icon={<Flame className="h-4 w-4" strokeWidth={1.5} />}
-          label="Viral Hunter"
-          active={activeTab === "viral"}
-          onClick={() => canUseAssistant ? onTabChange("viral") : showPermissionMessage()}
+          icon={<Library className="h-4 w-4" strokeWidth={1.5} />}
+          label="Biblioteca Viral"
+          active={activeTab === "viral-library"}
+          onClick={() => onTabChange("viral-library")}
           collapsed={collapsed}
-          disabled={!canUseAssistant}
-          showLock={!canUseAssistant}
         />
 
-        {/* Sequência Viral — criador de carrossel estilo Twitter via KAI.
-            Mesmo gate que assistant (precisa gerar conteúdo). */}
         <NavItem
           icon={<Twitter className="h-4 w-4" strokeWidth={1.5} />}
-          label="Sequência Viral"
-          active={activeTab === "sequence"}
-          onClick={() => canUseAssistant ? onTabChange("sequence") : showPermissionMessage()}
+          label="Carrossel"
+          active={activeTab === "viral-carrossel"}
+          onClick={() => onTabChange("viral-carrossel")}
           collapsed={collapsed}
-          disabled={!canUseAssistant}
-          showLock={!canUseAssistant}
         />
 
-        {/* Reels Viral — engenharia reversa de Reels (link → análise + roteiro adaptado). */}
         <NavItem
           icon={<Film className="h-4 w-4" strokeWidth={1.5} />}
-          label="Reels Viral"
-          active={activeTab === "reels"}
-          onClick={() => canUseAssistant ? onTabChange("reels") : showPermissionMessage()}
+          label="Reels"
+          active={activeTab === "viral-reels-page"}
+          onClick={() => onTabChange("viral-reels-page")}
           collapsed={collapsed}
-          disabled={!canUseAssistant}
-          showLock={!canUseAssistant}
         />
 
-        {/* Radar Viral — briefing diário agregando notícias, YT, IG e competitors. */}
         <NavItem
           icon={<Radar className="h-4 w-4" strokeWidth={1.5} />}
-          label="Radar Viral"
-          active={activeTab === "radar"}
-          onClick={() => canUseAssistant ? onTabChange("radar") : showPermissionMessage()}
+          label="Radar"
+          active={activeTab === "viral-radar-page"}
+          onClick={() => onTabChange("viral-radar-page")}
           collapsed={collapsed}
-          disabled={!canUseAssistant}
-          showLock={!canUseAssistant}
         />
+
+        {/* 2026-05-08 (replace-viral): grupo "Cliente" duplicado removido.
+            As 3 ferramentas viral (Sequência/Reels/Radar) agora vivem só no
+            grupo "Viral" acima, apontando pros mesmos componentes que eram
+            duplicados aqui. O item "Viral Hunter" (KAI-1.0 legacy) foi
+            descontinuado — seu conteúdo de descoberta (posts próprios,
+            concorrentes, YT, IG, news, trends, ideas) foi absorvido pelo
+            Radar Viral + Library. Backup em _legacy/viral-replaced-2026-05-08/. */}
 
         {/* Automações - Dev e admins do workspace */}
         {(hasDevAccess || canManageTeam) && (
@@ -404,6 +428,66 @@ export function KaiSidebar({
             disabled={isViewer}
             showLock={isViewer}
           />
+        )}
+
+        {/* Workspace — settings (owner) + members (admin/owner) */}
+        {(isOwner || canManageTeam) && (
+          <>
+            {!collapsed && (
+              <div className="px-3 pt-3 pb-1">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">
+                  Workspace
+                </span>
+              </div>
+            )}
+            {isOwner && (
+              <NavItem
+                icon={<Settings className="h-4 w-4" strokeWidth={1.5} />}
+                label="Configurações"
+                active={activeTab === "workspace-settings"}
+                onClick={() => onTabChange("workspace-settings")}
+                collapsed={collapsed}
+              />
+            )}
+            {canManageTeam && (
+              <NavItem
+                icon={<Users className="h-4 w-4" strokeWidth={1.5} />}
+                label="Membros"
+                active={activeTab === "workspace-members"}
+                onClick={() => onTabChange("workspace-members")}
+                collapsed={collapsed}
+              />
+            )}
+            {isOwner && (
+              <NavItem
+                icon={<CreditCard className="h-4 w-4" strokeWidth={1.5} />}
+                label="Plano e cobrança"
+                active={activeTab === "billing"}
+                onClick={() => onTabChange("billing")}
+                collapsed={collapsed}
+              />
+            )}
+          </>
+        )}
+
+        {/* Admin — só super_admin enxerga */}
+        {isSuperAdmin && (
+          <>
+            {!collapsed && (
+              <div className="px-3 pt-3 pb-1">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">
+                  Admin
+                </span>
+              </div>
+            )}
+            <NavItem
+              icon={<Radar className="h-4 w-4" strokeWidth={1.5} />}
+              label="Fontes Radar"
+              active={activeTab === "radar-sources-admin"}
+              onClick={() => onTabChange("radar-sources-admin")}
+              collapsed={collapsed}
+            />
+          </>
         )}
       </nav>
 
@@ -444,22 +528,35 @@ export function KaiSidebar({
         {/* Notifications */}
         <NotificationBell variant="sidebar" collapsed={collapsed} />
 
+        {/* Theme toggle */}
+        <div
+          className={cn(
+            "flex items-center gap-3 px-3 py-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-accent transition-colors",
+            collapsed && "justify-center px-2",
+          )}
+        >
+          <ThemeToggle className="h-7 w-7" />
+          {!collapsed && <span className="text-sm">Tema</span>}
+        </div>
+
         {/* Collapse Toggle */}
         {!isMobile && (
           <Button
             variant="ghost"
             size="sm"
             onClick={onToggleCollapse}
+            aria-label={collapsed ? "Expandir barra lateral" : "Recolher barra lateral"}
+            aria-expanded={!collapsed}
             className={cn(
               "w-full flex items-center gap-3 justify-center text-muted-foreground hover:text-foreground",
               !collapsed && "justify-start"
             )}
           >
             {collapsed ? (
-              <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
+              <ChevronRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
             ) : (
               <>
-                <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
+                <ChevronLeft aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
                 <span className="text-sm">Recolher</span>
               </>
             )}

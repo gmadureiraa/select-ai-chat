@@ -8,6 +8,7 @@ import { toPng } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
 import type { ViralCarousel } from "./types";
 import { CANVAS_H, CANVAS_W } from "./types";
+import { apiInvoke } from '../../../lib/apiInvoke';
 
 const PLACEHOLDER_1X1 =
   "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
@@ -108,7 +109,7 @@ export async function publishCarouselToInstagram(
     }
   }
 
-  const { data, error } = await supabase.functions.invoke("publish-viral-carousel", {
+  const { data, error } = await apiInvoke("publish-viral-carousel", {
     body: {
       carouselId: carousel.id,
       clientId: carousel.clientId,

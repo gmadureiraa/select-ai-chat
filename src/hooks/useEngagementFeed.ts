@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export interface EngagementOpportunity {
   id: string;
@@ -61,7 +62,7 @@ export function useEngagementFeed(clientId: string | null) {
     mutationFn: async ({ query }: { query?: string } = {}) => {
       if (!clientId) throw new Error('No client selected');
       
-      const { data, error } = await supabase.functions.invoke('twitter-feed', {
+      const { data, error } = await apiInvoke('twitter-feed', {
         body: { clientId, query, maxResults: 30 },
       });
 
@@ -94,7 +95,7 @@ export function useEngagementFeed(clientId: string | null) {
     mutationFn: async ({ opportunityId, tone }: { opportunityId: string; tone: string }) => {
       if (!clientId) throw new Error('No client selected');
       
-      const { data, error } = await supabase.functions.invoke('twitter-reply', {
+      const { data, error } = await apiInvoke('twitter-reply', {
         body: { clientId, opportunityId, tone, generateOnly: true },
       });
 
@@ -107,7 +108,7 @@ export function useEngagementFeed(clientId: string | null) {
     mutationFn: async ({ opportunityId, replyText }: { opportunityId: string; replyText: string }) => {
       if (!clientId) throw new Error('No client selected');
       
-      const { data, error } = await supabase.functions.invoke('twitter-reply', {
+      const { data, error } = await apiInvoke('twitter-reply', {
         body: { clientId, opportunityId, replyText },
       });
 

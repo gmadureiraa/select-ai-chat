@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Rss, Loader2, Youtube, CheckCircle2 } from "lucide-react";
+import { apiInvoke } from '../../lib/apiInvoke';
 
 interface YouTubeRSSImporterProps {
   clientId: string;
@@ -51,7 +52,7 @@ export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImp
   const resolveYouTubeHandle = async (handle: string): Promise<string | null> => {
     try {
       setIsResolvingHandle(true);
-      const { data, error } = await supabase.functions.invoke("resolve-youtube-channel", {
+      const { data, error } = await apiInvoke("resolve-youtube-channel", {
         body: { handle }
       });
       
@@ -125,7 +126,7 @@ export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImp
       // Fetch RSS feed
       const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
       
-      const { data, error } = await supabase.functions.invoke("fetch-rss-feed", {
+      const { data, error } = await apiInvoke("fetch-rss-feed", {
         body: { rssUrl }
       });
 
@@ -209,7 +210,7 @@ export function YouTubeRSSImporter({ clientId, onImportComplete }: YouTubeRSSImp
       });
 
       try {
-        const { data: syncResult, error: syncError } = await supabase.functions.invoke("sync-rss-to-library", {
+        const { data: syncResult, error: syncError } = await apiInvoke("sync-rss-to-library", {
           body: {
             clientId,
             platform: "youtube",

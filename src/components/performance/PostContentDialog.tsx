@@ -26,7 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { PostContentSyncButton } from "./PostContentSyncButton";
-import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { toast } from "sonner";
 
 interface InstagramPost {
@@ -59,7 +59,7 @@ interface PostContentDialogProps {
 }
 
 const getStorageUrl = (path: string) => {
-  const { data } = supabase.storage.from("client-files").getPublicUrl(path);
+  const { data } = blobStorage.from("client-files").getPublicUrl(path);
   return data.publicUrl;
 };
 

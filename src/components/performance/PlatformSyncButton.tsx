@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { apiInvoke } from '../../lib/apiInvoke';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RefreshCw, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -89,7 +90,7 @@ export const PlatformSyncButton = ({
     setOpen(false);
     const toastId = toast.loading(`Sincronizando ${LABEL[platform]}…`);
     try {
-      const { data, error } = await supabase.functions.invoke(FN_NAME[platform], {
+      const { data, error } = await apiInvoke(FN_NAME[platform], {
         body: { clientId },
       });
       if (error) throw error;

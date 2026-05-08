@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import jsPDF from "jspdf";
+// jsPDF importado dinamicamente em handleDownloadAsPDF abaixo.
 import { useToast } from "@/hooks/use-toast";
 import { PostPreviewCard } from "@/components/posts";
 import { parseContentForPosts } from "@/lib/postDetection";
@@ -140,6 +140,7 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
 
   const handleDownloadAsPDF = async () => {
     try {
+      const { default: jsPDF } = await import("jspdf");
       const pdf = new jsPDF();
       const margin = 20;
       const pageWidth = pdf.internal.pageSize.getWidth();

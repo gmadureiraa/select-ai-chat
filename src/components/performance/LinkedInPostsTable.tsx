@@ -28,11 +28,11 @@ import {
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { LinkedInPost } from "@/types/linkedin";
+import type { LinkedInPost } from "@/types/linkedin";
 import { ContentSyncBadge } from "./ContentSyncBadge";
 import { LinkedInPostContentDialog } from "./LinkedInPostContentDialog";
 import { LinkedInPostEditDialog } from "./LinkedInPostEditDialog";
-import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 
 interface LinkedInPostsTableProps {
   posts: LinkedInPost[];
@@ -46,7 +46,7 @@ type SortDirection = "asc" | "desc";
 const POSTS_PER_PAGE = 15;
 
 const getStorageUrl = (path: string) => {
-  const { data } = supabase.storage.from("client-files").getPublicUrl(path);
+  const { data } = blobStorage.from("client-files").getPublicUrl(path);
   return data.publicUrl;
 };
 

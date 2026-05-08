@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, Loader2, Image as ImageIcon } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { useToast } from "@/hooks/use-toast";
 import { useClientVisualReferences, CreateVisualReferenceData } from "@/hooks/useClientVisualReferences";
 
@@ -70,14 +70,14 @@ export function VisualReferenceUploader({ clientId, open, onOpenChange }: Visual
     try {
       // Upload to Supabase Storage
       const fileName = `visual-refs/${clientId}/${Date.now()}-${selectedFile.name}`;
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await blobStorage
         .from("client-files")
         .upload(fileName, selectedFile);
 
       if (uploadError) throw uploadError;
 
       // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      const { data: { publicUrl } } = blobStorage
         .from("client-files")
         .getPublicUrl(fileName);
 

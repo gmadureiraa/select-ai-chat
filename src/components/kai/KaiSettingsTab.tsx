@@ -5,6 +5,7 @@ import {
   Users, MessageSquare, Hash, Building, Mail, Phone, MapPin, Calendar,
   TrendingUp, Award, Megaphone, Eye, Check
 } from "lucide-react";
+import { apiInvoke } from '../../lib/apiInvoke';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -138,7 +139,7 @@ export const KaiSettingsTab = ({ clientId, client }: KaiSettingsTabProps) => {
     setIsRegenerating(true);
     try {
       // Regenerate client context using AI
-      const { data, error } = await supabase.functions.invoke("generate-client-context", {
+      const { data, error } = await apiInvoke("generate-client-context", {
         body: { clientId },
       });
 

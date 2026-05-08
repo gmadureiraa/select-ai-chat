@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Loader2, Save } from "lucide-react";
-import { LinkedInPost } from "@/types/linkedin";
+import type { LinkedInPost } from "@/types/linkedin";
 import { useUpdateLinkedInPost } from "@/hooks/useLinkedInPosts";
 import { PostImagesManager } from "./PostImagesManager";
 import { toast } from "sonner";

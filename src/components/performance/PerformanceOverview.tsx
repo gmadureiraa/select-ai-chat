@@ -8,6 +8,7 @@ import {
   Instagram, Youtube, Twitter, Mail, BarChart3, Target, Award, Zap,
   ArrowUpRight, ArrowDownRight, Minus
 } from "lucide-react";
+import { apiInvoke } from '../../lib/apiInvoke';
 import { usePerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { useInstagramPosts } from "@/hooks/useInstagramPosts";
 import { useYouTubeVideos } from "@/hooks/useYouTubeMetrics";
@@ -144,7 +145,7 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
         goals: goals.filter(g => g.platform === 'instagram' || g.platform === 'youtube'),
       };
 
-      const { data, error } = await supabase.functions.invoke("generate-performance-insights", {
+      const { data, error } = await apiInvoke("generate-performance-insights", {
         body: { clientId, clientName, context },
       });
 

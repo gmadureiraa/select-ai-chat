@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { LinkedInPost, LinkedInExcelData, LinkedInDailyMetric } from "@/types/linkedin";
-import * as XLSX from "xlsx";
+import { toast } from "sonner";
+import type { LinkedInPost, LinkedInExcelData, LinkedInDailyMetric } from "@/types/linkedin";
+// xlsx é lazy-loaded em parseLinkedInExcel (~430KB) — só puxa quando o user
+// faz upload de relatório do LinkedIn.
 
 export const useLinkedInPosts = (clientId: string, limit: number = 100) => {
   return useQuery({
@@ -35,6 +37,12 @@ export const useUpdateLinkedInPost = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["linkedin-posts"] });
+    },
+    onError: (error: Error) => {
+      console.error("[useUpdateLinkedInPost]", error);
+      toast.error("Erro ao atualizar post do LinkedIn", {
+        description: error.message,
+      });
     },
   });
 };
@@ -102,11 +110,18 @@ export const useImportLinkedInExcel = () => {
       queryClient.invalidateQueries({ queryKey: ["performance-metrics"] });
       queryClient.invalidateQueries({ queryKey: ["import-history"] });
     },
+    onError: (error: Error) => {
+      console.error("[useImportLinkedInExcel]", error);
+      toast.error("Erro ao importar planilha do LinkedIn", {
+        description: error.message,
+      });
+    },
   });
 };
 
 // Parse LinkedIn Analytics Excel file
-export const parseLinkedInExcel = (buffer: ArrayBuffer): LinkedInExcelData => {
+export const parseLinkedInExcel = async (buffer: ArrayBuffer): Promise<LinkedInExcelData> => {
+  const XLSX = await import("xlsx");
   const workbook = XLSX.read(buffer, { type: "array" });
   
   const posts: LinkedInExcelData["posts"] = [];

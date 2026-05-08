@@ -1,4 +1,5 @@
-import jsPDF from "jspdf";
+// jsPDF é importado dinamicamente em exportToPDF — economiza ~860KB no bundle
+// inicial pra usuários que nunca exportam conversa.
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -36,6 +37,7 @@ export async function exportToMarkdown(messages: Message[], clientName: string):
 }
 
 export async function exportToPDF(messages: Message[], clientName: string): Promise<Blob> {
+  const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF();
   const date = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
   

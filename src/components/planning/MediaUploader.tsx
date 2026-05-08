@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Plus, X, GripVertical, Video, Loader2, Maximize2, FolderDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
+import { blobStorage } from '@/integrations/storage/blob-client';
 import { toast } from 'sonner';
 import { ImageLightbox } from './ImageLightbox';
 import JSZip from 'jszip';
@@ -153,7 +153,7 @@ export function MediaUploader({
           ? `planning/${clientId}/${fileName}` 
           : `planning/general/${fileName}`;
 
-        const { data, error } = await supabase.storage
+        const { data, error } = await blobStorage
           .from('planning-media')
           .upload(filePath, file, {
             cacheControl: '3600',
@@ -166,7 +166,7 @@ export function MediaUploader({
           continue;
         }
 
-        const { data: urlData } = supabase.storage
+        const { data: urlData } = blobStorage
           .from('planning-media')
           .getPublicUrl(data.path);
 

@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { apiInvoke } from '../../lib/apiInvoke';
 import {
   Dialog,
   DialogContent,
@@ -47,7 +48,14 @@ import { useClients } from "@/hooks/useClients";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/late-webhook`;
+// Migrated 2026-05-07: Supabase edge function -> Vercel Function under /api/.
+// Uses absolute URL when possible so external services (Late) can reach it.
+const WEBHOOK_URL = (() => {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}/api/late-webhook`;
+  }
+  return `/api/late-webhook`;
+})();
 
 const SUPPORTED_EVENTS = [
   { id: "post.published", label: "post.published", severity: "info", description: "Move o card para Publicado e registra a URL." },
@@ -178,7 +186,7 @@ export function WebhookSettings() {
   const runTest = async () => {
     setTesting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("late-webhook-test", {
+      const { data, error } = await apiInvoke("late-webhook-test", {
         body: {
           eventType: testEvent,
           clientId: testClient !== "none" ? testClient : undefined,
@@ -205,7 +213,7 @@ export function WebhookSettings() {
 
   const reprocess = async (id: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke("late-webhook-reprocess", {
+      const { data, error } = await apiInvoke("late-webhook-reprocess", {
         body: { eventLogId: id },
       });
       if (error) throw error;

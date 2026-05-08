@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { useToast } from "@/hooks/use-toast";
 import { getSignedUrl } from "@/lib/storage";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export interface ClientDocument {
   id: string;
@@ -38,7 +40,7 @@ export const useClientDocuments = (clientId: string) => {
       const fileExt = file.name.split(".").pop();
       const fileName = `${clientId}/${Date.now()}.${fileExt}`;
       
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await blobStorage
         .from("client-files")
         .upload(fileName, file);
 
@@ -67,7 +69,7 @@ export const useClientDocuments = (clientId: string) => {
 
         if (file.type.includes("pdf")) {
           // Use PDF extraction
-          const { data: pdfData, error: pdfError } = await supabase.functions.invoke("extract-pdf", {
+          const { data: pdfData, error: pdfError } = await apiInvoke("extract-pdf", {
             body: { fileUrl: signedUrl, fileName: file.name },
           });
 
@@ -82,7 +84,7 @@ export const useClientDocuments = (clientId: string) => {
         ) {
           // Use DOCX extraction
           console.log("Extracting DOCX content...", file.name);
-          const { data: docxData, error: docxError } = await supabase.functions.invoke("extract-docx", {
+          const { data: docxData, error: docxError } = await apiInvoke("extract-docx", {
             body: { fileUrl: signedUrl, fileName: file.name },
           });
 
@@ -94,7 +96,7 @@ export const useClientDocuments = (clientId: string) => {
           }
         } else if (file.type.includes("image")) {
           // Use image transcription
-          const { data: imgData, error: imgError } = await supabase.functions.invoke("transcribe-images", {
+          const { data: imgData, error: imgError } = await apiInvoke("transcribe-images", {
             body: { imageUrls: [signedUrl] },
           });
 
@@ -140,7 +142,7 @@ export const useClientDocuments = (clientId: string) => {
   const deleteDocument = useMutation({
     mutationFn: async (doc: ClientDocument) => {
       // Delete from storage
-      const { error: storageError } = await supabase.storage
+      const { error: storageError } = await blobStorage
         .from("client-files")
         .remove([doc.file_path]);
 

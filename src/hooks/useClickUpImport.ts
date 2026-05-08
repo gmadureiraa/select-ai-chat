@@ -37,20 +37,13 @@ export function useClickUpImport() {
   const discover = useCallback(async () => {
     setIsDiscovering(true);
     try {
-      const { data, error } = await supabase.functions.invoke('import-clickup', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        body: undefined,
-      });
-
-      // The edge function uses query params, so we need to call differently
+      // import-clickup uses query params (action=discover), so we call /api directly
       const { data: session } = await supabase.auth.getSession();
       const token = session?.session?.access_token;
       if (!token) throw new Error('Not authenticated');
 
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/import-clickup?action=discover`,
+        `/api/import-clickup?action=discover`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -83,9 +76,8 @@ export function useClickUpImport() {
       const token = session?.session?.access_token;
       if (!token) throw new Error('Not authenticated');
 
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/import-clickup?action=import`,
+        `/api/import-clickup?action=import`,
         {
           method: 'POST',
           headers: {

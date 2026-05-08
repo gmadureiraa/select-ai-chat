@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export interface PlatformMetrics {
   followerStats: {
@@ -45,7 +46,7 @@ export function useLateAnalytics(clientId: string, period: number = 7) {
   return useQuery({
     queryKey: ["late-analytics", clientId, period],
     queryFn: async (): Promise<LateAnalyticsResponse> => {
-      const { data, error } = await supabase.functions.invoke("late-analytics", {
+      const { data, error } = await apiInvoke("late-analytics", {
         body: { clientId, period },
       });
       if (error) throw error;

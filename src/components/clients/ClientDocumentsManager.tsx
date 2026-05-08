@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Dialog,
   DialogContent,
@@ -254,11 +255,12 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
       )}
 
       {documents.length === 0 && (
-        <div className="text-center py-8 text-muted-foreground text-sm">
-          <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p>Nenhum documento adicionado</p>
-          <p className="text-xs mt-1">Adicione PDFs, imagens ou documentos para o contexto do cliente</p>
-        </div>
+        <EmptyState
+          icon={FileText}
+          title="Nenhum documento adicionado"
+          description="Adicione PDFs, imagens ou textos pra enriquecer o contexto do cliente. A kAI vai usar esse material como base nas gerações de conteúdo."
+          variant="default"
+        />
       )}
 
       {/* Delete confirmation dialog */}

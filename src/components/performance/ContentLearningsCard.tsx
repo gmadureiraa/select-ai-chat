@@ -6,6 +6,7 @@ import { Loader2, BookOpen, Lightbulb, TrendingUp, AlertTriangle, Sparkles } fro
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
+import { apiInvoke } from '../../lib/apiInvoke';
 
 interface ContentLearningsCardProps {
   clientId: string;
@@ -70,7 +71,7 @@ export function ContentLearningsCard({ clientId, posts, libraryContent }: Conten
 
       const { data: { session } } = await supabase.auth.getSession();
 
-      const response = await supabase.functions.invoke('generate-content-learnings', {
+      const response = await apiInvoke('generate-content-learnings', {
         body: {
           clientId,
           topPostsContext,

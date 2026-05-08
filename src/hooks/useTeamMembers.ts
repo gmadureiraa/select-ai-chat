@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { WorkspaceRole, WorkspaceMember } from "@/hooks/useWorkspace";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export interface WorkspaceInvite {
   id: string;
@@ -121,7 +122,7 @@ export const useTeamMembers = () => {
       // User doesn't exist yet - send invite email
       if (status === "invite_created") {
         try {
-          await supabase.functions.invoke("send-invite-email", {
+          await apiInvoke("send-invite-email", {
             body: {
               email: email.toLowerCase(),
               workspaceName: workspace.name,

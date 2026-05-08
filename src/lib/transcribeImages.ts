@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { apiInvoke } from './apiInvoke';
 
 type TranscribeImagesChunkedOptions = {
   userId?: string;
@@ -19,7 +20,7 @@ export async function transcribeImagesChunked(
   for (let i = 0; i < imageUrls.length; i += chunkSize) {
     const chunk = imageUrls.slice(i, i + chunkSize);
 
-    const { data, error } = await supabase.functions.invoke("transcribe-images", {
+    const { data, error } = await apiInvoke("transcribe-images", {
       body: {
         imageUrls: chunk,
         startIndex: startIndexOffset + i,

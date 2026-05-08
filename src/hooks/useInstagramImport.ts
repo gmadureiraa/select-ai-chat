@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { transcribeImagesChunked } from "@/lib/transcribeImages";
 import { useToast } from "@/hooks/use-toast";
+import { apiInvoke } from '../lib/apiInvoke';
 
 interface ExtractedData {
   images: string[];
@@ -47,7 +48,7 @@ export function useInstagramImport() {
       setError(null);
 
       // Step 1: Extract images from Instagram
-      const { data: extractData, error: extractError } = await supabase.functions.invoke(
+      const { data: extractData, error: extractError } = await apiInvoke(
         "extract-instagram",
         { body: { url } }
       );

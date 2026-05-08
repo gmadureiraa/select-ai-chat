@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export interface ExtractedBranding {
   logos: {
@@ -53,7 +54,7 @@ export const useExtractBranding = () => {
     setError(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('extract-branding', {
+      const { data, error: fnError } = await apiInvoke('extract-branding', {
         body: { url },
       });
 

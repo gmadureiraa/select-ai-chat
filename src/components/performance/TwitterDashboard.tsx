@@ -28,7 +28,7 @@ import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
 import { subDays, format, parseISO, isAfter, startOfDay } from "date-fns";
-import { TwitterPost } from "@/types/twitter";
+import type { TwitterPost } from "@/types/twitter";
 import { useImportTwitterCSV, parseTwitterCSV, useFetchTwitterApify } from "@/hooks/useTwitterMetrics";
 import { useImportHistory } from "@/hooks/useImportHistory";
 import { useWorkspace } from "@/hooks/useWorkspace";

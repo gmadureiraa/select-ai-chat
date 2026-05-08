@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export type SocialPlatform = 'twitter' | 'linkedin' | 'instagram' | 'facebook' | 'threads' | 'tiktok' | 'youtube';
 
@@ -47,7 +48,7 @@ export function useSocialCredentials(clientId: string) {
 
   const validateTwitter = useMutation({
     mutationFn: async (creds: TwitterCredentials) => {
-      const { data, error } = await supabase.functions.invoke('validate-social-credentials', {
+      const { data, error } = await apiInvoke('validate-social-credentials', {
         body: {
           clientId,
           platform: 'twitter',
@@ -74,7 +75,7 @@ export function useSocialCredentials(clientId: string) {
 
   const validateLinkedIn = useMutation({
     mutationFn: async (creds: LinkedInCredentials) => {
-      const { data, error } = await supabase.functions.invoke('validate-social-credentials', {
+      const { data, error } = await apiInvoke('validate-social-credentials', {
         body: {
           clientId,
           platform: 'linkedin',

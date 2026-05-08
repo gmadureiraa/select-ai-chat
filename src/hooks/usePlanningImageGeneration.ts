@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { ImageGenerationOptions } from '@/components/planning/ImageGenerationModal';
+import { apiInvoke } from '../lib/apiInvoke';
 
 interface GenerateImageParams {
   content: string;
@@ -89,7 +90,7 @@ export function usePlanningImageGeneration(clientId: string) {
 
       // Use generate-content-v2 which automatically fetches client_visual_references
       // and uses multimodal input with the pro model for style consistency
-      const { data, error } = await supabase.functions.invoke('generate-content-v2', {
+      const { data, error } = await apiInvoke('generate-content-v2', {
         body: {
           type: 'image',
           inputs: [{ type: 'text', content: prompt }],

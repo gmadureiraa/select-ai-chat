@@ -2,13 +2,15 @@
   "name": "KAI - Kaleidos AI",
   "short_name": "KAI",
   "description": "Plataforma de IA contextual para gerenciar perfis e criar conteúdo estratégico",
-  "start_url": "/?source=pwa",
+  "start_url": "/kaleidos?source=pwa",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#16a34a",
   "orientation": "portrait-primary",
   "id": "kai-kaleidos",
+  "lang": "pt-BR",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -33,6 +35,35 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Criar Carrossel",
+      "short_name": "Carrossel",
+      "description": "Gerar carrossel viral",
+      "url": "/kaleidos?tab=viral-carrossel",
+      "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }
+      ]
+    },
+    {
+      "name": "Radar Viral",
+      "short_name": "Radar",
+      "description": "Tendências e news do dia",
+      "url": "/kaleidos?tab=viral-radar-page",
+      "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }
+      ]
+    },
+    {
+      "name": "Clientes",
+      "short_name": "Clientes",
+      "description": "Lista de clientes",
+      "url": "/kaleidos/clients",
+      "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }
+      ]
     }
   ],
   "categories": ["productivity", "business"],

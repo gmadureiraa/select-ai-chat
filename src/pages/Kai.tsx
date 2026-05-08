@@ -1,30 +1,138 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
+// Sidebar/header ficam eager — sempre visíveis, viram parte do "shell" do app.
 import { KaiSidebar } from "@/components/kai/KaiSidebar";
 import { MobileHeader } from "@/components/kai/MobileHeader";
-import { HomeDashboard } from "@/components/kai/home/HomeDashboard";
-import { KaiPerformanceTab } from "@/components/kai/KaiPerformanceTab";
-import { KaiLibraryTab } from "@/components/kai/KaiLibraryTab";
-import { KaiAssistantTab } from "@/components/kai/KaiAssistantTab";
-import { KaiAnalyticsTab } from "@/components/kai/KaiAnalyticsTab";
-import { ViralHunterTab } from "@/components/kai/ViralHunterTab";
-import { ViralSequenceTab } from "@/components/kai/ViralSequenceTab";
-import { ViralReelsTab } from "@/components/kai/ViralReelsTab";
-import { ViralRadarTab } from "@/components/kai/ViralRadarTab";
-import { MCPDocsTab } from "@/components/kai/MCPDocsTab";
-import { ClientsManagementTool } from "@/components/kai/tools/ClientsManagementTool";
-import { PlanningBoard } from "@/components/planning/PlanningBoard";
-import { TeamTasksBoard } from "@/components/tasks";
-import { SettingsTab } from "@/components/settings/SettingsTab";
-import { AutomationsTab } from "@/components/automations/AutomationsTab";
+import { MobileBottomNav } from "@/components/kai/MobileBottomNav";
 import { OnboardingFlow } from "@/components/onboarding";
 import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
+import { PendingInvitesAlert } from "@/components/workspace/PendingInvitesAlert";
+import { TabLoader } from "@/components/ui/page-loader";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Users } from "lucide-react";
+
+/**
+ * Empty state padrão pra tabs que precisam de um cliente selecionado.
+ * Mostra ícone, título e descrição contextual.
+ */
+function ClientRequiredEmpty({ message }: { message: string }) {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <EmptyState
+        icon={Users}
+        title="Selecione um cliente"
+        description={message}
+        variant="default"
+      />
+    </div>
+  );
+}
+
+// Tabs grandes: lazy. Cada um vira um chunk só baixado quando o user abre a tab.
+// Generadores de conteúdo (sequence/reels/radar/hunter) são os mais pesados.
+const HomeDashboard = lazy(() =>
+  import("@/components/kai/home/HomeDashboard").then((m) => ({ default: m.HomeDashboard })),
+);
+const KaiPerformanceTab = lazy(() =>
+  import("@/components/kai/KaiPerformanceTab").then((m) => ({ default: m.KaiPerformanceTab })),
+);
+const KaiLibraryTab = lazy(() =>
+  import("@/components/kai/KaiLibraryTab").then((m) => ({ default: m.KaiLibraryTab })),
+);
+const KaiAssistantTab = lazy(() =>
+  import("@/components/kai/KaiAssistantTab").then((m) => ({ default: m.KaiAssistantTab })),
+);
+const KaiAnalyticsTab = lazy(() =>
+  import("@/components/kai/KaiAnalyticsTab").then((m) => ({ default: m.KaiAnalyticsTab })),
+);
+// ViralHunterTab (KAI-1.0 legacy) was removed em 2026-05-08 — substituido pelos
+// 3 generadores Viral (sequence/reels/radar) que são as ports das versões atuais
+// dos repos standalone (sequencia-viral, reels-viral, radar-viral). Backup em
+// _legacy/viral-replaced-2026-05-08/.
+const ViralSequenceTab = lazy(() =>
+  // 2026-05-08 — substituído pela cópia LITERAL do app standalone
+  // (`code/sequencia-viral/`), preservando UI/CSS/cores/fontes/layouts
+  // ~95%+. A versão antiga (estilo KAI/Tailwind) ficou em
+  // ViralSequenceTab.legacy.tsx pra referência histórica.
+  import("@/components/kai/viral-sv-original/MainApp").then((m) => ({
+    default: m.ViralSequenceTab,
+  })),
+);
+const ViralReelsTab = lazy(() =>
+  // 2026-05-08 — substituído pela cópia LITERAL do app standalone
+  // (`code/reels-viral/`), preservando UI/CSS/cores/fontes/layouts ~95%+.
+  // A versão antiga (estilo KAI/Tailwind) ficou em
+  // ViralReelsTab.legacy.tsx pra referência histórica.
+  import("@/components/kai/viral-reels-original/MainApp").then((m) => ({
+    default: m.default,
+  })),
+);
+const ViralRadarTab = lazy(() =>
+  // 2026-05-08 — substituído pela cópia LITERAL do app standalone
+  // (`code/radar-viral/`), preservando UI/CSS/cores/fontes/layouts
+  // ~95%+. A versão antiga (estilo KAI/Tailwind) ficou em
+  // ViralRadarTab.legacy.tsx pra referência histórica.
+  import("@/components/kai/viral-radar-original/MainApp").then((m) => ({
+    default: m.ViralRadarTab,
+  })),
+);
+const ViralLibraryTab = lazy(() =>
+  import("@/components/kai/ViralLibraryTab").then((m) => ({ default: m.ViralLibraryTab })),
+);
+const ViralFeatureGate = lazy(() =>
+  import("@/components/kai/viral/ViralFeatureGate").then((m) => ({ default: m.ViralFeatureGate })),
+);
+// Placeholders foram substituídos pelas tabs reais (ViralSequenceTab, ViralReelsTab,
+// ViralRadarTab) — os arquivos *.deprecated.tsx ficam no repo só como referência
+// histórica e não são mais importados em lugar nenhum.
+const MCPDocsTab = lazy(() =>
+  import("@/components/kai/MCPDocsTab").then((m) => ({ default: m.MCPDocsTab })),
+);
+const ClientsManagementTool = lazy(() =>
+  import("@/components/kai/tools/ClientsManagementTool").then((m) => ({
+    default: m.ClientsManagementTool,
+  })),
+);
+const PlanningBoard = lazy(() =>
+  import("@/components/planning/PlanningBoard").then((m) => ({ default: m.PlanningBoard })),
+);
+const TeamTasksBoard = lazy(() =>
+  import("@/components/tasks").then((m) => ({ default: m.TeamTasksBoard })),
+);
+const SettingsTab = lazy(() =>
+  import("@/components/settings/SettingsTab").then((m) => ({ default: m.SettingsTab })),
+);
+const AutomationsTab = lazy(() =>
+  import("@/components/automations/AutomationsTab").then((m) => ({ default: m.AutomationsTab })),
+);
+const RadarSourcesManager = lazy(() =>
+  import("@/components/admin/RadarSourcesManager").then((m) => ({
+    default: m.RadarSourcesManager,
+  })),
+);
+const WorkspaceSettingsTab = lazy(() =>
+  import("@/components/workspace/WorkspaceSettingsTab").then((m) => ({
+    default: m.WorkspaceSettingsTab,
+  })),
+);
+const WorkspaceMembersTab = lazy(() =>
+  import("@/components/workspace/WorkspaceMembersTab").then((m) => ({
+    default: m.WorkspaceMembersTab,
+  })),
+);
+const BillingTab = lazy(() =>
+  import("@/components/billing/BillingTab").then((m) => ({
+    default: m.BillingTab,
+  })),
+);
 
 export default function Kai() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -33,7 +141,8 @@ export default function Kai() {
   const isMobile = useIsMobile();
   
   const { clients, isLoading: isLoadingClients } = useClients();
-  const { canManageTeam, canViewPerformance, canViewClients, canViewHome, canViewRepurpose, isViewer } = useWorkspace();
+  const { canManageTeam, canViewPerformance, canViewClients, canViewHome, canViewRepurpose, isViewer, isOwner } = useWorkspace();
+  const { isSuperAdmin } = useSuperAdmin();
   const selectedClient = clients?.find(c => c.id === clientId);
   
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -41,8 +150,8 @@ export default function Kai() {
 
   // Atalhos globais de teclado — funcionam em qualquer tab.
   // ⌘K / Ctrl+K → pula pro chat KAI (assistant)
-  // ⌘J / Ctrl+J → pula pra Sequência Viral
-  // ⌘I / Ctrl+I → pula pro Viral Hunter
+  // ⌘J / Ctrl+J → pula pra Sequência Viral (carrossel)
+  // ⌘I / Ctrl+I → pula pro Radar Viral (substitui antigo Viral Hunter)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -64,12 +173,12 @@ export default function Kai() {
       } else if (key === "j" && !inEditable) {
         e.preventDefault();
         const params = new URLSearchParams(searchParams);
-        params.set("tab", "sequence");
+        params.set("tab", "viral-carrossel");
         setSearchParams(params);
       } else if (key === "i" && !inEditable) {
         e.preventDefault();
         const params = new URLSearchParams(searchParams);
-        params.set("tab", "viral");
+        params.set("tab", "viral-radar-page");
         setSearchParams(params);
       }
     };
@@ -81,7 +190,21 @@ export default function Kai() {
   useEffect(() => {
     let shouldRedirect = false;
     let redirectTab = "planning"; // Default redirect
-    
+
+    // Legacy viral tab aliases — 2026-05-08 (replace-viral). Os tabs "sequence",
+    // "reels", "radar" e "viral" (Hunter) foram unificados sob nomes únicos do
+    // grupo "Viral". Redirect inline pra preservar bookmarks/links antigos.
+    const legacyViralAlias: Record<string, string> = {
+      sequence: "viral-carrossel",
+      reels: "viral-reels-page",
+      radar: "viral-radar-page",
+      viral: "viral-radar-page", // Hunter (KAI-1.0) → Radar (substituto natural)
+    };
+    if (tab in legacyViralAlias) {
+      shouldRedirect = true;
+      redirectTab = legacyViralAlias[tab];
+    }
+
     // Removed tabs - redirect if accessing them
     const removedTabs = ["agent-builder", "research-lab", "knowledge-base", "team", "account", "templates", "format-rules", "repurpose", "canvas"];
     if (removedTabs.includes(tab)) {
@@ -113,13 +236,37 @@ export default function Kai() {
     if (tab === "clients" && !canViewClients) {
       shouldRedirect = true;
     }
-    
+
+    // Radar Sources Manager — só super_admin
+    if (tab === "radar-sources-admin" && !isSuperAdmin) {
+      shouldRedirect = true;
+      redirectTab = "planning";
+    }
+
+    // Workspace Settings — só owner
+    if (tab === "workspace-settings" && !isOwner) {
+      shouldRedirect = true;
+      redirectTab = "planning";
+    }
+
+    // Billing — só owner
+    if (tab === "billing" && !isOwner) {
+      shouldRedirect = true;
+      redirectTab = "planning";
+    }
+
+    // Workspace Members — owner ou admin
+    if (tab === "workspace-members" && !canManageTeam) {
+      shouldRedirect = true;
+      redirectTab = "planning";
+    }
+
     if (shouldRedirect) {
       const params = new URLSearchParams(searchParams);
       params.set("tab", redirectTab);
       setSearchParams(params);
     }
-  }, [tab, canViewClients, canManageTeam, canViewHome, canViewRepurpose, isViewer, searchParams, setSearchParams]);
+  }, [tab, canViewClients, canManageTeam, canViewHome, canViewRepurpose, isViewer, isOwner, isSuperAdmin, searchParams, setSearchParams]);
 
 
   const handleTabChange = (newTab: string) => {
@@ -158,13 +305,97 @@ export default function Kai() {
     }
 
     // Tools that don't need client (ou que precisam mas tem fallback interno).
-    // "viral" e "sequence" renderizam tabs customizadas no switch abaixo.
-    const toolTabs = ["clients", "settings", "automations", "assistant", "analytics", "home", "viral", "sequence", "reels", "radar", "mcp"];
-    
+    // Tabs viral consolidadas no grupo único "Viral":
+    //   viral-carrossel = Sequência Viral (gerador de carrossel)
+    //   viral-reels-page = Reels Viral (engenharia reversa de reel)
+    //   viral-radar-page = Radar Viral (briefing diário)
+    //   viral-library = Biblioteca Viral (carrosséis + reels + briefings salvos)
+    // Removidos em 2026-05-08 (replace-viral): "viral" (Hunter v1 KAI-1.0),
+    // "sequence"/"reels"/"radar" (duplicatas do grupo Cliente que apontavam
+    // pros mesmos componentes que viral-*).
+    const toolTabs = [
+      "clients", "settings", "automations", "assistant", "analytics", "home",
+      "mcp",
+      // Grupo "Viral" único (globais, não precisam de cliente):
+      "viral-library", "viral-carrossel", "viral-reels-page", "viral-radar-page",
+      // Admin (super_admin only):
+      "radar-sources-admin",
+      // Workspace management (owner / admin):
+      "workspace-settings", "workspace-members", "billing",
+    ];
+
     if (toolTabs.includes(tab)) {
       switch (tab) {
+        case "viral-library":
+          return <ViralLibraryTab />;
+        case "viral-carrossel":
+          return selectedClient ? (
+            <ViralFeatureGate feature="sequencia">
+              <div className="h-full overflow-hidden">
+                <ViralSequenceTab
+                  key={selectedClient.id}
+                  clientId={selectedClient.id}
+                  client={selectedClient}
+                />
+              </div>
+            </ViralFeatureGate>
+          ) : (
+            <ClientRequiredEmpty message="Escolha um cliente na sidebar para gerar carrosséis com voz e estilo dele." />
+          );
+        case "viral-reels-page":
+          return selectedClient ? (
+            <ViralFeatureGate feature="reels">
+              <div className="h-full overflow-hidden">
+                <ViralReelsTab
+                  key={selectedClient.id}
+                  clientId={selectedClient.id}
+                  client={selectedClient}
+                />
+              </div>
+            </ViralFeatureGate>
+          ) : (
+            <ClientRequiredEmpty message="Escolha um cliente para gerar roteiros de Reels personalizados pro nicho dele." />
+          );
+        case "viral-radar-page":
+          return selectedClient ? (
+            <ViralFeatureGate feature="radar">
+              <div className="h-full overflow-hidden">
+                <ViralRadarTab
+                  key={selectedClient.id}
+                  clientId={selectedClient.id}
+                  client={selectedClient}
+                />
+              </div>
+            </ViralFeatureGate>
+          ) : (
+            <ClientRequiredEmpty message="Escolha um cliente para ver o radar de tendências e oportunidades virais." />
+          );
         case "mcp":
           return <MCPDocsTab />;
+        case "radar-sources-admin":
+          return isSuperAdmin ? (
+            <RadarSourcesManager />
+          ) : (
+            <ClientRequiredEmpty message="Acesso restrito a super admins." />
+          );
+        case "workspace-settings":
+          return isOwner ? (
+            <WorkspaceSettingsTab />
+          ) : (
+            <ClientRequiredEmpty message="Apenas o proprietário do workspace pode acessar essas configurações." />
+          );
+        case "workspace-members":
+          return canManageTeam ? (
+            <WorkspaceMembersTab />
+          ) : (
+            <ClientRequiredEmpty message="Apenas owners e admins podem gerenciar membros." />
+          );
+        case "billing":
+          return isOwner ? (
+            <BillingTab />
+          ) : (
+            <ClientRequiredEmpty message="Apenas o proprietário do workspace pode gerenciar a assinatura." />
+          );
         case "home":
           return (
             <HomeDashboard 
@@ -189,11 +420,7 @@ export default function Kai() {
               <KaiAnalyticsTab clientId={selectedClient.id} client={selectedClient} />
             </div>
           ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-muted-foreground">
-                <p>Selecione um cliente para ver analytics</p>
-              </div>
-            </div>
+            <ClientRequiredEmpty message="Escolha um cliente pra ver métricas e analytics consolidadas." />
           );
         case "assistant":
           return selectedClient ? (
@@ -208,83 +435,7 @@ export default function Kai() {
               />
             </div>
           ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-muted-foreground">
-                <p>Selecione um cliente para usar o chat</p>
-              </div>
-            </div>
-          );
-        case "viral":
-          return selectedClient ? (
-            <div className="h-full overflow-hidden">
-              <ViralHunterTab
-                key={selectedClient.id}
-                clientId={selectedClient.id}
-                client={selectedClient}
-                onUseAsInspiration={(prompt) => {
-                  // Leva o user pro chat com o prompt pré-preenchido via URL.
-                  setSearchParams({
-                    client: selectedClient.id,
-                    tab: "assistant",
-                    prompt,
-                  });
-                }}
-              />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-muted-foreground">
-                <p>Selecione um cliente para ver posts virais</p>
-              </div>
-            </div>
-          );
-        case "sequence":
-          return selectedClient ? (
-            <div className="h-full overflow-hidden">
-              <ViralSequenceTab
-                key={selectedClient.id}
-                clientId={selectedClient.id}
-                client={selectedClient}
-              />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-muted-foreground">
-                <p>Selecione um cliente para criar carrossel</p>
-              </div>
-            </div>
-          );
-        case "reels":
-          return selectedClient ? (
-            <div className="h-full overflow-hidden">
-              <ViralReelsTab
-                key={selectedClient.id}
-                clientId={selectedClient.id}
-                client={selectedClient}
-              />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-muted-foreground">
-                <p>Selecione um cliente para gerar roteiros de Reels</p>
-              </div>
-            </div>
-          );
-        case "radar":
-          return selectedClient ? (
-            <div className="h-full overflow-hidden">
-              <ViralRadarTab
-                key={selectedClient.id}
-                clientId={selectedClient.id}
-                client={selectedClient}
-              />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-muted-foreground">
-                <p>Selecione um cliente para ver o Radar</p>
-              </div>
-            </div>
+            <ClientRequiredEmpty message="Escolha um cliente pra abrir o chat com a kAI usando contexto dele." />
           );
       }
     }
@@ -314,11 +465,7 @@ export default function Kai() {
     // Client-dependent tabs
     if (!selectedClient) {
       return (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center text-muted-foreground">
-            <p>Selecione um cliente para começar</p>
-          </div>
-        </div>
+        <ClientRequiredEmpty message="Escolha um cliente na sidebar para começar a planejar e gerar conteúdo." />
       );
     }
 
@@ -395,12 +542,33 @@ export default function Kai() {
         </>
       )}
 
-      <main className={cn(
-        "flex-1 min-h-0 overflow-hidden",
-        isMobile && "pt-14" // Space for mobile header
-      )}>
-        {renderContent()}
+      <main
+        id="main-content"
+        className={cn(
+          "flex-1 min-h-0 overflow-hidden flex flex-col",
+          isMobile && "pt-14 pb-16" // Space for mobile header (top) + bottom nav
+        )}
+      >
+        {/* Banner global de convites pendentes — aparece quando o user tem
+            convites de outros workspaces aguardando aceite. Some sozinho. */}
+        <PendingInvitesAlert />
+
+        {/* ErrorBoundary com key={tab} faz reset automático ao trocar de tab,
+            evitando que um erro num tab persista visível ao navegar pra outro.
+            compact={true} renderiza fallback que não consome a app inteira. */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ErrorBoundary key={tab} compact context={`Tab: ${tab}`}>
+            <Suspense fallback={<TabLoader />}>
+              {renderContent()}
+            </Suspense>
+          </ErrorBoundary>
+        </div>
       </main>
+
+      {/* Mobile bottom nav — só aparece em mobile (md:hidden interno).
+          Vive fora do <main> pra ficar fixo na viewport e não competir com
+          overflow-hidden do conteúdo. */}
+      {isMobile && <MobileBottomNav />}
     </div>
   );
 }

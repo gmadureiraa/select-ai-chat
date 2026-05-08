@@ -1,4 +1,5 @@
-import jsPDF from "jspdf";
+// jsPDF é importado dinamicamente dentro da função pra não inflar o bundle de
+// quem só carrega esse módulo pelos tipos.
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -11,6 +12,7 @@ interface ReportExportData {
 }
 
 export async function exportReportToPDF(report: ReportExportData): Promise<Blob> {
+  const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF();
   const margin = 20;
   const pageWidth = doc.internal.pageSize.getWidth();

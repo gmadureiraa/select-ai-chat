@@ -1,0 +1,160 @@
+/**
+ * Tool `createViralCarousel` — gera carrossel viral via generate-viral-carousel handler.
+ */
+import { newActionCardId, type KAIActionCard } from './kai-stream.js';
+import type { RegisteredTool } from './types.js';
+
+interface CreateViralCarouselArgs {
+  briefing: string;
+  tone?: string;
+  addToPlanning?: boolean;
+  title?: string;
+  slideCount?: number;
+}
+
+interface CreateViralCarouselData {
+  carouselId: string | null;
+  planningItemId: string | null;
+  slidesCount: number;
+}
+
+export const createViralCarouselTool: RegisteredTool<
+  CreateViralCarouselArgs,
+  CreateViralCarouselData
+> = {
+  definition: {
+    name: 'createViralCarousel',
+    description:
+      "Criar conteúdo estilo tweet visual (formato 'Sequência Viral') sobre o tema dado. Por padrão gera 8 slides (carrossel). Use slideCount=1 quando o usuário pedir UM post só (ex: 'um post de notícia', 'só uma imagem com a manchete', automação de RSS de notícias). Use quando o usuário pede explicitamente: 'carrossel viral', 'sequência viral', 'post estilo tweet', 'thread visual', 'post de notícia no padrão tweet'. NÃO use pra carrossel comum de Instagram — pra isso use createContent.",
+    parameters: {
+      type: 'object',
+      properties: {
+        briefing: {
+          type: 'string',
+          description:
+            'Tema/ângulo. Pra slideCount=1 (notícia), inclua manchete + summary curto. Pra carrossel, inclua o gancho + pontos a cobrir.',
+        },
+        tone: {
+          type: 'string',
+          description:
+            'Tom desejado opcional (ex: direto, provocativo, técnico, didático). Se omitido, usa o tom da marca.',
+        },
+        addToPlanning: {
+          type: 'boolean',
+          description:
+            "Se true, também cria card no Planejamento (status draft). Default true. Use false só se o usuário pedir explicitamente 'só salva, não joga no planejamento'.",
+        },
+        title: {
+          type: 'string',
+          description:
+            'Título curto opcional pro carrossel/card. Se omitido, gera a partir do briefing.',
+        },
+        slideCount: {
+          type: 'number',
+          description:
+            'Quantidade de slides. 1 = post único (ideal pra notícia/RSS, com imagem da matéria). 8 = carrossel padrão (default). Faixa válida: 1-10.',
+        },
+      },
+      required: ['briefing'],
+    },
+  },
+
+  handler: async (args, ctx) => {
+    const briefing = String(args.briefing ?? '').trim();
+    if (!briefing) return { ok: false, error: 'briefing é obrigatório' };
+
+    const tone = args.tone ? String(args.tone) : undefined;
+    const addToPlanning = args.addToPlanning !== false;
+    const title = args.title ? String(args.title) : undefined;
+
+    console.log(
+      `[createViralCarousel] clientId=${ctx.clientId} briefing="${briefing.slice(0, 60)}..." addToPlanning=${addToPlanning}`,
+    );
+
+    const slideCount =
+      typeof args.slideCount === 'number' && args.slideCount >= 1 && args.slideCount <= 10
+        ? Math.round(args.slideCount)
+        : undefined;
+
+    try {
+      const res = await fetch(`${ctx.internalBaseUrl}/api/generate-viral-carousel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${ctx.accessToken}`,
+        },
+        body: JSON.stringify({
+          clientId: ctx.clientId,
+          briefing,
+          tone,
+          title,
+          slideCount,
+          persistAs: addToPlanning ? 'both' : 'carousel',
+          source: 'chat',
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        return {
+          ok: false,
+          error: `generate-viral-carousel ${res.status}: ${errText.slice(0, 200)}`,
+        };
+      }
+      const json: any = await res.json();
+      if (!json?.ok) {
+        return { ok: false, error: json?.error ?? 'Falha desconhecida na geração' };
+      }
+
+      const carouselId: string | null = json.carouselId ?? null;
+      const planningItemId: string | null = json.planningItemId ?? null;
+      const slides = (json.slides ?? []) as Array<{ body: string }>;
+
+      const card: KAIActionCard = {
+        id: newActionCardId(),
+        planning_item_id: planningItemId,
+        type: 'draft',
+        status: 'done',
+        data: {
+          kind: 'draft',
+          clientId: ctx.clientId,
+          platform: 'instagram',
+          format: 'viral_carousel',
+          title: title ?? briefing.slice(0, 60),
+          body: slides.map((s, i) => `Slide ${i + 1}: ${s.body}`).join('\n\n'),
+          briefing,
+          viralCarouselId: carouselId,
+          viralSlides: slides,
+        },
+        requires_approval: false,
+        available_actions: [
+          {
+            id: 'open_in_sequence',
+            label: 'Abrir no Sequência Viral',
+            variant: 'primary',
+            client_action: 'edit',
+          },
+          ...(planningItemId
+            ? [
+                {
+                  id: 'view_in_planning',
+                  label: 'Ver no Planejamento',
+                  variant: 'secondary' as const,
+                  client_action: 'edit' as const,
+                },
+              ]
+            : []),
+        ],
+      };
+
+      return {
+        ok: true,
+        data: { carouselId, planningItemId, slidesCount: slides.length },
+        card,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[createViralCarousel] error:', err);
+      return { ok: false, error: msg };
+    }
+  },
+};

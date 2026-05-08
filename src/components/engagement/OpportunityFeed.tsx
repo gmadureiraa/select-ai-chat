@@ -1,6 +1,7 @@
 import { EngagementOpportunity } from "@/hooks/useEngagementFeed";
 import { OpportunityCard } from "./OpportunityCard";
 import { Loader2, Inbox } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface OpportunityFeedProps {
   opportunities: EngagementOpportunity[];
@@ -29,13 +30,12 @@ export function OpportunityFeed({
 
   if (opportunities.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-        <Inbox className="h-10 w-10 text-muted-foreground/50 mb-3" />
-        <p className="text-sm text-muted-foreground font-medium">Nenhuma oportunidade encontrada</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Clique em "Buscar" para encontrar tweets relevantes do seu nicho
-        </p>
-      </div>
+      <EmptyState
+        icon={Inbox}
+        title="Nenhuma oportunidade encontrada"
+        description='Clique em "Buscar" pra encontrar tweets relevantes do seu nicho. A kAI cruza palavras-chave com a voz do cliente e ranqueia o que vale responder.'
+        variant="default"
+      />
     );
   }
 

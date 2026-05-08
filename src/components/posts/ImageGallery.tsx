@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { apiInvoke } from '../../lib/apiInvoke';
 import {
   Trash2,
   Download,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import { useImageGenerations, ImageGeneration } from "@/hooks/useImageGenerations";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -76,7 +78,7 @@ export const ImageGallery = ({
 
     setIsGeneratingVariation(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-image", {
+      const { data, error } = await apiInvoke("generate-image", {
         body: {
           prompt: variationPrompt,
           referenceImages: [{ url: lightboxImage.image_url }],
@@ -101,8 +103,16 @@ export const ImageGallery = ({
   if (isLoading) {
     return (
       <Card className={className}>
-        <CardContent className="p-8 flex items-center justify-center">
-          <div className="animate-pulse text-muted-foreground">Carregando galeria...</div>
+        <CardContent className="p-6 space-y-4">
+          <Skeleton className="h-8 w-48" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Skeleton className="aspect-square w-full" />
+            <Skeleton className="aspect-square w-full" />
+            <Skeleton className="aspect-square w-full" />
+            <Skeleton className="aspect-square w-full" />
+            <Skeleton className="aspect-square w-full" />
+            <Skeleton className="aspect-square w-full" />
+          </div>
         </CardContent>
       </Card>
     );

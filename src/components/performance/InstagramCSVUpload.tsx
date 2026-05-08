@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Upload, FileSpreadsheet, CheckCircle, AlertCircle } from "lucide-react";
 import { useImportInstagramPostsCSV } from "@/hooks/useInstagramPosts";
-import * as XLSX from "xlsx";
+// xlsx é lazy-loaded antes do parse (~430KB, vendor chunk próprio).
 
 interface InstagramCSVUploadProps {
   clientId: string;
@@ -38,7 +38,8 @@ export function InstagramCSVUpload({ clientId }: InstagramCSVUploadProps) {
       .replace(/['"]/g, "");
   }
 
-  const parseCSV = (file: File): Promise<ParsedPost[]> => {
+  const parseCSV = async (file: File): Promise<ParsedPost[]> => {
+    const XLSX = await import("xlsx");
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -47,7 +48,7 @@ export function InstagramCSVUpload({ clientId }: InstagramCSVUploadProps) {
           let text = e.target?.result as string;
           // Strip BOM if present
           if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-          
+
           const workbook = XLSX.read(text, { type: "string" });
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
           const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false }) as any[][];

@@ -19,8 +19,8 @@ import {
   FileDown,
   Archive,
 } from "lucide-react";
-import { toPng } from "html-to-image";
-import jsPDF from "jspdf";
+// html-to-image e jspdf são lazy-loaded dentro de cada handler de export
+// pra evitar carregar ~1MB de libs em quem nunca clica em "exportar".
 import { useToast } from "@/hooks/use-toast";
 import { motion, Reorder, useDragControls } from "framer-motion";
 
@@ -196,6 +196,7 @@ export const CarouselEditor = ({
 
     setIsExporting(true);
     try {
+      const { toPng } = await import("html-to-image");
       const dataUrl = await toPng(slideEl, {
         quality: 1.0,
         pixelRatio: 2,
@@ -218,6 +219,7 @@ export const CarouselEditor = ({
   const handleExportAllPng = async () => {
     setIsExporting(true);
     try {
+      const { toPng } = await import("html-to-image");
       for (let i = 0; i < slides.length; i++) {
         const slideEl = slideRefs.current[i];
         if (!slideEl) continue;
@@ -247,6 +249,10 @@ export const CarouselEditor = ({
   const handleExportPdf = async () => {
     setIsExporting(true);
     try {
+      const [{ default: jsPDF }, { toPng }] = await Promise.all([
+        import("jspdf"),
+        import("html-to-image"),
+      ]);
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "px",

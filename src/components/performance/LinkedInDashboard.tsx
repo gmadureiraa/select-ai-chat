@@ -26,7 +26,7 @@ import { ImportHistoryPanel } from "./ImportHistoryPanel";
 import { DataCompletenessWarning } from "./DataCompletenessWarning";
 import { PerformanceReportGenerator } from "./PerformanceReportGenerator";
 import { subDays, format, parseISO, isAfter, startOfDay } from "date-fns";
-import { LinkedInPost } from "@/types/linkedin";
+import type { LinkedInPost } from "@/types/linkedin";
 import { useImportLinkedInExcel, parseLinkedInExcel } from "@/hooks/useLinkedInPosts";
 import { useImportHistory } from "@/hooks/useImportHistory";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -218,7 +218,7 @@ export function LinkedInDashboard({ clientId, posts, isLoading }: LinkedInDashbo
     try {
       for (const file of Array.from(files)) {
         const buffer = await file.arrayBuffer();
-        const { posts: parsedPosts, dailyMetrics, followers } = parseLinkedInExcel(buffer);
+        const { posts: parsedPosts, dailyMetrics, followers } = await parseLinkedInExcel(buffer);
 
         if (parsedPosts.length === 0) {
           toast.error(`Nenhum post válido encontrado em ${file.name}`);

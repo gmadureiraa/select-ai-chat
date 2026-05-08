@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { apiInvoke } from '../../lib/apiInvoke';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -270,7 +271,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
     setFeedTestResult(null);
     
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-rss-feed', {
+      const { data, error } = await apiInvoke('fetch-rss-feed', {
         body: { rssUrl, limit: 3, includeContent: true }
       });
       

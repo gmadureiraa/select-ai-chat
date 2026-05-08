@@ -1,7 +1,12 @@
-import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { toast } from "sonner";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://tkbsjtgrumhvwlxkmojg.supabase.co";
+// Vercel Blob public host. Configured per project via env so we can derive a
+// canonical public URL without hitting the API. Falls back to the generic
+// Vercel Blob hostname.
+const BLOB_PUBLIC_HOST =
+  (import.meta.env.VITE_BLOB_PUBLIC_HOST as string | undefined) ??
+  "https://blob.vercel-storage.com";
 
 /**
  * Check if a string is already a full URL (not just a path)
@@ -18,28 +23,30 @@ export function isFullUrl(str: string): boolean {
  */
 export function getPublicUrl(filePath: string): string {
   if (!filePath) return "";
-  
+
   // If it's already a full URL, return as-is
   if (isFullUrl(filePath)) return filePath;
-  
-  // Generate permanent public URL
-  return `${SUPABASE_URL}/storage/v1/object/public/client-files/${filePath}`;
+
+  // Generate permanent public URL via Vercel Blob host
+  return `${BLOB_PUBLIC_HOST.replace(/\/$/, "")}/client-files/${filePath}`;
 }
 
 /**
- * Extract file path from a Supabase storage URL
- * Returns null if not a valid storage URL
+ * Extract file path from a storage URL.
+ * Returns null if not a valid storage URL.
+ * Handles legacy Supabase URLs and Vercel Blob URLs.
  */
 export function extractPathFromUrl(url: string): string | null {
   if (!isFullUrl(url)) return url; // Already a path
-  
+
   const bucketMatch = url.match(/\/client-files\/(.+?)(?:\?|$)/);
   return bucketMatch ? bucketMatch[1] : null;
 }
 
 /**
- * Download a file as a Blob from client-files bucket
- * This bypasses domain blocking issues by fetching via authenticated API
+ * Download a file as a Blob from client-files bucket.
+ * Uses the server-side blob proxy so we don't expose the read-write token
+ * in the browser.
  */
 export async function downloadAsBlob(filePath: string): Promise<Blob | null> {
   // Handle legacy full URLs
@@ -59,7 +66,7 @@ export async function downloadAsBlob(filePath: string): Promise<Blob | null> {
     }
   }
 
-  const { data, error } = await supabase.storage
+  const { data, error } = await blobStorage
     .from("client-files")
     .download(filePath);
 
@@ -137,12 +144,12 @@ export async function uploadToClientFiles(
   const fileExt = file.name.split(".").pop();
   const fileName = `${folder}/${crypto.randomUUID()}.${fileExt}`;
 
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await blobStorage
     .from("client-files")
     .upload(fileName, file);
 
   if (uploadError) {
-    return { path: "", error: uploadError };
+    return { path: "", error: new Error(uploadError.message) };
   }
 
   return { path: fileName, error: null };
@@ -169,7 +176,7 @@ export async function getSignedUrl(
     }
   }
 
-  const { data, error } = await supabase.storage
+  const { data, error } = await blobStorage
     .from("client-files")
     .createSignedUrl(filePath, expiresIn);
 

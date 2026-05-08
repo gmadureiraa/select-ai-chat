@@ -19,6 +19,42 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@sv/*": [
+        "./src/components/kai/viral-sv-original/*"
+      ],
+      "next/link": [
+        "./src/components/kai/viral-sv-original/shims/next-link.tsx"
+      ],
+      "next/image": [
+        "./src/components/kai/viral-sv-original/shims/next-image.tsx"
+      ],
+      "next/navigation": [
+        "./src/components/kai/viral-sv-original/shims/next-navigation.ts"
+      ],
+      "next/font/google": [
+        "./src/components/kai/viral-sv-original/shims/next-font-google.ts"
+      ],
+      "next/script": [
+        "./src/components/kai/viral-sv-original/shims/next-script.tsx"
+      ],
+      "next": [
+        "./src/components/kai/viral-sv-original/shims/next.ts"
+      ],
+      "posthog-js": [
+        "./src/components/kai/viral-sv-original/shims/posthog-js.ts"
+      ],
+      "posthog-node": [
+        "./src/components/kai/viral-sv-original/shims/posthog-node.ts"
+      ],
+      "@google/genai": [
+        "./src/components/kai/viral-sv-original/shims/google-genai.ts"
+      ],
+      "@react-email/components": [
+        "./src/components/kai/viral-sv-original/shims/react-email-components.tsx"
+      ],
+      "resend": [
+        "./src/components/kai/viral-sv-original/shims/resend.ts"
       ]
     },
     "skipLibCheck": true,

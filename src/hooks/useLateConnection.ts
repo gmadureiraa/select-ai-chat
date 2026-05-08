@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export type LatePlatform = 'twitter' | 'linkedin' | 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'threads';
 
@@ -135,7 +136,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       // Store expected connection for correlation
       expectedConnectionRef.current = { clientId, platform };
 
-      const { data, error } = await supabase.functions.invoke('late-oauth-start', {
+      const { data, error } = await apiInvoke('late-oauth-start', {
         body: { clientId, platform }
       });
 
@@ -227,7 +228,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
 
       const isScheduling = !!options?.scheduledFor && options?.publishNow === false;
 
-      const { data, error } = await supabase.functions.invoke('late-post', {
+      const { data, error } = await apiInvoke('late-post', {
         body: {
           clientId,
           platform,
@@ -307,7 +308,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       setCurrentPlatform(platform);
 
       // Call edge function to disconnect from Late API and delete local credential
-      const { error } = await supabase.functions.invoke('late-disconnect-account', {
+      const { error } = await apiInvoke('late-disconnect-account', {
         body: { clientId, platform }
       });
 

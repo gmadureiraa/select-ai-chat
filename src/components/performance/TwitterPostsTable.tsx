@@ -25,11 +25,11 @@ import {
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { TwitterPost } from "@/types/twitter";
+import type { TwitterPost } from "@/types/twitter";
 import { TwitterPostEditDialog } from "./TwitterPostEditDialog";
 import { TwitterPostContentDialog } from "./TwitterPostContentDialog";
 import { ContentSyncBadge } from "./ContentSyncBadge";
-import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 
 interface TwitterPostsTableProps {
   posts: TwitterPost[];
@@ -41,7 +41,7 @@ type SortField = 'posted_at' | 'impressions' | 'engagements' | 'likes' | 'retwee
 type SortDirection = 'asc' | 'desc';
 
 const getStorageUrl = (path: string) => {
-  const { data } = supabase.storage.from("client-files").getPublicUrl(path);
+  const { data } = blobStorage.from("client-files").getPublicUrl(path);
   return data.publicUrl;
 };
 

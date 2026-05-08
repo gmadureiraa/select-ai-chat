@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Plus, Trash2, Loader2, FileText, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { uploadToClientFiles, getPublicUrl } from "@/lib/storage";
 import { transcribeImagesChunked } from "@/lib/transcribeImages";
 import { toast } from "sonner";
@@ -16,7 +16,7 @@ interface PostImagesManagerProps {
 }
 
 const getStorageUrl = (path: string) => {
-  const { data } = supabase.storage.from("client-files").getPublicUrl(path);
+  const { data } = blobStorage.from("client-files").getPublicUrl(path);
   return data.publicUrl;
 };
 

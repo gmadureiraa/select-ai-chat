@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,20 +31,11 @@ export function useTaskComments(taskId: string | null) {
       return (data || []) as unknown as TaskComment[];
     },
     enabled: !!taskId,
+    // Substitui Supabase Realtime: poll a cada 5s para experiência
+    // próxima de chat colaborativo (comentários novos aparecem rápido).
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false,
   });
-
-  useEffect(() => {
-    if (!taskId) return;
-    const ch = supabase
-      .channel(`comments:${taskId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "team_task_comments", filter: `task_id=eq.${taskId}` },
-        () => qc.invalidateQueries({ queryKey })
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [taskId, qc]);
 
   const addComment = useMutation({
     mutationFn: async ({ content, mentions }: { content: string; mentions: string[] }) => {

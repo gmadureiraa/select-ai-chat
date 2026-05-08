@@ -1,9 +1,16 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { User, AuthError } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import type { User, AuthError } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
 
+/**
+ * Hook de autenticação — agora rodando em cima de Neon Auth (Better Auth)
+ * via `@neondatabase/auth` com `SupabaseAuthAdapter`. A API é compatível
+ * com o que o resto do app já consome (`user.id`, `user.email`, etc.) e
+ * `supabase.auth.*` continua funcionando porque o adapter expõe a mesma
+ * superfície do `@supabase/auth-js`.
+ */
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -11,13 +18,16 @@ export const useAuth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check active sessions
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    // Sessão inicial.
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
 
-    // Listen for auth changes
+    // Reage a sign-in / sign-out (incluindo OAuth round-trip).
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -33,9 +43,7 @@ export const useAuth = () => {
         email,
         password,
         options: {
-          data: {
-            full_name: fullName,
-          },
+          data: { full_name: fullName },
         },
       });
 
@@ -72,7 +80,6 @@ export const useAuth = () => {
         description: "Login realizado com sucesso.",
       });
 
-      // Don't navigate here - let Login.tsx handle the redirect to the correct workspace
       return { data, error: null };
     } catch (error) {
       const authError = error as AuthError;
@@ -93,7 +100,7 @@ export const useAuth = () => {
         description: "Até logo!",
       });
       navigate("/login");
-    } catch (error) {
+    } catch {
       toast({
         title: "Erro ao sair",
         description: "Tente novamente.",

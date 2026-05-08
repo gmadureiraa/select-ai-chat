@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,20 +33,11 @@ export function useTaskChecklist(taskId: string | null) {
       return (data || []) as unknown as ChecklistItem[];
     },
     enabled: !!taskId,
+    // Substitui Supabase Realtime: poll a cada 10s para refletir
+    // mudanças de outros usuários colaborando na mesma task.
+    refetchInterval: 10000,
+    refetchIntervalInBackground: false,
   });
-
-  useEffect(() => {
-    if (!taskId) return;
-    const ch = supabase
-      .channel(`checklist:${taskId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "team_task_checklist_items", filter: `task_id=eq.${taskId}` },
-        () => qc.invalidateQueries({ queryKey })
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [taskId, qc]);
 
   const addItem = useMutation({
     mutationFn: async (content: string) => {

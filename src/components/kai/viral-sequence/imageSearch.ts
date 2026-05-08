@@ -9,6 +9,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { apiInvoke } from '../../../lib/apiInvoke';
 
 export interface ImageSearchResult {
   id: string;
@@ -31,7 +32,7 @@ export async function searchImages(
   const q = query.trim();
   if (!q) return { items: [], source: "pexels" };
 
-  const { data, error } = await supabase.functions.invoke("image-search", {
+  const { data, error } = await apiInvoke("image-search", {
     body: {
       query: q,
       perPage: opts.perPage ?? 12,

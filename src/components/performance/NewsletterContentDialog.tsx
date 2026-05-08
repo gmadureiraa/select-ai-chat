@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -51,7 +51,7 @@ interface NewsletterContentDialogProps {
 
 const getStorageUrl = (path: string) => {
   if (path.startsWith("http")) return path;
-  const { data } = supabase.storage.from("client-files").getPublicUrl(path);
+  const { data } = blobStorage.from("client-files").getPublicUrl(path);
   return data.publicUrl;
 };
 

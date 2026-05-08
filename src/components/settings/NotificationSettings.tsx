@@ -9,6 +9,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useMemo } from "react";
+import { PushSubscriptionCard } from "@/components/notifications/PushSubscriptionCard";
 
 // Detectar iOS
 function useIsIOS() {
@@ -57,14 +58,18 @@ export function NotificationSettings() {
   ];
 
   return (
-    <Card>
+    <div className="space-y-4">
+      {/* Push subscription card (multi-device support) */}
+      <PushSubscriptionCard />
+
+      <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
           <Bell className="h-5 w-5 text-muted-foreground" />
-          <CardTitle>Notificações</CardTitle>
+          <CardTitle>Preferências</CardTitle>
         </div>
         <CardDescription>
-          Configure como você deseja receber notificações
+          Configure email e tipos de notificação que você quer receber
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -248,6 +253,7 @@ export function NotificationSettings() {
           </div>
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }

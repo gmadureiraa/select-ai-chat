@@ -1,6 +1,7 @@
 import { Menu, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -58,8 +59,10 @@ export function MobileHeader({ onMenuClick, clientName }: MobileHeaderProps) {
         </Button>
       )}
       
+      <ThemeToggle className="shrink-0" />
+
       <NotificationBell />
-      
+
       <Avatar className="h-8 w-8">
         <AvatarImage src={userProfile?.avatar_url || undefined} />
         <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">

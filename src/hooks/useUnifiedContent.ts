@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { toast } from "sonner";
 
 // Helper to get storage URL
 function getStorageUrl(path: string): string {
   if (!path) return '';
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const { data } = supabase.storage.from('client-files').getPublicUrl(path);
+  const { data } = blobStorage.from('client-files').getPublicUrl(path);
   return data?.publicUrl || path;
 }
 

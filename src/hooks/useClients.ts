@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export interface Client {
   id: string;
@@ -177,7 +178,7 @@ export const useClients = () => {
       if (websites && websites.length > 0) {
         for (const url of websites) {
           try {
-            await supabase.functions.invoke("scrape-website", {
+            await apiInvoke("scrape-website", {
               body: { url, clientId: data.id },
             });
           } catch (err) {

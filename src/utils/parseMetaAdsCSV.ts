@@ -1,6 +1,6 @@
 // Parser utilities for Meta Ads CSV files from Facebook Ads Manager
 
-import { MetaAdsCampaign, MetaAdsAdSet, MetaAdsAd, MetaAdsParsedCSV } from "@/types/metaAds";
+import type { MetaAdsCampaign, MetaAdsAdSet, MetaAdsAd, MetaAdsParsedCSV } from "@/types/metaAds";
 
 // Parse date with multiple format support
 function parseDate(dateStr: string | undefined): string | null {

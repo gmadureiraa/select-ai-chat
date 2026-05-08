@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { apiInvoke } from '../../lib/apiInvoke';
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, Trash2, Edit2, Check, X, Image, FileText, Type, Upload, Loader2, Sparkles, ChevronRight, Search, PenLine, Wand2, CheckCircle, Database, Lock } from "lucide-react";
@@ -171,7 +172,7 @@ export const TemplateRulesDialog = ({
     try {
       const imageUrls = imageRules.map(r => r.file_url).filter(Boolean);
       
-      const { data, error } = await supabase.functions.invoke("analyze-style", {
+      const { data, error } = await apiInvoke("analyze-style", {
         body: { imageUrls },
       });
 

@@ -8,6 +8,7 @@ import { Plus, X, Check, Loader2, Volume2, Sparkles, Wand2 } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { apiInvoke } from '../../lib/apiInvoke';
 
 interface VoiceProfile {
   tone: string;
@@ -170,7 +171,7 @@ export function VoiceProfileEditor({
     setSuggestion(null);
     
     try {
-      const { data, error } = await supabase.functions.invoke("generate-voice-profile", {
+      const { data, error } = await apiInvoke("generate-voice-profile", {
         body: { client_id: clientId },
       });
 

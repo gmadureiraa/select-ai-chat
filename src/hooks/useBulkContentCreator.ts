@@ -7,6 +7,7 @@ import { usePlanningItems } from "@/hooks/usePlanningItems";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { ContentFormat, GeneratedContent, ContentObjective } from "./useContentCreator";
 import { callKaiContentAgent } from "@/lib/parseOpenAIStream";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export interface FormatQuantity {
   format: ContentFormat;
@@ -163,7 +164,7 @@ export function useBulkContentCreator() {
   // Fetch URL content
   const fetchUrlContent = async (url: string): Promise<string> => {
     try {
-      const { data, error } = await supabase.functions.invoke("fetch-reference-content", {
+      const { data, error } = await apiInvoke("fetch-reference-content", {
         body: { url },
       });
       if (error) throw error;

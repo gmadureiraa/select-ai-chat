@@ -5,6 +5,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { parseMentions } from "@/lib/mentionParser";
+import { apiInvoke } from './apiInvoke';
 
 // ============= Types =============
 
@@ -83,7 +84,7 @@ export const PLATFORM_MAP: Record<string, string> = {
  */
 export async function fetchUrlContent(url: string): Promise<ReferenceContent | null> {
   try {
-    const { data, error } = await supabase.functions.invoke("fetch-reference-content", {
+    const { data, error } = await apiInvoke("fetch-reference-content", {
       body: { url }
     });
 

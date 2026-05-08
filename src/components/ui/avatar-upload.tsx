@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Loader2, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -70,8 +70,8 @@ export function AvatarUpload({
       const fileExt = file.name.split(".").pop();
       const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
+      // Upload to Vercel Blob
+      const { data, error } = await blobStorage
         .from(bucket)
         .upload(fileName, file, {
           cacheControl: "3600",
@@ -81,7 +81,7 @@ export function AvatarUpload({
       if (error) throw error;
 
       // Get signed URL for private bucket (1 year expiry)
-      const { data: signedData, error: signedError } = await supabase.storage
+      const { data: signedData, error: signedError } = await blobStorage
         .from(bucket)
         .createSignedUrl(data.path, 60 * 60 * 24 * 365); // 1 year
 

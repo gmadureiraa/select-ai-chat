@@ -6,6 +6,7 @@ import { Sparkles, RefreshCw, TrendingUp, TrendingDown, Users, Heart, Eye, Clock
 import { usePerformanceContext } from "@/hooks/usePerformanceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { apiInvoke } from '../../lib/apiInvoke';
 
 interface OverviewInsightsCardProps {
   clientId: string;
@@ -22,7 +23,7 @@ export function OverviewInsightsCard({ clientId, clientName }: OverviewInsightsC
     
     setIsGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-performance-insights", {
+      const { data, error } = await apiInvoke("generate-performance-insights", {
         body: { clientId, clientName, context },
       });
 

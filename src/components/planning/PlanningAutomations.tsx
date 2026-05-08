@@ -25,6 +25,7 @@ import { useClients } from '@/hooks/useClients';
 import { AutomationDialog } from './AutomationDialog';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { EmptyState } from '@/components/ui/empty-state';
 
 const triggerIcons = {
   schedule: Calendar,
@@ -163,11 +164,18 @@ export function PlanningAutomations() {
         </CardHeader>
         <CardContent>
           {automations.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhuma automação configurada</p>
-              <p className="text-sm mt-1">Crie sua primeira automação para começar</p>
-            </div>
+            <EmptyState
+              icon={Zap}
+              title="Nenhuma automação configurada"
+              description="Configure gatilhos pra criar cards no planning automaticamente, sejam por agenda, RSS ou webhook. Tudo roda em background pra você."
+              action={
+                <Button onClick={handleCreate}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar primeira automação
+                </Button>
+              }
+              variant="default"
+            />
           ) : (
             <div className="space-y-3">
               {automations.map((automation) => {

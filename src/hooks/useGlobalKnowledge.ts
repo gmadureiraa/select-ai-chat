@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export type KnowledgeCategory = 
   | 'copywriting'
@@ -176,7 +177,7 @@ export function useGlobalKnowledge() {
       content?: string;
       knowledgeId?: string;
     }) => {
-      const { data, error } = await supabase.functions.invoke('process-knowledge', {
+      const { data, error } = await apiInvoke('process-knowledge', {
         body: params
       });
 
@@ -195,7 +196,7 @@ export function useGlobalKnowledge() {
   const searchKnowledge = async (query: string): Promise<SemanticSearchResult[]> => {
     if (!workspace?.id) return [];
 
-    const { data, error } = await supabase.functions.invoke('search-knowledge', {
+    const { data, error } = await apiInvoke('search-knowledge', {
       body: { query, workspaceId: workspace.id, limit: 10 }
     });
 

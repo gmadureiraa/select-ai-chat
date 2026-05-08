@@ -7,6 +7,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@sv/*": [
+        "./src/components/kai/viral-sv-original/*"
       ]
     },
     "skipLibCheck": true,

@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Image as ImageIcon
 } from "lucide-react";
+import { apiInvoke } from '../../lib/apiInvoke';
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -64,7 +65,7 @@ export function RSSImporter({ open, onClose, onImport }: RSSImporterProps) {
     setFeedTitle("");
 
     try {
-      const { data, error } = await supabase.functions.invoke("fetch-rss-feed", {
+      const { data, error } = await apiInvoke("fetch-rss-feed", {
         body: { rssUrl: rssUrl.trim(), limit: 50 }
       });
 

@@ -9,6 +9,7 @@ import {
   Rss, 
   ExternalLink 
 } from "lucide-react";
+import { apiInvoke } from '../../lib/apiInvoke';
 import {
   Dialog,
   DialogContent,
@@ -75,7 +76,7 @@ export function NewsletterSyncBadge({
     setIsSyncing(true);
     try {
       // Fetch RSS feed
-      const { data: rssData, error: rssError } = await supabase.functions.invoke(
+      const { data: rssData, error: rssError } = await apiInvoke(
         "fetch-rss-feed",
         {
           body: { rssUrl: feedUrl, limit: 50 },
@@ -197,7 +198,7 @@ export function NewsletterSyncBadge({
     setIsFetching(true);
     try {
       // Test the RSS URL
-      const { data: testData, error: testError } = await supabase.functions.invoke(
+      const { data: testData, error: testError } = await apiInvoke(
         "fetch-rss-feed",
         {
           body: { rssUrl: rssUrl.trim(), limit: 5 },

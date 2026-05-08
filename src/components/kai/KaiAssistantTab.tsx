@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { apiInvoke } from '../../lib/apiInvoke';
 
 interface KaiAssistantTabProps {
   clientId: string;
@@ -214,7 +215,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     // Performance mode — call kai-metrics-agent directly
     if (effectiveMode === "performance") {
       try {
-        const response = await supabase.functions.invoke("kai-metrics-agent", {
+        const response = await apiInvoke("kai-metrics-agent", {
           body: { clientId, question: content },
         });
         if (response.error) throw new Error(response.error.message);

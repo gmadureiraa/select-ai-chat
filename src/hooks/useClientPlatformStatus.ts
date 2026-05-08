@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect, useRef } from 'react';
+import { apiInvoke } from '../lib/apiInvoke';
 
 export type SupportedPlatform = 'twitter' | 'linkedin' | 'instagram' | 'youtube' | 'newsletter' | 'blog' | 'tiktok' | 'facebook' | 'threads' | 'other';
 
@@ -100,7 +101,7 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
     mutationFn: async () => {
       if (!clientId) return null;
       
-      const { data, error } = await supabase.functions.invoke('late-verify-accounts', {
+      const { data, error } = await apiInvoke('late-verify-accounts', {
         body: { clientId }
       });
       

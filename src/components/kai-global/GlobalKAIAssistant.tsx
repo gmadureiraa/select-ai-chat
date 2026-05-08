@@ -2,13 +2,21 @@ import { useGlobalKAI } from "@/hooks/useGlobalKAI";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { FloatingKAIButton } from "./FloatingKAIButton";
-import { GlobalKAIPanel } from "./GlobalKAIPanel";
-import { GlobalKAIChat } from "./GlobalKAIChat";
-import { GlobalKAIInputMinimal } from "./GlobalKAIInputMinimal";
-import { ViewerBlockedPanel } from "./ViewerBlockedPanel";
-import { useMemo, useCallback } from "react";
+// Panel/Chat/Input só são renderizados quando o assistente é aberto.
+// Lazy-load tira ~1100 linhas (com mentions/markdown/citations) do bundle inicial.
+import { lazy, Suspense, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 import type { SimpleCitation } from "@/hooks/useKAISimpleChat";
+
+const GlobalKAIPanel = lazy(() =>
+  import("./GlobalKAIPanel").then((m) => ({ default: m.GlobalKAIPanel })),
+);
+const GlobalKAIChat = lazy(() =>
+  import("./GlobalKAIChat").then((m) => ({ default: m.GlobalKAIChat })),
+);
+const GlobalKAIInputMinimal = lazy(() =>
+  import("./GlobalKAIInputMinimal").then((m) => ({ default: m.GlobalKAIInputMinimal })),
+);
 
 /**
  * GlobalKAIAssistant - Sistema interno Kaleidos
@@ -132,52 +140,56 @@ export function GlobalKAIAssistant() {
         />
       )}
 
-      {/* Slide-in panel - apenas para quem pode usar */}
-      {canUseAssistant && (
-        <GlobalKAIPanel 
-          isOpen={isOpen} 
-          onClose={closePanel}
-          selectedClientId={selectedClientId}
-          selectedClientName={selectedClientName}
-          clients={allClients}
-          onClientChange={handleClientChange}
-          onClearConversation={clearConversation}
-          messages={messages}
-          conversations={conversations}
-          activeConversationId={activeConversationId}
-          onSelectConversation={handleSelectConversation}
-          onNewConversation={handleNewConversation}
-          onDeleteConversation={deleteConversation}
-        >
-          {/* Chat messages */}
-          <GlobalKAIChat
-            messages={messages}
-            isProcessing={isProcessing}
+      {/* Slide-in panel - apenas para quem pode usar.
+          Só monta o panel/chat/input quando o user abriu o assistente pelo
+          menos uma vez (isOpen) — economiza ~1100 linhas no bundle inicial. */}
+      {canUseAssistant && isOpen && (
+        <Suspense fallback={null}>
+          <GlobalKAIPanel
+            isOpen={isOpen}
+            onClose={closePanel}
             selectedClientId={selectedClientId}
             selectedClientName={selectedClientName}
-            actionStatus={actionStatus}
-            currentStep={currentStep}
-            multiAgentStep={multiAgentStep}
-            onSendMessage={handleSendFromChat}
-            onRetryMessage={handleRetryMessage}
-            chatMode={chatMode}
-            onSuggestionClick={handleSendFromChat}
-          />
+            clients={allClients}
+            onClientChange={handleClientChange}
+            onClearConversation={clearConversation}
+            messages={messages}
+            conversations={conversations}
+            activeConversationId={activeConversationId}
+            onSelectConversation={handleSelectConversation}
+            onNewConversation={handleNewConversation}
+            onDeleteConversation={deleteConversation}
+          >
+            {/* Chat messages */}
+            <GlobalKAIChat
+              messages={messages}
+              isProcessing={isProcessing}
+              selectedClientId={selectedClientId}
+              selectedClientName={selectedClientName}
+              actionStatus={actionStatus}
+              currentStep={currentStep}
+              multiAgentStep={multiAgentStep}
+              onSendMessage={handleSendFromChat}
+              onRetryMessage={handleRetryMessage}
+              chatMode={chatMode}
+              onSuggestionClick={handleSendFromChat}
+            />
 
-          {/* Input with @ mentions and stop button */}
-          <GlobalKAIInputMinimal
-            onSend={handleSend}
-            isProcessing={isProcessing}
-            attachedFiles={attachedFiles}
-            onAttachFiles={attachFiles}
-            onRemoveFile={removeFile}
-            onCancel={handleCancel}
-            placeholder="Pergunte qualquer coisa... Use @ para citar"
-            clientId={selectedClientId || undefined}
-            contentLibrary={contentLibrary}
-            referenceLibrary={referenceLibrary}
-          />
-        </GlobalKAIPanel>
+            {/* Input with @ mentions and stop button */}
+            <GlobalKAIInputMinimal
+              onSend={handleSend}
+              isProcessing={isProcessing}
+              attachedFiles={attachedFiles}
+              onAttachFiles={attachFiles}
+              onRemoveFile={removeFile}
+              onCancel={handleCancel}
+              placeholder="Pergunte qualquer coisa... Use @ para citar"
+              clientId={selectedClientId || undefined}
+              contentLibrary={contentLibrary}
+              referenceLibrary={referenceLibrary}
+            />
+          </GlobalKAIPanel>
+        </Suspense>
       )}
     </>
   );

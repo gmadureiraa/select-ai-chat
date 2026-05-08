@@ -1,20 +1,55 @@
-import { useState } from "react";
-import { Eye, Instagram, Mail, Twitter, Megaphone, Linkedin } from "lucide-react";
+import { useState, lazy, Suspense } from "react";
+import { Eye, Instagram, Mail, Twitter, Megaphone, Linkedin, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 import { useYouTubeVideos } from "@/hooks/useYouTubeMetrics";
 import { useInstagramPosts } from "@/hooks/useInstagramPosts";
 import { useTwitterPosts } from "@/hooks/useTwitterMetrics";
 import { useLinkedInPosts } from "@/hooks/useLinkedInPosts";
-import { InstagramDashboard } from "@/components/performance/InstagramDashboard";
-import { YouTubeDashboard } from "@/components/performance/YouTubeDashboard";
-import { NewsletterDashboard } from "@/components/performance/NewsletterDashboard";
-import { TwitterDashboard } from "@/components/performance/TwitterDashboard";
-import { LinkedInDashboard } from "@/components/performance/LinkedInDashboard";
-import { MetaAdsDashboard } from "@/components/performance/MetaAdsDashboard";
-import { Client } from "@/hooks/useClients";
+import type { Client } from "@/hooks/useClients";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlatformSyncButton, type SyncPlatform } from "@/components/performance/PlatformSyncButton";
+
+// Lazy-load dos dashboards de cada canal — eles puxam recharts (chart-vendor) e
+// componentes pesados (tabelas, modals). Só carrega o canal que o user abrir.
+const InstagramDashboard = lazy(() =>
+  import("@/components/performance/InstagramDashboard").then((m) => ({
+    default: m.InstagramDashboard,
+  })),
+);
+const YouTubeDashboard = lazy(() =>
+  import("@/components/performance/YouTubeDashboard").then((m) => ({
+    default: m.YouTubeDashboard,
+  })),
+);
+const NewsletterDashboard = lazy(() =>
+  import("@/components/performance/NewsletterDashboard").then((m) => ({
+    default: m.NewsletterDashboard,
+  })),
+);
+const TwitterDashboard = lazy(() =>
+  import("@/components/performance/TwitterDashboard").then((m) => ({
+    default: m.TwitterDashboard,
+  })),
+);
+const LinkedInDashboard = lazy(() =>
+  import("@/components/performance/LinkedInDashboard").then((m) => ({
+    default: m.LinkedInDashboard,
+  })),
+);
+const MetaAdsDashboard = lazy(() =>
+  import("@/components/performance/MetaAdsDashboard").then((m) => ({
+    default: m.MetaAdsDashboard,
+  })),
+);
+
+function ChannelLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[200px]">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 interface KaiPerformanceTabProps {
   clientId: string;

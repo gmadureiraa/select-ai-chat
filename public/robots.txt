@@ -1,14 +1,9 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
+Disallow: /api/
+Disallow: /kaleidos/
+Disallow: /no-workspace
 Allow: /
+Allow: /login
+Allow: /signup
+
+Sitemap: https://kai-2-topaz.vercel.app/sitemap.xml

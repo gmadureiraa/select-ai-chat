@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export interface PerformanceMetrics {
   id: string;
@@ -82,7 +83,7 @@ export const useFetchBeehiivMetrics = () => {
 
   return useMutation({
     mutationFn: async (clientId: string) => {
-      const { data, error } = await supabase.functions.invoke('fetch-beehiiv-metrics', {
+      const { data, error } = await apiInvoke('fetch-beehiiv-metrics', {
         body: { clientId },
       });
 
@@ -108,7 +109,7 @@ export const useScrapeMetrics = () => {
       platform: string; 
       url: string;
     }) => {
-      const { data, error } = await supabase.functions.invoke('scrape-social-metrics', {
+      const { data, error } = await apiInvoke('scrape-social-metrics', {
         body: { clientId, platform, url },
       });
 
@@ -132,7 +133,7 @@ export const useFetchInstagramMetrics = () => {
       clientId: string; 
       username: string;
     }) => {
-      const { data, error } = await supabase.functions.invoke('fetch-instagram-metrics', {
+      const { data, error } = await apiInvoke('fetch-instagram-metrics', {
         body: { clientId, username },
       });
 
@@ -156,7 +157,7 @@ export const useFetchNotionMetrics = () => {
       clientId: string; 
       databaseId: string;
     }) => {
-      const { data, error } = await supabase.functions.invoke('fetch-notion-metrics', {
+      const { data, error } = await apiInvoke('fetch-notion-metrics', {
         body: { clientId, databaseId },
       });
 

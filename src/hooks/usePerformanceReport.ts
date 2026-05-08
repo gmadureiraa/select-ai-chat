@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { apiInvoke } from '../lib/apiInvoke';
 
 interface ReportData {
   platform: string;
@@ -174,7 +175,7 @@ export function usePerformanceReport(clientId: string) {
       console.log("[PerformanceReport] Generating report with prompt length:", prompt.length);
 
       // Use kai-content-agent for report generation with stream: false
-      const { data: result, error } = await supabase.functions.invoke("kai-content-agent", {
+      const { data: result, error } = await apiInvoke("kai-content-agent", {
         body: {
           clientId,
           request: prompt,

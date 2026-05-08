@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   format,
@@ -49,6 +50,12 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { MyTasksWidget } from "./MyTasksWidget";
+import { WorkspaceStatsCards } from "./WorkspaceStatsCards";
+import { QuickActions } from "./QuickActions";
+import { RecentActivity } from "./RecentActivity";
+import { RadarHighlights } from "./RadarHighlights";
+import { ViralStatsCard } from "./ViralStatsCard";
+import { TopViralContentCard } from "./TopViralContentCard";
 
 interface HomeDashboardProps {
   onNavigate: (tab: string) => void;
@@ -142,7 +149,7 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
     [userProfile, user]
   );
 
-  const { data: planningItems } = useQuery({
+  const { data: planningItems, isLoading: isLoadingItems } = useQuery({
     queryKey: ["home-dashboard-items", workspaceId],
     queryFn: async () => {
       if (!workspaceId) return [];
@@ -325,6 +332,129 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
     0
   );
 
+  // Skeleton fiel ao layout final — evita flash de "0 itens" enquanto a query roda.
+  if (isLoadingItems) {
+    return (
+      <div className={cn("h-full overflow-y-auto", isMobile ? "p-3" : "p-6 lg:p-8")}>
+        <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-300">
+          {/* Header */}
+          <div className="flex items-end justify-between">
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-64" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <Skeleton className="hidden md:block h-9 w-40" />
+          </div>
+
+          {/* Workspace stats cards (4 cols) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-4 w-4 rounded" />
+                  </div>
+                  <Skeleton className="h-8 w-12" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Quick actions */}
+          <Skeleton className="h-24 w-full rounded-xl" />
+
+          {/* KPI row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-4 space-y-3">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-9 w-16" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Main grid: feed + side */}
+          <div className={cn("grid gap-5", isMobile ? "grid-cols-1" : "grid-cols-12")}>
+            <div className={cn(isMobile ? "" : "col-span-7 space-y-5")}>
+              {/* Today card */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <Skeleton className="h-5 w-24" />
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 py-2">
+                      <Skeleton className="h-2 w-2 rounded-full" />
+                      <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-3.5 w-3/4" />
+                        <Skeleton className="h-2.5 w-1/3" />
+                      </div>
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className={cn(isMobile ? "" : "col-span-5 space-y-5")}>
+              {/* Pipeline */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <Skeleton className="h-5 w-28" />
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Skeleton className="h-3 w-20 shrink-0" />
+                      <Skeleton className="h-1.5 flex-1 rounded-full" />
+                      <Skeleton className="h-3 w-6" />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Clients */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <Skeleton className="h-5 w-20" />
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 py-1">
+                      <Skeleton className="h-7 w-7 rounded-md shrink-0" />
+                      <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-3.5 w-1/2" />
+                        <Skeleton className="h-1 w-3/4 rounded-full" />
+                      </div>
+                      <Skeleton className="h-3 w-4" />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Weekly timeline */}
+          <Card>
+            <CardHeader className="pb-3">
+              <Skeleton className="h-5 w-40" />
+            </CardHeader>
+            <CardContent>
+              <div className={cn("grid gap-2", isMobile ? "grid-cols-1" : "grid-cols-7")}>
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <Skeleton key={i} className="h-[100px] rounded-lg" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("h-full overflow-y-auto", isMobile ? "p-3" : "p-6 lg:p-8")}>
       <div className="max-w-[1400px] mx-auto space-y-6">
@@ -383,10 +513,19 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
           )}
         </AnimatePresence>
 
+        {/* ─── Workspace Stats Cards (clientes, agendados, publicados, tokens) ─── */}
+        <WorkspaceStatsCards onNavigate={onNavigate} />
+
+        {/* ─── Viral Stats — uso das ferramentas virais nos últimos 30d ─── */}
+        <ViralStatsCard onNavigate={onNavigate} range="30d" />
+
+        {/* ─── Quick actions ─── */}
+        <QuickActions onNavigate={onNavigate} />
+
         {/* ─── Suas tarefas internas ─── */}
         <MyTasksWidget onNavigate={onNavigate} />
 
-        {/* ─── KPI Row ─── */}
+        {/* ─── KPI Row (filtros do pipeline) ─── */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -913,6 +1052,21 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
             )}
           </motion.div>
         </div>
+
+        {/* ─── Atividade recente + Radar viral ─── */}
+        <div className={cn("grid gap-5", isMobile ? "grid-cols-1" : "grid-cols-2")}>
+          <RecentActivity />
+          <RadarHighlights onNavigate={onNavigate} />
+        </div>
+
+        {/* ─── Top conteúdo do cliente com mais atividade no pipeline ─── */}
+        {stats.byClient[0]?.clientId && (
+          <TopViralContentCard
+            clientId={stats.byClient[0].clientId}
+            limit={5}
+            onNavigate={onNavigate}
+          />
+        )}
 
         {/* ─── Weekly Timeline ─── */}
         <motion.div

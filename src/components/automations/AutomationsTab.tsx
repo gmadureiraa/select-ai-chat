@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { apiInvoke } from '../../lib/apiInvoke';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -124,7 +125,7 @@ export function AutomationsTab() {
     toast.info(`Executando "${automation.name}"...`, { duration: 3000 });
     
     try {
-      const { data, error } = await supabase.functions.invoke('process-automations', {
+      const { data, error } = await apiInvoke('process-automations', {
         body: { automationId: automation.id }
       });
 

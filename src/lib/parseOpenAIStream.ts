@@ -197,14 +197,14 @@ export async function callKaiContentAgent(params: {
 }): Promise<string> {
   const { clientId, request, format, platform, accessToken, additionalMaterial, onProgress, onChunk } = params;
 
+  // Migrated 2026-05-07: Supabase edge function -> Vercel Function /api/kai-content-agent
   const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kai-content-agent`,
+    `/api/kai-content-agent`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${accessToken}`,
-        "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
       },
       body: JSON.stringify({
         clientId,

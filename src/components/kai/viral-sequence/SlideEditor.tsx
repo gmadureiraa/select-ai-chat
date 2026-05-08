@@ -25,6 +25,7 @@ import {
   Maximize2,
   Ban,
 } from "lucide-react";
+import { apiInvoke } from '../../../lib/apiInvoke';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -134,7 +135,7 @@ export function SlideEditor({ slide, totalSlides, profile, clientId, templateId,
     }
     setAiLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-content-v2", {
+      const { data, error } = await apiInvoke("generate-content-v2", {
         body: {
           type: "image",
           inputs: [{ type: "text", content: prompt }],

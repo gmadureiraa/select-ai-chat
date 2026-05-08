@@ -7,7 +7,7 @@ import {
   Sparkles, RefreshCw, Loader2, Check, AlertCircle,
   Globe, FileText, ImageIcon, Instagram, Youtube, Tag, AlignLeft
 } from "lucide-react";
-import { useClientContext, ContextSources } from "@/hooks/useClientContext";
+import { useClientContextGenerator, ContextSources } from "@/hooks/useClientContextGenerator";
 import { useClients } from "@/hooks/useClients";
 import { useToast } from "@/hooks/use-toast";
 import { VoiceProfileEditor } from "./VoiceProfileEditor";
@@ -38,7 +38,7 @@ export function AIContextTab({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  const { generateContext, fetchSourceCounts, isGenerating, sources } = useClientContext();
+  const { generateContext, fetchSourceCounts, isGenerating, sources } = useClientContextGenerator();
   const { updateClient } = useClients();
   const { toast } = useToast();
 

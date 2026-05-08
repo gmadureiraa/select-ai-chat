@@ -1,7 +1,7 @@
 import { X, FileText, Lightbulb, BookOpen, Wand2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Citation } from "@/types/citation";
+import type { Citation } from "@/types/citation";
 
 // Re-export Citation type for backward compatibility
 export type { Citation } from "@/types/citation";

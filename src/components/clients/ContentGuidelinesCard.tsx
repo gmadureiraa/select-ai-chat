@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { BookOpen, Loader2, Check, Sparkles, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { apiInvoke } from '../../lib/apiInvoke';
 
 interface ContentGuidelinesCardProps {
   clientId: string;
@@ -64,7 +65,7 @@ export function ContentGuidelinesCard({ clientId, initialGuidelines, onUpdate }:
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-content-guidelines", {
+      const { data, error } = await apiInvoke("generate-content-guidelines", {
         body: { clientId },
       });
 

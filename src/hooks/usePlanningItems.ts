@@ -175,7 +175,12 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
         status: (item.status || 'idea') as PlanningStatus,
       })) as PlanningItem[];
     },
-    enabled: !!workspaceId
+    enabled: !!workspaceId,
+    // Substitui Supabase Realtime do planning: poll a cada 15s para
+    // refletir mudanças vindas de outros usuários/automações no
+    // workspace. Mutations locais já invalidam imediatamente.
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   // Create item

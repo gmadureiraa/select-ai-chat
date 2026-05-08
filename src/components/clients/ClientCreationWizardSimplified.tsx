@@ -11,6 +11,7 @@ import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { useClients } from "@/hooks/useClients";
 import { useClientAnalysis } from "@/hooks/useClientAnalysis";
 import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -118,7 +119,7 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
       // Upload documents
       for (const file of files) {
         const fileName = `${clientId}/${Date.now()}_${file.name}`;
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await blobStorage
           .from("client-files")
           .upload(fileName, file);
 

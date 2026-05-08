@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#16a34a"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="950" cy="120" r="180" fill="#16a34a" opacity="0.15"/>
+  <circle cx="200" cy="500" r="220" fill="#22d3ee" opacity="0.08"/>
+  <g transform="translate(80, 200)">
+    <text x="0" y="0" font-family="Inter, system-ui, sans-serif" font-size="160" font-weight="800" fill="#fff" letter-spacing="-6">
+      k<tspan fill="url(#accent)">AI</tspan>
+    </text>
+    <text x="0" y="80" font-family="Inter, system-ui, sans-serif" font-size="36" font-weight="600" fill="#e5e5e5" letter-spacing="-1">
+      Kaleidos AI
+    </text>
+    <text x="0" y="170" font-family="Inter, system-ui, sans-serif" font-size="32" font-weight="400" fill="#a3a3a3">
+      Plataforma de IA contextual para
+    </text>
+    <text x="0" y="215" font-family="Inter, system-ui, sans-serif" font-size="32" font-weight="400" fill="#a3a3a3">
+      gerenciar perfis e criar conteúdo estratégico
+    </text>
+  </g>
+  <g transform="translate(80, 540)">
+    <rect x="0" y="0" width="8" height="40" fill="#16a34a"/>
+    <text x="24" y="28" font-family="Inter, system-ui, sans-serif" font-size="22" font-weight="500" fill="#16a34a" letter-spacing="2">
+      kaleidos.com.br
+    </text>
+  </g>
+</svg>

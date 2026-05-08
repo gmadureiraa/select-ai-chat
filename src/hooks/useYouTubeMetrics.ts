@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export interface YouTubeVideo {
   id: string;
@@ -74,7 +76,7 @@ export const useFetchYouTubeMetrics = () => {
       clientId: string; 
       channelId: string;
     }) => {
-      const { data, error } = await supabase.functions.invoke('fetch-youtube-metrics', {
+      const { data, error } = await apiInvoke('fetch-youtube-metrics', {
         body: { clientId, channelId },
       });
 
@@ -84,6 +86,10 @@ export const useFetchYouTubeMetrics = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['youtube-videos'] });
       queryClient.invalidateQueries({ queryKey: ['performance-metrics'] });
+    },
+    onError: (error: Error) => {
+      console.error('[useFetchYouTubeMetrics]', error);
+      toast.error('Erro ao buscar métricas do YouTube', { description: error.message });
     },
   });
 };
@@ -99,7 +105,7 @@ export const useFetchYouTubeApify = () => {
       clientId: string; 
       channelUrl: string;
     }) => {
-      const { data, error } = await supabase.functions.invoke('fetch-youtube-apify', {
+      const { data, error } = await apiInvoke('fetch-youtube-apify', {
         body: { clientId, channelUrl },
       });
 
@@ -110,6 +116,10 @@ export const useFetchYouTubeApify = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['youtube-videos'] });
       queryClient.invalidateQueries({ queryKey: ['performance-metrics'] });
+    },
+    onError: (error: Error) => {
+      console.error('[useFetchYouTubeApify]', error);
+      toast.error('Erro ao sincronizar canal do YouTube', { description: error.message });
     },
   });
 };

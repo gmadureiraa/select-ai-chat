@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { apiInvoke } from '../lib/apiInvoke';
 
 export interface ClientWebsite {
   id: string;
@@ -34,7 +35,7 @@ export const useClientWebsites = (clientId: string) => {
   const addWebsite = useMutation({
     mutationFn: async (url: string) => {
       // Call edge function to scrape website
-      const { data, error } = await supabase.functions.invoke("scrape-website", {
+      const { data, error } = await apiInvoke("scrape-website", {
         body: { url, clientId },
       });
 

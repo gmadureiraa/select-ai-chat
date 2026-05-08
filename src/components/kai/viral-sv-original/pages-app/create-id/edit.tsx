@@ -1,0 +1,2450 @@
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import {
+  TEMPLATES_META,
+  TemplateRenderer,
+  type TemplateId,
+} from "@sv/components/app/templates";
+import { useAuth } from "@sv/lib/auth-context";
+import { useDraft, useAutoSaveDraft, useSaveDraft } from "@sv/lib/create/use-draft";
+import { useImages } from "@sv/lib/create/use-images";
+import { resolveVariant, resolveLayers } from "@sv/lib/create/render-defaults";
+// CarouselFeedbackPanel removido — agora so aparece em /app/create/[id]/preview.
+import { DiscountPopup } from "@sv/components/app/discount-popup";
+import { ImagePicker } from "@sv/components/app/image-picker";
+import { supabase } from "@sv/lib/supabase";
+import type {
+  CreateSlide,
+  SlideLayers,
+  SlideVariant,
+} from "@sv/lib/create/types";
+
+/**
+ * Tela 03 — Editor. 3 colunas (variantes/layers · canvas · branding) no
+ * desktop; vira tabs no mobile. Canvas central usa `<TemplateRenderer>`
+ * com o templateId escolhido. Auto-save 1200ms (debounced).
+ */
+
+/**
+ * Google Fonts necessários pras opções de fonte display do editor.
+ * Carregamos via `<link>` injetado em document.head na montagem do editor —
+ * evita pesar a landing e o shell global.
+ */
+const DISPLAY_FONTS_HREF =
+  "https://fonts.googleapis.com/css2?family=Inter:wght@900&family=Archivo+Black&family=Bebas+Neue&family=Anton&family=Oswald:wght@500;700&family=Barlow+Condensed:wght@600;700;800&family=Instrument+Serif:ital@0;1&display=swap";
+
+function useInjectDisplayFonts() {
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const id = "sv-create-display-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = DISPLAY_FONTS_HREF;
+    document.head.appendChild(link);
+    const pre1 = document.createElement("link");
+    pre1.rel = "preconnect";
+    pre1.href = "https://fonts.googleapis.com";
+    document.head.appendChild(pre1);
+    const pre2 = document.createElement("link");
+    pre2.rel = "preconnect";
+    pre2.href = "https://fonts.gstatic.com";
+    pre2.crossOrigin = "anonymous";
+    document.head.appendChild(pre2);
+  }, []);
+}
+
+const VARIANT_OPTS: { id: SlideVariant; label: string; ic: React.ReactNode }[] = [
+  {
+    id: "cover",
+    label: "Capa",
+    ic: <span style={{ width: 22, height: 22, background: "var(--sv-ink)", border: "1.5px solid var(--sv-ink)" }} />,
+  },
+  {
+    id: "solid-brand",
+    label: "Cor da marca",
+    ic: <span style={{ width: 22, height: 22, background: "var(--sv-green)", border: "1.5px solid var(--sv-ink)" }} />,
+  },
+  {
+    id: "full-photo-bottom",
+    label: "Foto cheia",
+    ic: (
+      <span
+        style={{
+          width: 22,
+          height: 22,
+          background: "linear-gradient(var(--sv-paper) 55%, var(--sv-ink) 55%)",
+          border: "1.5px solid var(--sv-ink)",
+        }}
+      />
+    ),
+  },
+  {
+    id: "text-only",
+    label: "Só texto",
+    ic: (
+      <span
+        style={{
+          width: 22,
+          height: 22,
+          background: "var(--sv-ink)",
+          borderTop: "3px solid var(--sv-paper)",
+          borderBottom: "3px solid var(--sv-paper)",
+        }}
+      />
+    ),
+  },
+  {
+    id: "cta",
+    label: "CTA",
+    ic: (
+      <span
+        style={{
+          width: 22,
+          height: 22,
+          background: "var(--sv-ink)",
+          borderLeft: "4px solid var(--sv-green)",
+          border: "1.5px solid var(--sv-ink)",
+        }}
+      />
+    ),
+  },
+];
+
+const ACCENT_SWATCHES_DEFAULT = [
+  "#7CF067",
+  "#D262B2",
+  "#FF4A1C",
+  "#F5C518",
+  "#2B5FFF",
+  "#0A0A0A",
+];
+
+// Opções de fonte display. `family` é a string CSS completa pra passar em
+// `displayFontOverride`. `id` bate com o persistido em `style.display_font`.
+// `atelier` = default do Manifesto (editorial). As 4 outras vêm do Google
+// Fonts (ver <link> em `app/app/layout.tsx`).
+// Fontes display do editor — priorizam caixa alta/condensada pra título
+// cinematográfico editorial. Atelier (Kaleidos) foi removida.
+// Default novo do Futurista: Inter 900 (curvas humanistas, bate com
+// referência BrandsDecoded).
+const FONT_OPTS = [
+  {
+    id: "inter-black",
+    label: "Inter Black",
+    family: '"Inter", system-ui, sans-serif',
+    italic: false,
+    uppercase: true,
+  },
+  {
+    id: "archivo",
+    label: "Archivo Black",
+    family: '"Archivo Black", system-ui, sans-serif',
+    italic: false,
+    uppercase: true,
+  },
+  {
+    id: "bebas",
+    label: "Bebas Neue",
+    family: '"Bebas Neue", system-ui, sans-serif',
+    italic: false,
+    uppercase: true,
+  },
+  {
+    id: "anton",
+    label: "Anton",
+    family: '"Anton", system-ui, sans-serif',
+    italic: false,
+    uppercase: true,
+  },
+  {
+    id: "oswald",
+    label: "Oswald",
+    family: '"Oswald", system-ui, sans-serif',
+    italic: false,
+    uppercase: true,
+  },
+  {
+    id: "barlow",
+    label: "Barlow Condensed",
+    family: '"Barlow Condensed", system-ui, sans-serif',
+    italic: false,
+    uppercase: true,
+  },
+  {
+    id: "serif",
+    label: "Serif",
+    family: '"Instrument Serif", Georgia, serif',
+    italic: true,
+    uppercase: false,
+  },
+];
+
+function familyFromFontId(id: string | null | undefined): string | undefined {
+  if (!id) return undefined;
+  return FONT_OPTS.find((f) => f.id === id)?.family;
+}
+function fontIdFromFamily(family: string | undefined): string {
+  if (!family) return "inter-black";
+  return FONT_OPTS.find((f) => f.family === family)?.id ?? "inter-black";
+}
+
+/**
+ * Fontes display por template — cada template tem 1-5 opções que combinam
+ * com sua estética. Twitter NÃO oferece opção (usa fonte fixa do Twitter).
+ * Futurista é a referência (default + 4 alternativas display sans condensadas).
+ *
+ * Atualizado 24/04 a pedido do Gabriel: cada estética tem família própria.
+ */
+const FONTS_PER_TEMPLATE: Record<string, string[]> = {
+  // Futurista: opções já validadas (mantém)
+  futurista: ["inter-black", "archivo", "bebas", "anton", "oswald"],
+  // Manifesto: editorial cinematográfico — sans bold + serif italic
+  manifesto: ["inter-black", "archivo", "anton", "serif"],
+  // Autoral: zine artesanal — fontes condensadas + serif (variedade)
+  autoral: ["bebas", "anton", "barlow", "oswald", "serif"],
+  // Twitter: sem opção (UI esconde o seletor)
+  twitter: [],
+  // Ambição: sans-serif geométrica NÃO condensada (ref @anajords usa SF Pro
+  // Display). Inter como sans display + Archivo Black como peso forte.
+  ambitious: ["inter-black", "archivo"],
+  // Editorial: serif elegante + sans clean
+  blank: ["serif", "inter-black", "archivo"],
+  // Bohdan: design-forward B&W + lime — serif italic dramático + sans bold
+  // (mesma família estética do Manifesto mas com presença de italic).
+  bohdan: ["serif", "inter-black", "archivo", "anton"],
+};
+
+function fontsForTemplate(templateId: string | null | undefined): typeof FONT_OPTS {
+  const ids = FONTS_PER_TEMPLATE[templateId || ""] || [];
+  if (ids.length === 0) return [];
+  return FONT_OPTS.filter((f) => ids.includes(f.id));
+}
+
+function buildPreviewProfile(profile: {
+  name: string;
+  twitter_handle?: string;
+  instagram_handle?: string;
+  avatar_url?: string;
+} | null) {
+  if (!profile) return { name: "Seu nome", handle: "@seuhandle", photoUrl: "" };
+  const handle = profile.twitter_handle
+    ? `@${profile.twitter_handle}`
+    : profile.instagram_handle
+      ? `@${profile.instagram_handle}`
+      : "@seuhandle";
+  return {
+    name: profile.name || "Seu nome",
+    handle,
+    photoUrl: profile.avatar_url || "",
+  };
+}
+
+/**
+ * Decide cor de texto contrastante pra um thumb com `bgColor` custom.
+ * Calcula luminância perceptual (ITU BT.601) do hex.
+ */
+function pickThumbFg(hex: string): string {
+  const m = hex.trim().match(/^#?([0-9a-f]{6}|[0-9a-f]{3})$/i);
+  if (!m) return "var(--sv-ink)";
+  let h = m[1];
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const l = (r * 299 + g * 587 + b * 114) / 1000;
+  return l > 140 ? "var(--sv-ink)" : "var(--sv-paper)";
+}
+
+type MobileTab = "sidebar" | "canvas";
+
+/** Swatches default do painel "Background" — só preto e branco fixos.
+ *  As cores da marca do user (Settings → DNA da marca) entram via
+ *  `bgSwatches` no scope do componente. */
+const BG_SWATCHES_DEFAULT = ["#0A0A0A", "#FFFFFF"];
+
+const DEFAULT_LAYERS: SlideLayers = { title: true, body: true, bg: true };
+
+/** Admin emails pra gate do painel Debug IA. */
+const ADMIN_EMAILS = ["gf.madureiraa@gmail.com", "gf.madureira@hotmail.com"];
+
+/** "+ Adicionar camada" — opções que vão aparecer no menu (stubs por enquanto). */
+const EXTRA_LAYER_OPTIONS = [
+  { id: "quote", label: "Citação em destaque" },
+  { id: "badge", label: "Selo numerado" },
+  { id: "kicker", label: "Tag kicker" },
+] as const;
+
+export default function EditPage(props: {
+  params: ({ id: string });
+}) {
+  useInjectDisplayFonts();
+  const { id } = (props.params as unknown as { id: string });
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, profile, session } = useAuth();
+  const { draft, loading, error } = useDraft(id);
+
+  // Ref do textarea do corpo pra aplicar negrito no range selecionado.
+  const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Mesma coisa pro input do título — antes só body tinha B/Cmd+B, agora
+  // título também (audit Gabriel 2026-04-28: "negrito no texto/título").
+  const headingInputRef = useRef<HTMLInputElement | null>(null);
+  // Guarda o último range de seleção antes do textarea/input perder foco
+  // (o click no botão B dispara blur antes do click, o que zerava
+  // selectionStart/End).
+  const lastBodySelectionRef = useRef<{ start: number; end: number } | null>(null);
+  const lastHeadingSelectionRef = useRef<{ start: number; end: number } | null>(null);
+
+  // Query customizada pra busca/geração de imagem (quando preenchida,
+  // sobrescreve o imageQuery padrão do slide).
+  const [customImageQuery, setCustomImageQuery] = useState("");
+  // Image picker modal: abre grid do Google Images pra o user escolher.
+  const [pickerFor, setPickerFor] = useState<number | null>(null);
+
+  const imagesHook = useImages(session);
+
+  // Paleta de cores de destaque: prioriza cores da marca (definidas em
+  // /app/settings?tab=branding) + defaults como fallback. Dedupes case-insens.
+  const accentSwatches = useMemo(() => {
+    const brand = Array.isArray(profile?.brand_colors)
+      ? profile!.brand_colors!.filter(
+          (c): c is string => typeof c === "string" && c.trim().length > 0
+        )
+      : [];
+    const merged = [...brand, ...ACCENT_SWATCHES_DEFAULT];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const c of merged) {
+      const k = c.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(c);
+      if (out.length >= 12) break;
+    }
+    return out;
+  }, [profile?.brand_colors]);
+
+  // Swatches do painel "Background" — preto + branco SEMPRE + cores da
+  // marca do user (Settings → DNA). Deduped, max 8.
+  const bgSwatches = useMemo(() => {
+    const brand = Array.isArray(profile?.brand_colors)
+      ? profile!.brand_colors!.filter(
+          (c): c is string => typeof c === "string" && c.trim().length > 0
+        )
+      : [];
+    const merged = [...BG_SWATCHES_DEFAULT, ...brand];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const c of merged) {
+      const k = c.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(c);
+      if (out.length >= 8) break;
+    }
+    return out;
+  }, [profile?.brand_colors]);
+
+  const initialTemplate = (searchParams.get("template") as TemplateId | null) ?? null;
+
+  // Estado local do editor — hidratado a partir do draft no useEffect abaixo.
+  const [title, setTitle] = useState("");
+  const [slides, setSlides] = useState<CreateSlide[]>([]);
+  const [slideStyle, setSlideStyle] = useState<"white" | "dark">("white");
+  const [templateId, setTemplateId] = useState<TemplateId>(
+    initialTemplate ?? "manifesto"
+  );
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [kicker, setKicker] = useState("");
+  const [handle, setHandle] = useState("@seuhandle");
+  const [fontId, setFontId] = useState<string>("inter-black");
+  const [accent, setAccent] = useState<string>("#7CF067");
+  const [textScale, setTextScale] = useState(1);
+  const [mobileTab, setMobileTab] = useState<MobileTab>("canvas");
+  // Flag pra saber se o usuário já mexeu no accent/font/scale (pra não
+  // forçar overrides quando o draft nem tem nada salvo — deixa o template
+  // usar a cor/fonte default dele).
+  const [accentTouched, setAccentTouched] = useState(false);
+  const [fontTouched, setFontTouched] = useState(false);
+  const [scaleTouched, setScaleTouched] = useState(false);
+
+  // Drag-and-drop para reordenar thumbs.
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  // Menu "+ Adicionar" (camada extra) — só UI estub.
+  const [addLayerOpen, setAddLayerOpen] = useState(false);
+  // Detecta drag de arquivo sobre o canvas pra mostrar hint visual.
+  // CRÍTICO: precisa estar AQUI no top level (antes dos early returns
+  // de loading/error). Antes (commit e427119) eu tinha colocado dentro
+  // do JSX do CanvasCol — react explodia com error #310 ("Rendered
+  // more hooks than during the previous render") quando o draft carregava.
+  // Estado: null = sem drag, "image" ou "video" = arrastando esse tipo.
+  // Detecta tipo via dataTransfer.items[i].type no dragover (Chrome/Firefox/
+  // Safari expõem MIME mesmo antes do drop). Permite hint visual diferente.
+  const [canvasDropping, setCanvasDropping] = useState<
+    null | "image" | "video"
+  >(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Usamos um input de upload separado por slide (via indexRef) — armazenamos
+  // o slide alvo pra reutilizar o mesmo file input oculto.
+  const uploadTargetRef = useRef<number | null>(null);
+
+  // Hidrata do draft quando carrega — UMA ÚNICA VEZ por draftId.
+  // BUG FIX 2026-04-27: antes esse effect tinha `profile` como dep e
+  // re-rodava sempre que profile re-renderizava (auth refresh, tab focus,
+  // updateProfile, etc), SOBRESCREVENDO as mudanças do user nos slides
+  // com o estado original do draft. User editava imagens, profile
+  // dispara re-render, slides voltavam ao zero. Reportado como
+  // "todas fotos e alterações se perderam".
+  //
+  // Fix: ref pra marcar que já hidratou esse draft. Profile foi movido
+  // pra effect separado (só atualiza kicker/handle, sem tocar slides).
+  const hydratedDraftIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!draft) return;
+    if (hydratedDraftIdRef.current === draft.id) return;
+    hydratedDraftIdRef.current = draft.id;
+
+    setTitle(draft.title);
+    setSlides(draft.slides.length ? draft.slides : []);
+    setSlideStyle(draft.style === "dark" ? "dark" : "white");
+    if (!initialTemplate && draft.visualTemplate) {
+      setTemplateId(draft.visualTemplate);
+    }
+    if (draft.accentOverride) {
+      setAccent(draft.accentOverride);
+      setAccentTouched(true);
+    } else if (
+      Array.isArray(profile?.brand_colors) &&
+      profile!.brand_colors!.length > 0 &&
+      typeof profile!.brand_colors![0] === "string"
+    ) {
+      setAccent(profile!.brand_colors![0]);
+      setAccentTouched(true);
+    }
+    if (draft.displayFont) {
+      setFontId(fontIdFromFamily(draft.displayFont));
+      setFontTouched(true);
+    }
+    if (typeof draft.textScale === "number") {
+      setTextScale(draft.textScale);
+      setScaleTouched(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, initialTemplate]);
+
+  // Effect separado pra kicker/handle — pode atualizar se profile muda
+  // sem risco de sobrescrever os slides editados.
+  useEffect(() => {
+    if (!profile) return;
+    setKicker(profile.name || "Seu nome");
+    setHandle(
+      profile.twitter_handle
+        ? `@${profile.twitter_handle}`
+        : profile.instagram_handle
+          ? `@${profile.instagram_handle}`
+          : "@seuhandle"
+    );
+  }, [profile]);
+
+  const previewProfile = useMemo(
+    () => ({
+      name: kicker || "Seu nome",
+      handle: handle || "@seuhandle",
+      photoUrl: profile?.avatar_url || "",
+    }),
+    [kicker, handle, profile?.avatar_url]
+  );
+
+  // ─── Auto-fill de imagens faltantes ───────────────────────────────
+  // Todo slide deve ter imagem (evita espaco vazio). Quando slides hidratam
+  // do draft, detecta os sem imageUrl e dispara fetch usando o IMAGE DECIDER
+  // (agente Gemini Flash 2.5 que decide slide a slide):
+  //   - Entidade nomeada (Anthropic, Satoshi, Tesla) → mode="search" via Serper
+  //   - Conceito abstrato / metáfora → mode="generate" com StructuredImagePrompt
+  //     cinematográfico (Gemini Flash Image / Imagen fallback)
+  //   - Capa (slide 0) → sempre generate (forçado pelo decider pro max drama)
+  // Roda continuamente ate TODOS os slides terem imageUrl. Com retry ilimitado
+  // (backoff exponencial) em falhas — garantia de 100% fiel no export.
+  // Ref guarda `${draftId}::${templateId}` — quando user troca template,
+  // a chave muda e o autofill re-roda pra recalibrar imagens com o
+  // image-decider novo (cada template tem style guide diferente).
+  const autoFillStartedRef = useRef<string | null>(null);
+  const [imagesPending, setImagesPending] = useState<number>(0);
+  useEffect(() => {
+    if (!draft?.id) return;
+    if (!slides.length) return;
+    const key = `${draft.id}::${templateId}`;
+    if (autoFillStartedRef.current === key) return;
+    autoFillStartedRef.current = key;
+
+    async function fillMissing() {
+      const concurrency = 2;
+      // Cap reduzido de 4 → 2 em 2026-05-01 pra controlar custo Imagen 4.0
+      // ($0.04/imagem). Pior caso antes: 4 passes × 2 concurrency × 12 slides
+      // = 96 chamadas → ~$3.84/carrossel só em retry. Agora: máximo ~24
+      // chamadas → ~$0.96. Slides que falharem em 2 passes viram imageFailed
+      // e mostram card "Gerar de novo" pro user pedir manualmente.
+      const maxRetries = 2;
+      let passIndex = 0;
+      // Multiplos passes: enquanto ainda ha slides sem imagem, tenta de novo
+      // com backoff. Se depois de N passes ainda falhar, marca imageFailed=true
+      // pra UX do editor mostrar card "Gerar de novo" claramente.
+      while (passIndex < maxRetries) {
+        // Snapshot dos indices que precisam de imagem.
+        // 28/04: respeita decisão do Gemini de "slide sem imagem" —
+        // imageQuery === "" string vazia significa intencional (não é
+        // missing). Isso pula auto-fill em ~50% dos slides típicos
+        // (texto puro/abstrato/CTA), reduzindo tempo total de geração.
+        const missing: number[] = [];
+        for (let i = 0; i < slides.length; i++) {
+          const s = slides[i];
+          if (!s) continue;
+          if (s.imageUrl) continue; // já tem imagem
+          // imageQuery vazio EXPLÍCITO = modelo decidiu que slide não
+          // tem imagem. Não é "missing".
+          if (
+            typeof s.imageQuery === "string" &&
+            s.imageQuery.trim() === ""
+          ) {
+            continue;
+          }
+          missing.push(i);
+        }
+        setImagesPending(missing.length);
+        if (missing.length === 0) break;
+
+        if (passIndex > 0) {
+          // Backoff entre passes: 3s, 6s, 9s
+          await new Promise((r) => setTimeout(r, 3000 * passIndex));
+        }
+
+        let nextIdx = 0;
+        async function worker() {
+          while (true) {
+            const slot = nextIdx++;
+            if (slot >= missing.length) return;
+            const i = missing[slot];
+            const s = slides[i];
+            if (!s || s.imageUrl) continue;
+            const baseQuery =
+              (s.imageQuery && s.imageQuery.trim()) ||
+              (s.heading && s.heading.trim()) ||
+              title;
+            if (!baseQuery) continue;
+            const isCover = i === 0 && templateId !== "twitter";
+            // Decider define mode internamente no backend — passamos
+            // "generate" como hint (será sobrescrito pelo decider).
+            try {
+              const res = await imagesHook.refetchImage(i, {
+                query: baseQuery,
+                contextHeading: s.heading,
+                contextBody: s.body,
+                mode: "generate",
+                designTemplate: templateId,
+                isCover,
+                useDecider: true,
+                slideNumber: i + 1,
+                totalSlides: slides.length,
+              });
+              const urlToApply =
+                res.appliedUrl ??
+                (res.options && res.options.length > 0 ? res.options[0] : null);
+              if (urlToApply) {
+                updateSlide(i, { imageUrl: urlToApply, imageFailed: false });
+              } else {
+                console.warn(
+                  `[auto-fill pass ${passIndex + 1}] slide ${i + 1} sem imagem aplicada`
+                );
+              }
+            } catch (err) {
+              console.warn(
+                `[auto-fill pass ${passIndex + 1}] slide ${i + 1} falhou:`,
+                err
+              );
+            }
+            // Pequeno delay entre slides pra nao estourar rate limit
+            await new Promise((r) => setTimeout(r, 300));
+          }
+        }
+        await Promise.all(
+          Array.from({ length: concurrency }).map(() => worker())
+        );
+        passIndex++;
+      }
+      // Update final do pending (apos todos os passes).
+      // Slides que ainda nao tem imagem viram imageFailed=true pro card de
+      // erro aparecer em vez de placeholder vazio.
+      setSlides((prev) => {
+        const next = prev.map((s) =>
+          !s?.imageUrl ? { ...s, imageFailed: true } : s
+        );
+        return next;
+      });
+      const finalMissing = slides.filter((s) => !s?.imageUrl).length;
+      setImagesPending(finalMissing);
+    }
+    void fillMissing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // templateId incluído nas deps — auto-fill re-roda ao trocar template
+    // (cada template tem image-decider diferente, faz sentido recalibrar).
+  }, [draft?.id, slides.length, templateId]);
+
+  // Re-calcula imagesPending toda vez que slides muda. Source de verdade pro
+  // botão Preview — se algum slide ainda nao tem imagem, bloqueia export.
+  useEffect(() => {
+    if (!slides.length) {
+      setImagesPending(0);
+      return;
+    }
+    const missing = slides.filter((s) => !s?.imageUrl).length;
+    setImagesPending(missing);
+  }, [slides]);
+
+  // Auto-save debounced. Só envia accent/font/scale se o usuário mexeu —
+  // evita sobrescrever com defaults toda vez que o draft hidratar.
+  useAutoSaveDraft({
+    userId: user?.id ?? null,
+    id,
+    slides,
+    title,
+    slideStyle,
+    visualTemplate: templateId,
+    accentOverride: accentTouched ? accent : undefined,
+    displayFont: fontTouched ? familyFromFontId(fontId) : undefined,
+    textScale: scaleTouched ? textScale : undefined,
+    enabled: slides.length > 0,
+  });
+
+  // Transição Editor → Preview: ESTRATEGIA DUPLA pra garantir fidelidade 100%:
+  //   1. Flush sincrono do draft no server (preview → fetchUserCarousel pega fresh)
+  //   2. ADICIONAL: passa snapshot EXATO dos slides via sessionStorage como
+  //      override. Preview page le esse snapshot primeiro — se existir, renderiza
+  //      dele direto. Bypass de qualquer race condition do DB.
+  //
+  // Bug reportado 2026-04-22: mesmo com flush, download vinha diferente do
+  // editor. Por via das duvidas, sessionStorage e'a ponte direta.
+  const { saveNow: flushDraft } = useSaveDraft(user?.id ?? null, null);
+  const [flushingToPreview, setFlushingToPreview] = useState(false);
+  async function goToPreview() {
+    if (!id) return;
+    setFlushingToPreview(true);
+
+    // Snapshot EXATO do estado atual do editor — preview page usa como
+    // override em vez de depender do DB.
+    const snapshot = {
+      draftId: id,
+      title,
+      slides,
+      slideStyle,
+      visualTemplate: templateId,
+      accentOverride: accentTouched ? accent : undefined,
+      displayFont: fontTouched ? familyFromFontId(fontId) : undefined,
+      textScale: scaleTouched ? textScale : undefined,
+      savedAt: Date.now(),
+    };
+    try {
+      sessionStorage.setItem(
+        `sv_preview_snapshot_${id}`,
+        JSON.stringify(snapshot)
+      );
+    } catch {
+      /* quota cheia — ignora, preview vai usar DB */
+    }
+
+    try {
+      await flushDraft(id, {
+        title,
+        slides,
+        slideStyle,
+        status: "draft",
+        visualTemplate: templateId,
+        accentOverride: accentTouched ? accent : undefined,
+        displayFont: fontTouched ? familyFromFontId(fontId) : undefined,
+        textScale: scaleTouched ? textScale : undefined,
+      });
+    } catch (err) {
+      console.warn("[edit] flush before preview falhou:", err);
+    }
+    router.push(`/app/create/${id}/preview`);
+  }
+
+  function updateSlide(index: number, patch: Partial<CreateSlide>) {
+    setSlides((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], ...patch };
+      return next;
+    });
+  }
+
+  /**
+   * Envolve a seleção atual do textarea/input com `**...**`. Funciona pra
+   * body OU heading (audit 2026-04-28). Se não houver seleção, insere `****`
+   * e posiciona o cursor entre os asteriscos. Reverte se já está wrappada.
+   */
+  function applyBold(field: "body" | "heading") {
+    const el =
+      field === "body" ? bodyTextareaRef.current : headingInputRef.current;
+    if (!el || !active) return;
+    const savedRef =
+      field === "body" ? lastBodySelectionRef : lastHeadingSelectionRef;
+    const isFocused = document.activeElement === el;
+    const saved = savedRef.current;
+    const start = isFocused
+      ? el.selectionStart ?? 0
+      : saved?.start ?? el.selectionStart ?? 0;
+    const end = isFocused
+      ? el.selectionEnd ?? 0
+      : saved?.end ?? el.selectionEnd ?? 0;
+    const value = (field === "body" ? active.body : active.heading) ?? "";
+    const selected = value.slice(start, end);
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+
+    function commit(nextValue: string, nextStart: number, nextEnd: number) {
+      updateSlide(
+        activeIndex,
+        field === "body" ? { body: nextValue } : { heading: nextValue }
+      );
+      requestAnimationFrame(() => {
+        el!.focus();
+        el!.setSelectionRange(nextStart, nextEnd);
+      });
+    }
+
+    // Já wrappado → remove.
+    if (
+      selected.startsWith("**") &&
+      selected.endsWith("**") &&
+      selected.length >= 4
+    ) {
+      const inner = selected.slice(2, -2);
+      commit(before + inner + after, start, start + inner.length);
+      return;
+    }
+
+    // Sem seleção → insere `****` com cursor no meio.
+    if (start === end) {
+      commit(before + "****" + after, start + 2, start + 2);
+      return;
+    }
+
+    // Com seleção → envolve.
+    const wrapped = `**${selected}**`;
+    commit(before + wrapped + after, start, start + wrapped.length);
+  }
+
+  // Wrapper retrocompat — alguns lugares antigos chamam applyBoldToBody.
+  function applyBoldToBody() {
+    applyBold("body");
+  }
+
+  /** Toggle binário de uma camada específica do slide ativo. */
+  function toggleLayer(key: keyof SlideLayers) {
+    const slide = slides[activeIndex];
+    if (!slide) return;
+    const current = slide.layers ?? DEFAULT_LAYERS;
+    updateSlide(activeIndex, {
+      layers: { ...current, [key]: !current[key] },
+    });
+  }
+
+  // Drag-and-drop nos thumbs (HTML5 nativo).
+  function handleDragStart(index: number) {
+    setDragIndex(index);
+  }
+  function handleDragOver(e: React.DragEvent, index: number) {
+    // Aceita 2 tipos de drag:
+    // 1. Slide arrastado de outro slide (reorder) — dragIndex !== null
+    // 2. Arquivo arrastado do filesystem (upload) — dataTransfer.types tem "Files"
+    e.preventDefault();
+    if (dragOverIndex !== index) setDragOverIndex(index);
+  }
+  function handleDrop(e: React.DragEvent, targetIndex: number) {
+    // Caso 1 — arquivo do filesystem (drag-and-drop upload).
+    // Pegamos o primeiro arquivo de imagem e fazemos upload pro slide alvo.
+    // Reset do estado de drag interno é feito mesmo se for upload (evita
+    // ficar com highlight residual).
+    const fileList = e.dataTransfer?.files;
+    if (fileList && fileList.length > 0) {
+      e.preventDefault();
+      setDragIndex(null);
+      setDragOverIndex(null);
+      const file = Array.from(fileList).find(
+        (f) => f.type.startsWith("image/") || f.type.startsWith("video/")
+      );
+      if (!file) {
+        toast.error("Solta uma imagem (PNG/JPG/WEBP/GIF) ou vídeo (MP4/WEBM/MOV).");
+        return;
+      }
+      void handleUploadImage(file, targetIndex);
+      return;
+    }
+
+    // Caso 2 — reorder slides (drag interno).
+    if (dragIndex === null || dragIndex === targetIndex) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    setSlides((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(dragIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+    setActiveIndex((prevActive) => {
+      if (prevActive === dragIndex) return targetIndex;
+      if (dragIndex < prevActive && targetIndex >= prevActive) return prevActive - 1;
+      if (dragIndex > prevActive && targetIndex <= prevActive) return prevActive + 1;
+      return prevActive;
+    });
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }
+  function handleDragEnd() {
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }
+  /** Reordenar via setinhas (mobile fallback). */
+  function moveSlide(fromIdx: number, dir: -1 | 1) {
+    const to = fromIdx + dir;
+    if (to < 0 || to >= slides.length) return;
+    setSlides((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    setActiveIndex((prev) => {
+      if (prev === fromIdx) return to;
+      if (prev === to) return fromIdx;
+      return prev;
+    });
+  }
+
+  function addSlide(afterIndex: number) {
+    setSlides((prev) => {
+      const next = [...prev];
+      next.splice(afterIndex + 1, 0, {
+        heading: "Novo slide",
+        body: "Adicione o texto deste slide.",
+        imageQuery: "placeholder",
+        variant: "headline",
+      });
+      return next;
+    });
+    setActiveIndex(afterIndex + 1);
+  }
+
+  function deleteSlide(index: number) {
+    if (slides.length <= 1) {
+      toast.error("Carrossel precisa de pelo menos 1 slide.");
+      return;
+    }
+    if (!confirm(`Apagar o slide ${index + 1}?`)) return;
+    setSlides((prev) => prev.filter((_, i) => i !== index));
+    // Ajusta activeIndex pra não apontar pra slide deletado.
+    setActiveIndex((prev) => {
+      if (prev > index) return prev - 1;
+      if (prev === index) return Math.max(0, index - 1);
+      return prev;
+    });
+    toast.success("Slide apagado.");
+  }
+
+  async function handleUploadImage(file: File, targetIndex: number) {
+    if (!file) return;
+    const isVideo = file.type.startsWith("video/");
+    const result = await imagesHook.uploadImage(targetIndex, file, id);
+    if (result.ok) {
+      updateSlide(targetIndex, {
+        imageUrl: result.url,
+        imageFailed: false,
+      });
+      toast.success(isVideo ? "Vídeo carregado." : "Imagem carregada.");
+    } else {
+      // Toast com erro REAL retornado pelo hook (não state assíncrono).
+      toast.error(result.error || "Falha no upload.");
+    }
+  }
+
+  /**
+   * Prioridade da query pra busca/geração de imagem:
+   * 1. campo custom preenchido pelo usuário (override explícito)
+   * 2. imageQuery do slide (vem do Gemini, em inglês)
+   * 3. heading do slide
+   * 4. body do slide (truncado)
+   * 5. título do carrossel
+   */
+  function resolveImageQuery(s: CreateSlide): string {
+    const custom = customImageQuery.trim();
+    if (custom) return custom;
+    const iq = s.imageQuery?.trim();
+    if (iq) return iq;
+    const h = s.heading?.trim();
+    if (h) return h;
+    const b = s.body?.trim().slice(0, 60);
+    if (b) return b;
+    return title.trim();
+  }
+
+  async function handleSearchImage(targetIndex: number) {
+    const s = slides[targetIndex];
+    if (!s) return;
+    const query =
+      (s.imageQuery && s.imageQuery.trim()) ||
+      (s.heading && s.heading.trim()) ||
+      (s.body && s.body.trim().slice(0, 60)) ||
+      title;
+    const finalQuery = customImageQuery.trim() || query;
+    if (!finalQuery) {
+      toast.error("Escreva uma descrição ou um título antes de buscar.");
+      return;
+    }
+    try {
+      const res = await imagesHook.refetchImage(targetIndex, {
+        query: finalQuery,
+        contextHeading: s.heading,
+        contextBody: s.body,
+        mode: "search",
+        designTemplate: templateId,
+      });
+      if (res.appliedUrl)
+        updateSlide(targetIndex, { imageUrl: res.appliedUrl, imageFailed: false });
+    } catch {
+      if (imagesHook.error) toast.error(imagesHook.error);
+    }
+  }
+
+  async function handleGenerateImage(targetIndex: number) {
+    const s = slides[targetIndex];
+    if (!s) return;
+    const query =
+      (s.imageQuery && s.imageQuery.trim()) ||
+      (s.heading && s.heading.trim()) ||
+      title;
+    const finalQuery = customImageQuery.trim() || query;
+    if (!finalQuery) {
+      toast.error("Escreva uma descrição ou um título antes de gerar.");
+      return;
+    }
+    try {
+      const res = await imagesHook.refetchImage(targetIndex, {
+        query: finalQuery,
+        contextHeading: s.heading,
+        contextBody: s.body,
+        mode: "generate",
+        designTemplate: templateId,
+      });
+      if (res.appliedUrl) {
+        updateSlide(targetIndex, {
+          imageUrl: res.appliedUrl,
+          imageFailed: false,
+        });
+        toast.success("Imagem gerada.");
+      }
+    } catch {
+      if (imagesHook.error) toast.error(imagesHook.error);
+    }
+  }
+
+  /**
+   * Regenera a CAPA com pipeline 2-pass (Gemini planeja cena → Flash Image
+   * Nano Banana, fallback Imagen 4 se Flash Image falhar).
+   * Só faz sentido no slide 0 e quando templateId !== "twitter". Demora
+   * ~45s — toast avisa.
+   */
+  async function handleRegenCover() {
+    const s = slides[0];
+    if (!s) return;
+    const query =
+      (s.heading && s.heading.trim()) ||
+      (s.imageQuery && s.imageQuery.trim()) ||
+      title;
+    if (!query) {
+      toast.error("A capa precisa de um título antes de gerar.");
+      return;
+    }
+    toast.info("Gerando capa cinematográfica (~45s). IA planeja a cena e renderiza.");
+    try {
+      const res = await imagesHook.refetchImage(0, {
+        query,
+        contextHeading: s.heading,
+        contextBody: s.body,
+        mode: "generate",
+        designTemplate: templateId,
+        isCover: true,
+        useDecider: true,
+        slideNumber: 1,
+        totalSlides: slides.length,
+      });
+      if (res.appliedUrl) {
+        updateSlide(0, { imageUrl: res.appliedUrl, imageFailed: false });
+        toast.success("Nova capa pronta.");
+      }
+    } catch {
+      if (imagesHook.error) toast.error(imagesHook.error);
+    }
+  }
+
+  function handleRemoveImage(targetIndex: number) {
+    updateSlide(targetIndex, { imageUrl: "" });
+    toast("Imagem removida do slide.");
+  }
+
+  function triggerUploadFor(targetIndex: number) {
+    uploadTargetRef.current = targetIndex;
+    fileInputRef.current?.click();
+  }
+
+  // Galeria e picker-via-hook foram depreciados em favor do <ImagePicker>
+  // (modal com Google Images). Mantive só o caller do ImagePicker via
+  // setPickerFor(targetIndex) acima.
+
+  if (loading) {
+    return (
+      <div style={{ padding: 40 }}>
+        <p
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 10,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "var(--sv-muted)",
+          }}
+        >
+          Carregando rascunho...
+        </p>
+      </div>
+    );
+  }
+
+  if (error || !draft) {
+    return (
+      <div style={{ padding: 40 }}>
+        <p style={{ color: "var(--sv-ink)" }}>{error ?? "Rascunho não encontrado."}</p>
+      </div>
+    );
+  }
+
+  const active = slides[activeIndex];
+  const selectedMeta = TEMPLATES_META.find((m) => m.id === templateId);
+
+  // Twitter template tem UM UNICO layout (sem variantes). Ocultar o picker
+  // evita user clicar e ver mudanca zero no canvas.
+  const supportsVariants = templateId !== "twitter";
+
+  const VariantsCol = (
+    <div className="flex flex-col gap-4">
+      {supportsVariants && (
+        <>
+          <h4
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9.5,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+              fontWeight: 700,
+            }}
+          >
+            Variante do slide
+          </h4>
+          <div
+            className="grid gap-1.5"
+            style={{ gridTemplateColumns: "1fr 1fr 1fr" }}
+          >
+            {VARIANT_OPTS.map((v) => {
+              const on = active?.variant === v.id;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() =>
+                    active && updateSlide(activeIndex, { variant: v.id })
+                  }
+                  style={{
+                    padding: "10px 4px",
+                    border: "1.5px solid var(--sv-ink)",
+                    background: on ? "var(--sv-green)" : "var(--sv-white)",
+                    cursor: "pointer",
+                    fontFamily: "var(--sv-mono)",
+                    fontSize: 8.5,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    fontWeight: 700,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 6,
+                    color: "var(--sv-ink)",
+                  }}
+                >
+                  {v.ic}
+                  {v.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <h4
+        style={{
+          fontFamily: "var(--sv-mono)",
+          fontSize: 9.5,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "var(--sv-muted)",
+          fontWeight: 700,
+          marginTop: 10,
+        }}
+      >
+        Camadas
+      </h4>
+      <div className="flex flex-col gap-1">
+        {(
+          [
+            { id: "title", label: "Título" },
+            { id: "body", label: "Corpo" },
+            { id: "bg", label: "Fundo" },
+          ] as { id: keyof SlideLayers; label: string }[]
+        ).map((layer) => {
+          const layers = active?.layers ?? DEFAULT_LAYERS;
+          const on = layers[layer.id];
+          return (
+            <button
+              key={layer.id}
+              type="button"
+              onClick={() => toggleLayer(layer.id)}
+              style={{
+                padding: "8px 10px",
+                border: "1.5px solid var(--sv-ink)",
+                background: on ? "var(--sv-white)" : "var(--sv-soft)",
+                fontFamily: "var(--sv-mono)",
+                fontSize: 9.5,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: on ? "var(--sv-ink)" : "var(--sv-muted)",
+                textAlign: "left",
+                cursor: "pointer",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                textDecoration: on ? "none" : "line-through",
+                fontWeight: 700,
+              }}
+              aria-pressed={on}
+            >
+              <span>{layer.label}</span>
+              <span
+                style={{
+                  fontSize: 8,
+                  color: on ? "var(--sv-green, #7CF067)" : "var(--sv-muted)",
+                }}
+              >
+                {on ? "ON" : "OFF"}
+              </span>
+            </button>
+          );
+        })}
+
+        {/* "+ Adicionar" — menu dropdown com camadas extras (stubs). */}
+        <div style={{ position: "relative" }}>
+          <button
+            type="button"
+            onClick={() => setAddLayerOpen((v) => !v)}
+            style={{
+              padding: "8px 10px",
+              border: "1.5px dashed var(--sv-ink)",
+              background: addLayerOpen ? "var(--sv-green)" : "var(--sv-white)",
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9.5,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "var(--sv-ink)",
+              cursor: "pointer",
+              width: "100%",
+              textAlign: "left",
+              fontWeight: 700,
+            }}
+          >
+            + Adicionar
+          </button>
+          {addLayerOpen && (
+            <div
+              style={{
+                position: "absolute",
+                top: "calc(100% + 4px)",
+                left: 0,
+                right: 0,
+                zIndex: 10,
+                border: "1.5px solid var(--sv-ink)",
+                background: "var(--sv-white)",
+                boxShadow: "3px 3px 0 0 var(--sv-ink)",
+              }}
+            >
+              {EXTRA_LAYER_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    toast("Em breve: " + opt.label);
+                    setAddLayerOpen(false);
+                  }}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "8px 10px",
+                    border: "none",
+                    background: "transparent",
+                    fontFamily: "var(--sv-mono)",
+                    fontSize: 9,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: "var(--sv-ink)",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    borderBottom: "1px dashed var(--sv-ink)",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <h4
+        style={{
+          fontFamily: "var(--sv-mono)",
+          fontSize: 9.5,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "var(--sv-muted)",
+          fontWeight: 700,
+          marginTop: 10,
+        }}
+      >
+        Background
+      </h4>
+      <div className="flex gap-1.5 flex-wrap items-center">
+        {bgSwatches.map((color) => {
+          const selected = active?.bgColor === color;
+          return (
+            <button
+              key={color}
+              type="button"
+              onClick={() => updateSlide(activeIndex, { bgColor: color })}
+              style={{
+                width: 26,
+                height: 26,
+                background: color,
+                border: "1.5px solid var(--sv-ink)",
+                cursor: "pointer",
+                boxShadow: selected
+                  ? "0 0 0 2px var(--sv-paper) inset, 0 0 0 4px var(--sv-ink)"
+                  : "none",
+              }}
+              aria-label={`Background ${color}`}
+              aria-pressed={selected}
+            />
+          );
+        })}
+        {active?.bgColor && (
+          <button
+            type="button"
+            onClick={() => updateSlide(activeIndex, { bgColor: undefined })}
+            style={{
+              padding: "5px 8px",
+              border: "1.5px dashed var(--sv-ink)",
+              background: "var(--sv-white)",
+              cursor: "pointer",
+              fontFamily: "var(--sv-mono)",
+              fontSize: 8,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "var(--sv-ink)",
+              fontWeight: 700,
+            }}
+            aria-label="Remover cor custom do slide"
+          >
+            Reset
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  // canvasDropping declarado no topo do componente (acima de hidratação).
+  // Aqui é só o JSX do canvas — não declarar hooks após early returns.
+
+  const CanvasCol = (
+    <div
+      className="flex flex-col items-center gap-4 relative"
+      style={{ padding: "18px 14px", background: "var(--sv-soft)", minHeight: 480, minWidth: 0 }}
+      onDragOver={(e) => {
+        // Aceita drop só de arquivos (não slides). Slides reorder usam handleDrop
+        // dos thumbnails — esse drop zone aqui é exclusivo pra upload.
+        if (!e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        // Detecta tipo do arquivo arrastado (dataTransfer.items expõe MIME
+        // antes do drop em Chrome/Firefox/Safari). Permite hint visual
+        // diferente pra imagem vs vídeo.
+        const items = Array.from(e.dataTransfer.items ?? []);
+        const fileItem = items.find((it) => it.kind === "file");
+        const kind: "image" | "video" = fileItem?.type.startsWith("video/")
+          ? "video"
+          : "image";
+        if (canvasDropping !== kind) setCanvasDropping(kind);
+      }}
+      onDragLeave={(e) => {
+        // Só limpa se saiu do container inteiro (não de filho interno).
+        const related = e.relatedTarget as Node | null;
+        if (!related || !e.currentTarget.contains(related)) {
+          setCanvasDropping(null);
+        }
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+        e.preventDefault();
+        setCanvasDropping(null);
+        const file = Array.from(e.dataTransfer.files).find(
+          (f) => f.type.startsWith("image/") || f.type.startsWith("video/")
+        );
+        if (!file) {
+          toast.error("Solta uma imagem (PNG/JPG/WEBP/GIF) ou vídeo (MP4/WEBM/MOV).");
+          return;
+        }
+        void handleUploadImage(file, activeIndex);
+      }}
+    >
+      {/* Overlay visual quando user arrasta arquivo sobre o canvas. Cor +
+          texto mudam conforme tipo: imagem (verde) vs vídeo (rosa). */}
+      {canvasDropping && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none"
+          style={{
+            background:
+              canvasDropping === "video"
+                ? "rgba(210, 98, 178, 0.22)"
+                : "rgba(124, 240, 103, 0.22)",
+            border: `3px dashed ${
+              canvasDropping === "video" ? "var(--sv-pink)" : "var(--sv-green)"
+            }`,
+          }}
+        >
+          <div
+            style={{
+              padding: "16px 24px",
+              background: "var(--sv-ink)",
+              color: "var(--sv-paper)",
+              fontFamily: "var(--sv-mono)",
+              fontSize: 12,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              fontWeight: 700,
+              border: "1.5px solid var(--sv-ink)",
+              boxShadow: `4px 4px 0 0 ${
+                canvasDropping === "video" ? "var(--sv-pink)" : "var(--sv-green)"
+              }`,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            {canvasDropping === "video" ? (
+              <>
+                <span style={{ fontSize: 16, lineHeight: 1 }}>▶</span>
+                Solta o vídeo · vai exportar como MP4
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: 16, lineHeight: 1 }}>↓</span>
+                Solta a imagem nesse slide
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {active && (
+        <div
+          style={{
+            boxShadow: "5px 5px 0 0 var(--sv-ink)",
+            border: "1.5px solid var(--sv-ink)",
+          }}
+        >
+          <TemplateRenderer
+            templateId={templateId}
+            heading={active.heading}
+            body={active.body}
+            imageUrl={active.imageUrl}
+            slideNumber={activeIndex + 1}
+            totalSlides={slides.length}
+            profile={previewProfile}
+            style={slideStyle}
+            showFooter={activeIndex === 0}
+            scale={0.5}
+            isLastSlide={activeIndex === slides.length - 1}
+            accentOverride={accentTouched ? accent : undefined}
+            displayFontOverride={
+              fontTouched ? familyFromFontId(fontId) : undefined
+            }
+            textScale={scaleTouched ? textScale : undefined}
+            variant={resolveVariant(active.variant)}
+            bgColor={active.bgColor}
+            layers={resolveLayers(active.layers)}
+          />
+        </div>
+      )}
+
+      {/* Inputs do slide ativo */}
+      <div
+        className="grid gap-2.5 w-full"
+        style={{ maxWidth: 620, gridTemplateColumns: "1fr" }}
+      >
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontFamily: "var(--sv-mono)",
+              fontSize: 8.5,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+              marginBottom: 4,
+              fontWeight: 700,
+            }}
+          >
+            <span className="flex items-center justify-between w-full">
+              <span>Título do slide</span>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applyBold("heading")}
+                title="Negrito (⌘B) — selecione um trecho e clique"
+                aria-label="Aplicar negrito no título"
+                style={{
+                  width: 26,
+                  height: 22,
+                  fontFamily: "var(--sv-sans)",
+                  fontWeight: 900,
+                  fontSize: 12,
+                  color: "var(--sv-ink)",
+                  background: "var(--sv-white)",
+                  border: "1.5px solid var(--sv-ink)",
+                  cursor: "pointer",
+                  lineHeight: 1,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                B
+              </button>
+            </span>
+          </label>
+          <input
+            ref={headingInputRef}
+            type="text"
+            value={active?.heading ?? ""}
+            onChange={(e) => updateSlide(activeIndex, { heading: e.target.value })}
+            onSelect={(e) => {
+              const t = e.currentTarget;
+              lastHeadingSelectionRef.current = {
+                start: t.selectionStart ?? 0,
+                end: t.selectionEnd ?? 0,
+              };
+            }}
+            onBlur={(e) => {
+              const t = e.currentTarget;
+              lastHeadingSelectionRef.current = {
+                start: t.selectionStart ?? 0,
+                end: t.selectionEnd ?? 0,
+              };
+            }}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+                e.preventDefault();
+                applyBold("heading");
+              }
+            }}
+            className="sv-input"
+            style={{ width: "100%", fontFamily: "var(--sv-display)", fontSize: 15, padding: "8px 10px" }}
+          />
+        </div>
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 8.5,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "var(--sv-muted)",
+                fontWeight: 700,
+              }}
+            >
+              Corpo
+            </label>
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                // Evita blur do textarea — preservamos a seleção ativa pra
+                // o click seguinte envolver o range correto com **...**.
+                e.preventDefault();
+              }}
+              onClick={applyBoldToBody}
+              title="Negrito (⌘B) — selecione um trecho e clique"
+              aria-label="Aplicar negrito"
+              style={{
+                width: 26,
+                height: 22,
+                fontFamily: "var(--sv-sans)",
+                fontWeight: 900,
+                fontSize: 12,
+                color: "var(--sv-ink)",
+                background: "var(--sv-white)",
+                border: "1.5px solid var(--sv-ink)",
+                cursor: "pointer",
+                lineHeight: 1,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              B
+            </button>
+          </div>
+          <textarea
+            ref={bodyTextareaRef}
+            value={active?.body ?? ""}
+            onChange={(e) => updateSlide(activeIndex, { body: e.target.value })}
+            onSelect={(e) => {
+              const t = e.currentTarget;
+              lastBodySelectionRef.current = {
+                start: t.selectionStart,
+                end: t.selectionEnd,
+              };
+            }}
+            onBlur={(e) => {
+              const t = e.currentTarget;
+              lastBodySelectionRef.current = {
+                start: t.selectionStart,
+                end: t.selectionEnd,
+              };
+            }}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+                e.preventDefault();
+                applyBoldToBody();
+              }
+            }}
+            className="sv-input"
+            style={{ width: "100%", minHeight: 72, fontSize: 12.5, padding: "8px 10px" }}
+          />
+        </div>
+      </div>
+
+      {/* Thumbs horizontais com drag-and-drop */}
+      <div
+        className="flex gap-2 overflow-x-auto py-1"
+        style={{ width: "100%", maxWidth: 620 }}
+      >
+        {slides.map((s, i) => {
+          const on = i === activeIndex;
+          const dragging = dragIndex === i;
+          const targeted = dragOverIndex === i && dragIndex !== null && dragIndex !== i;
+          // Thumb agora renderiza o TEMPLATE REAL em scale minúscula (0.06 ≈
+          // 65×81px). Antes era caixa colorida simulada com texto —
+          // Gabriel reportou que não representava o slide de verdade.
+          return (
+            <div
+              key={i}
+              style={{
+                position: "relative",
+                flexShrink: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <button
+                type="button"
+                draggable
+                onClick={() => setActiveIndex(i)}
+                onDragStart={() => handleDragStart(i)}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDrop={(e) => handleDrop(e, i)}
+                onDragEnd={handleDragEnd}
+                style={{
+                  flexShrink: 0,
+                  border: targeted
+                    ? "2px solid var(--sv-green, #7CF067)"
+                    : on
+                      ? "1.5px solid var(--sv-ink)"
+                      : "1.5px solid var(--sv-ink)",
+                  padding: 0,
+                  cursor: dragging ? "grabbing" : "grab",
+                  transition: "transform .12s, opacity .12s",
+                  transform: on ? "translateY(-2px)" : "translateY(0)",
+                  boxShadow: on ? "3px 3px 0 0 var(--sv-green)" : "none",
+                  opacity: dragging ? 0.4 : 1,
+                  background: "transparent",
+                  lineHeight: 0,
+                  position: "relative",
+                }}
+                aria-label={`Slide ${i + 1}. Arraste pra reordenar.`}
+              >
+                <TemplateRenderer
+                  templateId={templateId}
+                  heading={s.heading || ""}
+                  body={s.body || ""}
+                  imageUrl={s.imageUrl}
+                  slideNumber={i + 1}
+                  totalSlides={slides.length}
+                  profile={previewProfile}
+                  style={slideStyle}
+                  scale={0.06}
+                  showFooter={i === 0}
+                  isLastSlide={i === slides.length - 1}
+                  accentOverride={accentTouched ? accent : undefined}
+                  displayFontOverride={
+                    fontTouched ? familyFromFontId(fontId) : undefined
+                  }
+                  textScale={scaleTouched ? textScale : undefined}
+                  variant={resolveVariant(s.variant)}
+                  bgColor={s.bgColor}
+                  layers={resolveLayers(s.layers)}
+                />
+                <span
+                  style={{
+                    position: "absolute",
+                    top: 3,
+                    left: 3,
+                    padding: "1px 4px",
+                    fontFamily: "var(--sv-mono)",
+                    fontSize: 7,
+                    letterSpacing: "0.14em",
+                    background: "rgba(10,10,10,0.75)",
+                    color: "var(--sv-paper)",
+                    borderRadius: 2,
+                    pointerEvents: "none",
+                  }}
+                >
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                {/* Delete só aparece no slide ATIVO + se houver mais de 1
+                    slide. stopPropagation pra não selecionar o slide ao
+                    clicar no X. */}
+                {i === activeIndex && slides.length > 1 && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Apagar slide ${i + 1}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteSlide(i);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteSlide(i);
+                      }
+                    }}
+                    style={{
+                      position: "absolute",
+                      top: 3,
+                      right: 3,
+                      width: 18,
+                      height: 18,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "var(--sv-pink, #D262B2)",
+                      color: "var(--sv-paper)",
+                      border: "1.5px solid var(--sv-ink)",
+                      fontFamily: "var(--sv-mono)",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      cursor: "pointer",
+                      userSelect: "none",
+                    }}
+                    title="Apagar slide"
+                  >
+                    ×
+                  </span>
+                )}
+              </button>
+              {/* Setinhas mobile: só aparecem se tiver mais de 1 slide */}
+              {slides.length > 1 && (
+                <div className="flex gap-1 lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => moveSlide(i, -1)}
+                    disabled={i === 0}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      border: "1px solid var(--sv-ink)",
+                      background: "var(--sv-white)",
+                      fontSize: 10,
+                      lineHeight: 1,
+                      cursor: i === 0 ? "not-allowed" : "pointer",
+                      opacity: i === 0 ? 0.3 : 1,
+                    }}
+                    aria-label="Mover slide pra esquerda"
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveSlide(i, 1)}
+                    disabled={i === slides.length - 1}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      border: "1px solid var(--sv-ink)",
+                      background: "var(--sv-white)",
+                      fontSize: 10,
+                      lineHeight: 1,
+                      cursor: i === slides.length - 1 ? "not-allowed" : "pointer",
+                      opacity: i === slides.length - 1 ? 0.3 : 1,
+                    }}
+                    aria-label="Mover slide pra direita"
+                  >
+                    →
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => addSlide(slides.length - 1)}
+          style={{
+            flexShrink: 0,
+            width: 64,
+            aspectRatio: "4/5",
+            border: "1.5px dashed var(--sv-ink)",
+            background: "var(--sv-paper)",
+            color: "var(--sv-ink)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "var(--sv-display)",
+            fontSize: 24,
+            fontStyle: "italic",
+            cursor: "pointer",
+          }}
+          aria-label="Adicionar slide"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+
+  const BrandingCol = (
+    <div className="flex flex-col gap-4">
+      {/*
+        Branding (nome + handle + accent) nao editaveis aqui. Eles sao
+        propriedades do BRAND do user (settings). Nem mostramos card de
+        lock — ocupava espaco sem agregar. Editor so tem fonte + tamanho.
+      */}
+
+      {(() => {
+        const templateFonts = fontsForTemplate(templateId);
+        if (templateFonts.length === 0) return null; // Twitter sem opção
+        return (
+          <>
+            <h4
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 9.5,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "var(--sv-muted)",
+                fontWeight: 700,
+              }}
+            >
+              Fonte display
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {templateFonts.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => {
+                    setFontId(f.id);
+                    setFontTouched(true);
+                  }}
+                  style={{
+                    padding: "7px 11px",
+                    border: "1.5px solid var(--sv-ink)",
+                    background:
+                      fontId === f.id ? "var(--sv-ink)" : "var(--sv-white)",
+                    color:
+                      fontId === f.id ? "var(--sv-paper)" : "var(--sv-ink)",
+                    cursor: "pointer",
+                    fontFamily: f.family,
+                    fontStyle: f.italic ? "italic" : "normal",
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    fontSize: 11,
+                    lineHeight: 1,
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </>
+        );
+      })()}
+
+      {/* Cor de destaque removida — locked no brand color do user (settings). */}
+
+      <h4
+        style={{
+          fontFamily: "var(--sv-mono)",
+          fontSize: 9.5,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "var(--sv-muted)",
+          fontWeight: 700,
+          marginTop: 10,
+        }}
+      >
+        Tamanho do texto
+      </h4>
+      <div className="flex items-center gap-2.5">
+        <input
+          type="range"
+          min={0.8}
+          max={1.3}
+          step={0.02}
+          value={textScale}
+          onChange={(e) => {
+            setTextScale(parseFloat(e.target.value));
+            setScaleTouched(true);
+          }}
+          style={{ flex: 1, accentColor: "var(--sv-ink)" }}
+        />
+        <span
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 10,
+            fontWeight: 700,
+            minWidth: 42,
+            textAlign: "right",
+          }}
+        >
+          {textScale.toFixed(2)}×
+        </span>
+      </div>
+
+      <h4
+        style={{
+          fontFamily: "var(--sv-mono)",
+          fontSize: 9.5,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "var(--sv-muted)",
+          fontWeight: 700,
+          marginTop: 10,
+        }}
+      >
+        Imagem do slide ativo
+      </h4>
+
+      {active?.imageUrl ? (
+        <div
+          style={{
+            width: "100%",
+            aspectRatio: "4/5",
+            background: `url(${active.imageUrl}) center/cover`,
+            border: "1.5px solid var(--sv-ink)",
+          }}
+          aria-label="Preview da imagem atual"
+        />
+      ) : active?.imageFailed ? (
+        <div
+          style={{
+            width: "100%",
+            aspectRatio: "4/5",
+            background: "var(--sv-paper)",
+            border: "1.5px solid var(--sv-pink, #D262B2)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--sv-pink, #D262B2)",
+              fontWeight: 700,
+            }}
+          >
+            ⚠ Imagem falhou
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--sv-sans)",
+              fontSize: 11,
+              color: "var(--sv-muted)",
+              textAlign: "center",
+              lineHeight: 1.4,
+            }}
+          >
+            A geração automática não entregou. Tente novamente abaixo.
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleGenerateImage(activeIndex)}
+            disabled={imagesHook.loadingIndex === activeIndex}
+            className="sv-btn"
+            style={{
+              padding: "8px 14px",
+              fontSize: 10,
+              background: "var(--sv-green)",
+              border: "1.5px solid var(--sv-ink)",
+              boxShadow: "3px 3px 0 0 var(--sv-ink)",
+              fontWeight: 700,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+            }}
+          >
+            {imagesHook.loadingIndex === activeIndex
+              ? "Gerando..."
+              : "✦ Gerar de novo"}
+          </button>
+        </div>
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            aspectRatio: "4/5",
+            background: "var(--sv-paper)",
+            border: "1.5px dashed var(--sv-ink)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "var(--sv-mono)",
+            fontSize: 9,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "var(--sv-muted)",
+          }}
+        >
+          Sem imagem
+        </div>
+      )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        // 28/04: aceita vídeo também (mp4/webm/mov até 50MB).
+        // /api/upload tem magic bytes pra validar tipo real.
+        accept="image/*,video/mp4,video/webm,video/quicktime"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          const target = uploadTargetRef.current ?? activeIndex;
+          if (file) void handleUploadImage(file, target);
+          uploadTargetRef.current = null;
+          e.target.value = "";
+        }}
+      />
+
+      {/* Campo custom: sobrescreve o imageQuery do slide pro próximo
+           Buscar/Gerar. Ideal pra refinar ("close-up de mãos digitando",
+           "gráfico azul com tendência de alta"). Vazio = usa query padrão. */}
+      <input
+        type="text"
+        value={customImageQuery}
+        onChange={(e) => setCustomImageQuery(e.target.value)}
+        placeholder="Descreva a imagem (opcional — em PT ou EN)"
+        className="sv-input"
+        style={{
+          width: "100%",
+          padding: "8px 10px",
+          fontSize: 12,
+          fontFamily: "var(--sv-sans)",
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (e.shiftKey) void handleGenerateImage(activeIndex);
+            else void handleSearchImage(activeIndex);
+          }
+        }}
+      />
+      <div
+        style={{
+          fontFamily: "var(--sv-mono)",
+          fontSize: 8.5,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: "var(--sv-muted)",
+          marginTop: -2,
+        }}
+      >
+        ⏎ busca · shift+⏎ gera IA
+      </div>
+
+      {/* Botão especial "Nova capa" — só no slide 0 do template editorial
+          (pipeline 2-pass: cena planejada → Imagen). Destaque em verde. */}
+      {activeIndex === 0 && templateId !== "twitter" && (
+        <button
+          type="button"
+          onClick={() => void handleRegenCover()}
+          disabled={imagesHook.loadingIndex === 0}
+          className="sv-btn"
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            padding: "10px 12px",
+            fontSize: 10.5,
+            background: "var(--sv-green)",
+            border: "1.5px solid var(--sv-ink)",
+            boxShadow: "3px 3px 0 0 var(--sv-ink)",
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+          }}
+        >
+          {imagesHook.loadingIndex === 0
+            ? "Gerando capa (~45s)..."
+            : "✦ Gerar nova capa"}
+        </button>
+      )}
+
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        <button
+          type="button"
+          onClick={() => setPickerFor(activeIndex)}
+          disabled={imagesHook.loadingIndex === activeIndex}
+          className="sv-btn sv-btn-outline"
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            padding: "8px 10px",
+            fontSize: 9.5,
+          }}
+          title="Abre grid de imagens do Google pra você clicar na que quiser"
+        >
+          🔍 Escolher
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleGenerateImage(activeIndex)}
+          disabled={imagesHook.loadingIndex === activeIndex}
+          className="sv-btn sv-btn-outline"
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            padding: "8px 10px",
+            fontSize: 9.5,
+          }}
+        >
+          {imagesHook.loadingIndex === activeIndex ? "..." : "Gerar IA"}
+        </button>
+        <button
+          type="button"
+          onClick={() => triggerUploadFor(activeIndex)}
+          className="sv-btn sv-btn-outline"
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            padding: "8px 10px",
+            fontSize: 9.5,
+          }}
+        >
+          Upload
+        </button>
+        <button
+          type="button"
+          onClick={() => handleRemoveImage(activeIndex)}
+          className="sv-btn sv-btn-outline"
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            padding: "8px 10px",
+            fontSize: 9.5,
+            color: "var(--sv-pink, #D262B2)",
+          }}
+        >
+          Remover
+        </button>
+      </div>
+
+      {/* Label 'Template: X' removido — ja existe botao 'Trocar template' no
+          topo do editor, e o user sabe qual escolheu. */}
+      {/* Feedback panel removido — moveu pra /app/create/[id]/preview. */}
+    </div>
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+      className="w-full"
+      style={{
+        // Bg bege estende até o fim da página (em vez de quebrar pra branco
+        // depois do conteúdo). Pedido Gabriel 24/04.
+        background: "var(--sv-paper)",
+        minHeight: "100vh",
+      }}
+    >
+      {/* Popup 30% off — usuário acabou de ver o primeiro carrossel pronto,
+          momento perfeito pra oferta. Só dispara pra plano free, 1x. */}
+      <DiscountPopup trigger="post-first-carousel" />
+
+      {pickerFor !== null && (
+        <ImagePicker
+          initialQuery={(() => {
+            const s = slides[pickerFor];
+            return (
+              customImageQuery.trim() ||
+              (s?.imageQuery && s.imageQuery.trim()) ||
+              (s?.heading && s.heading.trim()) ||
+              title ||
+              ""
+            );
+          })()}
+          session={session}
+          onPick={(url) => {
+            updateSlide(pickerFor, { imageUrl: url, imageFailed: false });
+            setPickerFor(null);
+            toast.success("Imagem aplicada.");
+          }}
+          onClose={() => setPickerFor(null)}
+        />
+      )}
+
+      {/* Topbar do editor */}
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 mb-5"
+        style={{
+          padding: "14px 16px",
+          border: "1.5px solid var(--sv-ink)",
+          background: "var(--sv-white)",
+          boxShadow: "3px 3px 0 0 var(--sv-ink)",
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 10,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            color: "var(--sv-muted)",
+          }}
+        >
+          Slide{" "}
+          <strong style={{ color: "var(--sv-ink)" }}>
+            {String(activeIndex + 1).padStart(2, "0")}
+          </strong>{" "}
+          / {String(slides.length).padStart(2, "0")}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="sv-btn sv-btn-outline"
+            style={{ padding: "7px 12px", fontSize: 9 }}
+            onClick={() => toast("Desfazer ainda vem por aí")}
+          >
+            ⌘Z Desfazer
+          </button>
+          <button
+            type="button"
+            className="sv-btn sv-btn-outline"
+            style={{ padding: "7px 12px", fontSize: 9 }}
+            onClick={() => router.push(`/app/create/${id}/templates`)}
+          >
+            Trocar template
+          </button>
+          <button
+            type="button"
+            className="sv-btn sv-btn-primary"
+            style={{
+              padding: "7px 12px",
+              fontSize: 9,
+              opacity:
+                flushingToPreview || imagesPending > 0 ? 0.5 : 1,
+              cursor:
+                flushingToPreview || imagesPending > 0
+                  ? "wait"
+                  : "pointer",
+            }}
+            disabled={flushingToPreview || imagesPending > 0}
+            onClick={() => void goToPreview()}
+            title={
+              imagesPending > 0
+                ? `Aguarde ${imagesPending} ${imagesPending === 1 ? "imagem" : "imagens"} carregar antes de exportar`
+                : undefined
+            }
+          >
+            {flushingToPreview
+              ? "Salvando…"
+              : imagesPending > 0
+                ? `Carregando imagens (${slides.length - imagesPending}/${slides.length})…`
+                : "Preview & Export →"}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile tabs: Sidebar (tudo) · Canvas */}
+      <div className="lg:hidden mb-4 flex" style={{ border: "1.5px solid var(--sv-ink)", boxShadow: "2px 2px 0 0 var(--sv-ink)" }}>
+        {(["sidebar", "canvas"] as MobileTab[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setMobileTab(t)}
+            style={{
+              flex: 1,
+              padding: "9px 12px",
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9.5,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              fontWeight: 700,
+              background: mobileTab === t ? "var(--sv-ink)" : "var(--sv-white)",
+              color: mobileTab === t ? "var(--sv-paper)" : "var(--sv-ink)",
+              borderRight: t !== "canvas" ? "1.5px solid var(--sv-ink)" : "none",
+            }}
+          >
+            {t === "sidebar" ? "Controles" : "Canvas"}
+          </button>
+        ))}
+      </div>
+
+      {/* Desktop 2 colunas — sidebar esquerda full (variantes + camadas +
+          background + branding + fonte + accent + scale + imagem), canvas
+          flex-1 no centro. Nada à direita. */}
+      <div
+        className="hidden lg:grid"
+        style={{
+          gridTemplateColumns: "240px minmax(0, 1fr)",
+          gap: 0,
+          border: "1.5px solid var(--sv-ink)",
+          boxShadow: "4px 4px 0 0 var(--sv-ink)",
+          background: "var(--sv-white)",
+          minWidth: 0,
+        }}
+      >
+        <aside
+          style={{
+            padding: "16px 14px",
+            borderRight: "1.5px solid var(--sv-ink)",
+            background: "var(--sv-white)",
+            minWidth: 0,
+            // Scroll interno removido 24/04 — sidebar cresce com conteúdo
+            // e scroll passa pra página toda. Antes: maxHeight 100vh-180px
+            // + overflowY:auto criava scroll aninhado incômodo.
+            display: "flex",
+            flexDirection: "column",
+            gap: 18,
+          }}
+        >
+          {VariantsCol}
+          <div
+            style={{
+              height: 1,
+              background: "var(--sv-ink)",
+              opacity: 0.15,
+              margin: "2px 0",
+            }}
+          />
+          {BrandingCol}
+        </aside>
+        <div style={{ minWidth: 0 }}>{CanvasCol}</div>
+      </div>
+
+      <div
+        className="lg:hidden"
+        style={{
+          border: "1.5px solid var(--sv-ink)",
+          boxShadow: "3px 3px 0 0 var(--sv-ink)",
+          background: "var(--sv-white)",
+          padding: "18px 16px",
+        }}
+      >
+        {mobileTab === "canvas" && CanvasCol}
+        {mobileTab === "sidebar" && (
+          <div className="flex flex-col gap-5">
+            {VariantsCol}
+            <div
+              style={{
+                height: 1,
+                background: "var(--sv-ink)",
+                opacity: 0.15,
+              }}
+            />
+            {BrandingCol}
+          </div>
+        )}
+      </div>
+
+      {(() => {
+        const email = user?.email?.toLowerCase().trim() || "";
+        const isAdmin = ADMIN_EMAILS.includes(email);
+        if (!isAdmin) return null;
+        const promptUsed = draft?.promptUsed || "";
+        if (!promptUsed) {
+          return (
+            <AdminDebugPanel
+              title="Debug IA"
+              subtitle="Carrossel sem prompt_used registrado (gerado antes da feature). Novos carrosseis terão."
+              emptyHint
+            />
+          );
+        }
+        return <AdminDebugPanel title="Debug IA" promptUsed={promptUsed} />;
+      })()}
+
+    </motion.div>
+  );
+}
+
+/**
+ * Painel só-admin que mostra o systemPrompt + userMessage enviado à IA
+ * pra gerar o carrossel atual. Visibilidade travada em isAdmin (email).
+ */
+function AdminDebugPanel({
+  title,
+  subtitle,
+  promptUsed,
+  emptyHint,
+}: {
+  title: string;
+  subtitle?: string;
+  promptUsed?: string;
+  emptyHint?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    if (!promptUsed) return;
+    try {
+      await navigator.clipboard.writeText(promptUsed);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // noop
+    }
+  }
+  return (
+    <div
+      className="mt-6"
+      style={{
+        border: "1.5px dashed var(--sv-ink)",
+        background: "var(--sv-paper)",
+        padding: 14,
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--sv-display)",
+              fontSize: 16,
+              color: "var(--sv-ink)",
+            }}
+          >
+            {title}{" "}
+            <span
+              className="uppercase"
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 9,
+                letterSpacing: "0.14em",
+                color: "var(--sv-muted)",
+                fontWeight: 700,
+                marginLeft: 6,
+              }}
+            >
+              · admin only
+            </span>
+          </div>
+          {subtitle && (
+            <div
+              style={{
+                fontFamily: "var(--sv-sans)",
+                fontSize: 12,
+                color: "var(--sv-muted)",
+                marginTop: 2,
+              }}
+            >
+              {subtitle}
+            </div>
+          )}
+        </div>
+        {!emptyHint && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={copy}
+              className="sv-btn sv-btn-outline"
+              style={{ padding: "6px 10px", fontSize: 10 }}
+            >
+              {copied ? "Copiado!" : "Copiar"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="sv-btn sv-btn-outline"
+              style={{ padding: "6px 10px", fontSize: 10 }}
+            >
+              {expanded ? "Fechar" : "Expandir"}
+            </button>
+          </div>
+        )}
+      </div>
+      {expanded && promptUsed && (
+        <pre
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 10.5,
+            lineHeight: 1.5,
+            color: "var(--sv-ink)",
+            background: "var(--sv-white)",
+            border: "1px solid rgba(10,10,10,0.12)",
+            padding: 12,
+            marginTop: 10,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            maxHeight: 500,
+            overflow: "auto",
+          }}
+        >
+          {promptUsed}
+        </pre>
+      )}
+    </div>
+  );
+}

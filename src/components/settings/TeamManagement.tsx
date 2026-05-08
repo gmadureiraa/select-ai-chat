@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { apiInvoke } from '../../lib/apiInvoke';
 import {
   Collapsible,
   CollapsibleContent,
@@ -315,7 +316,7 @@ export function TeamManagement() {
         .eq("id", invite.invited_by)
         .single();
 
-      await supabase.functions.invoke("send-invite-email", {
+      await apiInvoke("send-invite-email", {
         body: {
           email: invite.email,
           workspaceName: workspace?.name || "",

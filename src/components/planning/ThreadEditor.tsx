@@ -3,7 +3,7 @@ import { Plus, X, GripVertical, Image, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
+import { blobStorage } from '@/integrations/storage/blob-client';
 import { toast } from 'sonner';
 
 export interface ThreadTweet {
@@ -76,13 +76,13 @@ export function ThreadEditor({
         ? `threads/${clientId}/${fileName}` 
         : `threads/general/${fileName}`;
 
-      const { data, error } = await supabase.storage
+      const { data, error } = await blobStorage
         .from('media')
         .upload(filePath, file);
 
       if (error) throw error;
 
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = blobStorage
         .from('media')
         .getPublicUrl(data.path);
 

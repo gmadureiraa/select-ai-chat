@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export type NotificationType = 
   | 'assignment' 
@@ -52,44 +52,40 @@ export function useNotifications() {
       return (data || []) as Notification[];
     },
     enabled: !!user?.id && !!workspace?.id,
+    // Substitui Supabase Realtime: poll a cada 30s para detectar
+    // notificações novas. Foreground only (sem refetchIntervalInBackground)
+    // para economizar requisições quando aba está oculta.
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
   });
 
   // Push notifications for background
   const { showNotificationIfHidden, permission } = usePushNotifications();
 
-  // Subscribe to realtime updates
+  // Detecta notificações novas no resultado do polling e dispara push.
+  // Mantém o conjunto de IDs já vistos em ref para não duplicar push.
+  const seenIdsRef = useRef<Set<string> | null>(null);
   useEffect(() => {
-    if (!user?.id || !workspace?.id) return;
+    // Primeira passagem: apenas registrar IDs sem disparar push (evita
+    // notificar para tudo o que existia antes do componente montar).
+    if (seenIdsRef.current === null) {
+      seenIdsRef.current = new Set(notifications.map((n) => n.id));
+      return;
+    }
 
-    const channel = supabase
-      .channel('notifications-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          refetch();
-          
-          // Show push notification if tab is in background and permission granted
-          if (permission === 'granted' && payload.new) {
-            const newNotification = payload.new as Notification;
-            showNotificationIfHidden(newNotification.title, {
-              body: newNotification.message || undefined,
-              tag: newNotification.id, // Prevents duplicate notifications
-            });
-          }
-        }
-      )
-      .subscribe();
+    if (permission !== 'granted') return;
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, workspace?.id, refetch, permission, showNotificationIfHidden]);
+    const seen = seenIdsRef.current;
+    for (const n of notifications) {
+      if (!seen.has(n.id)) {
+        seen.add(n.id);
+        showNotificationIfHidden(n.title, {
+          body: n.message || undefined,
+          tag: n.id,
+        });
+      }
+    }
+  }, [notifications, permission, showNotificationIfHidden]);
 
   // Mark single as read
   const markAsRead = useMutation({

@@ -10,7 +10,7 @@ import { useContentLibrary } from "@/hooks/useContentLibrary";
 import { NewsletterSyncBadge } from "./NewsletterSyncBadge";
 import { NewsletterContentDialog } from "./NewsletterContentDialog";
 import { NewsletterEditDialog } from "./NewsletterEditDialog";
-import { supabase } from "@/integrations/supabase/client";
+import { blobStorage } from "@/integrations/storage/blob-client";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface NewsletterMetricsTableProps {
@@ -20,7 +20,7 @@ interface NewsletterMetricsTableProps {
 
 const getStorageUrl = (path: string) => {
   if (path.startsWith("http")) return path;
-  const { data } = supabase.storage.from("client-files").getPublicUrl(path);
+  const { data } = blobStorage.from("client-files").getPublicUrl(path);
   return data.publicUrl;
 };
 

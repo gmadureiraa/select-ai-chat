@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { transcribeImagesChunked } from "@/lib/transcribeImages";
+import { apiInvoke } from '../../lib/apiInvoke';
+import { blobStorage } from "@/integrations/storage/blob-client";
 
 interface PostContentSyncButtonProps {
   postId: string;
@@ -63,7 +65,7 @@ export const PostContentSyncButton = ({
       // 1. Extract content from Instagram
       setSyncStatus(isVideo ? "Baixando vídeo..." : "Extraindo imagens...");
       
-      const { data: extractData, error: extractError } = await supabase.functions.invoke(
+      const { data: extractData, error: extractError } = await apiInvoke(
         "extract-instagram",
         {
           body: {
@@ -80,10 +82,12 @@ export const PostContentSyncButton = ({
       uploadedPaths = extractData?.uploadedPaths || [];
       const extractedCaption = extractData?.caption || caption;
 
-      // Build thumbnail URL from first uploaded image
+      // Build thumbnail URL from first uploaded image (migrated 2026-05-07: supabase/storage -> Vercel Blob)
       if (uploadedPaths.length > 0) {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        thumbnailUrl = `${supabaseUrl}/storage/v1/object/public/client-files/${uploadedPaths[0]}`;
+        const { data: pub } = blobStorage
+          .from("client-files")
+          .getPublicUrl(uploadedPaths[0]);
+        thumbnailUrl = pub.publicUrl;
       }
 
       // 2. Process based on content type
@@ -96,7 +100,7 @@ export const PostContentSyncButton = ({
           videoUrl = imageUrls[0];
           
           try {
-            const { data: transcribeData, error: transcribeError } = await supabase.functions.invoke(
+            const { data: transcribeData, error: transcribeError } = await apiInvoke(
               "transcribe-media",
               {
                 body: {
