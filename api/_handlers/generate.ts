@@ -99,6 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Resolver clientId — SV não passa, KAI precisa. Tentamos:
   //   1. body.clientId explícito
   //   2. primeiro client do workspace ativo do user (último editado primeiro)
+  // tryAuth retorna AuthUser = { id, email?, raw } — id direto, não auth.user.id.
   let clientId = body.clientId;
   if (!clientId) {
     const row = await queryOne<{ id: string }>(
@@ -107,7 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         WHERE wm.user_id = $1
         ORDER BY c.updated_at DESC NULLS LAST, c.created_at DESC
         LIMIT 1`,
-      [auth.user.id],
+      [auth.id],
     ).catch(() => null);
     clientId = row?.id ?? undefined;
   }

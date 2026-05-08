@@ -3,6 +3,24 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, AuthError } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
+import { apiInvoke } from "@/lib/apiInvoke";
+
+/**
+ * Garante que o user tem row em `profiles` + workspace membership.
+ * Substitui o trigger `on_auth_user_created` (que apontava pra
+ * `auth.users` Supabase e nunca disparou em Neon Auth).
+ *
+ * Idempotente — backend faz UPSERT por (id) e INSERT condicional em
+ * workspace_members. Fire-and-forget; falha é silenciosa.
+ */
+async function syncProfileBestEffort(): Promise<void> {
+  try {
+    await apiInvoke("sync-profile", { body: {} });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[useAuth] sync-profile failed:", err);
+  }
+}
 
 /**
  * Hook de autenticação — agora rodando em cima de Neon Auth (Better Auth)
@@ -30,8 +48,16 @@ export const useAuth = () => {
     // Reage a sign-in / sign-out (incluindo OAuth round-trip).
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      // Sincroniza profiles + workspace_members em qualquer evento de
+      // login (signed_in / token_refreshed / user_updated). Idempotente.
+      if (
+        session?.user &&
+        (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED")
+      ) {
+        void syncProfileBestEffort();
+      }
     });
 
     return () => subscription.unsubscribe();

@@ -4,9 +4,16 @@
  * Calls the equivalent Vercel Function at /api/<name>. Returns the same
  * `{ data, error }` shape so existing call sites work without changes.
  *
- * Auth: tries to attach the Neon Auth JWT from localStorage (Stack Auth).
- * Falls back to no-auth for endpoints that don't require it.
+ * Auth: usa `getNeonAuthJWT()` (canonical helper do Neon Auth client) que
+ * extrai o access_token via `neonAuth.getSession()` — funciona com qualquer
+ * shape de session do SupabaseAuthAdapter (access_token / token / etc).
+ *
+ * Antes scaneava `localStorage` procurando key tipo `stack-auth*access*`
+ * mas Stack Auth não usa esse padrão de nome — token nunca era encontrado
+ * e todo POST autenticado caía pra 401 silencioso.
  */
+
+import { getNeonAuthJWT } from "@/integrations/neon-auth/client";
 
 interface InvokeOptions {
   body?: any;
@@ -19,20 +26,19 @@ interface InvokeResult<T = any> {
   error: { message: string; status?: number; details?: any } | null;
 }
 
-function getAuthToken(): string | null {
-  // Neon Auth (Stack Auth) stores JWT in localStorage. Try common keys.
-  // Adjust if Auth agent uses a different key.
-  if (typeof window === 'undefined') return null;
+async function getAuthToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
   try {
-    // Stack Auth uses keys like "stack-auth.user.<projectId>"
-    for (const k of Object.keys(localStorage)) {
-      if (k.startsWith('stack-auth') && k.includes('access')) {
-        const v = localStorage.getItem(k);
-        if (v && v.length > 20 && v.split('.').length === 3) return v.replace(/^"|"$/g, '');
-      }
-    }
-    // Common alternative: kai-auth-token
-    const kaiToken = localStorage.getItem('kai-auth-token') || localStorage.getItem('neon-auth-token');
+    const token = await getNeonAuthJWT();
+    if (token) return token;
+  } catch {
+    // ignore — fall through to localStorage fallback
+  }
+  // Fallback de emergência (caso getSession falhe mas haja token cru)
+  try {
+    const kaiToken =
+      localStorage.getItem("kai-auth-token") ||
+      localStorage.getItem("neon-auth-token");
     if (kaiToken) return kaiToken;
   } catch {
     // ignore
@@ -46,7 +52,7 @@ function getAuthToken(): string | null {
  */
 export async function apiInvoke<T = any>(name: string, options: InvokeOptions = {}): Promise<InvokeResult<T>> {
   const { body, headers = {}, signal } = options;
-  const token = getAuthToken();
+  const token = await getAuthToken();
   const reqHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     ...headers,
@@ -90,7 +96,7 @@ export async function apiInvoke<T = any>(name: string, options: InvokeOptions = 
  */
 export async function apiInvokeStream(name: string, options: InvokeOptions = {}): Promise<Response> {
   const { body, headers = {}, signal } = options;
-  const token = getAuthToken();
+  const token = await getAuthToken();
   const reqHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     ...headers,
