@@ -95,6 +95,8 @@ export const handlerLoaders: Record<string, () => Promise<any>> = {
   'run-madureira-workflows-daily': () => import('./_handlers/run-madureira-workflows-daily.js'),
   'generate': () => import('./_handlers/generate.js'),
   'sync-profile': () => import('./_handlers/sync-profile.js'),
+  'data-saved': () => import('./_handlers/data-saved.js'),
+  'data-newsletters': () => import('./_handlers/data-newsletters.js'),
   'scrape-newsletter': () => import('./_handlers/scrape-newsletter.js'),
   'scrape-website': () => import('./_handlers/scrape-website.js'),
   'search-knowledge': () => import('./_handlers/search-knowledge.js'),

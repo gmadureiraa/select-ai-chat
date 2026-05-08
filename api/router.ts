@@ -47,7 +47,14 @@ export default async function router(req: VercelRequest, res: VercelResponse) {
     return res.status(404).json({ error: "Not found", hint: "/api/<handler-name>" });
   }
 
-  const handler = await loadHandler(slug);
+  // Tenta primeiro slug exato (ex: 'data/saved'), depois fallback kebab
+  // (ex: 'data-saved'). Sub-apps que herdam URLs Next.js style com '/'
+  // funcionam sem precisar criar subdir handlers.
+  let handler = await loadHandler(slug);
+  if (!handler && slug.includes("/")) {
+    const kebab = slug.replace(/\//g, "-");
+    handler = await loadHandler(kebab);
+  }
   if (!handler) {
     return res.status(404).json({ error: `Handler '${slug}' not found` });
   }

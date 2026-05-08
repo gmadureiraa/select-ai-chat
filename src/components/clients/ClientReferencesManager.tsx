@@ -7,11 +7,27 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { 
-  Plus, Search, Trash2, ExternalLink, Loader2, 
-  FileText, Video, Mic, BookOpen, MessageSquare, ScrollText
+import {
+  Plus, Search, Trash2, ExternalLink, Loader2,
+  FileText, Video, Mic, BookOpen, MessageSquare, ScrollText,
+  Layers, Film, Image as ImageIcon, Mail, AtSign, Eye
 } from "lucide-react";
 import { useReferenceLibrary, ReferenceItem, ReferenceType } from "@/hooks/useReferenceLibrary";
+import { ReferenceGalleryDialog } from "./ReferenceGalleryDialog";
+
+const FORMAT_CHIP: Record<
+  string,
+  { label: string; icon: React.ComponentType<{ className?: string }>; class: string }
+> = {
+  carousel: { label: "Carrossel", icon: Layers, class: "bg-purple-500/10 text-purple-600 border-purple-500/30" },
+  reel: { label: "Reel", icon: Film, class: "bg-rose-500/10 text-rose-600 border-rose-500/30" },
+  static: { label: "Imagem única", icon: ImageIcon, class: "bg-sky-500/10 text-sky-600 border-sky-500/30" },
+  tweet: { label: "Tweet", icon: AtSign, class: "bg-cyan-500/10 text-cyan-600 border-cyan-500/30" },
+  thread: { label: "Thread", icon: ScrollText, class: "bg-cyan-500/10 text-cyan-700 border-cyan-500/30" },
+  newsletter: { label: "Newsletter", icon: Mail, class: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" },
+  article: { label: "Artigo", icon: BookOpen, class: "bg-amber-500/10 text-amber-600 border-amber-500/30" },
+  email: { label: "Email mkt", icon: Mail, class: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30" },
+};
 
 interface ClientReferencesManagerProps {
   clientId: string;
@@ -32,7 +48,8 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingRef, setEditingRef] = useState<ReferenceItem | null>(null);
-  
+  const [galleryRef, setGalleryRef] = useState<ReferenceItem | null>(null);
+
   // Form state
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -222,40 +239,105 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
           {filteredReferences.map((ref) => {
             const typeInfo = getTypeInfo(ref.reference_type);
             const Icon = typeInfo.icon;
-            
+            const refMeta = (ref.metadata as Record<string, any> | null) ?? {};
+            const fmtKey = (refMeta.format as string) ?? ref.reference_type;
+            const fmt = FORMAT_CHIP[fmtKey] ?? null;
+            const FormatIcon = fmt?.icon ?? Icon;
+            const imagesCount = Array.isArray(refMeta.images)
+              ? (refMeta.images as string[]).length
+              : 0;
+            const sourceHandle = refMeta.source_handle as string | undefined;
+            const hasVisual = !!ref.thumbnail_url;
+
+            const openItem = () => {
+              if (hasVisual || imagesCount > 0) setGalleryRef(ref);
+              else handleEdit(ref);
+            };
+
             return (
-              <Card 
-                key={ref.id} 
-                className="group cursor-pointer hover:bg-muted/30 transition-colors"
-                onClick={() => handleEdit(ref)}
+              <Card
+                key={ref.id}
+                className="group cursor-pointer hover:bg-muted/30 transition-colors overflow-hidden"
+                onClick={openItem}
               >
                 <CardContent className="p-3">
                   <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-muted/50 shrink-0">
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm truncate">{ref.title}</span>
-                        <Badge variant="outline" className="text-[10px] shrink-0">
-                          {typeInfo.label}
-                        </Badge>
+                    {/* Thumbnail OR icon */}
+                    {hasVisual ? (
+                      <div className="relative w-16 h-16 rounded-md overflow-hidden bg-muted/50 shrink-0">
+                        <img
+                          src={ref.thumbnail_url ?? undefined}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                        {imagesCount > 1 && (
+                          <div className="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-[9px] font-bold px-1 rounded">
+                            +{imagesCount}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                    ) : (
+                      <div className="p-2 rounded-lg bg-muted/50 shrink-0">
+                        <FormatIcon className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {fmt ? (
+                          <Badge
+                            variant="outline"
+                            className={`text-[9px] gap-1 ${fmt.class}`}
+                          >
+                            <FormatIcon className="h-2.5 w-2.5" />
+                            {fmt.label}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[9px]">
+                            {typeInfo.label}
+                          </Badge>
+                        )}
+                        {sourceHandle && (
+                          <Badge variant="secondary" className="text-[9px]">
+                            @{sourceHandle}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="font-medium text-sm truncate mt-1">{ref.title}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
                         {ref.content}
                       </p>
-                      {ref.source_url && (
-                        <a
-                          href={ref.source_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Ver original
-                        </a>
-                      )}
+                      <div className="flex items-center gap-3 mt-1.5">
+                        {(hasVisual || imagesCount > 0) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setGalleryRef(ref);
+                            }}
+                            className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            <Eye className="h-3 w-3" />
+                            Ver galeria
+                          </button>
+                        )}
+                        {ref.source_url && (
+                          <a
+                            href={ref.source_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Original
+                          </a>
+                        )}
+                      </div>
                     </div>
                     <Button
                       variant="ghost"
@@ -275,6 +357,15 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
           })}
         </div>
       )}
+
+      {/* Gallery viewer pra refs com imagens */}
+      <ReferenceGalleryDialog
+        reference={galleryRef}
+        open={galleryRef !== null}
+        onOpenChange={(o) => {
+          if (!o) setGalleryRef(null);
+        }}
+      />
     </div>
   );
 }

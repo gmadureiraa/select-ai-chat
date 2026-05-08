@@ -17,9 +17,10 @@
 
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { FileText, Lightbulb, Video } from "lucide-react";
+import { FileText, Lightbulb, Video, Library } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useViralContext,
   type ViralBridgeSource,
@@ -31,9 +32,12 @@ interface CrossAppActionsProps {
   briefing?: string;
   url?: string;
   metadata?: Record<string, unknown>;
+  /** Cliente atual — necessário pra "Salvar na biblioteca" funcionar. */
+  clientId?: string | null;
   showCarrossel?: boolean;
   showReel?: boolean;
   showIdea?: boolean;
+  showLibrary?: boolean;
   /** Permite encolher o conjunto pra caber em cards densos. */
   size?: "sm" | "default";
   /** Layout: row (default) ou column (mobile-friendly em sidebars). */
@@ -46,9 +50,11 @@ export function CrossAppActions({
   briefing,
   url,
   metadata,
+  clientId,
   showCarrossel = true,
   showReel = true,
   showIdea = true,
+  showLibrary = true,
   size = "sm",
   direction = "row",
 }: CrossAppActionsProps) {
@@ -56,24 +62,95 @@ export function CrossAppActions({
   const [searchParams] = useSearchParams();
   const setPending = useViralContext((s) => s.setPendingBriefing);
 
-  function handleAction(target: "carrossel" | "reels" | "idea") {
+  async function handleAction(
+    target: "carrossel" | "reels" | "idea" | "library",
+  ) {
     if (target === "idea") {
-      // TODO Fase C — criar planning_item type='idea' no backend.
-      // Por enquanto só feedback visual pra Gabriel saber que o botão tá ali.
-      toast.success("Ideia salva (fase C cria planning_item).", {
-        description: topic ? topic.slice(0, 80) : undefined,
-      });
+      // Persiste como planning_item type='idea' no cliente atual (se houver)
+      // OU como library_idea global (escopo workspace) se não tiver cliente.
+      if (clientId) {
+        const { error } = await supabase.from("planning_items").insert({
+          client_id: clientId,
+          title: (topic ?? "Ideia").slice(0, 200),
+          content: briefing ?? "",
+          status: "idea",
+          content_type: "social_post" as never,
+          metadata: { source, source_url: url, ...(metadata ?? {}) } as never,
+        } as never);
+        if (error) {
+          toast.error("Erro ao salvar ideia", { description: error.message });
+        } else {
+          toast.success("💡 Ideia adicionada ao Planejamento", {
+            description: topic?.slice(0, 80),
+          });
+        }
+      } else {
+        // Sem cliente — salva em library_ideas (global, fica sem cliente)
+        const { error } = await supabase.from("library_ideas" as never).insert({
+          title: (topic ?? "Ideia").slice(0, 200),
+          description: briefing ?? "",
+          source_url: url,
+          source_handle: (metadata?.author as string | undefined) ?? null,
+          tags: ["radar", source],
+          is_global: true,
+        } as never);
+        if (error) {
+          toast.error("Erro ao salvar ideia", { description: error.message });
+        } else {
+          toast.success("💡 Ideia adicionada à Biblioteca global");
+        }
+      }
       return;
     }
 
-    setPending({ source, topic, briefing, url, metadata });
+    if (target === "library") {
+      if (!clientId) {
+        toast.error("Selecione um cliente pra salvar na biblioteca dele");
+        return;
+      }
+      const meta = (metadata ?? {}) as Record<string, unknown>;
+      const fmt = (meta.format as string | undefined) ?? "static";
+      const platform = (meta.platform as string | undefined) ?? null;
+      const contentTypeMap: Record<string, string> = {
+        carousel: "carousel",
+        reel: "reel_script",
+        static: "static_image",
+        tweet: "tweet",
+        thread: "thread",
+        newsletter: "newsletter",
+        article: "blog_post",
+      };
+      const ct = contentTypeMap[fmt] ?? "social_post";
 
+      const { error } = await supabase.from("client_reference_library").insert({
+        client_id: clientId,
+        title: (topic ?? "Referência").slice(0, 200),
+        reference_type: "inspiration",
+        content: briefing ?? "",
+        source_url: url,
+        thumbnail_url: (meta.thumbnail_url as string | undefined) ?? null,
+        metadata: {
+          source,
+          format: fmt,
+          platform,
+          content_type: ct,
+          ...meta,
+        } as never,
+      } as never);
+      if (error) {
+        toast.error("Erro ao salvar na biblioteca", { description: error.message });
+      } else {
+        toast.success("📚 Adicionado à biblioteca de refs do cliente");
+      }
+      return;
+    }
+
+    // Carrossel ou Reels — bridge via Zustand + navega
+    setPending({ source, topic, briefing, url, metadata });
     const tab =
       target === "carrossel" ? "viral-carrossel" : "viral-reels-page";
     const next = new URLSearchParams(searchParams);
     next.set("tab", tab);
-    // Mantém o cliente atual selecionado — Kai.tsx lê `?tab=` mas client_id
-    // vem do ClientSelector global, então só trocar tab é suficiente.
     navigate({ search: next.toString() });
   }
 
@@ -112,6 +189,16 @@ export function CrossAppActions({
         >
           <Lightbulb className="h-3.5 w-3.5 mr-1" />
           Ideia
+        </Button>
+      )}
+      {showLibrary && (
+        <Button
+          size={size}
+          variant="ghost"
+          onClick={() => handleAction("library")}
+        >
+          <Library className="h-3.5 w-3.5 mr-1" />
+          Biblioteca
         </Button>
       )}
     </div>
