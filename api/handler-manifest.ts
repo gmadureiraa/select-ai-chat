@@ -93,6 +93,7 @@ export const handlerLoaders: Record<string, () => Promise<any>> = {
   'save-as-planning-item': () => import('./_handlers/save-as-planning-item.js'),
   'import-client-social-content': () => import('./_handlers/import-client-social-content.js'),
   'run-madureira-workflows-daily': () => import('./_handlers/run-madureira-workflows-daily.js'),
+  'generate': () => import('./_handlers/generate.js'),
   'scrape-newsletter': () => import('./_handlers/scrape-newsletter.js'),
   'scrape-website': () => import('./_handlers/scrape-website.js'),
   'search-knowledge': () => import('./_handlers/search-knowledge.js'),
