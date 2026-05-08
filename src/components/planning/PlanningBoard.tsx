@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Loader2, Zap, Eye, Keyboard, Upload } from 'lucide-react';
+import { Plus, Zap, Eye, Keyboard, Upload, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { TabHeader } from '@/components/kai/TabHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { usePlanningItems, type PlanningFilters, type PlanningItem } from '@/hooks/usePlanningItems';
@@ -217,8 +219,41 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="Carregando planejamento"
+        className="h-full min-h-0 flex flex-col gap-3"
+      >
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-8 w-32" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-8 w-8" />
+            <Skeleton className="h-8 w-8" />
+            <Skeleton className="h-8 w-20" />
+          </div>
+        </div>
+        {/* Filters skeleton */}
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-44" />
+          <Skeleton className="h-9 w-32" />
+          <Skeleton className="h-9 w-32" />
+        </div>
+        {/* Board columns skeleton */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex flex-col gap-2">
+              <Skeleton className="h-7 w-full" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          ))}
+        </div>
+        <span className="sr-only">Carregando planejamento…</span>
       </div>
     );
   }
@@ -234,55 +269,59 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <ViewToggle view={view} onChange={setView} />
-        </div>
-        
-        {!isViewer && (
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={() => setShowAutomations(!showAutomations)}
-                  className={cn("h-8 w-8", showAutomations && 'bg-primary/10 text-primary')}
-                >
-                  <Zap className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Automações</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={() => setShowClickUpImport(true)}
-                  className="h-8 w-8"
-                >
-                  <Upload className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Importar do ClickUp</TooltipContent>
-            </Tooltip>
-            <ViewSettingsPopover settings={settings} onChange={setSettings} />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={() => handleNewCard()} size="sm" className="h-8 gap-1.5">
-                  <Plus className="h-4 w-4" />
-                  {!isMobile && <span>Novo</span>}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <span>Novo item</span>
-                <span className="ml-2 text-muted-foreground text-[10px]">{getShortcutHint('N')}</span>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        )}
-      </div>
+      <TabHeader
+        icon={CalendarDays}
+        title="Planejamento"
+        description="Calendário editorial: ideias, drafts, aprovação e agendamento."
+        actions={
+          <>
+            <ViewToggle view={view} onChange={setView} />
+            {!isViewer && (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowAutomations(!showAutomations)}
+                      className={cn("h-9 w-9", showAutomations && 'bg-primary/10 text-primary')}
+                    >
+                      <Zap className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Automações</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowClickUpImport(true)}
+                      className="h-9 w-9"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Importar do ClickUp</TooltipContent>
+                </Tooltip>
+                <ViewSettingsPopover settings={settings} onChange={setSettings} />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={() => handleNewCard()} size="sm" className="h-9 gap-1.5">
+                      <Plus className="h-4 w-4" />
+                      {!isMobile && <span>Novo</span>}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <span>Novo item</span>
+                    <span className="ml-2 text-muted-foreground text-[10px]">{getShortcutHint('N')}</span>
+                  </TooltipContent>
+                </Tooltip>
+              </>
+            )}
+          </>
+        }
+      />
 
       {/* Filters */}
       {showFilters && (

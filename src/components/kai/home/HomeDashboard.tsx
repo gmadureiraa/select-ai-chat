@@ -578,7 +578,7 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
 
         {/* ─── Performance cross-cliente — ranking de engagement por cliente ─── */}
         <CrossClientPerformanceCard
-          onSelectClient={(clientId) => onNavigate?.("clients", { clientId })}
+          onSelectClient={(_clientId) => onNavigate?.("clients")}
         />
 
         {/* ─── Quick actions ─── */}

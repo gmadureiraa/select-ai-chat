@@ -233,8 +233,13 @@ export function TaskDialog({
               {task && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <MoreHorizontal className="h-4 w-4" />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      aria-label="Mais ações da tarefa"
+                    >
+                      <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -251,8 +256,14 @@ export function TaskDialog({
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onOpenChange(false)}>
-                <XIcon className="h-4 w-4" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => onOpenChange(false)}
+                aria-label="Fechar diálogo"
+              >
+                <XIcon className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
           </div>

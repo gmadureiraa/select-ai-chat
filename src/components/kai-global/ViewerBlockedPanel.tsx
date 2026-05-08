@@ -11,8 +11,14 @@ export function ViewerBlockedPanel({ onClose }: ViewerBlockedPanelProps) {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="font-semibold text-foreground">Assistente kAI</h3>
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-          <X className="h-4 w-4" />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="h-8 w-8"
+          aria-label="Fechar painel"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
         </Button>
       </div>
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 // Sidebar/header ficam eager — sempre visíveis, viram parte do "shell" do app.
 import { KaiSidebar } from "@/components/kai/KaiSidebar";
 import { MobileHeader } from "@/components/kai/MobileHeader";
@@ -83,9 +84,9 @@ const ViralRadarTab = lazy(() =>
     default: m.ViralRadarTab,
   })),
 );
-const ViralLibraryTab = lazy(() =>
-  import("@/components/kai/ViralLibraryTab").then((m) => ({ default: m.ViralLibraryTab })),
-);
+// ViralLibraryTab removida 2026-05-08 — unificada com KaiLibraryTab (per cliente).
+// Refs/ideas/reels viáveis agora vivem em client_reference_library com format
+// + scenes (Reels Viral pattern) + slides_text (carousel pattern).
 const ViralFeatureGate = lazy(() =>
   import("@/components/kai/viral/ViralFeatureGate").then((m) => ({ default: m.ViralFeatureGate })),
 );
@@ -308,15 +309,13 @@ export default function Kai() {
     //   viral-carrossel = Sequência Viral (gerador de carrossel)
     //   viral-reels-page = Reels Viral (engenharia reversa de reel)
     //   viral-radar-page = Radar Viral (briefing diário)
-    //   viral-library = Biblioteca Viral (carrosséis + reels + briefings salvos)
-    // Removidos em 2026-05-08 (replace-viral): "viral" (Hunter v1 KAI-1.0),
-    // "sequence"/"reels"/"radar" (duplicatas do grupo Cliente que apontavam
-    // pros mesmos componentes que viral-*).
+    // viral-library removida em 2026-05-08 — unificada com biblioteca normal
+    // do cliente (client_reference_library) com scenes/slides/format.
     const toolTabs = [
       "clients", "settings", "automations", "assistant", "analytics", "home",
       "mcp",
       // Grupo "Viral" único (globais, não precisam de cliente):
-      "viral-library", "viral-carrossel", "viral-reels-page", "viral-radar-page",
+      "viral-carrossel", "viral-reels-page", "viral-radar-page",
       // Admin (super_admin only):
       "radar-sources-admin",
       // Workspace management (owner / admin):
@@ -325,8 +324,6 @@ export default function Kai() {
 
     if (toolTabs.includes(tab)) {
       switch (tab) {
-        case "viral-library":
-          return <ViralLibraryTab />;
         case "viral-carrossel":
           return selectedClient ? (
             <ViralFeatureGate feature="sequencia">
@@ -558,7 +555,18 @@ export default function Kai() {
         <div className="flex-1 min-h-0 overflow-hidden">
           <ErrorBoundary key={tab} compact context={`Tab: ${tab}`}>
             <Suspense fallback={<TabLoader />}>
-              {renderContent()}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={tab}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -2 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="h-full min-h-0"
+                >
+                  {renderContent()}
+                </motion.div>
+              </AnimatePresence>
             </Suspense>
           </ErrorBoundary>
         </div>

@@ -34,6 +34,7 @@ import {
   AtSign,
 } from "lucide-react";
 import type { ReferenceItem } from "@/hooks/useReferenceLibrary";
+import { RefSceneStrip, type RefScene } from "./RefSceneStrip";
 
 interface Props {
   reference: ReferenceItem | null;
@@ -89,6 +90,27 @@ export function ReferenceGalleryDialog({ reference, open, onOpenChange }: Props)
     : [];
   const transcribedText = (meta.transcribed_text as string | undefined) ?? "";
 
+  // Cenas-chave (Reels Viral pattern): metadata.scenes ou metadata.script.scenes
+  // Aceita 2 shapes:
+  //   - { scenes: [{ label, timestamp_start, timestamp_end, screenshot_url, text }] }
+  //   - { script: { scenes: [{ papel, tempo, copy, visual, broll }] } }   ← adapt-viral-reel
+  const scenesRaw =
+    (Array.isArray(meta.scenes) && meta.scenes) ||
+    (meta.script && Array.isArray((meta.script as any).scenes) && (meta.script as any).scenes) ||
+    null;
+  const scenes: RefScene[] = scenesRaw ?? [];
+
+  // Métricas (analytics tipo conteúdo de performance) — pega de metrics{} mais top-level
+  const performanceMetrics: Record<string, number | null> = {
+    likes: metrics.likes ?? (meta.likes as number | undefined) ?? null,
+    comments: metrics.comments ?? (meta.comments as number | undefined) ?? null,
+    views: metrics.views ?? (meta.views as number | undefined) ?? null,
+    shares: metrics.shares ?? (meta.shares as number | undefined) ?? null,
+    saves: metrics.saves ?? (meta.saves as number | undefined) ?? null,
+  };
+  const tags = Array.isArray(meta.tags) ? (meta.tags as string[]) : [];
+  const isVideoFormat = format === "reel" || format === "short_video" || scenes.length > 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 bg-background border-2 shadow-2xl">
@@ -123,9 +145,25 @@ export function ReferenceGalleryDialog({ reference, open, onOpenChange }: Props)
         </DialogHeader>
 
         <ScrollArea className="flex-1 min-h-0">
-          <div className="p-6 space-y-4">
-            {/* Galeria */}
-            {allImages.length > 0 && (
+          <div className="p-6 space-y-6">
+            {/* Tags + format */}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="text-[10px]">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Cenas-chave (Reels Viral pattern) — só se tem scenes[] */}
+            {isVideoFormat && scenes.length > 0 && (
+              <RefSceneStrip scenes={scenes} />
+            )}
+
+            {/* Galeria de imagens (carrossel/static) */}
+            {allImages.length > 0 && !isVideoFormat && (
               <div className="relative rounded-lg overflow-hidden border bg-muted/20">
                 <img
                   src={allImages[imgIdx]}
@@ -167,31 +205,43 @@ export function ReferenceGalleryDialog({ reference, open, onOpenChange }: Props)
               </div>
             )}
 
-            {/* Métricas */}
-            {(metrics.likes != null || metrics.comments != null || metrics.views != null) && (
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                {metrics.likes != null && (
-                  <span className="flex items-center gap-1.5">
-                    <Heart className="h-4 w-4" />
-                    {formatNumber(metrics.likes)}
-                  </span>
+            {/* Métricas (igual conteúdo de performance) */}
+            {Object.values(performanceMetrics).some((v) => v != null) && (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {performanceMetrics.likes != null && (
+                  <MetricCard
+                    icon={<Heart className="h-3.5 w-3.5 text-rose-500" />}
+                    label="Curtidas"
+                    value={formatNumber(performanceMetrics.likes)}
+                  />
                 )}
-                {metrics.comments != null && (
-                  <span className="flex items-center gap-1.5">
-                    <MessageCircle className="h-4 w-4" />
-                    {formatNumber(metrics.comments)}
-                  </span>
+                {performanceMetrics.comments != null && (
+                  <MetricCard
+                    icon={<MessageCircle className="h-3.5 w-3.5 text-blue-500" />}
+                    label="Comentários"
+                    value={formatNumber(performanceMetrics.comments)}
+                  />
                 )}
-                {metrics.views != null && (
-                  <span className="flex items-center gap-1.5">
-                    <Eye className="h-4 w-4" />
-                    {formatNumber(metrics.views)}
-                  </span>
+                {performanceMetrics.views != null && (
+                  <MetricCard
+                    icon={<Eye className="h-3.5 w-3.5 text-purple-500" />}
+                    label="Visualizações"
+                    value={formatNumber(performanceMetrics.views)}
+                  />
                 )}
-                {platform && (
-                  <Badge variant="outline" className="ml-auto text-[10px] uppercase tracking-wider">
-                    {platform}
-                  </Badge>
+                {performanceMetrics.shares != null && (
+                  <MetricCard
+                    icon={<ChevronRight className="h-3.5 w-3.5 text-emerald-500" />}
+                    label="Compart."
+                    value={formatNumber(performanceMetrics.shares)}
+                  />
+                )}
+                {performanceMetrics.saves != null && (
+                  <MetricCard
+                    icon={<FileText className="h-3.5 w-3.5 text-amber-500" />}
+                    label="Salvos"
+                    value={formatNumber(performanceMetrics.saves)}
+                  />
                 )}
               </div>
             )}
@@ -284,5 +334,27 @@ export function ReferenceGalleryDialog({ reference, open, onOpenChange }: Props)
         </ScrollArea>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function MetricCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5 p-2 rounded-md border bg-muted/20">
+      <div className="flex items-center gap-1.5">
+        {icon}
+        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+      </div>
+      <span className="text-sm font-semibold">{value}</span>
+    </div>
   );
 }

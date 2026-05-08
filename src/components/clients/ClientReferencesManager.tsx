@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
@@ -120,8 +121,27 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="Carregando referências"
+        className="space-y-4"
+      >
+        {/* Header skeleton */}
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 flex-1" />
+          <Skeleton className="h-9 w-28" />
+        </div>
+        {/* Cards grid skeleton */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="aspect-square w-full" />
+              <Skeleton className="h-3 w-3/4" />
+            </div>
+          ))}
+        </div>
+        <span className="sr-only">Carregando referências…</span>
       </div>
     );
   }
@@ -230,10 +250,27 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
 
       {/* References List */}
       {filteredReferences.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
+        <div className="text-center py-10 text-muted-foreground border border-dashed border-border/60 rounded-lg">
           <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Nenhuma referência encontrada</p>
-          <p className="text-xs mt-1">Adicione referências para usar como contexto</p>
+          <p className="text-sm font-medium text-foreground/80">
+            {searchQuery ? "Nenhuma referência encontrada" : "Nenhuma referência ainda"}
+          </p>
+          <p className="text-xs mt-1 max-w-sm mx-auto">
+            {searchQuery
+              ? "Tente outros termos ou limpe a busca."
+              : "Adicione referências (tweets, threads, artigos) para a kAI usar como contexto criativo."}
+          </p>
+          {!searchQuery && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-4 gap-1.5"
+              onClick={() => setIsAddDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar primeira referência
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[640px] overflow-y-auto pr-1">

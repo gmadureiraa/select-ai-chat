@@ -134,8 +134,14 @@ export function TaskChecklist({ taskId, readOnly }: TaskChecklistProps) {
             placeholder="Adicionar item…"
             className="h-7 text-sm"
           />
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleAdd}>
-            <Plus className="h-4 w-4" />
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            onClick={handleAdd}
+            aria-label="Adicionar item ao checklist"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
       )}

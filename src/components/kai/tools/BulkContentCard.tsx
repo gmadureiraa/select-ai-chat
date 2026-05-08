@@ -116,8 +116,13 @@ export function BulkContentCard({
               <span className="text-sm font-medium">{config.label} #{item.index + 1}</span>
               <p className="text-xs text-destructive mt-1">Erro: {item.error}</p>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => onDiscard(item.id)}>
-              <Trash2 className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onDiscard(item.id)}
+              aria-label="Descartar item"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
         </CardContent>
@@ -148,16 +153,38 @@ export function BulkContentCard({
             )}
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCopy}>
-              {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleCopy}
+              aria-label={copied ? "Copiado" : "Copiar conteúdo"}
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-green-500" aria-hidden="true" />
+              ) : (
+                <Copy className="h-4 w-4" aria-hidden="true" />
+              )}
             </Button>
             {!item.addedToPlanning && (
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onSendToPlanning(item.id)}>
-                <Send className="h-4 w-4" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onSendToPlanning(item.id)}
+                aria-label="Enviar para o planejamento"
+              >
+                <Send className="h-4 w-4" aria-hidden="true" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => onDiscard(item.id)}>
-              <Trash2 className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              onClick={() => onDiscard(item.id)}
+              aria-label="Descartar item"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
         </div>

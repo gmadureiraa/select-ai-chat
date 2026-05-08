@@ -158,30 +158,40 @@ export function NotificationBell({ variant = 'default', collapsed = false }: Not
   };
 
   const bellButton = variant === 'sidebar' ? (
-    <Button
-      variant="ghost"
-      size="sm"
+    <button
       className={cn(
-        "w-full flex items-center gap-3 text-muted-foreground hover:text-foreground relative",
-        collapsed ? "justify-center px-2" : "justify-start"
+        "w-full flex items-center gap-3 px-3 h-9 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors relative",
+        collapsed && "justify-center px-2",
       )}
     >
       <Bell className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-      {!collapsed && <span className="text-sm">Notificações</span>}
+      {!collapsed && <span>Notificações</span>}
       {unreadCount > 0 && (
         <span className={cn(
           "h-4 min-w-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-medium",
-          collapsed ? "absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] text-[9px]" : "ml-auto"
+          collapsed ? "absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] text-[9px]" : "ml-auto",
         )}>
           {unreadCount > 9 ? '9+' : unreadCount}
         </span>
       )}
-    </Button>
+    </button>
   ) : (
-    <Button variant="ghost" size="icon" className="relative">
-      <Bell className="h-5 w-5" />
+    <Button
+      variant="ghost"
+      size="icon"
+      className="relative"
+      aria-label={
+        unreadCount > 0
+          ? `Notificações (${unreadCount} não lidas)`
+          : "Notificações"
+      }
+    >
+      <Bell className="h-5 w-5" aria-hidden="true" />
       {unreadCount > 0 && (
-        <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+        <span
+          aria-hidden="true"
+          className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium"
+        >
           {unreadCount > 9 ? '9+' : unreadCount}
         </span>
       )}

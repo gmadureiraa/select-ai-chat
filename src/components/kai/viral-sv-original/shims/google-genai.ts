@@ -3,9 +3,9 @@
  * que não é importado pelo client. Stub previne erro de build.
  */
 export class GoogleGenAI {
-  constructor(_: unknown) {}
+  constructor(..._args: unknown[]) {}
   models = {
-    generateContent: async () => ({ text: "" }),
+    generateContent: async (..._args: unknown[]) => ({ text: "" }),
   };
 }
 export default GoogleGenAI;

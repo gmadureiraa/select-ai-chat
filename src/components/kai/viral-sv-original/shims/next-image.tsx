@@ -9,7 +9,7 @@
 import { forwardRef, type ImgHTMLAttributes, type CSSProperties } from "react";
 
 interface NextImageProps
-  extends Omit<ImgHTMLAttributes<HTMLImageElement>, "width" | "height"> {
+  extends Omit<ImgHTMLAttributes<HTMLImageElement>, "width" | "height" | "src"> {
   src: string | { src: string };
   alt: string;
   width?: number | string;

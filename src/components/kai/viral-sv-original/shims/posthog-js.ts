@@ -5,7 +5,7 @@
  * próprio sistema. Mantemos a shape mínima pra que `posthog.capture()` e
  * `posthog.identify()` continuem sem dar runtime error.
  */
-const noop = () => {};
+const noop = (..._args: unknown[]): void => {};
 
 const posthog = {
   capture: noop,
@@ -19,8 +19,8 @@ const posthog = {
   alias: noop,
   init: noop,
   group: noop,
-  isFeatureEnabled: () => false,
-  getFeatureFlag: () => undefined,
+  isFeatureEnabled: (..._args: unknown[]) => false,
+  getFeatureFlag: (..._args: unknown[]) => undefined,
   onFeatureFlags: noop,
   // Feature flag bootstrap — return undefined for everything
   decideEndpointWasHit: false,

@@ -37,10 +37,16 @@ export function MobileHeader({ onMenuClick, clientName }: MobileHeaderProps) {
 
   return (
     <header className="fixed top-0 left-0 right-0 h-14 bg-background border-b border-border z-40 flex items-center px-3 gap-2">
-      <Button variant="ghost" size="icon" onClick={onMenuClick} className="shrink-0 min-h-[44px] min-w-[44px]">
-        <Menu className="h-5 w-5" />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onMenuClick}
+        aria-label="Abrir menu de navegação"
+        className="shrink-0 min-h-[44px] min-w-[44px]"
+      >
+        <Menu className="h-5 w-5" aria-hidden="true" />
       </Button>
-      
+
       <div className="flex-1 min-w-0">
         <span className="font-semibold text-sm truncate block">
           {clientName || "KAI"}
@@ -49,22 +55,23 @@ export function MobileHeader({ onMenuClick, clientName }: MobileHeaderProps) {
 
       {/* Notification warning indicator */}
       {showNotificationWarning && (
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           size="icon"
           onClick={requestPermission}
+          aria-label="Ativar notificações"
           className="shrink-0 text-amber-500 hover:text-amber-600 min-h-[44px] min-w-[44px]"
         >
-          <BellOff className="h-5 w-5" />
+          <BellOff className="h-5 w-5" aria-hidden="true" />
         </Button>
       )}
-      
+
       <ThemeToggle className="shrink-0" />
 
       <NotificationBell />
 
       <Avatar className="h-8 w-8">
-        <AvatarImage src={userProfile?.avatar_url || undefined} />
+        <AvatarImage src={userProfile?.avatar_url || undefined} alt={userProfile?.full_name || user?.email || "Avatar"} />
         <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
           {userInitials}
         </AvatarFallback>

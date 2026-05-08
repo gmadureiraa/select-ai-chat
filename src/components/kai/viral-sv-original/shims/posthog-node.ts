@@ -3,8 +3,9 @@
  * que rodariam no Next.js server. No KAI integrado, esses callers ficam
  * mortos (tree-shake).
  */
-const noop = () => {};
+const noop = (..._args: unknown[]): void => {};
 class PostHog {
+  constructor(..._args: unknown[]) {}
   capture = noop;
   identify = noop;
   shutdown = noop;

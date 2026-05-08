@@ -133,7 +133,7 @@ export function useSvProfile(): SvProfileShape {
         .maybeSingle();
 
       return {
-        profile: (prof as RawProfile | null) ?? {
+        profile: (prof as unknown as RawProfile | null) ?? {
           id: userId,
           email: user?.email ?? null,
           full_name: null,

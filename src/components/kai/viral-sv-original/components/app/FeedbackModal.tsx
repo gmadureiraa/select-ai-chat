@@ -134,7 +134,8 @@ export default function FeedbackModal({
         animation: "sv-fb-fade 0.18s ease-out",
       }}
     >
-      <style jsx>{`
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      <style {...({ jsx: true } as any)}>{`
         @keyframes sv-fb-fade {
           from { opacity: 0; }
           to { opacity: 1; }

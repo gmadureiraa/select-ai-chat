@@ -47,9 +47,12 @@ export function useImportClientSocialContent() {
     mutationFn: async (request) => {
       const res = await apiInvoke<ImportResult>(
         "import-client-social-content",
-        request,
+        { body: request },
       );
-      return res;
+      if (res.error || !res.data) {
+        throw new Error(res.error?.message || "Falha ao importar conteúdo social");
+      }
+      return res.data;
     },
     onSuccess: (data) => {
       const { totals } = data;

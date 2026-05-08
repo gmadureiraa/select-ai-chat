@@ -20,6 +20,25 @@ export interface AnonHandlerCtx {
 type Handler<T = HandlerCtx> = (ctx: T) => Promise<unknown>;
 
 /**
+ * Heurística pra distinguir validation errors (4xx) de erros internos (5xx).
+ * Marker substrings que aparecem em validation errors comuns deste codebase.
+ * Retorna 400/401/403/404 baseado no padrão da mensagem.
+ */
+function inferErrorStatus(msg: string): number | null {
+  if (!msg) return null;
+  const m = msg.toLowerCase();
+  // Auth-related
+  if (/\bunauthor|authentication required|invalid token|expired token/i.test(msg)) return 401;
+  if (/\baccess denied|acesso negado|forbidden|permiss/i.test(msg)) return 403;
+  // Validation patterns
+  if (
+    /\b(is required|é obrigat|are required|é necess|must be|invalid input|invalid request|deve ser|inválid)/i.test(msg) ||
+    /\b(missing|faltando|nenhum|empty)\b.*\b(field|param|argument|cliente)/i.test(m)
+  ) return 400;
+  return null;
+}
+
+/**
  * Wrap a handler that requires authentication. Auto-handles:
  *   - CORS preflight
  *   - Method check (POST default)
@@ -50,7 +69,9 @@ export function authedPost(fn: Handler<HandlerCtx>) {
     } catch (e: any) {
       console.error('[handler] error:', e);
       if (!res.writableEnded) {
-        res.status(500).json({ error: e?.message || 'Internal error' });
+        const msg = e?.message || 'Internal error';
+        const status = e?.statusCode || e?.status || inferErrorStatus(msg) || 500;
+        res.status(status).json({ error: msg });
       }
     }
   };
@@ -76,7 +97,9 @@ export function anonPost(fn: Handler<AnonHandlerCtx>) {
     } catch (e: any) {
       console.error('[handler] error:', e);
       if (!res.writableEnded) {
-        res.status(500).json({ error: e?.message || 'Internal error' });
+        const msg = e?.message || 'Internal error';
+        const status = e?.statusCode || e?.status || inferErrorStatus(msg) || 500;
+        res.status(status).json({ error: msg });
       }
     }
   };

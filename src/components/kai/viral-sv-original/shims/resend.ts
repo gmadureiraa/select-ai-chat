@@ -2,18 +2,18 @@
  * Stub de `resend`. Server-only.
  */
 export class Resend {
-  constructor(_: string) {}
+  constructor(..._args: unknown[]) {}
   emails = {
-    send: async () => ({ data: null, error: null }),
+    send: async (..._args: unknown[]) => ({ data: null, error: null }),
   };
   contacts = {
-    create: async () => ({ data: null, error: null }),
-    list: async () => ({ data: { data: [] }, error: null }),
-    update: async () => ({ data: null, error: null }),
-    remove: async () => ({ data: null, error: null }),
+    create: async (..._args: unknown[]) => ({ data: null, error: null }),
+    list: async (..._args: unknown[]) => ({ data: { data: [] }, error: null }),
+    update: async (..._args: unknown[]) => ({ data: null, error: null }),
+    remove: async (..._args: unknown[]) => ({ data: null, error: null }),
   };
   audiences = {
-    list: async () => ({ data: { data: [] }, error: null }),
+    list: async (..._args: unknown[]) => ({ data: { data: [] }, error: null }),
   };
 }
 export default Resend;

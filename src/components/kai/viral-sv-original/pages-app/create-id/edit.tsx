@@ -873,7 +873,8 @@ export default function EditPage(props: {
       toast.success(isVideo ? "Vídeo carregado." : "Imagem carregada.");
     } else {
       // Toast com erro REAL retornado pelo hook (não state assíncrono).
-      toast.error(result.error || "Falha no upload.");
+      const err = "error" in result ? result.error : null;
+      toast.error(err || "Falha no upload.");
     }
   }
 

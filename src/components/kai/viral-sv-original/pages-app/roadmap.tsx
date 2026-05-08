@@ -1,9 +1,13 @@
 
 import { motion } from "framer-motion";
-import {
-  RoadmapBoardBrutalist,
-  RoadmapLegend,
-} from "@sv/components/landing/roadmap-board-v2";
+import RoadmapBoardBrutalist from "../components/app/roadmap-board";
+
+// `roadmap-board-v2` (com `RoadmapLegend` exportada) não foi portado pra dentro
+// do KAI — usamos só o board default e legend inline simples. Página não está
+// reachable pelo MainApp shell, ficou de referência futura.
+function RoadmapLegend() {
+  return null;
+}
 
 /**
  * Roadmap interno do app — shell do /app + board compartilhado

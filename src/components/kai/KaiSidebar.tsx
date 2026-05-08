@@ -38,7 +38,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,13 +62,14 @@ function NavItem({ icon, label, active, onClick, collapsed, disabled, showLock }
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-        active 
-          ? "bg-accent text-foreground font-medium" 
+        "w-full flex items-center gap-3 px-3 h-9 rounded-md text-sm transition-colors",
+        active
+          ? "bg-accent text-foreground font-medium"
           : "text-muted-foreground hover:bg-accent hover:text-foreground",
         collapsed && "justify-center px-2",
-        disabled && "opacity-40 cursor-not-allowed"
+        disabled && "opacity-40 cursor-not-allowed hover:bg-transparent",
       )}
     >
       <span className="flex-shrink-0">
@@ -78,7 +78,7 @@ function NavItem({ icon, label, active, onClick, collapsed, disabled, showLock }
       {!collapsed && (
         <span className="flex-1 text-left truncate flex items-center gap-2">
           {label}
-          {showLock && <Lock className="h-3 w-3 text-muted-foreground/60" />}
+          {showLock && <Lock className="h-3 w-3 text-muted-foreground/60 shrink-0" />}
         </span>
       )}
     </button>
@@ -358,20 +358,15 @@ export function KaiSidebar({
             Itens GLOBAIS (não dependem de cliente): biblioteca + atalhos pros
             apps standalone (Sequência Viral, Reels Viral, Radar Viral). */}
         {!collapsed && (
-          <div className="px-3 pt-3 pb-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">
+          <div className="px-3 mt-3 mb-1">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
               Viral
             </span>
           </div>
         )}
 
-        <NavItem
-          icon={<Library className="h-4 w-4" strokeWidth={1.5} />}
-          label="Biblioteca Viral"
-          active={activeTab === "viral-library"}
-          onClick={() => onTabChange("viral-library")}
-          collapsed={collapsed}
-        />
+        {/* Biblioteca Viral removida 2026-05-08 — unificada com biblioteca
+            normal por cliente (client_reference_library). */}
 
         <NavItem
           icon={<Twitter className="h-4 w-4" strokeWidth={1.5} />}
@@ -434,8 +429,8 @@ export function KaiSidebar({
         {(isOwner || canManageTeam) && (
           <>
             {!collapsed && (
-              <div className="px-3 pt-3 pb-1">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">
+              <div className="px-3 mt-3 mb-1">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
                   Workspace
                 </span>
               </div>
@@ -474,8 +469,8 @@ export function KaiSidebar({
         {isSuperAdmin && (
           <>
             {!collapsed && (
-              <div className="px-3 pt-3 pb-1">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">
+              <div className="px-3 mt-3 mb-1">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
                   Admin
                 </span>
               </div>
@@ -492,37 +487,25 @@ export function KaiSidebar({
       </nav>
 
       {/* Footer */}
-      <div className={cn("p-2 space-y-1", collapsed && "p-1.5")}>
+      <div className={cn("p-2 space-y-0.5 border-t border-sidebar-border", collapsed && "p-1.5")}>
         {/* MCP Docs */}
-        <Button
-          variant="ghost"
-          size="sm"
+        <NavItem
+          icon={<Terminal className="h-4 w-4" strokeWidth={1.5} />}
+          label="MCP kAI"
+          active={activeTab === "mcp"}
           onClick={() => onTabChange("mcp")}
-          className={cn(
-            "w-full flex items-center gap-3 justify-start text-muted-foreground hover:text-foreground",
-            activeTab === "mcp" && "bg-accent text-foreground",
-            collapsed && "justify-center px-2"
-          )}
-        >
-          <Terminal className="h-4 w-4" strokeWidth={1.5} />
-          {!collapsed && <span className="text-sm">MCP kAI</span>}
-        </Button>
+          collapsed={collapsed}
+        />
 
         {/* Settings */}
         {canViewSettings && (
-          <Button
-            variant="ghost"
-            size="sm"
+          <NavItem
+            icon={<Settings className="h-4 w-4" strokeWidth={1.5} />}
+            label="Configurações"
+            active={activeTab === "settings"}
             onClick={() => onTabChange("settings")}
-            className={cn(
-              "w-full flex items-center gap-3 justify-start text-muted-foreground hover:text-foreground",
-              activeTab === "settings" && "bg-accent text-foreground",
-              collapsed && "justify-center px-2"
-            )}
-          >
-            <Settings className="h-4 w-4" strokeWidth={1.5} />
-            {!collapsed && <span className="text-sm">Configurações</span>}
-          </Button>
+            collapsed={collapsed}
+          />
         )}
 
         {/* Notifications */}
@@ -531,25 +514,23 @@ export function KaiSidebar({
         {/* Theme toggle */}
         <div
           className={cn(
-            "flex items-center gap-3 px-3 py-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-accent transition-colors",
+            "flex items-center gap-3 px-3 h-9 text-muted-foreground hover:text-foreground rounded-md hover:bg-accent transition-colors",
             collapsed && "justify-center px-2",
           )}
         >
-          <ThemeToggle className="h-7 w-7" />
+          <ThemeToggle className="h-7 w-7 -ml-1.5" />
           {!collapsed && <span className="text-sm">Tema</span>}
         </div>
 
         {/* Collapse Toggle */}
         {!isMobile && (
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={onToggleCollapse}
             aria-label={collapsed ? "Expandir barra lateral" : "Recolher barra lateral"}
             aria-expanded={!collapsed}
             className={cn(
-              "w-full flex items-center gap-3 justify-center text-muted-foreground hover:text-foreground",
-              !collapsed && "justify-start"
+              "w-full flex items-center gap-3 px-3 h-9 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
+              collapsed && "justify-center px-2",
             )}
           >
             {collapsed ? (
@@ -557,15 +538,15 @@ export function KaiSidebar({
             ) : (
               <>
                 <ChevronLeft aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
-                <span className="text-sm">Recolher</span>
+                <span>Recolher</span>
               </>
             )}
-          </Button>
+          </button>
         )}
       </div>
 
       {/* User */}
-      <div className={cn("p-2 border-t border-sidebar-border", collapsed && "p-1.5")}>
+      <div className={cn("p-2", collapsed && "p-1.5")}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className={cn(

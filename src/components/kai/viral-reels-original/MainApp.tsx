@@ -195,26 +195,67 @@ export default function MainApp({ clientId, client }: Props) {
         ``,
         `Fonte: ${reel.source_url} (@${reel.source_meta?.ownerUsername ?? "—"})`,
       ].join("\n");
-      const { error } = await supabase.from("client_content_library").insert([
-        {
-          client_id: clientId,
-          title,
-          content,
-          content_type: "reel_script",
-          metadata: {
-            source: "viral-reels-original",
-            reelId: reel.id,
-            sourceUrl: reel.source_url,
-            ownerUsername: reel.source_meta?.ownerUsername,
-            objetivo: reel.objetivo,
-            cta: reel.cta,
+      // Mantém em client_content_library (conteúdo gerado pelo cliente,
+      // tipo histórico de scripts produzidos)
+      const { error: ccError } = await supabase
+        .from("client_content_library")
+        .insert([
+          {
+            client_id: clientId,
+            title,
+            content,
+            content_type: "reel_script",
+            metadata: {
+              source: "viral-reels-original",
+              reelId: reel.id,
+              sourceUrl: reel.source_url,
+              ownerUsername: reel.source_meta?.ownerUsername,
+              objetivo: reel.objetivo,
+              cta: reel.cta,
+            },
           },
-        },
-      ]);
-      if (error) throw error;
+        ]);
+      if (ccError) throw ccError;
+
+      // PLUS: salva em client_reference_library com format=reel + scenes[]
+      // pro ReferenceGalleryDialog renderizar cenas-chave + estrutura.
+      // Best-effort — falha não bloqueia.
+      const refMeta = {
+        format: "reel",
+        source: "viral-reels-original",
+        reelId: reel.id,
+        platform: "instagram",
+        source_handle: reel.source_meta?.ownerUsername,
+        objetivo: reel.objetivo,
+        cta: reel.cta,
+        // shape pra RefSceneStrip: { papel, tempo, copy, visual, broll }
+        scenes: reel.script?.scenes ?? [],
+        script: reel.script,
+        analysis: reel.analysis,
+        hook: reel.script?.hook,
+        transcribed_text: reel.script?.roteiroCompleto,
+        tags: ["reel", "engenharia-reversa"],
+      };
+      await supabase
+        .from("client_reference_library")
+        .insert([
+          {
+            client_id: clientId,
+            title,
+            reference_type: "video_script",
+            content,
+            source_url: reel.source_url,
+            thumbnail_url: reel.source_meta?.displayUrl ?? null,
+            metadata: refMeta as any,
+          },
+        ])
+        .then(({ error }) => {
+          if (error) console.warn("[reels] ref_library insert failed:", error);
+        });
+
       return reel.id;
     },
-    onSuccess: () => toast.success("Salvo na Library"),
+    onSuccess: () => toast.success("Salvo na Library + Refs"),
     onError: (err: any) => toast.error(err?.message ?? "Falha ao salvar"),
   });
 

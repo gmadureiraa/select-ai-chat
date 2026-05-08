@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, Zap, Calendar, Rss, Webhook, MoreVertical, Pause, Play, Trash2, Pencil, TestTube2, History, Loader2, Filter, Users, Twitter, Linkedin, Instagram, Youtube, Facebook, AtSign, Video, Mail, FileText, Globe, Sparkles, ListChecks, Brain, Clock, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -49,6 +50,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { PLATFORM_COLOR_MAP, ALL_PUBLISH_PLATFORMS } from '@/types/contentTypes';
+import { TabHeader } from '@/components/kai/TabHeader';
 
 const platformLucideIcons: Record<string, React.ElementType> = {
   twitter: Twitter,
@@ -248,38 +250,64 @@ export function AutomationsTab() {
 
   if (isLoading) {
     return (
-      <div className="p-6 h-full overflow-auto">
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          Carregando automações...
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="Carregando automações"
+        className="p-4 md:p-6 h-full overflow-auto space-y-6"
+      >
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-28" />
+            <Skeleton className="h-9 w-36" />
+          </div>
         </div>
+        {/* Filters skeleton */}
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-9 w-[200px]" />
+          <Skeleton className="h-9 w-[180px]" />
+        </div>
+        {/* Stats skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-20 w-full" />
+          ))}
+        </div>
+        {/* List skeleton */}
+        <div className="space-y-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+        <span className="sr-only">Carregando automações…</span>
       </div>
     );
   }
 
   return (
-    <div className="p-6 h-full overflow-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <Zap className="h-6 w-6 text-primary" />
-            Automações
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Configure fluxos automáticos: RSS → IA → Publicação
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setHistoryOpen(true)}>
-            <History className="h-4 w-4 mr-2" />
-            Histórico
-          </Button>
-          <Button onClick={handleCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Automação
-          </Button>
-        </div>
-      </div>
+    <div className="p-4 md:p-6 h-full overflow-auto space-y-4">
+      <TabHeader
+        icon={Zap}
+        title="Automações"
+        description="Configure fluxos automáticos: RSS → IA → Publicação."
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} className="h-9">
+              <History className="h-4 w-4 mr-2" />
+              Histórico
+            </Button>
+            <Button size="sm" onClick={handleCreate} className="h-9">
+              <Plus className="h-4 w-4 mr-2" />
+              Nova automação
+            </Button>
+          </>
+        }
+      />
 
       {/* Filters */}
       <div className="flex items-center gap-3">
@@ -417,9 +445,9 @@ export function AutomationsTab() {
                 : 'Tente ajustar os filtros'}
             </p>
             {automations.length === 0 && (
-              <Button onClick={handleCreate}>
-                <Plus className="h-4 w-4 mr-2" />
-                Criar Automação
+              <Button onClick={handleCreate} className="gap-1.5">
+                <Plus className="h-4 w-4" />
+                Criar primeira automação
               </Button>
             )}
           </CardContent>
@@ -591,8 +619,8 @@ function AutomationCard({
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreVertical className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Mais ações">
+              <MoreVertical className="h-4 w-4" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

@@ -9,7 +9,9 @@
 export * from "./pricing";
 
 export const stripe = null as unknown as {
-  // shape mínimo pra typecheck
-  customers: unknown;
-  subscriptions: unknown;
+  // shape mínimo pra typecheck — fields tipados como any pq stub server-only.
+  customers: any;
+  subscriptions: any;
+  checkout: any;
+  webhooks: any;
 };

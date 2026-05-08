@@ -4,10 +4,12 @@ import {
   LayoutGrid,
   List as ListIcon,
   CalendarDays,
-  Loader2,
   Search as SearchIcon,
   X as XIcon,
+  CheckSquare,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TabHeader } from "@/components/kai/TabHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -179,21 +181,20 @@ export function TeamTasksBoard({ defaultClientId }: { defaultClientId?: string |
     <div className="h-full min-h-0 flex flex-col">
       {/* Header */}
       <div className="pb-3 border-b border-border/40">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Tarefas do time</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Tarefas internas — separadas do planejamento de conteúdo.
-            </p>
-          </div>
-          {!isViewer && (
-            <Button size="sm" onClick={() => openNew("todo")} className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" />
-              Nova tarefa
-              <kbd className="ml-1 hidden md:inline text-[10px] bg-primary-foreground/20 px-1 rounded">N</kbd>
-            </Button>
-          )}
-        </div>
+        <TabHeader
+          icon={CheckSquare}
+          title="Tarefas do time"
+          description="Tarefas internas — separadas do planejamento de conteúdo."
+          actions={
+            !isViewer && (
+              <Button size="sm" onClick={() => openNew("todo")} className="h-9 gap-1.5">
+                <Plus className="h-3.5 w-3.5" />
+                Nova tarefa
+                <kbd className="ml-1 hidden md:inline text-[10px] bg-primary-foreground/20 px-1 rounded">N</kbd>
+              </Button>
+            )
+          }
+        />
 
         {/* KPIs */}
         <div className="flex items-center gap-1.5 mt-3 flex-wrap">
@@ -322,8 +323,21 @@ export function TeamTasksBoard({ defaultClientId }: { defaultClientId?: string |
       {/* Body */}
       <div className="flex-1 min-h-0 overflow-auto pt-3">
         {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <div
+            role="status"
+            aria-live="polite"
+            aria-label="Carregando tarefas"
+            className="h-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-1"
+          >
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex flex-col gap-2">
+                <Skeleton className="h-7 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+            ))}
+            <span className="sr-only">Carregando tarefas…</span>
           </div>
         ) : tasks.length === 0 ? (
           <TaskEmptyState onCreate={!isViewer ? () => openNew("todo") : undefined} />
@@ -445,8 +459,14 @@ function BoardView({ tasks, memberMap, clientMap, onCardClick, onToggleDone, onA
                 </span>
               </div>
               {!isViewer && (
-                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => onAddInColumn(statusKey)}>
-                  <Plus className="h-3.5 w-3.5" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                  onClick={() => onAddInColumn(statusKey)}
+                  aria-label={`Adicionar tarefa em ${meta.title}`}
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
               )}
             </div>

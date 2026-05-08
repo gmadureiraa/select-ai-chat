@@ -135,34 +135,38 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
         </div>
       </div>
 
-      {/* Simplified Tabs: 6 tabs (added Analytics as final) */}
+      {/* Simplified Tabs: 6 tabs (added Analytics as final).
+          Mobile: scroll horizontal pra evitar grid-cols-6 apertado.
+          Desktop: grid full-width. */}
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="profile" className="text-xs gap-1">
-            <User className="h-3.5 w-3.5" />
-            Perfil
-          </TabsTrigger>
-          <TabsTrigger value="digital" className="text-xs gap-1">
-            <Globe className="h-3.5 w-3.5" />
-            Digital
-          </TabsTrigger>
-          <TabsTrigger value="references" className="text-xs gap-1">
-            <FileText className="h-3.5 w-3.5" />
-            Referências
-          </TabsTrigger>
-          <TabsTrigger value="integrations" className="text-xs gap-1">
-            <Plug className="h-3.5 w-3.5" />
-            Integrações
-          </TabsTrigger>
-          <TabsTrigger value="ai-context" className="text-xs gap-1">
-            <Brain className="h-3.5 w-3.5" />
-            Contexto IA
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="text-xs gap-1">
-            <BarChart3 className="h-3.5 w-3.5" />
-            Analytics
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-2 sm:mx-0 px-2 sm:px-0 scrollbar-hide">
+          <TabsList className="inline-flex w-max min-w-full sm:grid sm:grid-cols-6">
+            <TabsTrigger value="profile" className="text-xs gap-1 whitespace-nowrap">
+              <User className="h-3.5 w-3.5" aria-hidden="true" />
+              Perfil
+            </TabsTrigger>
+            <TabsTrigger value="digital" className="text-xs gap-1 whitespace-nowrap">
+              <Globe className="h-3.5 w-3.5" aria-hidden="true" />
+              Digital
+            </TabsTrigger>
+            <TabsTrigger value="references" className="text-xs gap-1 whitespace-nowrap">
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+              Referências
+            </TabsTrigger>
+            <TabsTrigger value="integrations" className="text-xs gap-1 whitespace-nowrap">
+              <Plug className="h-3.5 w-3.5" aria-hidden="true" />
+              Integrações
+            </TabsTrigger>
+            <TabsTrigger value="ai-context" className="text-xs gap-1 whitespace-nowrap">
+              <Brain className="h-3.5 w-3.5" aria-hidden="true" />
+              Contexto IA
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="text-xs gap-1 whitespace-nowrap">
+              <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />
+              Analytics
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Tab: Perfil (merged Info + Positioning) */}
         <TabsContent value="profile" className="space-y-4 mt-4">

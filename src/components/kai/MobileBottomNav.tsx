@@ -39,7 +39,7 @@ import {
 
 type NavItem = {
   id: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<any>;
   label: string;
   tab: string | null;
   center?: boolean;
@@ -49,16 +49,15 @@ const PRIMARY_ITEMS: NavItem[] = [
   { id: "home", icon: Home, label: "Início", tab: "home" },
   { id: "planning", icon: CalendarDays, label: "Planejamento", tab: "planning" },
   { id: "chat", icon: MessageCircle, label: "kAI", tab: "assistant", center: true },
-  { id: "radar", icon: Radar, label: "Radar", tab: "viral-radar-page" },
+  { id: "carrossel", icon: Twitter, label: "Carrossel", tab: "viral-carrossel" },
 ];
 
 const MORE_ITEMS = [
   { tab: "tasks", icon: CheckSquare, label: "Tarefas" },
   { tab: "performance", icon: BarChart3, label: "Performance" },
   { tab: "library", icon: Library, label: "Biblioteca" },
-  { tab: "viral-library", icon: Library, label: "Biblioteca Viral" },
-  { tab: "viral-carrossel", icon: Twitter, label: "Carrossel" },
   { tab: "viral-reels-page", icon: Film, label: "Reels" },
+  { tab: "viral-radar-page", icon: Radar, label: "Radar" },
   { tab: "settings", icon: Settings, label: "Configurações" },
 ] as const;
 
@@ -99,19 +98,22 @@ export function MobileBottomNav() {
               aria-label={item.label}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center justify-center flex-1 h-full text-[10px] gap-0.5 transition-colors min-h-[44px]",
-                active ? "text-primary" : "text-muted-foreground",
-                item.center && "relative -top-2",
+                "flex flex-col items-center justify-center flex-1 h-full text-[10px] gap-0.5 transition-colors min-h-[44px] relative",
+                active ? "text-foreground font-medium" : "text-muted-foreground",
+                item.center && "-top-2",
               )}
             >
               <div
                 className={cn(
                   "rounded-full p-1.5 transition-colors",
                   item.center && "bg-primary text-primary-foreground p-2 shadow-lg ring-4 ring-background",
-                  !item.center && active && "bg-accent",
+                  !item.center && active && "bg-accent text-foreground",
                 )}
               >
-                <Icon className={cn("h-5 w-5", item.center && "h-6 w-6")} />
+                <Icon
+                  className={cn("h-5 w-5", item.center && "h-6 w-6")}
+                  strokeWidth={1.5}
+                />
               </div>
               {!item.center && <span className="leading-none">{item.label}</span>}
             </button>
@@ -126,16 +128,16 @@ export function MobileBottomNav() {
               aria-current={moreActive ? "page" : undefined}
               className={cn(
                 "flex flex-col items-center justify-center flex-1 h-full text-[10px] gap-0.5 transition-colors min-h-[44px]",
-                moreActive || moreOpen ? "text-primary" : "text-muted-foreground",
+                moreActive || moreOpen ? "text-foreground font-medium" : "text-muted-foreground",
               )}
             >
               <div
                 className={cn(
                   "rounded-full p-1.5 transition-colors",
-                  (moreActive || moreOpen) && "bg-accent",
+                  (moreActive || moreOpen) && "bg-accent text-foreground",
                 )}
               >
-                <MoreHorizontal className="h-5 w-5" />
+                <MoreHorizontal className="h-5 w-5" strokeWidth={1.5} />
               </div>
               <span className="leading-none">Mais</span>
             </button>
@@ -150,11 +152,11 @@ export function MobileBottomNav() {
                     onClick={() => handleNavigate(item.tab)}
                     className={cn(
                       "flex items-center gap-2 cursor-pointer",
-                      active && "bg-accent",
+                      active && "bg-accent text-foreground font-medium",
                     )}
                     aria-current={active ? "page" : undefined}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4" strokeWidth={1.5} />
                     <span>{item.label}</span>
                   </DropdownMenuItem>
                   {/* Separador antes de "Configurações" */}
