@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useReferenceLibrary, ReferenceItem, ReferenceType } from "@/hooks/useReferenceLibrary";
 import { ReferenceGalleryDialog } from "./ReferenceGalleryDialog";
+import { CrossAppActions } from "@/components/kai/viral/CrossAppActions";
 
 const FORMAT_CHIP: Record<
   string,
@@ -235,7 +236,7 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
           <p className="text-xs mt-1">Adicione referências para usar como contexto</p>
         </div>
       ) : (
-        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[640px] overflow-y-auto pr-1">
           {filteredReferences.map((ref) => {
             const typeInfo = getTypeInfo(ref.reference_type);
             const Icon = typeInfo.icon;
@@ -248,6 +249,9 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
               : 0;
             const sourceHandle = refMeta.source_handle as string | undefined;
             const hasVisual = !!ref.thumbnail_url;
+            const transcribed = (refMeta.transcribed_text as string | undefined) ?? "";
+            const briefingForBridge =
+              [ref.title, transcribed || ref.content].filter(Boolean).join("\n\n");
 
             const openItem = () => {
               if (hasVisual || imagesCount > 0) setGalleryRef(ref);
@@ -257,99 +261,98 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
             return (
               <Card
                 key={ref.id}
-                className="group cursor-pointer hover:bg-muted/30 transition-colors overflow-hidden"
-                onClick={openItem}
+                className="group cursor-pointer overflow-hidden flex flex-col hover:border-primary/40 transition-colors"
               >
-                <CardContent className="p-3">
-                  <div className="flex items-start gap-3">
-                    {/* Thumbnail OR icon */}
-                    {hasVisual ? (
-                      <div className="relative w-16 h-16 rounded-md overflow-hidden bg-muted/50 shrink-0">
-                        <img
-                          src={ref.thumbnail_url ?? undefined}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = "none";
-                          }}
-                        />
-                        {imagesCount > 1 && (
-                          <div className="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-[9px] font-bold px-1 rounded">
-                            +{imagesCount}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="p-2 rounded-lg bg-muted/50 shrink-0">
-                        <FormatIcon className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    )}
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {fmt ? (
-                          <Badge
-                            variant="outline"
-                            className={`text-[9px] gap-1 ${fmt.class}`}
-                          >
-                            <FormatIcon className="h-2.5 w-2.5" />
-                            {fmt.label}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[9px]">
-                            {typeInfo.label}
-                          </Badge>
-                        )}
-                        {sourceHandle && (
-                          <Badge variant="secondary" className="text-[9px]">
-                            @{sourceHandle}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="font-medium text-sm truncate mt-1">{ref.title}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-                        {ref.content}
-                      </p>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        {(hasVisual || imagesCount > 0) && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setGalleryRef(ref);
-                            }}
-                            className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
-                          >
-                            <Eye className="h-3 w-3" />
-                            Ver galeria
-                          </button>
-                        )}
-                        {ref.source_url && (
-                          <a
-                            href={ref.source_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            Original
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(ref.id);
+                {/* Image cover — ocupa o card todo */}
+                <div
+                  className="relative aspect-square w-full bg-muted overflow-hidden"
+                  onClick={openItem}
+                >
+                  {hasVisual ? (
+                    <img
+                      src={ref.thumbnail_url ?? undefined}
+                      alt={ref.title}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.opacity = "0";
                       }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/60">
+                      <FormatIcon className="h-10 w-10 text-muted-foreground/40" />
+                    </div>
+                  )}
+
+                  {/* Format chip top-left */}
+                  {fmt && (
+                    <Badge
+                      variant="outline"
+                      className={`absolute top-2 left-2 text-[10px] gap-1 backdrop-blur-sm bg-background/90 border ${fmt.class}`}
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                      <FormatIcon className="h-2.5 w-2.5" />
+                      {fmt.label}
+                    </Badge>
+                  )}
+
+                  {/* +N images badge top-right */}
+                  {imagesCount > 1 && (
+                    <Badge
+                      variant="secondary"
+                      className="absolute top-2 right-2 text-[10px] backdrop-blur-sm bg-background/90"
+                    >
+                      <Eye className="h-2.5 w-2.5 mr-0.5" />
+                      {imagesCount}
+                    </Badge>
+                  )}
+
+                  {/* Delete button — visible on hover */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 p-0 backdrop-blur-sm bg-background/90 hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(ref.id);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Body — title + handle + CrossAppActions */}
+                <CardContent className="p-3 flex flex-col gap-2 flex-1">
+                  <div className="flex flex-col gap-1 cursor-pointer" onClick={openItem}>
+                    <p className="font-medium text-xs leading-snug line-clamp-2">
+                      {ref.title}
+                    </p>
+                    {sourceHandle && (
+                      <Badge
+                        variant="secondary"
+                        className="w-fit text-[9px]"
+                      >
+                        @{sourceHandle}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* CrossAppActions — base pra Carrossel/Reels Viral */}
+                  <div className="mt-auto pt-2 border-t border-border/50">
+                    <CrossAppActions
+                      source="library"
+                      topic={ref.title}
+                      briefing={briefingForBridge}
+                      url={ref.source_url ?? undefined}
+                      clientId={clientId}
+                      metadata={{
+                        ...refMeta,
+                        thumbnail_url: ref.thumbnail_url,
+                        reference_id: ref.id,
+                      }}
+                      showIdea={false}
+                      showLibrary={false}
+                      size="sm"
+                    />
                   </div>
                 </CardContent>
               </Card>

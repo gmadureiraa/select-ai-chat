@@ -84,6 +84,10 @@ export function ReferenceGalleryDialog({ reference, open, onOpenChange }: Props)
   const metrics = (meta.metrics as Record<string, number | null>) ?? {};
   const hook = meta.hook as string | undefined;
   const postedAt = meta.posted_at as string | null | undefined;
+  const slidesText = Array.isArray(meta.slides_text)
+    ? (meta.slides_text as string[])
+    : [];
+  const transcribedText = (meta.transcribed_text as string | undefined) ?? "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -202,8 +206,42 @@ export function ReferenceGalleryDialog({ reference, open, onOpenChange }: Props)
               </div>
             )}
 
-            {/* Conteúdo */}
-            {reference.content && (
+            {/* Texto por slide (se for carrossel) */}
+            {slidesText.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
+                  Texto extraído ({slidesText.length}{" "}
+                  {slidesText.length === 1 ? "slide" : "slides"})
+                </p>
+                <div className="space-y-2">
+                  {slidesText.map((slideText, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-lg border bg-muted/20 transition-colors ${
+                        idx === imgIdx ? "border-primary ring-1 ring-primary/30" : "border-border"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-[10px]">
+                          Slide {idx + 1}
+                        </Badge>
+                        {idx === imgIdx && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            visualizando
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {slideText}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Caption / conteúdo full (fallback se não tem slides_text) */}
+            {slidesText.length === 0 && reference.content && (
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
                   Caption / conteúdo
@@ -213,6 +251,19 @@ export function ReferenceGalleryDialog({ reference, open, onOpenChange }: Props)
                 </div>
               </div>
             )}
+
+            {/* Caption original quando há slides_text (mostra além do texto) */}
+            {slidesText.length > 0 && reference.content && transcribedText &&
+              !reference.content.startsWith(transcribedText.slice(0, 20)) && (
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
+                    Caption original
+                  </p>
+                  <div className="text-sm whitespace-pre-wrap text-foreground/80 leading-relaxed">
+                    {reference.content.split("\n\n---\n\n")[0]}
+                  </div>
+                </div>
+              )}
 
             {/* Source URL */}
             {reference.source_url && (

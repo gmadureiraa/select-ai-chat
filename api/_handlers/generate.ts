@@ -85,7 +85,7 @@ function mapSlide(s: ViralSlide): SvSlide {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(req, res);
+  applyCors(res);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
 
   // Auth
