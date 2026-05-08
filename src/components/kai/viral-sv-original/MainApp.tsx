@@ -120,8 +120,11 @@ function ActivePage({ route }: { route: string }) {
   if (route === "/plans") return <PlansPage />;
   if (route === "/help") return <HelpPage />;
   if (route === "/onboarding") return <OnboardingPage />;
-  // default → dashboard
-  return <DashboardPage />;
+  if (route === "/dashboard") return <DashboardPage />;
+  // default → carrosseis (entry point principal — KAI 2026-05-08).
+  // Antes era /dashboard, mas pra modo interno Kaleidos a primeira tela
+  // útil é a lista de carrosseis com botão "+ Novo carrossel" visível.
+  return <CarouselsPage />;
 }
 
 interface MainAppProps {

@@ -9,8 +9,9 @@ import {
   User, Loader2, Globe, Instagram, Twitter,
   Linkedin, Youtube, Mail, Megaphone, Check,
   Building, MessageSquare, Users, Target, Plug, FileText, Brain,
-  BarChart3
+  BarChart3, RefreshCw
 } from "lucide-react";
+import { useImportClientSocialContent } from "@/hooks/useImportClientSocialContent";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { SocialIntegrationsTab } from "./SocialIntegrationsTab";
 import { ClientReferencesManager } from "./ClientReferencesManager";
@@ -36,6 +37,7 @@ const socialMediaFields = [
   { key: "twitter", label: "X/Twitter", icon: Twitter, placeholder: "@usuario" },
   { key: "youtube", label: "YouTube", icon: Youtube, placeholder: "@canal" },
   { key: "tiktok", label: "TikTok", icon: Megaphone, placeholder: "@usuario" },
+  { key: "threads", label: "Threads", icon: Megaphone, placeholder: "@usuario" },
 ];
 
 export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimplifiedProps) {
@@ -245,9 +247,9 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
                   <field.icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <Input
                     value={socialMedia[field.key] || ""}
-                    onChange={(e) => { 
-                      setSocialMedia({ ...socialMedia, [field.key]: e.target.value }); 
-                      markChanged(); 
+                    onChange={(e) => {
+                      setSocialMedia({ ...socialMedia, [field.key]: e.target.value });
+                      markChanged();
                     }}
                     placeholder={field.placeholder}
                     className="flex-1"
@@ -256,6 +258,8 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
               ))}
             </CardContent>
           </Card>
+
+          <ImportSocialPostsCard clientId={client.id} />
         </TabsContent>
 
         {/* Tab: Referências (merged docs + references + visuals) */}
@@ -328,5 +332,67 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
         </Button>
       </div>
     </div>
+  );
+}
+
+function ImportSocialPostsCard({ clientId }: { clientId: string }) {
+  const importer = useImportClientSocialContent();
+  const last = importer.data;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <RefreshCw className="h-4 w-4 text-primary" />
+          Importar posts pra biblioteca
+        </CardTitle>
+        <CardDescription>
+          Puxa os últimos 30 posts dos handles cadastrados (Instagram, TikTok,
+          Twitter, Threads, LinkedIn) e salva em conteúdo do cliente.
+          Idempotente — roda quantas vezes quiser.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Button
+          onClick={() => importer.mutate({ clientId, postsPerPlatform: 30 })}
+          disabled={importer.isPending}
+          className="gap-2"
+        >
+          {importer.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Importando... pode levar 1-3 min
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-4 w-4" />
+              Importar agora
+            </>
+          )}
+        </Button>
+
+        {last && (
+          <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+            <div className="font-medium text-foreground">
+              Última execução: {last.totals.inserted} novos · {last.totals.scraped} encontrados · {last.totals.skipped} já existiam
+            </div>
+            <ul className="space-y-0.5">
+              {last.results.map((r) => (
+                <li key={r.platform}>
+                  <span className="font-mono uppercase">{r.platform}</span>{" "}
+                  {r.error ? (
+                    <span className="text-destructive">— {r.error}</span>
+                  ) : (
+                    <>
+                      {r.handle ? `@${r.handle}` : "(sem handle)"}: {r.inserted} novos
+                      {r.skipped > 0 ? ` (${r.skipped} ignorados)` : ""}
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

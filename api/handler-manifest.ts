@@ -91,6 +91,7 @@ export const handlerLoaders: Record<string, () => Promise<any>> = {
   'resolve-youtube-channel': () => import('./_handlers/resolve-youtube-channel.js'),
   'reverse-engineer': () => import('./_handlers/reverse-engineer.js'),
   'save-as-planning-item': () => import('./_handlers/save-as-planning-item.js'),
+  'import-client-social-content': () => import('./_handlers/import-client-social-content.js'),
   'scrape-newsletter': () => import('./_handlers/scrape-newsletter.js'),
   'scrape-website': () => import('./_handlers/scrape-website.js'),
   'search-knowledge': () => import('./_handlers/search-knowledge.js'),

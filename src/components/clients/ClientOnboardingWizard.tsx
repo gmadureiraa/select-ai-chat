@@ -79,6 +79,7 @@ const SOCIAL_FIELDS: Array<{
   { key: "twitter", label: "X / Twitter", icon: Twitter, placeholder: "@usuario" },
   { key: "youtube", label: "YouTube", icon: Youtube, placeholder: "@canal" },
   { key: "tiktok", label: "TikTok", icon: Megaphone, placeholder: "@usuario" },
+  { key: "threads", label: "Threads", icon: Megaphone, placeholder: "@usuario" },
 ];
 
 /**
@@ -119,6 +120,7 @@ export function ClientOnboardingWizard({
     twitter: "",
     youtube: "",
     tiktok: "",
+    threads: "",
     files: [],
     inspirations: [],
     competitors: [],

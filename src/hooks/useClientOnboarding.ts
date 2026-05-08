@@ -36,6 +36,7 @@ export interface OnboardingData {
   twitter?: string;
   youtube?: string;
   tiktok?: string;
+  threads?: string;
 
   // Step 4 — referências
   /** Arquivos pendentes de upload (PDFs/images). */
@@ -84,6 +85,7 @@ export function useClientOnboarding() {
       if (data.twitter) socialMedia.twitter = data.twitter;
       if (data.youtube) socialMedia.youtube = data.youtube;
       if (data.tiktok) socialMedia.tiktok = data.tiktok;
+      if (data.threads) socialMedia.threads = data.threads;
       if (data.website) socialMedia.website = data.website;
 
       const tags: Record<string, string> = {};
@@ -301,6 +303,27 @@ export function useClientOnboarding() {
             warnings.push(`Erro inesperado em ${file.name}`);
           }
         }
+      }
+
+      // 6. Importar últimos posts dos handles cadastrados pra biblioteca
+      // (fire-and-forget — pode levar 60-180s e roda em background)
+      const hasAnyHandle =
+        data.instagram ||
+        data.linkedin ||
+        data.twitter ||
+        data.tiktok ||
+        data.threads;
+      if (hasAnyHandle) {
+        setProgress("Iniciando importação de posts em background...");
+        // Não await — Vercel function runa até maxDuration mesmo após response
+        apiInvoke("import-client-social-content", {
+          body: { clientId, postsPerPlatform: 30 },
+        }).catch((err) => {
+          console.warn(
+            "[useClientOnboarding] import-client-social-content (bg) failed:",
+            err,
+          );
+        });
       }
 
       setProgress("Finalizando...");
