@@ -161,18 +161,31 @@ export function useUnifiedContent(clientId: string) {
       // Normalize content library items
       if (libraryRes.data) {
         libraryRes.data.forEach(item => {
-          // Determine platform based on content_type
-          let platform: 'newsletter' | 'youtube' | 'content' = 'content';
+          // Determine platform based on content_type + metadata.platform hint
+          const metadataObj = item.metadata as Record<string, unknown> | null;
+          const platformHint = (metadataObj?.platform as string | undefined)?.toLowerCase();
+          let platform: 'instagram' | 'twitter' | 'linkedin' | 'newsletter' | 'youtube' | 'content' = 'content';
           if (item.content_type === 'newsletter') {
             platform = 'newsletter';
           } else if (item.content_type === 'long_video' || item.content_type === 'short_video') {
             platform = 'youtube';
+          } else if (
+            item.content_type === 'instagram_post' ||
+            item.content_type === 'reel_script' ||
+            item.content_type === 'carousel' ||
+            item.content_type === 'static_image' ||
+            platformHint === 'instagram'
+          ) {
+            platform = 'instagram';
+          } else if (item.content_type === 'tweet' || item.content_type === 'thread' || platformHint === 'twitter' || platformHint === 'x') {
+            platform = 'twitter';
+          } else if (item.content_type === 'linkedin_post' || platformHint === 'linkedin') {
+            platform = 'linkedin';
           }
           
           // Extract all images from metadata + thumbnail
-          const metadata = item.metadata as Record<string, unknown> | null;
-          const metadataImages = Array.isArray(metadata?.images) 
-            ? (metadata.images as string[]) 
+          const metadataImages = Array.isArray(metadataObj?.images)
+            ? (metadataObj.images as string[])
             : [];
           const allImages: string[] = [];
           if (item.thumbnail_url) allImages.push(getStorageUrl(item.thumbnail_url));

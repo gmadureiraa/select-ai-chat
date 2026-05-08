@@ -1,6 +1,7 @@
 
 import { useCallback, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { toast } from "sonner";
 import { jsonWithAuth } from "@sv/lib/api-auth-headers";
 import { trackCompleteRegistration } from "@sv/lib/meta-pixel";
 import type { CreateConcept, CreateVariation } from "./types";
@@ -148,6 +149,13 @@ export function useGenerate(session: Session | null) {
           promptUsed?: string;
           error?: string;
           code?: string;
+          /**
+           * KAI integration: o adapter /api/generate retorna `planningItemId`
+           * quando o carrossel é persistido também como planning_item
+           * (`persistAs='both'`). Usado pra mostrar feedback "no Planejamento".
+           */
+          planningItemId?: string;
+          carouselId?: string;
         } = await res.json();
         if (!res.ok)
           throw buildError(data.error || "Falha na geração.", res, data.code);
@@ -167,6 +175,15 @@ export function useGenerate(session: Session | null) {
           }
         } catch {
           /* ignore — pixel é fire-and-forget */
+        }
+
+        // KAI integration: feedback explícito de que o carrossel foi
+        // adicionado ao Planejamento (PlanningBoard) pra Gabriel aprovar/editar.
+        if (data.planningItemId) {
+          toast.success("Carrossel adicionado ao Planejamento KAI", {
+            description: "Status `idea`. Edite, aprove ou agende publicação.",
+            duration: 4000,
+          });
         }
 
         return {
