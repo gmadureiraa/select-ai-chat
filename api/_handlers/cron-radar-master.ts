@@ -112,13 +112,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await Promise.allSettled(SCRAPERS.map((h) => fireScraper(h, client.id)));
   }
 
+  // 3. Roda workflows Madureira daquele dia (Hobby plan workaround — 1 cron daily)
+  // Fire-and-forget: handler dedicado decide quais workflows estão "due today"
+  // baseado no schedule_cron de cada ai_workflow.
+  let madureiraTriggered = false;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    await fetch(`${baseUrl}/api/run-madureira-workflows-daily`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cronSecret}`,
+      },
+      signal: controller.signal,
+    }).catch(() => {});
+    clearTimeout(timeout);
+    madureiraTriggered = true;
+  } catch (err: any) {
+    console.warn("[cron-master] madureira workflows trigger failed:", err?.message);
+  }
+
   return res.status(200).json({
     ok: true,
     triggered_at: new Date().toISOString(),
     pro_clients: proClients.length,
     triggered_count: triggered.length,
+    madureira_workflows_triggered: madureiraTriggered,
     triggered,
     errors,
-    note: "Scrapers continuam rodando em background. Verifique DB pra resultados.",
+    note: "Scrapers + Madureira workflows continuam rodando em background. Verifique DB pra resultados.",
   });
 }
