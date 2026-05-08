@@ -89,6 +89,34 @@ const DEFAULT_ACCESS: ViralAccess = {
   isLoading: true,
 };
 
+/**
+ * Acesso ENTERPRISE total. Devolvido quando o user é super_admin
+ * (KAI é plataforma interna Kaleidos — super_admin é staff da casa,
+ * sem plan gates).
+ */
+function buildSuperAdminAccess(role: ViralRole): Omit<ViralAccess, "isLoading"> {
+  return {
+    planType: "enterprise",
+    planName: "Kaleidos Internal",
+    clientsLimit: -1,
+    clientsCount: 0,
+    clientsRemaining: Infinity,
+    membersLimit: -1,
+    monthlyTokens: Number.MAX_SAFE_INTEGER,
+    tokensUsed: 0,
+    tokensRemaining: Number.MAX_SAFE_INTEGER,
+    tokensExhausted: false,
+    role,
+    isOwner: role === "owner",
+    isAdmin: role === "owner" || role === "admin",
+    canCreate: true,
+    canPublish: true,
+    canUseSequencia: true,
+    canUseReels: true,
+    canUseRadar: true,
+  };
+}
+
 export function useViralAccess(): ViralAccess {
   const { user } = useAuth();
   const { workspace } = useWorkspace();
@@ -100,6 +128,15 @@ export function useViralAccess(): ViralAccess {
     enabled: !!workspaceId && !!userId,
     staleTime: 60_000,
     queryFn: async () => {
+      // Bypass: super_admin = staff Kaleidos = acesso enterprise total.
+      // Checagem rápida primeiro pra evitar 4 queries quando não precisar.
+      const superAdminRes = await supabase
+        .from("super_admins")
+        .select("id")
+        .eq("user_id", userId!)
+        .maybeSingle();
+      const isSuperAdmin = !!superAdminRes.data;
+
       const [subRes, memberRes, tokensRes, clientsRes] = await Promise.all([
         supabase
           .from("workspace_subscriptions")
@@ -128,6 +165,13 @@ export function useViralAccess(): ViralAccess {
       const plan = sub?.subscription_plans;
       const features = (plan?.features as Record<string, boolean>) || {};
       const role = ((memberRes.data?.role as ViralRole) || "viewer") as ViralRole;
+
+      if (isSuperAdmin) {
+        // Super admin pula plan gates. Mantém role real pra que a UI ainda
+        // mostre "owner" se for o caso, mas dá acesso pleno.
+        return buildSuperAdminAccess(role);
+      }
+
       const tokens = (tokensRes.data as any) || {
         balance: 0,
         tokens_used_this_period: 0,
