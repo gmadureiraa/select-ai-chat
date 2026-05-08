@@ -1,8 +1,8 @@
 // Migrated from supabase/functions/extract-instagram/index.ts
-// NOTE: storage uploads still use Supabase Storage (other agent owns migration of supabase.storage)
+// Storage migrated 2026-05-08 → Vercel Blob (era Supabase Storage legacy).
 import { z } from 'zod';
 import { authedPost } from '../_lib/handler.js';
-import { createClient } from '@supabase/supabase-js';
+import { put } from '@vercel/blob';
 
 const instagramRegex = /^https?:\/\/(www\.)?instagram\.com\/(p|reel)\/[a-zA-Z0-9_-]+\/?/;
 
@@ -70,13 +70,13 @@ export default authedPost(async ({ body }) => {
     return { error: 'Nenhuma imagem encontrada neste post.', postKeys: Object.keys(post) };
   }
 
-  let uploadedPaths: string[] = [];
+  const uploadedPaths: string[] = [];
+  const uploadedUrls: string[] = [];
   if (uploadToStorage && clientId) {
-    // Use legacy supabase service role for storage (other agent migrates later)
-    const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-      const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!blobToken) {
+      console.warn('[extract-instagram] BLOB_READ_WRITE_TOKEN missing; skip upload');
+    } else {
       for (let i = 0; i < uniqueImages.length; i++) {
         const imageUrl = uniqueImages[i];
         try {
@@ -85,13 +85,17 @@ export default authedPost(async ({ body }) => {
           const arrayBuffer = await imgResponse.arrayBuffer();
           const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
           const extension = contentType.split('/')[1]?.split(';')[0] || 'jpg';
-          const fileName = `instagram-sync/${clientId}/${Date.now()}-${i}.${extension}`;
-          const { error: uploadError } = await supabaseAdmin.storage.from('client-files').upload(fileName, arrayBuffer, { contentType, upsert: false });
-          if (uploadError) {
-            console.warn(`Upload error for image ${i}:`, uploadError);
-            continue;
-          }
-          uploadedPaths.push(fileName);
+          const ts = Date.now();
+          const blobPath = `instagram-sync/${clientId}/${ts}-${i}.${extension}`;
+          const blob = await put(blobPath, Buffer.from(arrayBuffer), {
+            access: 'public',
+            contentType,
+            addRandomSuffix: false,
+            allowOverwrite: true,
+            token: blobToken,
+          });
+          uploadedPaths.push(blobPath);
+          uploadedUrls.push(blob.url);
         } catch (e) {
           console.warn(`Error processing image ${i}:`, e);
         }
@@ -102,6 +106,7 @@ export default authedPost(async ({ body }) => {
   return {
     images: uniqueImages,
     uploadedPaths,
+    uploadedUrls,
     caption: post.caption || '',
     imageCount: uniqueImages.length,
   };

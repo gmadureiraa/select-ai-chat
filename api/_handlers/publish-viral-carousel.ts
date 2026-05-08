@@ -1,9 +1,9 @@
 // Migrated from supabase/functions/publish-viral-carousel/index.ts
-// Storage uploads continue using Supabase Storage SDK (bucket: viral-carousel-renders).
+// Storage migrated 2026-05-08 → Vercel Blob (era Supabase Storage legacy).
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
 import latePostHandler from './late-post.js';
-import { createClient } from '@supabase/supabase-js';
+import { put } from '@vercel/blob';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 interface SlideInput {
@@ -26,10 +26,9 @@ function dataUrlToBytes(dataUrl: string): { bytes: Buffer; mime: string } | null
 }
 
 export default authedPost(async ({ user, body, req, res }) => {
-  const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!SUPABASE_URL || !SERVICE_KEY) {
-    throw new Error('SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not configured for storage');
+  const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!blobToken) {
+    throw new Error('BLOB_READ_WRITE_TOKEN not configured for storage');
   }
 
   const {
@@ -71,7 +70,6 @@ export default authedPost(async ({ user, body, req, res }) => {
     throw new Error('Acesso negado a esse cliente');
   }
 
-  const supabaseStorage = createClient(SUPABASE_URL, SERVICE_KEY);
   const sortedSlides = [...slides].sort((a, b) => a.order - b.order);
   const mediaUrls: string[] = [];
   const ts = Date.now();
@@ -88,23 +86,20 @@ export default authedPost(async ({ user, body, req, res }) => {
       throw new Error(`Slide ${slide.order}: data URL malformado`);
     }
 
-    const path = `${clientId}/${carouselId}/${ts}-slide-${String(slide.order).padStart(2, '0')}.png`;
-    const { error: upErr } = await supabaseStorage.storage
-      .from('viral-carousel-renders')
-      .upload(path, decoded.bytes, {
+    const blobPath = `viral-carousel-renders/${clientId}/${carouselId}/${ts}-slide-${String(slide.order).padStart(2, '0')}.png`;
+    try {
+      const blob = await put(blobPath, decoded.bytes, {
+        access: 'public',
         contentType: decoded.mime,
-        upsert: true,
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        token: blobToken,
       });
-
-    if (upErr) {
+      mediaUrls.push(blob.url);
+    } catch (upErr: any) {
       console.error(`[publish-viral-carousel] upload slide ${slide.order} failed:`, upErr);
-      throw new Error(`Falha no upload do slide ${slide.order}: ${upErr.message}`);
+      throw new Error(`Falha no upload do slide ${slide.order}: ${upErr?.message ?? 'unknown'}`);
     }
-
-    const { data: pub } = supabaseStorage.storage
-      .from('viral-carousel-renders')
-      .getPublicUrl(path);
-    mediaUrls.push(pub.publicUrl);
   }
 
   console.log(`[publish-viral-carousel] uploaded ${mediaUrls.length} slides for carousel ${carouselId}`);

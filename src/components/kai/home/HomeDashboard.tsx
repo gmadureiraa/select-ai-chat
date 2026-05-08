@@ -51,6 +51,7 @@ import {
 import { ptBR } from "date-fns/locale";
 import { MyTasksWidget } from "./MyTasksWidget";
 import { WorkspaceStatsCards } from "./WorkspaceStatsCards";
+import { CrossClientPerformanceCard } from "./CrossClientPerformanceCard";
 import { QuickActions } from "./QuickActions";
 import { RecentActivity } from "./RecentActivity";
 import { RadarHighlights } from "./RadarHighlights";
@@ -518,6 +519,11 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
 
         {/* ─── Viral Stats — uso das ferramentas virais nos últimos 30d ─── */}
         <ViralStatsCard onNavigate={onNavigate} range="30d" />
+
+        {/* ─── Performance cross-cliente — ranking de engagement por cliente ─── */}
+        <CrossClientPerformanceCard
+          onSelectClient={(clientId) => onNavigate?.("clients", { clientId })}
+        />
 
         {/* ─── Quick actions ─── */}
         <QuickActions onNavigate={onNavigate} />

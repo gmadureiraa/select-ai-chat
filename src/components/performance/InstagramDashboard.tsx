@@ -18,6 +18,7 @@ import { InstagramPostsTableAdvanced } from "./InstagramPostsTableAdvanced";
 import { SmartCSVUpload } from "./SmartCSVUpload";
 import { EnhancedAreaChart } from "./EnhancedAreaChart";
 import { AIInsightsCard } from "./AIInsightsCard";
+import { ContentLearningsCard } from "./ContentLearningsCard";
 import { StatCard } from "./StatCard";
 import { GoalGauge } from "./GoalGauge";
 import { MetricMiniCard } from "./MetricMiniCard";
@@ -829,12 +830,17 @@ export function InstagramDashboard({
 
       {/* Top 3 Posts Grid */}
       {filteredPosts.length > 0 && (
-        <TopPostsGrid 
+        <TopPostsGrid
           posts={filteredPosts}
           maxItems={3}
           selectedMetric={topPostsMetric}
           onMetricChange={(m) => setTopPostsMetric(m)}
         />
+      )}
+
+      {/* AI Content Learnings — extrai padrões dos posts top performers */}
+      {filteredPosts.length > 0 && (
+        <ContentLearningsCard clientId={clientId} posts={filteredPosts} />
       )}
 
       {/* Post Averages Section - uses post-level data only */}

@@ -30,6 +30,8 @@ import {
   getMetricsTool,
   analyzeViralReelTool,
   createRadarBriefTool,
+  createTeamTaskTool,
+  saveToLibraryTool,
   type ToolExecutionContext,
 } from '../_lib/kai-chat-tools/index.js';
 
@@ -2165,6 +2167,8 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
       registry.register(getMetricsTool);
       registry.register(analyzeViralReelTool);
       registry.register(createRadarBriefTool);
+      registry.register(createTeamTaskTool);
+      registry.register(saveToLibraryTool);
 
       setSseHeaders(res);
       const emit = createKAIEmitter(res);

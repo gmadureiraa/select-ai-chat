@@ -55,3 +55,5 @@ export { connectAccountTool } from './connectAccount.js';
 export { getMetricsTool } from './getMetrics.js';
 export { analyzeViralReelTool } from './analyzeViralReel.js';
 export { createRadarBriefTool } from './createRadarBrief.js';
+export { createTeamTaskTool } from './createTeamTask.js';
+export { saveToLibraryTool } from './saveToLibrary.js';
