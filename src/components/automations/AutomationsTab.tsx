@@ -292,6 +292,7 @@ export function AutomationsTab() {
   return (
     <div className="p-4 md:p-6 h-full overflow-auto space-y-4">
       <TabHeader
+        eyebrow="Automações"
         icon={Zap}
         title="Automações"
         description="Configure fluxos automáticos: RSS → IA → Publicação."
@@ -301,7 +302,7 @@ export function AutomationsTab() {
               <History className="h-4 w-4 mr-2" />
               Histórico
             </Button>
-            <Button size="sm" onClick={handleCreate} className="h-9">
+            <Button size="sm" onClick={handleCreate} className="h-9 kai-btn-rec">
               <Plus className="h-4 w-4 mr-2" />
               Nova automação
             </Button>
@@ -445,7 +446,7 @@ export function AutomationsTab() {
                 : 'Tente ajustar os filtros'}
             </p>
             {automations.length === 0 && (
-              <Button onClick={handleCreate} className="gap-1.5">
+              <Button onClick={handleCreate} className="gap-1.5 kai-btn-rec">
                 <Plus className="h-4 w-4" />
                 Criar primeira automação
               </Button>

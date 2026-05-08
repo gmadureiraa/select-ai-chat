@@ -82,6 +82,16 @@
     --status-publishing: 25 85% 60%;
     --status-published: 215 15% 55%;
     --status-failed: 0 80% 58%;
+
+    /* ── KAI x SV brutalist accents (não sobrescreve shadcn) ──
+       Usado em eyebrows, CTAs primários e cards clickáveis.
+       --kai-rec é o coral REC (mesmo do Sequência Viral). */
+    --kai-paper: #F5F1E8;
+    --kai-rec: #FF3D2E;
+    --kai-rec-fg: #F5F1E8;
+    --kai-ink: #0A0908;
+    --kai-shadow-rgb: 10, 9, 8;          /* light: shadow ink */
+    --kai-shadow-alpha: 1;
   }
 
   .dark {
@@ -150,6 +160,15 @@
     --status-publishing: 25 90% 65%;
     --status-published: 215 15% 60%;
     --status-failed: 0 85% 65%;
+
+    /* ── KAI x SV brutalist accents (dark) ──
+       Mantém REC coral fixo (signature SV) e troca shadow pra branco translúcido. */
+    --kai-paper: hsl(var(--card));
+    --kai-rec: #FF3D2E;
+    --kai-rec-fg: #0A0908;
+    --kai-ink: hsl(var(--foreground));
+    --kai-shadow-rgb: 255, 255, 255;
+    --kai-shadow-alpha: 0.12;
   }
 }
 
@@ -194,4 +213,70 @@
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   KAI x SV brutalist utilities
+   Acentos pontuais — não substituem o shadcn padrão.
+   Use em eyebrows de section, CTAs primários e cards clickáveis.
+   ───────────────────────────────────────────────────────────── */
+@layer components {
+  /* Eyebrow — uppercase mono kicker pra section headers */
+  .kai-eyebrow {
+    @apply inline-flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase text-muted-foreground;
+    letter-spacing: 0.2em;
+  }
+  .kai-eyebrow::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--kai-rec);
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px hsl(var(--background));
+  }
+
+  /* Eyebrow sem dot (quando já tem ícone próprio) */
+  .kai-eyebrow-plain {
+    @apply inline-flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase text-muted-foreground;
+    letter-spacing: 0.2em;
+  }
+
+  /* Brutalist shadow + thicker border. Use em cards clickáveis. */
+  .kai-shadow-brutal {
+    box-shadow: 3px 3px 0 0 rgba(var(--kai-shadow-rgb), var(--kai-shadow-alpha));
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease,
+      border-color 0.15s ease;
+  }
+  .kai-shadow-brutal:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 5px 5px 0 0 rgba(var(--kai-shadow-rgb), var(--kai-shadow-alpha));
+  }
+
+  /* CTA primário com REC coral acento (hover) */
+  .kai-btn-rec {
+    @apply transition-colors;
+  }
+  .kai-btn-rec:hover {
+    background-color: var(--kai-rec) !important;
+    color: var(--kai-rec-fg) !important;
+    border-color: var(--kai-rec) !important;
+  }
+  .kai-btn-rec:focus-visible {
+    --tw-ring-color: var(--kai-rec) !important;
+  }
+
+  /* Card hover state SV — borda + shadow REC */
+  .kai-card-hover {
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.15s ease;
+  }
+  .kai-card-hover:hover {
+    border-color: rgba(255, 61, 46, 0.4);
+    box-shadow: 3px 3px 0 0 rgba(255, 61, 46, 0.1);
+  }
 }

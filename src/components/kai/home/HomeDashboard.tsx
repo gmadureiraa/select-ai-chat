@@ -466,6 +466,9 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
           className="flex items-end justify-between"
         >
           <div>
+            <div className="mb-2">
+              <span className="kai-eyebrow">Cockpit do workspace</span>
+            </div>
             <h1 className="text-2xl md:text-3xl font-light text-foreground tracking-tight">
               {getTimeGreeting()}
               {userName ? `, ${userName}` : ""}{" "}
@@ -479,7 +482,7 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
           <Button
             variant="outline"
             size="sm"
-            className="gap-1.5 hidden md:flex"
+            className="gap-1.5 hidden md:flex kai-btn-rec"
             onClick={() => onNavigate("planning")}
           >
             <CalendarDays className="h-3.5 w-3.5" />
@@ -542,13 +545,13 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
                   </div>
                   <div className="flex flex-wrap gap-2 shrink-0">
                     {(clients?.length ?? 0) === 0 ? (
-                      <Button size="sm" onClick={() => onNavigate("clients")} className="gap-1.5">
+                      <Button size="sm" onClick={() => onNavigate("clients")} className="gap-1.5 kai-btn-rec">
                         <Users className="h-3.5 w-3.5" />
                         Cadastrar cliente
                       </Button>
                     ) : (
                       <>
-                        <Button size="sm" onClick={() => onNavigate("assistant")} className="gap-1.5">
+                        <Button size="sm" onClick={() => onNavigate("assistant")} className="gap-1.5 kai-btn-rec">
                           <Sparkles className="h-3.5 w-3.5" />
                           Abrir KAI Chat
                         </Button>
@@ -556,7 +559,7 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
                           variant="outline"
                           size="sm"
                           onClick={() => onNavigate("planning")}
-                          className="gap-1.5"
+                          className="gap-1.5 kai-btn-rec"
                         >
                           <CalendarDays className="h-3.5 w-3.5" />
                           Ver planejamento
@@ -634,7 +637,7 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
                     ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
                     : kpi.danger
                     ? "border-destructive/30 hover:border-destructive/50"
-                    : "hover:border-border/80 hover:bg-accent/30"
+                    : "kai-card-hover hover:bg-accent/30"
                 )}
                 onClick={() =>
                   handleFilter({ type: "kpi", value: kpi.key, label: kpi.label })

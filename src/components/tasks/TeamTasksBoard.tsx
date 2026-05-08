@@ -182,12 +182,13 @@ export function TeamTasksBoard({ defaultClientId }: { defaultClientId?: string |
       {/* Header */}
       <div className="pb-3 border-b border-border/40">
         <TabHeader
+          eyebrow="Tarefas internas"
           icon={CheckSquare}
           title="Tarefas do time"
           description="Tarefas internas — separadas do planejamento de conteúdo."
           actions={
             !isViewer && (
-              <Button size="sm" onClick={() => openNew("todo")} className="h-9 gap-1.5">
+              <Button size="sm" onClick={() => openNew("todo")} className="h-9 gap-1.5 kai-btn-rec">
                 <Plus className="h-3.5 w-3.5" />
                 Nova tarefa
                 <kbd className="ml-1 hidden md:inline text-[10px] bg-primary-foreground/20 px-1 rounded">N</kbd>

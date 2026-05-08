@@ -10,6 +10,28 @@ import {
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import { trackLead } from "./meta-pixel";
+import { getNeonAuthJWT } from "@/integrations/neon-auth/client";
+
+/**
+ * Normaliza session.access_token quando o SupabaseAuthAdapter (Neon Auth)
+ * retorna shape diferente. Better Auth usa `session.token`, Supabase nativo
+ * usa `session.access_token`. SV chama `jsonWithAuth(session)` que lê
+ * `session.access_token` — se vier null, request vai sem Authorization e
+ * /api/generate retorna 401 → "Falha na geração."
+ *
+ * Esta função tenta access_token primeiro, depois token, depois um getNeonAuthJWT()
+ * fresh. Mantém o tipo Session compatível com SV.
+ */
+async function normalizeSession(s: Session | null): Promise<Session | null> {
+  if (!s) return null;
+  if ((s as any).access_token) return s;
+  // Sem access_token — tenta extrair de outros campos do session ou pegar JWT fresco
+  const fallbackToken =
+    (s as any).token ??
+    (await getNeonAuthJWT().catch(() => null));
+  if (!fallbackToken) return s; // não tem token mesmo, deixa ir 401 com erro claro
+  return { ...s, access_token: fallbackToken } as Session;
+}
 import {
   captureReferralFromUrl,
   getStoredReferralCode,
@@ -296,7 +318,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { data } = await supabase.auth.getSession();
         if (cancelled) return;
-        const s = data.session;
+        const s = await normalizeSession(data.session ?? null);
         setSession(s);
         setUser(s?.user ?? null);
         if (s?.user) {
@@ -318,10 +340,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, s) => {
+    } = supabase.auth.onAuthStateChange((event, rawSession) => {
       if (cancelled) return;
-      setSession(s);
-      setUser(s?.user ?? null);
+      // Normaliza access_token antes de propagar (Neon Auth shape diff).
+      void normalizeSession(rawSession ?? null).then((s) => {
+        if (cancelled) return;
+        setSession(s);
+        setUser(s?.user ?? null);
+      });
+      const s = rawSession;
       if (s?.user) {
         clearLegacyGuestStorage();
         void fetchProfile(s.user.id).then((p) => {

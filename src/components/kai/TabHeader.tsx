@@ -25,6 +25,11 @@ interface TabHeaderProps {
   actions?: React.ReactNode;
   /** Tag breadcrumb-like (ex: nome do cliente). */
   breadcrumb?: string;
+  /**
+   * Eyebrow mono uppercase acima do título (estilo Sequência Viral).
+   * Ex: "PLANEJAMENTO DE CONTEÚDO". Renderiza com REC dot animado.
+   */
+  eyebrow?: string;
   className?: string;
 }
 
@@ -34,6 +39,7 @@ export function TabHeader({
   description,
   actions,
   breadcrumb,
+  eyebrow,
   className,
 }: TabHeaderProps) {
   return (
@@ -50,6 +56,11 @@ export function TabHeader({
           </div>
         )}
         <div className="min-w-0">
+          {eyebrow && (
+            <div className="mb-1.5">
+              <span className="kai-eyebrow">{eyebrow}</span>
+            </div>
+          )}
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-lg font-semibold tracking-tight text-foreground truncate">
               {title}

@@ -117,7 +117,10 @@ function NotificationList({
                   </div>
                   {!notification.read && (
                     <div className="shrink-0 self-center">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: "var(--kai-rec)" }}
+                      />
                     </div>
                   )}
                 </button>
@@ -167,10 +170,13 @@ export function NotificationBell({ variant = 'default', collapsed = false }: Not
       <Bell className="h-4 w-4 shrink-0" strokeWidth={1.5} />
       {!collapsed && <span>Notificações</span>}
       {unreadCount > 0 && (
-        <span className={cn(
-          "h-4 min-w-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-medium",
-          collapsed ? "absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] text-[9px]" : "ml-auto",
-        )}>
+        <span
+          className={cn(
+            "h-4 min-w-[16px] px-1 rounded-full text-[10px] flex items-center justify-center font-medium text-white",
+            collapsed ? "absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] text-[9px]" : "ml-auto",
+          )}
+          style={{ backgroundColor: "var(--kai-rec)" }}
+        >
           {unreadCount > 9 ? '9+' : unreadCount}
         </span>
       )}
@@ -190,7 +196,8 @@ export function NotificationBell({ variant = 'default', collapsed = false }: Not
       {unreadCount > 0 && (
         <span
           aria-hidden="true"
-          className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium"
+          className="absolute -top-1 -right-1 h-5 w-5 rounded-full text-xs flex items-center justify-center font-medium text-white"
+          style={{ backgroundColor: "var(--kai-rec)" }}
         >
           {unreadCount > 9 ? '9+' : unreadCount}
         </span>

@@ -270,6 +270,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
 
       {/* Header */}
       <TabHeader
+        eyebrow="Planejamento de conteúdo"
         icon={CalendarDays}
         title="Planejamento"
         description="Calendário editorial: ideias, drafts, aprovação e agendamento."
@@ -307,7 +308,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
                 <ViewSettingsPopover settings={settings} onChange={setSettings} />
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button onClick={() => handleNewCard()} size="sm" className="h-9 gap-1.5">
+                    <Button onClick={() => handleNewCard()} size="sm" className="h-9 gap-1.5 kai-btn-rec">
                       <Plus className="h-4 w-4" />
                       {!isMobile && <span>Novo</span>}
                     </Button>

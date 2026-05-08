@@ -205,6 +205,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <TabHeader
+        eyebrow="Biblioteca do cliente"
         icon={Library}
         title="Biblioteca"
         breadcrumb={client?.name}
@@ -220,7 +221,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
                 className="pl-9 w-full sm:w-56 lg:w-64 h-9"
               />
             </div>
-            <Button onClick={handleAddButtonClick} className="shrink-0 h-9">
+            <Button onClick={handleAddButtonClick} className="shrink-0 h-9 kai-btn-rec">
               <Plus className="h-4 w-4 mr-1.5" />
               <span className="hidden sm:inline">Adicionar</span>
               <span className="sm:hidden">Novo</span>
