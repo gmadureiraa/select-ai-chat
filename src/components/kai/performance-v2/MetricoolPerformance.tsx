@@ -141,7 +141,11 @@ export function MetricoolPerformance({ clientId, client }: Props) {
         </div>
 
         <TabsContent value="comparison" className="mt-4">
-          <CrossPlatformComparison clientId={clientId} period={period} />
+          <CrossPlatformComparison
+            clientId={clientId}
+            period={period}
+            archivedChannels={archivedChannels}
+          />
         </TabsContent>
 
         {platforms.map((p) => (

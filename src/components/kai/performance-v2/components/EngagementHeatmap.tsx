@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { getNetworkBranding } from '@/lib/network-branding';
 
 type HeatmapMetric =
   | 'engagement'
@@ -40,12 +41,15 @@ interface Props {
   loading?: boolean;
   /** Métrica inicial. Default: engagement. Selector interno permite trocar. */
   metric?: HeatmapMetric;
+  /** Rede pra tintar a escala de calor com a cor da plataforma. */
+  network?: string;
 }
 
 const DAYS_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-export function EngagementHeatmap({ posts, loading, metric: initialMetric = 'engagement' }: Props) {
+export function EngagementHeatmap({ posts, loading, metric: initialMetric = 'engagement', network }: Props) {
   const [metric, setMetric] = useState<HeatmapMetric>(initialMetric);
+  const branding = network ? getNetworkBranding(network) : null;
   if (loading) return <Skeleton className="h-[160px] w-full" />;
 
   // Constrói grid 7x24 com soma da métrica por slot
@@ -66,8 +70,16 @@ export function EngagementHeatmap({ posts, loading, metric: initialMetric = 'eng
     if (grid[day][hour] > max) max = grid[day][hour];
   }
 
-  const colorFor = (v: number, count: number): string => {
+  // Quando network informado: gera escala em cima da cor da rede via opacity.
+  // Sem network: mantém escala emerald clássica.
+  const intensityFor = (v: number, count: number): number => {
+    if (count === 0) return 0;
+    return Math.min(1, v / (max || 1));
+  };
+
+  const colorClassFor = (v: number, count: number): string => {
     if (count === 0) return 'bg-muted/20';
+    if (branding) return ''; // será aplicado via inline style abaixo
     const intensity = Math.min(1, v / (max || 1));
     if (intensity > 0.75) return 'bg-emerald-500';
     if (intensity > 0.5) return 'bg-emerald-400';
@@ -127,21 +139,35 @@ export function EngagementHeatmap({ posts, loading, metric: initialMetric = 'eng
           {grid.map((row, day) => (
             <div key={day} className="flex items-center gap-1 min-w-[28rem]">
               <div className="w-7 text-xs text-muted-foreground">{DAYS_PT[day]}</div>
-              {row.map((value, hour) => (
-                <div
-                  key={hour}
-                  className={
-                    'w-4 h-4 rounded transition cursor-help ' +
-                    colorFor(value, counts[day][hour]) +
-                    (counts[day][hour] > 0 ? ' hover:ring-2 hover:ring-foreground/30' : '')
-                  }
-                  title={
-                    counts[day][hour] > 0
-                      ? `${DAYS_PT[day]} ${hour}h — ${counts[day][hour]} post${counts[day][hour] > 1 ? 's' : ''}, ${fmt(value)}${metric === 'engagement' ? '%' : ''} ${metric}`
-                      : ''
-                  }
-                />
-              ))}
+              {row.map((value, hour) => {
+                const c = counts[day][hour];
+                const intensity = intensityFor(value, c);
+                const useBranding = !!branding && c > 0;
+                return (
+                  <div
+                    key={hour}
+                    className={
+                      'w-4 h-4 rounded transition cursor-help ' +
+                      colorClassFor(value, c) +
+                      (c > 0 ? ' hover:ring-2 hover:ring-foreground/30' : '')
+                    }
+                    style={
+                      useBranding
+                        ? {
+                            backgroundColor: branding!.primaryHex,
+                            // opacity floor 0.15 pra valor mínimo renderizar visível
+                            opacity: Math.max(0.15, intensity),
+                          }
+                        : undefined
+                    }
+                    title={
+                      c > 0
+                        ? `${DAYS_PT[day]} ${hour}h — ${c} post${c > 1 ? 's' : ''}, ${fmt(value)}${metric === 'engagement' ? '%' : ''} ${metric}`
+                        : ''
+                    }
+                  />
+                );
+              })}
             </div>
           ))}
         </div>
@@ -149,11 +175,23 @@ export function EngagementHeatmap({ posts, loading, metric: initialMetric = 'eng
         <div className="mt-3 flex items-center gap-2 text-[10px] text-muted-foreground">
           <span>menor</span>
           <div className="flex gap-px">
-            <div className="w-3 h-3 bg-emerald-100 rounded" />
-            <div className="w-3 h-3 bg-emerald-200 rounded" />
-            <div className="w-3 h-3 bg-emerald-300 rounded" />
-            <div className="w-3 h-3 bg-emerald-400 rounded" />
-            <div className="w-3 h-3 bg-emerald-500 rounded" />
+            {branding ? (
+              [0.15, 0.35, 0.55, 0.75, 1].map((op) => (
+                <div
+                  key={op}
+                  className="w-3 h-3 rounded"
+                  style={{ backgroundColor: branding.primaryHex, opacity: op }}
+                />
+              ))
+            ) : (
+              <>
+                <div className="w-3 h-3 bg-emerald-100 rounded" />
+                <div className="w-3 h-3 bg-emerald-200 rounded" />
+                <div className="w-3 h-3 bg-emerald-300 rounded" />
+                <div className="w-3 h-3 bg-emerald-400 rounded" />
+                <div className="w-3 h-3 bg-emerald-500 rounded" />
+              </>
+            )}
           </div>
           <span>maior {metric === 'engagement' ? '(eng %)' : ''}</span>
         </div>

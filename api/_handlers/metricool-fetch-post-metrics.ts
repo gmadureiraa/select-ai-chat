@@ -19,22 +19,17 @@ import {
   getNetworkPosts,
   getInstagramReels,
   getFacebookReels,
+  getInstagramStories,
+  getFacebookStories,
   resolveBlogId,
+  normalizeMetrics,
   type MetricoolPostMetrics,
   type MetricoolAnalyticsNetwork,
+  type NormalizedPostMetrics,
 } from '../_lib/integrations/metricool.js';
 
-export interface PlanningPostMetrics {
-  likes: number;
-  comments: number;
-  shares: number;
-  reach: number;
-  impressions: number;
-  video_views: number;
-  saves: number;
-  eng_rate: number;
-  last_synced_at: string;
-}
+// Gap #9 — normalizeMetrics agora vive em api/_lib/integrations/metricool.ts.
+export type PlanningPostMetrics = NormalizedPostMetrics;
 
 interface FetchResult {
   ok: boolean;
@@ -48,13 +43,6 @@ interface FetchResult {
 
 const MIN_RESYNC_HOURS = 12;
 
-function pickNumber(...vals: Array<unknown>): number {
-  for (const v of vals) {
-    if (typeof v === 'number' && Number.isFinite(v)) return v;
-  }
-  return 0;
-}
-
 function networkForPlatform(platform: string | null | undefined): MetricoolAnalyticsNetwork | null {
   if (!platform) return null;
   const map: Record<string, MetricoolAnalyticsNetwork> = {
@@ -67,32 +55,6 @@ function networkForPlatform(platform: string | null | undefined): MetricoolAnaly
     youtube: 'youtube',
   };
   return map[platform] ?? null;
-}
-
-function normalizeMetrics(m: MetricoolPostMetrics | Record<string, unknown>): PlanningPostMetrics {
-  const r = m as Record<string, unknown>;
-  const likes = pickNumber(r.likes, r.likeCount, r.reactions);
-  const comments = pickNumber(r.comments, r.commentCount, r.replies);
-  const shares = pickNumber(r.shares, r.shareCount, r.retweets, r.reposts);
-  const reach = pickNumber(r.reach, r.uniqueReach);
-  const impressions = pickNumber(r.impressions, r.views);
-  const video_views = pickNumber(r.videoViews, r.plays, r.videoPlays);
-  const saves = pickNumber(r.saves, r.saved, r.bookmarkCount);
-  let eng_rate = pickNumber(r.engagementRate, r.engagement_rate);
-  if (!eng_rate && reach > 0) {
-    eng_rate = ((likes + comments + shares + saves) / reach) * 100;
-  }
-  return {
-    likes,
-    comments,
-    shares,
-    reach,
-    impressions,
-    video_views,
-    saves,
-    eng_rate: Number.isFinite(eng_rate) ? eng_rate : 0,
-    last_synced_at: new Date().toISOString(),
-  };
 }
 
 export default authedPost(async ({ body }): Promise<FetchResult> => {
@@ -175,45 +137,47 @@ export default authedPost(async ({ body }): Promise<FetchResult> => {
   const from = new Date(publishedAt.getTime() - 86400_000).toISOString().slice(0, 19);
   const to = new Date().toISOString().slice(0, 19);
 
+  // Gap #3 — detecção robusta por contentType + instagramData.type / facebookData.type
+  const rawContentType = String(
+    meta.contentType ?? meta.content_type ?? meta.instagramData?.type ?? meta.facebookData?.type ?? '',
+  ).toLowerCase();
+  const isReel = rawContentType === 'reel' || rawContentType === 'reels';
+  const isStory = rawContentType === 'story' || rawContentType === 'stories';
+
+  async function fetchAnalyticsByKind(): Promise<MetricoolPostMetrics[]> {
+    if (isStory && (network === 'instagram' || network === 'facebook')) {
+      return network === 'instagram'
+        ? await getInstagramStories(cfg, blogId, from, to)
+        : await getFacebookStories(cfg, blogId, from, to);
+    }
+    if (isReel && (network === 'instagram' || network === 'facebook')) {
+      return network === 'instagram'
+        ? await getInstagramReels(cfg, blogId, from, to)
+        : await getFacebookReels(cfg, blogId, from, to);
+    }
+    return await getNetworkPosts(cfg, blogId, network, from, to);
+  }
+
   let analyticsPosts: MetricoolPostMetrics[] = [];
   try {
-    analyticsPosts = await getNetworkPosts(cfg, blogId, network, from, to);
+    analyticsPosts = await fetchAnalyticsByKind();
   } catch (e: any) {
-    // Pra Instagram reels o endpoint canônico é diferente — tenta fallback
-    if (network === 'instagram') {
-      try {
-        analyticsPosts = await getInstagramReels(cfg, blogId, from, to);
-      } catch {
-        return { ok: false, source: 'metricool', error: e.message };
-      }
-    } else if (network === 'facebook') {
-      try {
-        analyticsPosts = await getFacebookReels(cfg, blogId, from, to);
-      } catch {
-        return { ok: false, source: 'metricool', error: e.message };
-      }
-    } else {
-      return { ok: false, source: 'metricool', error: e.message };
+    return { ok: false, source: 'metricool', error: e.message };
+  }
+
+  // Fallback IG: se platform=instagram e não achou no shape default, tenta reels
+  // (cobre casos antigos sem contentType salvo no metadata).
+  let found = analyticsPosts.find((p) => String(p.id) === String(postId));
+  if (!found && network === 'instagram' && !isReel && !isStory) {
+    try {
+      const reels = await getInstagramReels(cfg, blogId, from, to);
+      const r = reels.find((p) => String(p.id) === String(postId));
+      if (r) found = r;
+    } catch {
+      /* ignore */
     }
   }
 
-  const remote = analyticsPosts.find((p) => String(p.id) === String(postId));
-  if (!remote) {
-    // Tenta também IG reels caso platform=instagram tenha vindo como reel
-    if (network === 'instagram') {
-      try {
-        const reels = await getInstagramReels(cfg, blogId, from, to);
-        const r = reels.find((p) => String(p.id) === String(postId));
-        if (r) {
-          analyticsPosts = reels;
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-
-  const found = analyticsPosts.find((p) => String(p.id) === String(postId));
   if (!found) {
     return {
       ok: false,

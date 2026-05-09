@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   BarChart3,
+  Briefcase,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -506,7 +507,7 @@ export function KaiSidebar({
 
         {isOwner && (
           <NavItem
-            icon={<Settings className="h-4 w-4" strokeWidth={1.5} />}
+            icon={<Briefcase className="h-4 w-4" strokeWidth={1.5} />}
             label="Workspace"
             active={activeTab === "workspace-settings"}
             onClick={() => onTabChange("workspace-settings")}

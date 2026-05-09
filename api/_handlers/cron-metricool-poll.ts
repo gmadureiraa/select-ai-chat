@@ -57,8 +57,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // 3. Pra cada blogId, lista posts e indexa por id
-  const startDate = new Date(Date.now() - 48 * 86400_000 / 24).toISOString().slice(0, 19);
-  const endDate = new Date(Date.now() + 24 * 86400_000 / 24).toISOString().slice(0, 19);
+  // Gap #4 — janela dinâmica: startDate volta 7d (cobre re-posts/edits) e endDate
+  // estica até o último scheduled_at no DB +1d (capped em 30d pra não passar limites
+  // de range Metricool). Antes era hardcoded -48h/+24h, deixava agendamentos >24h invisíveis.
+  const maxScheduledRow = await queryOne<any>(
+    `SELECT MAX(scheduled_at) as max_scheduled FROM planning_items
+       WHERE status IN ('scheduled', 'publishing') AND external_post_id IS NOT NULL
+         AND scheduled_at > NOW()`,
+  );
+  const fallbackEnd = new Date(Date.now() + 30 * 86400_000);
+  const maxScheduled = maxScheduledRow?.max_scheduled
+    ? new Date(maxScheduledRow.max_scheduled)
+    : fallbackEnd;
+  const endTs = Math.min(maxScheduled.getTime() + 86400_000, fallbackEnd.getTime());
+  const startDate = new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 19);
+  const endDate = new Date(endTs).toISOString().slice(0, 19);
   const allPostsById = new Map<string, any>();
   for (const { blog_id } of blogIds) {
     try {

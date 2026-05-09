@@ -1518,6 +1518,65 @@ export async function deleteInstagramBioButton(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Métricas — normalize shared helper (Gap #9, antes duplicado em 2 handlers)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface NormalizedPostMetrics {
+  likes: number;
+  comments: number;
+  shares: number;
+  reach: number;
+  impressions: number;
+  video_views: number;
+  saves: number;
+  eng_rate: number;
+  last_synced_at: string;
+}
+
+function pickNumberFrom(...vals: Array<unknown>): number {
+  for (const v of vals) {
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+  }
+  return 0;
+}
+
+/**
+ * Normaliza shape solto de Metricool/legacy em formato canônico de métrica.
+ * Engagement rate cai pra `impressions` quando `reach` não vier (Gap #7).
+ */
+export function normalizeMetrics(
+  m: MetricoolPostMetrics | Record<string, unknown>,
+): NormalizedPostMetrics {
+  const r = m as Record<string, unknown>;
+  const likes = pickNumberFrom(r.likes, r.likeCount, r.reactions);
+  const comments = pickNumberFrom(r.comments, r.commentCount, r.replies);
+  const shares = pickNumberFrom(r.shares, r.shareCount, r.retweets, r.reposts);
+  const reach = pickNumberFrom(r.reach, r.uniqueReach);
+  const impressions = pickNumberFrom(r.impressions, r.views);
+  const video_views = pickNumberFrom(r.videoViews, r.plays, r.videoPlays);
+  const saves = pickNumberFrom(r.saves, r.saved, r.bookmarkCount);
+  let eng_rate = pickNumberFrom(r.engagementRate, r.engagement_rate);
+  if (!eng_rate) {
+    // Gap #7 — usa reach quando >0, senão fallback pra impressions.
+    const denominator = reach > 0 ? reach : impressions;
+    if (denominator > 0) {
+      eng_rate = ((likes + comments + shares + saves) / denominator) * 100;
+    }
+  }
+  return {
+    likes,
+    comments,
+    shares,
+    reach,
+    impressions,
+    video_views,
+    saves,
+    eng_rate: Number.isFinite(eng_rate) ? eng_rate : 0,
+    last_synced_at: new Date().toISOString(),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Helpers de alto nível — usados pelos handlers
 // ─────────────────────────────────────────────────────────────────────────────
 

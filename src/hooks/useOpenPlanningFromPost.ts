@@ -7,10 +7,12 @@
 //   3. Se não achou: fallback abre URL externa (post original)
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { findPlanningByPostId } from './useFindPlanningByPostId';
+import { useWorkspace } from '@/hooks/useWorkspace';
 
 export function useOpenPlanningFromPost() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { workspace } = useWorkspace();
 
   return async (post: { id: string | number; url?: string; permalink?: string }) => {
     if (!post?.id) {
@@ -19,7 +21,13 @@ export function useOpenPlanningFromPost() {
       return;
     }
     try {
-      const planning = await findPlanningByPostId(post.id);
+      // Gap #6 — passa workspaceId pro lookup ser scoped (RLS safety).
+      if (!workspace?.id) {
+        const fallback = post.url || post.permalink;
+        if (fallback) window.open(fallback, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      const planning = await findPlanningByPostId(post.id, workspace.id);
       if (planning) {
         // Preserva client atual + força tab=planning + openItem
         const params = new URLSearchParams(searchParams);

@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { getNetworkBranding } from "@/lib/network-branding";
 
 import {
   getPostCaption,
@@ -83,12 +84,13 @@ function metricBadge(metric: LeaderboardMetric, post: MetricoolPost): string {
 
 export function PostsLeaderboard({
   posts,
-  network: _network,
+  network,
   loading,
   metric: initialMetric = "engagement",
   className,
 }: PostsLeaderboardProps) {
   const [metric, setMetric] = React.useState<LeaderboardMetric>(initialMetric);
+  const branding = getNetworkBranding(network);
 
   React.useEffect(() => {
     setMetric(initialMetric);
@@ -125,7 +127,7 @@ export function PostsLeaderboard({
     <Card className={className}>
       <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 p-4">
         <CardTitle className="inline-flex items-center gap-2 text-base font-semibold">
-          <Trophy className="h-4 w-4 text-amber-500" />
+          <Trophy className="h-4 w-4" style={{ color: branding.primaryHex }} />
           Top 5 posts
         </CardTitle>
         <Select value={metric} onValueChange={(v) => setMetric(v as LeaderboardMetric)}>
@@ -163,7 +165,8 @@ export function PostsLeaderboard({
                   key={String(post.id)}
                   className={cn(
                     "flex items-center gap-3 rounded-md p-2 transition-colors",
-                    isClickable && "cursor-pointer hover:bg-muted/50",
+                    isClickable &&
+                      cn("cursor-pointer hover:bg-muted/50 hover:ring-1", branding.ringColor),
                   )}
                   onClick={isClickable ? handleClick : undefined}
                   role={isClickable ? "button" : undefined}
@@ -179,7 +182,13 @@ export function PostsLeaderboard({
                       : undefined
                   }
                 >
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold tabular-nums">
+                  <span
+                    className={cn(
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums",
+                      idx === 0 ? branding.iconOnBgClass : "bg-muted text-foreground",
+                    )}
+                    style={idx === 0 ? { backgroundColor: branding.primaryHex } : undefined}
+                  >
                     {idx + 1}
                   </span>
 
@@ -223,7 +232,11 @@ export function PostsLeaderboard({
                     </div>
                   </div>
 
-                  <Badge variant="default" className="shrink-0 tabular-nums" title={metricLabel(metric)}>
+                  <Badge
+                    className={cn("shrink-0 tabular-nums font-semibold border-transparent", branding.iconOnBgClass)}
+                    style={{ backgroundColor: branding.primaryHex }}
+                    title={metricLabel(metric)}
+                  >
                     {metricBadge(metric, post)}
                   </Badge>
                 </li>

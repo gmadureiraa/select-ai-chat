@@ -5,16 +5,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Instagram,
-  Twitter,
-  Linkedin,
-  Music2,
-  Youtube,
-  AtSign,
-  Share2,
   TrendingUp,
   Heart,
   Eye,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   useMetricoolPosts,
@@ -22,21 +16,29 @@ import {
   type MetricoolNetwork,
   aggregatePostsMetrics,
 } from '@/hooks/useMetricoolPerformance';
+import {
+  CORE_NETWORKS,
+  getNetworkBranding,
+  type NetworkBranding,
+} from '@/lib/network-branding';
 
 interface Props {
   clientId: string;
   period: number;
+  /** IDs de canais arquivados pelo cliente (ex: client.social_media.archived_channels). */
+  archivedChannels?: string[];
 }
 
-const PLATFORMS: Array<{ id: MetricoolNetwork; label: string; icon: any; color: string }> = [
-  { id: 'instagram', label: 'Instagram', icon: Instagram, color: 'bg-gradient-to-tr from-[#833AB4] via-[#FD1D1D] to-[#F77737]' },
-  { id: 'twitter', label: 'X / Twitter', icon: Twitter, color: 'bg-black' },
-  { id: 'threads', label: 'Threads', icon: AtSign, color: 'bg-zinc-900' },
-  { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, color: 'bg-[#0A66C2]' },
-  { id: 'tiktok', label: 'TikTok', icon: Music2, color: 'bg-black' },
-  { id: 'youtube', label: 'YouTube', icon: Youtube, color: 'bg-[#FF0000]' },
-  { id: 'facebook', label: 'Facebook', icon: Share2, color: 'bg-[#1877F2]' },
-];
+// Single source of truth — branding mora em network-branding.ts
+const PLATFORMS: Array<{
+  id: MetricoolNetwork;
+  label: string;
+  icon: LucideIcon;
+  branding: NetworkBranding;
+}> = CORE_NETWORKS.map((id) => {
+  const b = getNetworkBranding(id);
+  return { id: id as MetricoolNetwork, label: b.label, icon: b.icon, branding: b };
+});
 
 function fmt(n: number, decimals = 0): string {
   return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: decimals }).format(n);
@@ -45,8 +47,8 @@ function fmt(n: number, decimals = 0): string {
 interface PlatformRow {
   id: MetricoolNetwork;
   label: string;
-  icon: any;
-  color: string;
+  icon: LucideIcon;
+  branding: NetworkBranding;
   posts: number;
   engagement: number;
   reach: number;
@@ -55,7 +57,7 @@ interface PlatformRow {
   loading: boolean;
 }
 
-function ComparisonRow({ row, maxPosts, maxReach, maxEng, sortMetric }: {
+function ComparisonRow({ row, maxPosts, maxReach, maxEng }: {
   row: PlatformRow;
   maxPosts: number;
   maxReach: number;
@@ -63,12 +65,18 @@ function ComparisonRow({ row, maxPosts, maxReach, maxEng, sortMetric }: {
   sortMetric: 'posts' | 'reach' | 'engagement';
 }) {
   const Icon = row.icon;
+  const branding = row.branding;
   const barWidth = (val: number, max: number) => (max > 0 ? (val / max) * 100 : 0);
 
   return (
-    <div className="grid grid-cols-12 items-center gap-3 p-3 rounded-md border hover:bg-muted/30 transition">
+    <div
+      className="grid grid-cols-12 items-center gap-3 p-3 rounded-md border hover:bg-muted/30 transition"
+      style={{ borderLeftColor: branding.primaryHex, borderLeftWidth: 3 }}
+    >
       <div className="col-span-3 flex items-center gap-2 min-w-0">
-        <div className={`h-8 w-8 rounded-md flex items-center justify-center text-white ${row.color}`}>
+        <div
+          className={`h-8 w-8 rounded-md flex items-center justify-center ${branding.bgGradient} ${branding.iconOnBgClass}`}
+        >
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0">
@@ -89,7 +97,13 @@ function ComparisonRow({ row, maxPosts, maxReach, maxEng, sortMetric }: {
         <div className="flex items-center gap-2">
           <div className="text-sm font-bold tabular-nums w-10">{fmt(row.posts)}</div>
           <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div className={`h-full ${row.color}`} style={{ width: `${barWidth(row.posts, maxPosts)}%` }} />
+            <div
+              className="h-full"
+              style={{
+                width: `${barWidth(row.posts, maxPosts)}%`,
+                backgroundColor: branding.primaryHex,
+              }}
+            />
           </div>
         </div>
       </div>
@@ -99,7 +113,13 @@ function ComparisonRow({ row, maxPosts, maxReach, maxEng, sortMetric }: {
         <div className="flex items-center gap-2">
           <div className="text-sm font-bold tabular-nums w-12">{fmt(row.reach)}</div>
           <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div className={`h-full ${row.color}`} style={{ width: `${barWidth(row.reach, maxReach)}%` }} />
+            <div
+              className="h-full"
+              style={{
+                width: `${barWidth(row.reach, maxReach)}%`,
+                backgroundColor: branding.primaryHex,
+              }}
+            />
           </div>
         </div>
       </div>
@@ -110,8 +130,11 @@ function ComparisonRow({ row, maxPosts, maxReach, maxEng, sortMetric }: {
           <div className="text-sm font-bold tabular-nums w-12">{row.engagement.toFixed(2)}%</div>
           <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
             <div
-              className={`h-full ${row.color}`}
-              style={{ width: `${barWidth(row.engagement, maxEng)}%` }}
+              className="h-full"
+              style={{
+                width: `${barWidth(row.engagement, maxEng)}%`,
+                backgroundColor: branding.primaryHex,
+              }}
             />
           </div>
         </div>
@@ -120,8 +143,15 @@ function ComparisonRow({ row, maxPosts, maxReach, maxEng, sortMetric }: {
   );
 }
 
-export function CrossPlatformComparison({ clientId, period }: Props) {
+export function CrossPlatformComparison({ clientId, period, archivedChannels = [] }: Props) {
   const { data: summary } = useMetricoolBrandSummary(clientId, period);
+
+  // Filtra plataformas arquivadas pelo cliente. Mantém uma lista estável dentro
+  // do componente pra useMemo deps continuarem corretos.
+  const visiblePlatforms = useMemo(
+    () => PLATFORMS.filter((p) => !archivedChannels.includes(p.id)),
+    [archivedChannels],
+  );
 
   // Hooks paralelos por plataforma
   const igQ = useMetricoolPosts(clientId, 'instagram', period);
@@ -145,7 +175,7 @@ export function CrossPlatformComparison({ clientId, period }: Props) {
   };
 
   const rows: PlatformRow[] = useMemo(() => {
-    return PLATFORMS.map((p) => {
+    return visiblePlatforms.map((p) => {
       const q = queries[p.id];
       const posts = q.data || [];
       const agg = aggregatePostsMetrics(posts);
@@ -154,7 +184,7 @@ export function CrossPlatformComparison({ clientId, period }: Props) {
         id: p.id,
         label: p.label,
         icon: p.icon,
-        color: p.color,
+        branding: p.branding,
         posts: posts.length,
         engagement: agg.avgEngagementRate,
         reach: agg.totalReach,
@@ -164,7 +194,7 @@ export function CrossPlatformComparison({ clientId, period }: Props) {
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [igQ.data, twQ.data, thQ.data, liQ.data, ttQ.data, ytQ.data, fbQ.data, summary, igQ.isLoading, twQ.isLoading, thQ.isLoading, liQ.isLoading, ttQ.isLoading, ytQ.isLoading, fbQ.isLoading]);
+  }, [visiblePlatforms, igQ.data, twQ.data, thQ.data, liQ.data, ttQ.data, ytQ.data, fbQ.data, summary, igQ.isLoading, twQ.isLoading, thQ.isLoading, liQ.isLoading, ttQ.isLoading, ytQ.isLoading, fbQ.isLoading]);
 
   const isLoading = rows.some((r) => r.loading);
   const activePlatforms = rows.filter((r) => r.posts > 0 || r.followers > 0);

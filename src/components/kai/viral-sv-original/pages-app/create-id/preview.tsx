@@ -15,9 +15,6 @@ import { supabase } from "@sv/lib/supabase";
 import { upsertUserCarousel } from "@sv/lib/carousel-storage";
 import CarouselFeedbackPanel from "@sv/components/app/carousel-feedback";
 import FeedbackModal from "@sv/components/app/FeedbackModal";
-import { ScheduleZernioModal } from "@sv/components/app/zernio/schedule-modal";
-import { PlannedPostModal } from "@sv/components/app/zernio/planned-post-modal";
-
 // KAI integration: salvar carrossel finalizado na biblioteca de conteúdo do
 // cliente. Usa o handler `save-to-library` (mesmo endpoint do KaiAssistant).
 // `useSVClient` expõe o clientId selecionado no shell do Kai (Sidebar).
@@ -159,18 +156,11 @@ export default function PreviewPage(props: {
     setTimeout(() => setFeedbackOpen(true), 800);
   }
 
-  // 2026-05-09 — Zernio scheduling DESLIGADO no KAI 2.0. Os endpoints
+  // 2026-05-09 — Zernio scheduling REMOVIDO do KAI 2.0. Os endpoints
   // `/api/zernio/*` foram removidos (Zernio era SaaS standalone). KAI 2.0
-  // publica via Metricool (handler `metricool-post`). Mantemos o state pra
-  // não quebrar a árvore JSX, mas o canScheduleZernio é sempre false e o
-  // modal correspondente nunca abre. PlannedPostModal também usa zernio →
-  // canPlanInCalendar = false até migrarmos pro fluxo `planning_items`
-  // unificado do KAI.
-  const [zernioOpen, setZernioOpen] = useState(false);
+  // publica via Metricool (handler `metricool-post`). Bloco de UI Zernio
+  // (ScheduleZernioModal + PlannedPostModal) deletado por ser dead code.
   const isAdmin = isAdminEmail(profile?.email ?? user?.email);
-  const canScheduleZernio = false; // disabled: /api/zernio/* removed
-  const canPlanInCalendar = false; // disabled: planned-post-modal hits /api/zernio/*
-  const [plannedModalOpenPreview, setPlannedModalOpenPreview] = useState(false);
   // Metricool publish — fluxo unificado do KAI 2.0. Substitui Zernio.
   // Captura PNGs dos slides → upload via blob handler → chama metricool-post
   // que normaliza URLs internamente e cria o agendamento. Salva
@@ -196,19 +186,11 @@ export default function PreviewPage(props: {
     null,
   );
 
-  // Conta entries no calendário linkadas ao draft atual (carouselId).
-  // Mostra "X agendamentos" como feedback contextual. Atualiza quando
-  // user adiciona via modal.
-  const [carouselEntries, setCarouselEntries] = useState<
-    { id: string; status: string; scheduled_for: string | null }[] | null
-  >(null);
-  // 2026-05-09 — `/api/zernio/by-carousel` foi removido. KAI 2.0 usa Metricool
-  // pra agendar/publicar (handler `metricool-post`). Por enquanto não temos
-  // endpoint pra listar agendamentos por carouselId no Metricool — quando
-  // tiver, plugar aqui. Skip silencioso.
-  useEffect(() => {
-    setCarouselEntries(null);
-  }, [draft?.id]);
+  // 2026-05-09 — `/api/zernio/by-carousel` removido. KAI 2.0 usa Metricool.
+  // `carouselEntries` (contador de agendamentos) ficou dead code junto com
+  // o bloco UI Zernio. Plugar aqui quando o backend Metricool expor
+  // listagem de schedules por carouselId.
+
   async function handleExportZip() {
     await exportZip(draft?.title || "carrossel");
     scheduleFeedbackModal();
@@ -589,6 +571,15 @@ export default function PreviewPage(props: {
       if (!captured.length) {
         throw new Error("Nenhum slide capturado.");
       }
+      // 2026-05-09 — Antes da publicação parcial, avisar o user. Slides
+      // podem falhar por timeout do html-to-image em mobile fraco. Antes
+      // a gente publicava 9/10 silenciosamente.
+      if (captured.length < slides.length) {
+        const proceed = window.confirm(
+          `Apenas ${captured.length} de ${slides.length} slides foram capturados. Publicar mesmo assim?`,
+        );
+        if (!proceed) return;
+      }
       const payloadSlides = captured.map((c) => ({
         order: c.index,
         dataUrl: c.dataUrl,
@@ -604,6 +595,9 @@ export default function PreviewPage(props: {
         ok: boolean;
         mediaUrls?: string[];
         latePost?: { postId?: string; status?: string };
+        postizPost?: { postId?: string; status?: string };
+        metricoolPost?: { postId?: string; status?: string };
+        postId?: string;
         error?: string;
       }>("publish-viral-carousel", {
         body: {
@@ -618,7 +612,15 @@ export default function PreviewPage(props: {
       if (error) {
         throw new Error(error.message || "Falha ao publicar.");
       }
-      const postId = data?.latePost?.postId ?? null;
+      // Aceita múltiplos shapes: handler atual (publish-viral-carousel) ainda
+      // wrappa em `latePost`, mas postiz-post/metricool-post retornam `postId`
+      // top-level. Fallback robusto pra qualquer mudança de shape no backend.
+      const postId =
+        data?.postizPost?.postId ??
+        data?.latePost?.postId ??
+        data?.metricoolPost?.postId ??
+        data?.postId ??
+        null;
       if (postId) setMetricoolPostId(postId);
 
       toast.success(
@@ -1072,178 +1074,10 @@ export default function PreviewPage(props: {
             )}
           </div>
 
-          {/* Indicador de entries no calendário pra esse carrossel */}
-          {canPlanInCalendar && carouselEntries && carouselEntries.length > 0 && (
-            <div
-              style={{
-                padding: 12,
-                background: "var(--sv-pink, #D262B2)",
-                border: "1.5px solid var(--sv-ink)",
-                boxShadow: "2px 2px 0 0 var(--sv-ink)",
-                fontFamily: "var(--sv-mono)",
-                fontSize: 10,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                fontWeight: 700,
-                color: "var(--sv-ink)",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                justifyContent: "space-between",
-              }}
-            >
-              <span>
-                {carouselEntries.length}{" "}
-                {carouselEntries.length === 1 ? "agendamento" : "agendamentos"}
-              </span>
-              <a
-                href="/app/zernio/calendar"
-                style={{
-                  color: "var(--sv-ink)",
-                  textDecoration: "underline",
-                  fontSize: 9,
-                }}
-              >
-                Ver calendário →
-              </a>
-            </div>
-          )}
-
-          {/* Adicionar ao calendário (Pro) — planejamento manual sem Zernio */}
-          {!canScheduleZernio && canPlanInCalendar && draft?.id && (
-            <div
-              style={{
-                padding: 22,
-                background: "var(--sv-paper, #faf7f2)",
-                border: "1.5px solid var(--sv-ink)",
-                boxShadow: "3px 3px 0 0 var(--sv-ink)",
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: "var(--sv-mono)",
-                  fontSize: 9.5,
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  color: "var(--sv-ink)",
-                  marginBottom: 10,
-                  fontWeight: 700,
-                  opacity: 0.6,
-                }}
-              >
-                Nº 02 · Planejamento
-              </div>
-              <h4
-                className="sv-display"
-                style={{ fontSize: 22, letterSpacing: "-0.01em", marginBottom: 12 }}
-              >
-                Adicionar ao <em>calendário</em>.
-              </h4>
-              <p style={{ fontSize: 12, color: "var(--sv-soft)", marginBottom: 12 }}>
-                Marque uma data pra postar esse carrossel. Pra publicação
-                automática no IG/LinkedIn,{" "}
-                <a href="/app/plans" target="_blank" rel="noreferrer">
-                  upgrade pra Max
-                </a>
-                .
-              </p>
-              <button
-                type="button"
-                onClick={() => setPlannedModalOpenPreview(true)}
-                disabled={isExporting}
-                className="sv-btn sv-btn-primary"
-                style={{ width: "100%", padding: "11px 12px" }}
-              >
-                Adicionar ao calendário
-              </button>
-            </div>
-          )}
-
-          {/* Zernio scheduler — admin + plano business. 2 botões:
-              - "Adicionar ao calendário" (Planejado, sem Zernio) — fluxo padrão
-              - "Agendar publicação auto" (Zernio real) — pra quem tem conta conectada */}
-          {canScheduleZernio && draft?.id && (
-            <div
-              style={{
-                padding: 22,
-                background: "var(--sv-paper, #faf7f2)",
-                border: "1.5px solid var(--sv-ink)",
-                boxShadow: "3px 3px 0 0 var(--sv-ink)",
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: "var(--sv-mono)",
-                  fontSize: 9.5,
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  color: "var(--sv-ink)",
-                  marginBottom: 10,
-                  fontWeight: 700,
-                  opacity: 0.6,
-                }}
-              >
-                Nº 02 · Calendário
-              </div>
-              <h4
-                className="sv-display"
-                style={{ fontSize: 22, letterSpacing: "-0.01em", marginBottom: 12 }}
-              >
-                Programar <em>esse carrossel</em>.
-              </h4>
-              <p style={{ fontSize: 12, color: "var(--sv-soft)", marginBottom: 14 }}>
-                Adicione ao calendário pra organizar (Planejado) ou agende
-                publicação automática direto no IG/LinkedIn (precisa conectar
-                em <a href="/app/zernio" target="_blank" rel="noreferrer">/app/zernio</a>).
-              </p>
-
-              <div style={{ display: "grid", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setPlannedModalOpenPreview(true)}
-                  disabled={isExporting}
-                  className="sv-btn sv-btn-primary"
-                  style={{ width: "100%", padding: "11px 12px" }}
-                  title="Marca data no calendário sem publicar — você posta manualmente"
-                >
-                  Adicionar ao calendário
-                  <span
-                    style={{
-                      fontFamily: "var(--sv-mono)",
-                      fontSize: 8.5,
-                      letterSpacing: "0.16em",
-                      opacity: 0.7,
-                      marginLeft: 6,
-                    }}
-                  >
-                    PLANEJADO
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setZernioOpen(true)}
-                  disabled={isExporting}
-                  className="sv-btn sv-btn-outline"
-                  style={{ width: "100%", padding: "11px 12px" }}
-                  title="Publica automaticamente na data marcada via Zernio (precisa de conta conectada)"
-                >
-                  Agendar publicação auto
-                  <span
-                    style={{
-                      fontFamily: "var(--sv-mono)",
-                      fontSize: 8.5,
-                      letterSpacing: "0.16em",
-                      opacity: 0.7,
-                      marginLeft: 6,
-                    }}
-                  >
-                    ZERNIO
-                  </span>
-                </button>
-              </div>
-            </div>
-          )}
+          {/* 2026-05-09 — Bloco Zernio (calendar entries + planejamento + agendar
+              auto) DELETADO. Era dead code: canScheduleZernio/canPlanInCalendar
+              eram hard-coded false porque /api/zernio/* foi removido. KAI 2.0
+              usa o card Metricool abaixo pra publicar/agendar. */}
 
           {/* Salvar na biblioteca do cliente (KAI-only) — só aparece quando
               há clientId selecionado no shell. Conteúdo gerado vai pra
@@ -1809,35 +1643,8 @@ export default function PreviewPage(props: {
         session={session}
       />
 
-      {/* Zernio scheduling modal — admin + business. Acesso via botão
-          "Agendar publicação auto" do card de calendário. Só pra publicação
-          REAL (Zernio API). Pra só marcar data, usa PlannedPostModal abaixo. */}
-      {canScheduleZernio && draft?.id && session && (
-        <ScheduleZernioModal
-          open={zernioOpen}
-          onClose={() => setZernioOpen(false)}
-          session={session}
-          carouselId={draft.id}
-          initialContent={caption || draft?.title || ""}
-          getSlidePngs={captureSlidesAsDataUrls}
-        />
-      )}
-
-      {/* Planned post modal — usado por TODOS os planos pagos (Pro + Max +
-          admin) pra adicionar entrada PLANEJADA no calendário (não publica
-          auto). Pro abre via card "Adicionar ao calendário"; Max + admin
-          abrem via botão "Adicionar ao calendário" do card de calendário
-          (mesmo state plannedModalOpenPreview). */}
-      {canPlanInCalendar && draft?.id && session && (
-        <PlannedPostModal
-          open={plannedModalOpenPreview}
-          onClose={() => setPlannedModalOpenPreview(false)}
-          session={session}
-          carouselId={draft.id}
-          initialContent={caption || draft?.title || ""}
-          userPlan={(profile?.plan as "free" | "pro" | "business") ?? "pro"}
-        />
-      )}
+      {/* 2026-05-09 — Modais Zernio (ScheduleZernioModal + PlannedPostModal)
+          deletados. Endpoints /api/zernio/* removidos do KAI 2.0. */}
 
       {/* Export render hidden container: 1080×1350 full scale.
            Mudança 2026-04-22: top:-99999/left:-99999/opacity:0 causava webkit

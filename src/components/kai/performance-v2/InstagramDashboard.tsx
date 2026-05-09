@@ -2,6 +2,7 @@
 // Layout v4 (2026-05-09): chart hero unificado + KPI mini-row 6 cards.
 import { useMemo, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Image as ImageIcon, Film, Circle, Heart, MessageCircle, Eye, TrendingUp, Users, FileText } from 'lucide-react';
 import {
@@ -54,7 +55,11 @@ export function InstagramDashboardV2({ clientId, period }: Props) {
   const totalEng = totalLikes + totalComments;
   const totalReach =
     aggPosts.totalReach + aggReels.totalReach + aggStories.totalReach;
-  const avgEng = totalReach > 0 ? (totalEng / totalReach) * 100 : 0;
+  const totalImpressions =
+    aggPosts.totalImpressions + aggReels.totalImpressions + aggStories.totalImpressions;
+  // Denom real: reach quando existir, senão impressions (Stories sem reach IG, etc.)
+  const engDenom = Math.max(totalReach, totalImpressions);
+  const avgEng = engDenom > 0 ? (totalEng / engDenom) * 100 : 0;
 
   const isLoading = isLoadingPosts || isLoadingReels || isLoadingStories || isLoadingSummary;
   const openPlanning = useOpenPlanningFromPost();
@@ -134,7 +139,7 @@ export function InstagramDashboardV2({ clientId, period }: Props) {
       <FormatBreakdown posts={posts} reels={reels} stories={stories} loading={isLoading} />
 
       {/* 6. Engagement Heatmap — combina posts+reels, com seletor próprio */}
-      <EngagementHeatmap posts={[...posts, ...reels]} loading={isLoading} />
+      <EngagementHeatmap posts={[...posts, ...reels]} loading={isLoading} network="instagram" />
 
       {/* 7. Sub-tabs: Posts | Reels | Stories */}
       <Tabs value={subTab} onValueChange={(v) => setSubTab(v as 'posts' | 'reels' | 'stories')}>
@@ -147,6 +152,15 @@ export function InstagramDashboardV2({ clientId, period }: Props) {
           </TabsTrigger>
           <TabsTrigger value="stories" className="gap-1.5">
             <Circle className="h-3.5 w-3.5" /> Stories ({stories.length})
+            {period > 7 && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1 py-0 h-4 ml-1 leading-none"
+                title="Stories duram 24h — período máximo significativo é 7d"
+              >
+                Últimos 7d
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 

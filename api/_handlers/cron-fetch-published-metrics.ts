@@ -13,6 +13,10 @@ import {
   getMetricoolConfig,
   getNetworkPosts,
   getInstagramReels,
+  getFacebookReels,
+  getInstagramStories,
+  getFacebookStories,
+  normalizeMetrics,
   type MetricoolAnalyticsNetwork,
   type MetricoolPostMetrics,
 } from '../_lib/integrations/metricool.js';
@@ -36,39 +40,6 @@ const NETWORK_MAP: Record<string, MetricoolAnalyticsNetwork> = {
   youtube: 'youtube',
 };
 
-function pickNumber(...vals: Array<unknown>): number {
-  for (const v of vals) {
-    if (typeof v === 'number' && Number.isFinite(v)) return v;
-  }
-  return 0;
-}
-
-function normalizeMetrics(m: MetricoolPostMetrics | Record<string, unknown>) {
-  const r = m as Record<string, unknown>;
-  const likes = pickNumber(r.likes, r.likeCount, r.reactions);
-  const comments = pickNumber(r.comments, r.commentCount, r.replies);
-  const shares = pickNumber(r.shares, r.shareCount, r.retweets, r.reposts);
-  const reach = pickNumber(r.reach, r.uniqueReach);
-  const impressions = pickNumber(r.impressions, r.views);
-  const video_views = pickNumber(r.videoViews, r.plays, r.videoPlays);
-  const saves = pickNumber(r.saves, r.saved, r.bookmarkCount);
-  let eng_rate = pickNumber(r.engagementRate, r.engagement_rate);
-  if (!eng_rate && reach > 0) {
-    eng_rate = ((likes + comments + shares + saves) / reach) * 100;
-  }
-  return {
-    likes,
-    comments,
-    shares,
-    reach,
-    impressions,
-    video_views,
-    saves,
-    eng_rate: Number.isFinite(eng_rate) ? eng_rate : 0,
-    last_synced_at: new Date().toISOString(),
-  };
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
   applyCors(res);
@@ -91,6 +62,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startedAt = Date.now();
 
   // 1. Items pendentes de sync
+  // Gap #1 — filtra apenas posts criados via Metricool (NULL = retro-compat).
+  // Gap #5 — decay 30d+: se já sincado nos últimos 7d, pula (métrica raramente muda).
   const items = await query<PlanningRow>(
     `SELECT pi.id, pi.client_id, pi.platform, pi.external_post_id, pi.published_at, pi.metadata
        FROM planning_items pi
@@ -98,9 +71,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         AND pi.external_post_id IS NOT NULL
         AND pi.published_at IS NOT NULL
         AND pi.published_at > NOW() - INTERVAL '60 days'
+        AND (pi.metadata->>'provider' = 'metricool' OR pi.metadata->>'provider' IS NULL)
         AND (
           pi.metadata->>'metrics_synced_at' IS NULL
           OR (pi.metadata->>'metrics_synced_at')::timestamptz < NOW() - INTERVAL '12 hours'
+        )
+        AND NOT (
+          pi.published_at < NOW() - INTERVAL '30 days'
+          AND (pi.metadata->'metrics'->>'last_synced_at')::timestamptz > NOW() - INTERVAL '7 days'
         )
       ORDER BY pi.published_at DESC
       LIMIT 100`,
@@ -129,13 +107,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const r of rows) blogMap.set(r.client_id, r.blog_id);
   }
 
-  // bucket por (blogId, network)
+  // bucket por (blogId, network, kind) — Gap #2: stories e reels usam endpoints próprios
+  type ContentKind = 'post' | 'reel' | 'story';
   type Bucket = {
     blogId: string;
     network: MetricoolAnalyticsNetwork;
+    kind: ContentKind;
     items: PlanningRow[];
     minDate: Date;
   };
+
+  function detectKind(item: PlanningRow): ContentKind {
+    const meta = (item.metadata || {}) as Record<string, any>;
+    const ct = String(meta.contentType ?? meta.content_type ?? '').toLowerCase();
+    if (ct === 'story' || ct === 'stories') return 'story';
+    if (ct === 'reel' || ct === 'reels') return 'reel';
+    const igType = String(meta?.instagramData?.type ?? '').toLowerCase();
+    if (igType === 'story') return 'story';
+    if (igType === 'reel') return 'reel';
+    const fbType = String(meta?.facebookData?.type ?? '').toLowerCase();
+    if (fbType === 'story') return 'story';
+    if (fbType === 'reel') return 'reel';
+    return 'post';
+  }
+
   const buckets = new Map<string, Bucket>();
   for (const item of items) {
     if (!item.client_id) continue;
@@ -143,14 +138,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!blogId) continue;
     const network = NETWORK_MAP[item.platform || ''];
     if (!network) continue;
-    const key = `${blogId}::${network}`;
+    const kind = detectKind(item);
+    // stories/reels só fazem sentido em IG/FB; em outras redes força 'post'
+    const effectiveKind: ContentKind =
+      (kind === 'story' || kind === 'reel') && (network === 'instagram' || network === 'facebook')
+        ? kind
+        : 'post';
+    const key = `${blogId}::${network}::${effectiveKind}`;
     const pubDate = item.published_at ? new Date(item.published_at) : new Date();
     const existing = buckets.get(key);
     if (existing) {
       existing.items.push(item);
       if (pubDate < existing.minDate) existing.minDate = pubDate;
     } else {
-      buckets.set(key, { blogId, network, items: [item], minDate: pubDate });
+      buckets.set(key, { blogId, network, kind: effectiveKind, items: [item], minDate: pubDate });
     }
   }
 
@@ -164,19 +165,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const from = new Date(bucket.minDate.getTime() - 86400_000).toISOString().slice(0, 19);
     let posts: MetricoolPostMetrics[] = [];
     try {
-      posts = await getNetworkPosts(cfg, bucket.blogId, bucket.network, from, to);
-      // Pra IG, complementa com reels (alguns posts só aparecem lá)
-      if (bucket.network === 'instagram') {
-        try {
-          const reels = await getInstagramReels(cfg, bucket.blogId, from, to);
-          posts = [...posts, ...reels];
-        } catch {
-          /* ignore */
+      if (bucket.kind === 'story') {
+        // Gap #2 — stories endpoint dedicado
+        posts = bucket.network === 'instagram'
+          ? await getInstagramStories(cfg, bucket.blogId, from, to)
+          : await getFacebookStories(cfg, bucket.blogId, from, to);
+      } else if (bucket.kind === 'reel') {
+        posts = bucket.network === 'instagram'
+          ? await getInstagramReels(cfg, bucket.blogId, from, to)
+          : await getFacebookReels(cfg, bucket.blogId, from, to);
+      } else {
+        posts = await getNetworkPosts(cfg, bucket.blogId, bucket.network, from, to);
+        // Pra IG, complementa com reels (alguns posts só aparecem lá)
+        if (bucket.network === 'instagram') {
+          try {
+            const reels = await getInstagramReels(cfg, bucket.blogId, from, to);
+            posts = [...posts, ...reels];
+          } catch {
+            /* ignore */
+          }
         }
       }
     } catch (e: any) {
       failedBuckets++;
-      events.push({ blogId: bucket.blogId, network: bucket.network, error: e.message });
+      events.push({
+        blogId: bucket.blogId,
+        network: bucket.network,
+        kind: bucket.kind,
+        error: e.message,
+      });
       continue;
     }
 

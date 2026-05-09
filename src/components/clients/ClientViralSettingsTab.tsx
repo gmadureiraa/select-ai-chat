@@ -13,9 +13,15 @@
  */
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Radar as RadarIcon, LayoutGrid, Film, Info } from "lucide-react";
+import { Radar as RadarIcon, LayoutGrid, Film, Info, Check, X as XIcon } from "lucide-react";
 import { ClientSourcesManager } from "@/components/kai/viral-radar-original/components/ClientSourcesManager";
-import "@/components/kai/viral-radar-original/styles/globals.css";
+import { useClientContext } from "@/hooks/useClientContext";
+// 2026-05-09 — Removido `import "@/components/kai/viral-radar-original/styles/globals.css"`.
+// O top-level import vazava tokens RDV (paper, REC coral) globalmente quando
+// user abria Perfil do Cliente. O viral-radar-original/MainApp.tsx já importa
+// esse globals.css quando o tab Radar é aberto, então não precisa duplicar
+// aqui. Trade-off: ClientSourcesManager pode ficar visualmente "neutro" no
+// Perfil até o user abrir Radar Viral 1x na sessão — aceitável.
 
 interface ClientViralSettingsTabProps {
   clientId: string;
@@ -23,6 +29,19 @@ interface ClientViralSettingsTabProps {
 }
 
 export function ClientViralSettingsTab({ clientId, clientName }: ClientViralSettingsTabProps) {
+  // Status sources — usa o useClientContext (já carregado em outras tabs do
+  // perfil, então normalmente vem instantâneo do cache TanStack).
+  // Cada bool dá um ✓/✗ + detalhe pro user saber o que falta antes de gerar.
+  const { data: ctx } = useClientContext(clientId);
+  const social = (ctx?.client?.social_media || {}) as Record<string, unknown>;
+  const igHandle = typeof social.instagram === 'string' ? social.instagram.trim() : '';
+  const hasInstagramConnected = igHandle.length > 0;
+  const hasVoiceProfile = !!ctx?.tone || !!ctx?.client?.voice_profile;
+  const refsCount = ctx?.referenceLibrary?.length ?? 0;
+  const hasIdentityGuide = !!(ctx?.client?.identity_guide && ctx.client.identity_guide.trim());
+  const personaSet = !!(ctx?.persona?.pain || ctx?.persona?.goal);
+  const visualRefsCount = ctx?.visualReferences?.length ?? 0;
+
   return (
     <Tabs defaultValue="radar" className="w-full">
       <TabsList className="grid w-full grid-cols-3">
@@ -64,7 +83,7 @@ export function ClientViralSettingsTab({ clientId, clientName }: ClientViralSett
         </Card>
       </TabsContent>
 
-      {/* Carrossel — não tem settings exclusivos; aponta pra brand */}
+      {/* Carrossel — sem settings exclusivos; mostra status do que tá pronto + aponta pra brand */}
       <TabsContent value="carousel" className="mt-4 space-y-3">
         <Card>
           <CardHeader className="pb-3">
@@ -74,10 +93,43 @@ export function ClientViralSettingsTab({ clientId, clientName }: ClientViralSett
             </CardTitle>
             <CardDescription>
               O Carrossel usa o tom de voz, identidade visual e referências do
-              cliente. Não há configs exclusivas do app — ajuste nas tabs abaixo:
+              cliente. Não há configs exclusivas do app — status atual:
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-1 text-sm">
+            <StatusItem
+              ok={hasVoiceProfile}
+              label="Tom de voz configurado"
+              detail={hasVoiceProfile ? 'OK' : 'Faltando'}
+            />
+            <StatusItem
+              ok={hasIdentityGuide}
+              label="Guia de identidade IA"
+              detail={hasIdentityGuide ? 'OK' : 'Gerar em Contexto IA'}
+            />
+            <StatusItem
+              ok={refsCount > 0}
+              label="Referências de conteúdo"
+              detail={`${refsCount} salvas`}
+            />
+            <StatusItem
+              ok={visualRefsCount > 0}
+              label="Referências visuais"
+              detail={`${visualRefsCount} salvas`}
+            />
+            <StatusItem
+              ok={hasInstagramConnected}
+              label="Conta IG configurada"
+              detail={hasInstagramConnected ? `@${igHandle.replace(/^@/, '')}` : 'Faltando'}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Onde ajustar cada item</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
             <BulletPoint
               label="Tom de voz e personalidade"
               hint="Tab Perfil → Tom de Voz · Tab Contexto IA → guia de identidade"
@@ -108,10 +160,38 @@ export function ClientViralSettingsTab({ clientId, clientName }: ClientViralSett
             </CardTitle>
             <CardDescription>
               O Reels Viral adapta vídeos virais usando o tom, persona e refs do
-              cliente. Sem configs exclusivas do app — ajuste nas tabs abaixo:
+              cliente. Sem configs exclusivas do app — status atual:
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-1 text-sm">
+            <StatusItem
+              ok={hasVoiceProfile}
+              label="Tom de voz / persona configurado"
+              detail={hasVoiceProfile ? 'OK' : 'Faltando'}
+            />
+            <StatusItem
+              ok={personaSet}
+              label="Público-alvo (dores + objetivos)"
+              detail={personaSet ? 'OK' : 'Faltando'}
+            />
+            <StatusItem
+              ok={visualRefsCount > 0}
+              label="Refs visuais / concorrentes"
+              detail={`${visualRefsCount} salvas`}
+            />
+            <StatusItem
+              ok={hasInstagramConnected}
+              label="Conta IG conectada (adapt automático)"
+              detail={hasInstagramConnected ? `@${igHandle.replace(/^@/, '')}` : 'Faltando'}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Onde ajustar cada item</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
             <BulletPoint
               label="Tom de voz e persona"
               hint="Tab Perfil → Tom de Voz · Tab Contexto IA"
@@ -143,6 +223,32 @@ function BulletPoint({ label, hint }: { label: string; hint: string }) {
         <div className="font-medium text-foreground">{label}</div>
         <div className="text-xs text-muted-foreground">{hint}</div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * StatusItem — linha visual ✓/✗ + label + detalhe. Usado nos sub-tabs
+ * Carrossel/Reels pra mostrar o que tá configurado per-client antes do user
+ * tentar gerar conteúdo.
+ */
+function StatusItem({ label, ok, detail }: { label: string; ok: boolean; detail?: string }) {
+  return (
+    <div className="flex items-center gap-2 py-1.5 border-b border-border/40 last:border-0 text-sm">
+      <span
+        className={
+          'flex h-5 w-5 items-center justify-center rounded-full shrink-0 ' +
+          (ok
+            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+            : 'bg-amber-500/15 text-amber-600 dark:text-amber-400')
+        }
+      >
+        {ok ? <Check className="h-3 w-3" /> : <XIcon className="h-3 w-3" />}
+      </span>
+      <span className="flex-1 text-foreground">{label}</span>
+      {detail && (
+        <span className="text-xs text-muted-foreground tabular-nums">{detail}</span>
+      )}
     </div>
   );
 }

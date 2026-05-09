@@ -145,13 +145,21 @@ export function CrossAppActions({
       return;
     }
 
-    // Carrossel ou Reels — bridge via Zustand + navega
+    // Carrossel ou Reels — bridge via Zustand + navega.
+    // SV usa hash router interno (#/create/new). Sem o hash, default cai em
+    // <CarouselsPage> e o user não vê o briefing pendente. Forçamos o hash
+    // direto pra abrir o flow de criação. Reels não tem hash router interno —
+    // só `?tab=` basta.
     setPending({ source, topic, briefing, url, metadata });
     const tab =
       target === "carrossel" ? "viral-carrossel" : "viral-reels-page";
     const next = new URLSearchParams(searchParams);
     next.set("tab", tab);
-    navigate({ search: next.toString() });
+    if (target === "carrossel") {
+      navigate({ search: next.toString(), hash: "#/create/new" });
+    } else {
+      navigate({ search: next.toString() });
+    }
   }
 
   const wrapperClass =

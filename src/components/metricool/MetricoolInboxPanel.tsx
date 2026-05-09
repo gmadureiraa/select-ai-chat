@@ -35,17 +35,13 @@ import {
   MessageSquarePlus,
   MessageCircleMore,
   Filter,
-  Instagram,
-  Facebook,
-  Linkedin,
-  Youtube,
-  AtSign,
-  Hash,
+  type LucideIcon,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { InboxQuickReplies } from './InboxQuickReplies';
 import { cn } from '@/lib/utils';
+import { getNetworkBranding } from '@/lib/network-branding';
 
 interface Props {
   clientId: string;
@@ -53,20 +49,28 @@ interface Props {
 
 type InboxMode = 'list-conversations' | 'list-comments' | 'list-reviews';
 
+// Lista de providers derivada de network-branding.ts (single source of truth).
+// Mantém a forma { value, label, short, Icon } pra não quebrar o resto do
+// componente, mas cores/icone agora vêm via getNetworkBranding(value).
+const PROVIDER_NETWORKS = [
+  'instagram',
+  'facebook',
+  'twitter',
+  'linkedin',
+  'tiktok',
+  'youtube',
+  'threads',
+] as const;
+
 const PROVIDERS: Array<{
   value: string;
   label: string;
   short: string;
-  Icon: typeof Instagram;
-}> = [
-  { value: 'instagram', label: 'Instagram', short: 'IG', Icon: Instagram },
-  { value: 'facebook', label: 'Facebook', short: 'FB', Icon: Facebook },
-  { value: 'twitter', label: 'X / Twitter', short: 'X', Icon: AtSign },
-  { value: 'linkedin', label: 'LinkedIn', short: 'LI', Icon: Linkedin },
-  { value: 'tiktok', label: 'TikTok', short: 'TT', Icon: Hash },
-  { value: 'youtube', label: 'YouTube', short: 'YT', Icon: Youtube },
-  { value: 'threads', label: 'Threads', short: 'Th', Icon: AtSign },
-];
+  Icon: LucideIcon;
+}> = PROVIDER_NETWORKS.map((id) => {
+  const b = getNetworkBranding(id);
+  return { value: id, label: b.label, short: b.shortLabel, Icon: b.icon };
+});
 
 function getItemText(item: any): string {
   return (
@@ -94,6 +98,30 @@ function getInitials(name: string): string {
   if (!name) return '?';
   const parts = name.trim().split(/\s+/).slice(0, 2);
   return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || '?';
+}
+
+// Limita concorrência ao chamar APIs em batch (anti rate-limit Metricool).
+async function withConcurrency<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<unknown>,
+): Promise<void> {
+  const queue = [...items];
+  const workers = Array.from({ length: Math.max(1, limit) }, async () => {
+    while (queue.length) {
+      const item = queue.shift();
+      if (item !== undefined) {
+        try {
+          await fn(item);
+        } catch (err) {
+          // Não deixa um item falho derrubar o batch inteiro.
+          // eslint-disable-next-line no-console
+          console.error('[withConcurrency] item failed', err);
+        }
+      }
+    }
+  });
+  await Promise.all(workers);
 }
 
 function getItemDate(item: any): Date | null {
@@ -258,14 +286,14 @@ export function MetricoolInboxPanel({ clientId }: Props) {
     if (unread.length === 0) return;
     setBulkBusy(true);
     try {
-      await Promise.all(
-        unread.map((i) =>
-          setStatus.mutateAsync({
-            id: String(i.id),
-            status: 'OPEN',
-            type: bulkType,
-          }),
-        ),
+      // concurrency: 3 — Metricool aplica rate-limit agressivo em /inbox/*.
+      // Paralelo total (Promise.all) com 50+ items causa 429 e ban temporário.
+      await withConcurrency(unread, 3, (i) =>
+        setStatus.mutateAsync({
+          id: String(i.id),
+          status: 'OPEN',
+          type: bulkType,
+        }),
       );
     } finally {
       setBulkBusy(false);
@@ -289,23 +317,32 @@ export function MetricoolInboxPanel({ clientId }: Props) {
             <span className="text-sm font-semibold">Inbox</span>
           </div>
 
-          {/* Provider segmented control compacto */}
+          {/* Provider segmented control compacto.
+              Quando ativa, ganha tint sutil com a textColor da rede (single
+              source of truth via getNetworkBranding). */}
           <Tabs value={provider} onValueChange={handleProviderChange}>
             <TabsList className="h-8 p-0.5">
-              {PROVIDERS.map((p) => (
-                <Tooltip key={p.value}>
-                  <TooltipTrigger asChild>
-                    <TabsTrigger
-                      value={p.value}
-                      className="h-7 px-2 text-[11px] font-medium gap-1 data-[state=active]:bg-background"
-                    >
-                      <p.Icon className="h-3 w-3" />
-                      <span className="hidden sm:inline">{p.short}</span>
-                    </TabsTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>{p.label}</TooltipContent>
-                </Tooltip>
-              ))}
+              {PROVIDERS.map((p) => {
+                const branding = getNetworkBranding(p.value);
+                const isActive = provider === p.value;
+                return (
+                  <Tooltip key={p.value}>
+                    <TooltipTrigger asChild>
+                      <TabsTrigger
+                        value={p.value}
+                        className={cn(
+                          'h-7 px-2 text-[11px] font-medium gap-1 data-[state=active]:bg-background',
+                          isActive && branding.textColor,
+                        )}
+                      >
+                        <p.Icon className="h-3 w-3" />
+                        <span className="hidden sm:inline">{p.short}</span>
+                      </TabsTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>{p.label}</TooltipContent>
+                  </Tooltip>
+                );
+              })}
             </TabsList>
           </Tabs>
 
@@ -478,11 +515,21 @@ export function MetricoolInboxPanel({ clientId }: Props) {
                               {getInitials(author)}
                             </AvatarFallback>
                           </Avatar>
-                          {networkMeta && (
-                            <span className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5 border">
-                              <networkMeta.Icon className="h-2.5 w-2.5" />
-                            </span>
-                          )}
+                          {networkMeta && (() => {
+                            const b = getNetworkBranding(network);
+                            return (
+                              <span
+                                className={cn(
+                                  'absolute -bottom-0.5 -right-0.5 rounded-full p-0.5 border border-background',
+                                  b.bgSolid,
+                                  b.iconOnBgClass,
+                                )}
+                                title={b.label}
+                              >
+                                <networkMeta.Icon className="h-2.5 w-2.5" />
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
@@ -666,12 +713,17 @@ function ConversationDetail({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-sm truncate">{author}</span>
-            {networkMeta && (
-              <Badge variant="outline" className="text-[10px] gap-1 h-5">
-                <networkMeta.Icon className="h-2.5 w-2.5" />
-                {networkMeta.short}
-              </Badge>
-            )}
+            {networkMeta && (() => {
+              const b = getNetworkBranding(network);
+              return (
+                <Badge
+                  className={cn('text-[10px] gap-1 h-5 border-transparent', b.bgSolid, b.iconOnBgClass)}
+                >
+                  <networkMeta.Icon className="h-2.5 w-2.5" />
+                  {networkMeta.short}
+                </Badge>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             {handle && <span className="truncate">@{handle}</span>}
@@ -737,43 +789,41 @@ function ConversationDetail({
             Sem mensagens.
           </div>
         ) : isThread ? (
+          // ⚠️ Endpoint Metricool /v2/inbox/conversations/{id}/messages não está
+          // disponível no wrapper. Mostrar múltiplos bubbles com fallback de 1
+          // mensagem só engana o user (parece histórico vazio).
+          // Workaround: 1 card grande com lastMessage + nota + link externo.
           <div className="space-y-3">
-            {messages.map((m, idx) => {
-              const isSelf = m.from === 'self';
-              return (
-                <div
-                  key={m.id ?? idx}
-                  className={cn(
-                    'flex',
-                    isSelf ? 'justify-end' : 'justify-start',
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'max-w-[75%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap',
-                      isSelf
-                        ? 'bg-primary text-primary-foreground rounded-br-sm'
-                        : 'bg-muted rounded-bl-sm',
-                    )}
-                  >
-                    {m.text}
-                    {m.date && (
-                      <div
-                        className={cn(
-                          'text-[10px] mt-1 opacity-70',
-                          isSelf ? 'text-right' : 'text-left',
-                        )}
-                      >
-                        {formatDistanceToNow(m.date, {
-                          addSuffix: true,
-                          locale: ptBR,
-                        })}
-                      </div>
-                    )}
-                  </div>
+            <div className="rounded-lg border bg-background p-4">
+              <div className="text-[11px] text-muted-foreground mb-2 uppercase tracking-wide font-medium">
+                Última mensagem
+              </div>
+              <p className="text-sm whitespace-pre-wrap">
+                {messages[messages.length - 1]?.text || '(sem texto)'}
+              </p>
+              {lastDate && (
+                <div className="text-[10px] text-muted-foreground mt-2">
+                  {formatDistanceToNow(lastDate, {
+                    addSuffix: true,
+                    locale: ptBR,
+                  })}
                 </div>
-              );
-            })}
+              )}
+            </div>
+            <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+              <p className="mb-2">
+                Histórico completo da thread não disponível via API. Para ver
+                todas as mensagens trocadas, abra direto no Metricool.
+              </p>
+              <a
+                href="https://app.metricool.com/inbox"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
+              >
+                Abrir thread no Metricool →
+              </a>
+            </div>
           </div>
         ) : (
           // Comments / reviews — mostra item original como card + replies

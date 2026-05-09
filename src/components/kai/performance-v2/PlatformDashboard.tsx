@@ -115,7 +115,7 @@ export function PlatformDashboard({ clientId, network, period }: Props) {
       <GrowthDelta clientId={clientId} network={network} period={period} />
 
       {/* 5. Engagement Heatmap — seletor de métrica próprio */}
-      <EngagementHeatmap posts={posts} loading={isLoadingPosts} />
+      <EngagementHeatmap posts={posts} loading={isLoadingPosts} network={network} />
 
       {/* 6. Top 5 leaderboard + Posts grid lado-a-lado em desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -131,7 +131,14 @@ export function PlatformDashboard({ clientId, network, period }: Props) {
                   <h3 className="text-sm font-semibold mt-1">{posts.length} no período</h3>
                 </div>
               </div>
-              <PostsGrid posts={posts} network={network} loading={isLoading} onClick={openPlanning} />
+              <PostsGrid
+                posts={posts}
+                network={network}
+                loading={isLoading}
+                onClick={openPlanning}
+                clientId={clientId}
+                transcriptionSource="metricool"
+              />
             </CardContent>
           </Card>
         </div>

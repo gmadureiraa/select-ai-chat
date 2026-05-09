@@ -162,6 +162,17 @@ export function n(v: unknown, fallback = 0): number {
   return Number.isFinite(num) ? num : fallback;
 }
 
+/**
+ * Denominador real pra eng rate: reach quando existe, senão impressions/views.
+ * Twitter, Threads e LinkedIn frequentemente não retornam `reach` mas têm
+ * `impressions` — sem isso, eng% cai a 0%.
+ */
+function denomFor(p: MetricoolPost): number {
+  const reach = n(p.reach);
+  if (reach > 0) return reach;
+  return n(p.impressions ?? p.views ?? p.videoViews);
+}
+
 export function getPostMetric(p: MetricoolPost, key: 'likes' | 'comments' | 'shares' | 'reach' | 'impressions' | 'views' | 'saves' | 'engagement'): number {
   if (key === 'likes') return n(p.likes ?? p.reactions);
   if (key === 'comments') return n(p.comments);
@@ -175,10 +186,10 @@ export function getPostMetric(p: MetricoolPost, key: 'likes' | 'comments' | 'sha
   if (key === 'saves') return n(p.saves ?? p.saved ?? (p as any).savedCount);
   if (key === 'engagement') {
     if (p.engagementRate) return n(p.engagementRate);
-    const reach = n(p.reach);
-    if (reach === 0) return 0;
+    const denom = denomFor(p);
+    if (denom === 0) return 0;
     const eng = getPostMetric(p, 'likes') + getPostMetric(p, 'comments') + getPostMetric(p, 'shares');
-    return (eng / reach) * 100;
+    return (eng / denom) * 100;
   }
   return 0;
 }
@@ -195,6 +206,9 @@ export function aggregatePostsMetrics(posts: MetricoolPost[]) {
     saves += getPostMetric(p, 'saves');
   }
   const eng = likes + comments + shares;
+  // Denominador da agregada: reach se houver, senão impressions (ou views).
+  // Reflete redes sem reach (Twitter/Threads/LI) — antes tudo virava 0%.
+  const denom = Math.max(reach, imp);
   return {
     totalImpressions: imp,
     totalLikes: likes,
@@ -203,7 +217,7 @@ export function aggregatePostsMetrics(posts: MetricoolPost[]) {
     totalReach: reach,
     totalViews: views,
     totalSaves: saves,
-    avgEngagementRate: reach > 0 ? (eng / reach) * 100 : 0,
+    avgEngagementRate: denom > 0 ? (eng / denom) * 100 : 0,
     postsCount: posts.length,
   };
 }

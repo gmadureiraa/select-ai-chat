@@ -165,6 +165,14 @@ export default function MainApp({ clientId, client }: Props) {
           status: "idea",
           platform: "instagram",
           created_by: u.user.id,
+          // 2026-05-09 — preserva trace pra debugging + agrupa ideias do
+          // mesmo source/owner depois (filtros no Planning view).
+          metadata: {
+            source: "reels-viral",
+            source_url: reel.source_url,
+            owner_username: reel.source_meta?.ownerUsername ?? null,
+            reel_id: reel.id,
+          } as never,
         },
       ]);
       if (error) throw error;

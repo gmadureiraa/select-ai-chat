@@ -11,14 +11,17 @@ interface SettingsNavigationProps {
   showTeam?: boolean;
 }
 
+// Ordem alinhada com `validSections` em SettingsTab.tsx (mesma lista no
+// switch + URL ?section=). Tinha um descompasso (webhooks no meio aqui,
+// no fim lá) que confundia QA — agora ambos seguem a mesma sequência.
 const sections = [
   { id: "profile" as const, label: "Perfil", icon: User },
   { id: "team" as const, label: "Time", icon: Users, requiresPermission: "team" },
   { id: "notifications" as const, label: "Notificações", icon: Bell },
-  { id: "webhooks" as const, label: "Webhooks", icon: Webhook },
   { id: "appearance" as const, label: "Aparência", icon: Palette },
   { id: "docs" as const, label: "Documentação", icon: BookOpen },
   { id: "ai-usage" as const, label: "Uso de IA", icon: Activity },
+  { id: "webhooks" as const, label: "Webhooks", icon: Webhook },
 ];
 
 export function SettingsNavigation({ 

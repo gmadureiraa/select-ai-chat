@@ -96,7 +96,7 @@ interface FollowersPoint {
   followers: number;
 }
 
-interface Props {
+export interface MetricChartHeroProps {
   posts: MetricoolPost[];
   followersHistory: FollowersPoint[];
   loading?: boolean;
@@ -106,6 +106,9 @@ interface Props {
   /** Métrica inicial. Default: engagement. */
   defaultMetric?: HeroMetric;
 }
+
+// Alias interno mantido pra evitar churn no resto do arquivo
+type Props = MetricChartHeroProps;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -125,12 +128,20 @@ interface DayBucket {
   engagementRate: number;
 }
 
+/**
+ * YYYY-MM-DD na timezone informada (default BRT). Resolve o bug de posts
+ * publicados sex 23h BRT (sáb 02h UTC) caindo no dia errado.
+ */
+function localDateKey(d: Date, tz = 'America/Sao_Paulo'): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(d);
+}
+
 function bucketByDay(posts: MetricoolPost[], period: number): DayBucket[] {
   const buckets = new Map<string, DayBucket>();
   const now = new Date();
   for (let i = period - 1; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 86400_000);
-    const key = d.toISOString().slice(0, 10);
+    const key = localDateKey(d);
     buckets.set(key, {
       date: key,
       shortDate: d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
@@ -151,7 +162,7 @@ function bucketByDay(posts: MetricoolPost[], period: number): DayBucket[] {
     const dateStr = (p.date || p.publishedAt || p.publishDate || '') as string;
     const d = new Date(dateStr);
     if (Number.isNaN(d.getTime())) continue;
-    const key = d.toISOString().slice(0, 10);
+    const key = localDateKey(d);
     const b = buckets.get(key);
     if (!b) continue;
     b.posts += 1;

@@ -140,8 +140,9 @@ import { MetricoolInboxPanel } from "@/components/metricool/MetricoolInboxPanel"
 import { MetricoolHashtagsTracker } from "@/components/metricool/MetricoolHashtagsTracker";
 import { MetricoolCompetitorsPanel } from "@/components/metricool/MetricoolCompetitorsPanel";
 import { MetricoolReportsManager } from "@/components/metricool/MetricoolReportsManager";
-import { MetricoolCalendarView } from "@/components/metricool/MetricoolCalendarView";
-import { MetricoolSmartLinksManager } from "@/components/metricool/MetricoolSmartLinksManager";
+// 2026-05-09 — MetricoolCalendarView e MetricoolSmartLinksManager removidos:
+//   * editorial-calendar foi removido do switch (Calendar live em PlanningBoard)
+//   * smart-links foi removido do switch
 // MetricoolLinkinBioEditor foi removido do menu (decisão usuário). Código permanece
 // em src/components/metricool/MetricoolLinkinBioEditor.tsx caso seja reativado.
 
@@ -262,13 +263,6 @@ export default function Kai() {
 
     // Billing tab removida — caso alguém ainda navegue via URL antiga, redireciona
     if (tab === "billing") {
-      params.delete("tab");
-      navigate(`?${params.toString()}`, { replace: true });
-      setTab(null);
-      return;
-    }
-    // (gate antigo abaixo agora unreachable, mantido pra histórico)
-    if (false && tab === "billing" && !isOwner) {
       shouldRedirect = true;
       redirectTab = "planning";
     }

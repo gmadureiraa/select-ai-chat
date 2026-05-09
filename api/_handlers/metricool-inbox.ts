@@ -28,11 +28,15 @@ export default authedPost(async ({ body }) => {
   const blogId = directBlogId || (clientId ? await resolveBlogId(clientId) : null);
   if (!blogId) throw new Error('Cliente sem blog Metricool mapeado');
 
-  // provider obrigatório pros endpoints inbox — default 'instagram' se não passar
-  const provider = (rest.provider || rest.network || 'instagram') as string;
+  // provider obrigatório pros endpoints inbox. Default por modo:
+  //  - DMs/comments → 'instagram' (mais comum)
+  //  - reviews → 'gmb' (Google Business)
+  // Se user passar explicitamente, sempre respeita.
+  const explicitProvider = (rest.provider || rest.network) as string | undefined;
 
   switch (mode) {
     case 'list-conversations': {
+      const provider = explicitProvider || 'instagram';
       const conversations = await listInboxConversations(cfg, blogId, provider, {
         status: rest.status,
         limit: rest.limit,
@@ -41,6 +45,7 @@ export default authedPost(async ({ body }) => {
       return { ok: true, provider, conversations };
     }
     case 'list-comments': {
+      const provider = explicitProvider || 'instagram';
       const comments = await listPostComments(cfg, blogId, provider, {
         limit: rest.limit,
         offset: rest.offset,
@@ -48,8 +53,9 @@ export default authedPost(async ({ body }) => {
       return { ok: true, provider, comments };
     }
     case 'list-reviews': {
-      const reviews = await listReviews(cfg, blogId, provider);
-      return { ok: true, provider, reviews };
+      const reviewProvider = explicitProvider || 'gmb';
+      const reviews = await listReviews(cfg, blogId, reviewProvider);
+      return { ok: true, provider: reviewProvider, reviews };
     }
     case 'send-message': {
       if (!rest.conversationId || !rest.text) throw new Error('conversationId e text obrigatórios');

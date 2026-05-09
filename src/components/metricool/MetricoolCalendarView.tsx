@@ -48,6 +48,12 @@ import { ptBR } from 'date-fns/locale';
 
 interface Props {
   clientId: string;
+  /**
+   * Gap #8 — callback opcional pra criar planning item ancorado num dia.
+   * Quando passado, popover de dia mostra botão "Criar planning nesse dia".
+   * Caller pode pre-preencher título com nome de evento (ex: data comemorativa).
+   */
+  onCreatePlanningItem?: (date: Date, eventTitle?: string) => void;
 }
 
 function pad(n: number) {
@@ -78,7 +84,7 @@ function dayKey(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export function MetricoolCalendarView({ clientId }: Props) {
+export function MetricoolCalendarView({ clientId, onCreatePlanningItem }: Props) {
   const { toast } = useToast();
   const [month, setMonth] = useState<Date>(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -442,17 +448,33 @@ export function MetricoolCalendarView({ clientId }: Props) {
                     align="center"
                     sideOffset={8}
                   >
-                    <div className="p-3 border-b">
-                      <div className="text-sm font-semibold">
-                        {format(selectedDate, "EEEE, dd 'de' MMMM yyyy", { locale: ptBR })}
+                    <div className="p-3 border-b space-y-2">
+                      <div>
+                        <div className="text-sm font-semibold">
+                          {format(selectedDate, "EEEE, dd 'de' MMMM yyyy", { locale: ptBR })}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {selectedDayEvents.length === 0
+                            ? 'Sem eventos nesse dia'
+                            : `${selectedDayEvents.length} evento${
+                                selectedDayEvents.length === 1 ? '' : 's'
+                              }`}
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {selectedDayEvents.length === 0
-                          ? 'Sem eventos nesse dia'
-                          : `${selectedDayEvents.length} evento${
-                              selectedDayEvents.length === 1 ? '' : 's'
-                            }`}
-                      </div>
+                      {onCreatePlanningItem && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-7 text-xs"
+                          onClick={() => {
+                            const firstEvent = selectedDayEvents[0];
+                            onCreatePlanningItem(selectedDate, firstEvent?.name);
+                            setSelectedDate(null);
+                          }}
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Criar planning nesse dia
+                        </Button>
+                      )}
                     </div>
                     <ScrollArea className="max-h-72">
                       <div className="p-2 space-y-1">

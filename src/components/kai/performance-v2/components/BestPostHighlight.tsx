@@ -11,6 +11,8 @@ import { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PostTranscriptionDialog } from './PostTranscriptionDialog';
 import type { TranscriptionSource } from '@/hooks/usePostTranscription';
+import { getNetworkBranding } from '@/lib/network-branding';
+import { cn } from '@/lib/utils';
 
 interface Props {
   posts: MetricoolPost[];
@@ -49,6 +51,7 @@ function getUrl(p: MetricoolPost): string | null {
 export function BestPostHighlight({ posts, loading, network, clientId, transcriptionSource = 'metricool' }: Props) {
   const openPlanning = useOpenPlanningFromPost();
   const [metric, setMetric] = useState<typeof METRICS[number]['value']>('engagement');
+  const branding = getNetworkBranding(network);
 
   if (loading) return <Skeleton className="h-[260px] w-full" />;
 
@@ -69,12 +72,18 @@ export function BestPostHighlight({ posts, loading, network, clientId, transcrip
   const score = getPostMetric(top, metric);
   const date = top.date || top.publishedAt || top.publishDate;
 
+  // Border + trophy + stat card "primário" (métrica selecionada) tintados com
+  // a cor da rede — single source via getNetworkBranding.
+  // 4D = 30% opacity em hex (nível 77/255 ≈ 0.30).
   return (
-    <Card className="overflow-hidden">
+    <Card
+      className="overflow-hidden border"
+      style={{ borderColor: branding.primaryHex + '4D' }}
+    >
       <CardContent className="pt-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-amber-500" />
+            <Trophy className="h-4 w-4" style={{ color: branding.primaryHex }} />
             <span className="kai-eyebrow text-xs">Post de destaque</span>
           </div>
           <Select value={metric} onValueChange={(v) => setMetric(v as typeof metric)}>
@@ -139,11 +148,17 @@ export function BestPostHighlight({ posts, loading, network, clientId, transcrip
                   {fmt(getPostMetric(top, 'reach'))}
                 </div>
               </div>
-              <div className="rounded-md border p-2 bg-amber-500/10 border-amber-500/30">
-                <div className="text-[10px] text-amber-700 dark:text-amber-400 uppercase tracking-wider font-semibold">
+              <div
+                className={cn('rounded-md border p-2', branding.accentBg, branding.borderColor)}
+              >
+                <div
+                  className={cn('text-[10px] uppercase tracking-wider font-semibold', branding.textColor)}
+                >
                   {METRICS.find((m) => m.value === metric)?.label}
                 </div>
-                <div className="text-lg font-bold tabular-nums text-amber-700 dark:text-amber-400">
+                <div
+                  className={cn('text-lg font-bold tabular-nums', branding.textColor)}
+                >
                   {metric === 'engagement' ? `${score.toFixed(2)}%` : fmt(score)}
                 </div>
               </div>
