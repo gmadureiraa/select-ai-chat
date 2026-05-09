@@ -198,8 +198,15 @@ export default authedPost(async ({ user, body }) => {
     const [news, igTop, curatedRss] = await Promise.all([
       fetchGoogleNews(newsQuery),
       query<any>(
-        `SELECT caption, likes_count, comments_count, posted_at, url FROM instagram_posts
-         WHERE client_id = $1 ORDER BY likes_count DESC NULLS LAST LIMIT 8`,
+        `SELECT caption,
+                likes AS likes_count,
+                comments AS comments_count,
+                posted_at,
+                permalink AS url
+           FROM instagram_posts
+          WHERE client_id = $1
+          ORDER BY likes DESC NULLS LAST
+          LIMIT 8`,
         [clientId]
       ),
       fetchCuratedRss(briefNiche),

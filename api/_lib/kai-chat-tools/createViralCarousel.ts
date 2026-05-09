@@ -77,12 +77,17 @@ export const createViralCarouselTool: RegisteredTool<
         : undefined;
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (ctx.isInternalCall) {
+        headers['x-internal-call'] = 'true';
+      } else {
+        headers['Authorization'] = `Bearer ${ctx.accessToken}`;
+      }
       const res = await fetch(`${ctx.internalBaseUrl}/api/generate-viral-carousel`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ctx.accessToken}`,
-        },
+        headers,
         body: JSON.stringify({
           clientId: ctx.clientId,
           briefing,
@@ -91,6 +96,7 @@ export const createViralCarouselTool: RegisteredTool<
           slideCount,
           persistAs: addToPlanning ? 'both' : 'carousel',
           source: 'chat',
+          ...(ctx.isInternalCall ? { userId: ctx.userId } : {}),
         }),
       });
       if (!res.ok) {

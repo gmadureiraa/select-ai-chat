@@ -24,10 +24,36 @@ export interface AuthUser {
 }
 
 /**
+ * Internal bypass — only callable from inside the same Node runtime
+ * (e.g. dev-test-flows handler). Header `x-internal-cron-secret` must match
+ * env CRON_SECRET, and `x-internal-user-id` carries the user UUID to assume.
+ *
+ * NEVER trust this from public traffic — Vercel does not strip custom headers,
+ * but the secret check makes forging this equivalent to knowing CRON_SECRET.
+ */
+function tryInternalBypass(req: VercelRequest): AuthUser | null {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) return null;
+  const headerSecret = req.headers['x-internal-cron-secret'];
+  const headerUser = req.headers['x-internal-user-id'];
+  const secretVal = Array.isArray(headerSecret) ? headerSecret[0] : headerSecret;
+  const userVal = Array.isArray(headerUser) ? headerUser[0] : headerUser;
+  if (secretVal !== cronSecret || !userVal) return null;
+  return {
+    id: userVal,
+    email: undefined,
+    raw: { sub: userVal, _internal_bypass: true },
+  };
+}
+
+/**
  * Verify Bearer token from Authorization header.
  * Returns the user (sub claim → id) or throws.
  */
 export async function verifyAuth(req: VercelRequest): Promise<AuthUser> {
+  const bypass = tryInternalBypass(req);
+  if (bypass) return bypass;
+
   const auth = req.headers.authorization || req.headers.Authorization;
   const headerVal = Array.isArray(auth) ? auth[0] : auth;
   if (!headerVal || !headerVal.startsWith('Bearer ')) {
@@ -51,8 +77,11 @@ export async function verifyAuth(req: VercelRequest): Promise<AuthUser> {
 
 /**
  * Optional auth: return user if header is valid, else null. Never throws.
+ * Also honors the internal bypass header pair (used by dev-test-flows).
  */
 export async function tryAuth(req: VercelRequest): Promise<AuthUser | null> {
+  const bypass = tryInternalBypass(req);
+  if (bypass) return bypass;
   try {
     return await verifyAuth(req);
   } catch {

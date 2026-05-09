@@ -2196,6 +2196,7 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
         emit,
         accessToken,
         internalBaseUrl,
+        isInternalCall: !!body.internalServiceAuth,
       };
 
       try {

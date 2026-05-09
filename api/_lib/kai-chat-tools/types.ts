@@ -41,6 +41,14 @@ export interface ToolExecutionContext {
    * o que `req.headers.host` indicar. Sempre sem trailing slash.
    */
   internalBaseUrl: string;
+  /**
+   * True quando o chat foi invocado via `internalServiceAuth: true` (bot/cron
+   * Telegram, dev-test-flows, etc). Tools que fazem fetch HTTP de outros
+   * handlers devem injetar o header `x-internal-call: true` + `userId` no body
+   * em vez de tentar Authorization Bearer (já que `accessToken` aqui é o
+   * service-role token, não um JWT user).
+   */
+  isInternalCall?: boolean;
 }
 
 export interface ToolHandlerResult<TData = unknown> {

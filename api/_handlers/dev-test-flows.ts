@@ -2,13 +2,65 @@
 // Auth: somente CRON_SECRET (mesma que crons usam). Não exposto pra users.
 //
 // Body:
-//   { flow: 'gen-carousel' | 'check-env' | 'check-tables' | 'check-carousel-deps',
+//   { flow: 'gen-carousel' | 'gen-reel' | 'gen-radar-brief' | 'kai-chat' |
+//           'check-env' | 'check-tables' | 'check-carousel-deps',
 //     clientId?: string, briefing?: string, slideCount?: number }
 //
 // Retorna: { ok, flow, durationMs, result?, error? }
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, queryOne } from '../_lib/db.js';
+
+/**
+ * Invoke a real handler (`authedPost(...)` / SSE handler) by mocking req+res.
+ * Auth bypass via `x-internal-cron-secret` + `x-internal-user-id` headers
+ * understood by `verifyAuth` / `tryAuth`.
+ */
+async function invokeRealHandler(
+  handlerModule: any,
+  payload: Record<string, any>,
+  cronSecret: string,
+  userId: string,
+  capture: 'json' | 'sse' = 'json',
+): Promise<{ status: number; body: any; sseChunks: string[] }> {
+  const sseChunks: string[] = [];
+  let captured: any = null;
+  let status = 200;
+
+  const mockReq: any = {
+    method: 'POST',
+    url: '/api/_internal-bypass',
+    headers: {
+      'content-type': 'application/json',
+      'x-internal-cron-secret': cronSecret,
+      'x-internal-user-id': userId,
+    },
+    body: payload,
+    query: {},
+  };
+  const mockRes: any = {
+    statusCode: 200,
+    writableEnded: false,
+    setHeader: () => mockRes,
+    getHeader: () => undefined,
+    flushHeaders: () => {},
+    write: (chunk: any) => {
+      if (capture === 'sse') {
+        sseChunks.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf-8'));
+      }
+      return true;
+    },
+    status(c: number) { this.statusCode = c; status = c; return this; },
+    json(p: any) { captured = p; this.writableEnded = true; return this; },
+    send(p: any) { captured = p; this.writableEnded = true; return this; },
+    end() { this.writableEnded = true; return this; },
+    on: () => mockRes,
+  };
+
+  const fn = handlerModule.default || handlerModule;
+  await fn(mockReq, mockRes);
+  return { status, body: captured, sseChunks };
+}
 
 const GABRIEL_USER_ID = '5014248e-b1ac-4306-8490-2644dcd8aeb5';
 const GABRIEL_EMAIL = 'gf.madureiraa@gmail.com';
@@ -214,6 +266,264 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    if (flow === 'gen-reel') {
+      step('start gen-reel — adapt-viral-reel real handler');
+      const referenceUrl = body.referenceUrl as string;
+      const tema = (body.tema as string) ?? 'Como criar carrosseis virais';
+      const objetivo = (body.objetivo as string) ?? 'leads';
+      const cta = (body.cta as string) ?? 'comenta CARROSSEL';
+      const persona = body.persona as string | undefined;
+      const nicho = body.nicho as string | undefined;
+
+      if (!referenceUrl) {
+        errors.push('referenceUrl obrigatório');
+        return res.status(400).json({ ok: false, flow, errors, log });
+      }
+
+      const mod: any = await import('./adapt-viral-reel.js');
+      step('imported adapt-viral-reel');
+
+      const out = await invokeRealHandler(
+        mod,
+        { clientId, sourceUrl: referenceUrl, tema, objetivo, cta, persona, nicho },
+        cronSecret,
+        GABRIEL_USER_ID,
+      );
+      step(`adapt-viral-reel returned status=${out.status}`);
+
+      if (out.status >= 400) {
+        errors.push(`adapt-viral-reel ${out.status}: ${JSON.stringify(out.body).slice(0, 600)}`);
+      }
+
+      // Validate persistence
+      const pool = getPool();
+      let reelRow: any = null;
+      const reelId: string | undefined = out.body?.reelId;
+      if (reelId) {
+        try {
+          const r = await pool.query(
+            `SELECT id, status, source_url, source_short_code, tema, objetivo, cta,
+                    (analysis IS NOT NULL) AS has_analysis,
+                    (script IS NOT NULL) AS has_script,
+                    error_message, duration_ms, created_at
+               FROM viral_reels WHERE id = $1`,
+            [reelId],
+          );
+          reelRow = r.rows[0] ?? null;
+          step(`reel row: ${reelRow ? `status=${reelRow.status}` : 'MISSING'}`);
+          if (reelRow && reelRow.status !== 'done') {
+            errors.push(`reel status='${reelRow.status}' (expected 'done')`);
+          }
+        } catch (e: any) {
+          errors.push(`reel db lookup: ${e?.message}`);
+        }
+      } else {
+        errors.push('handler did not return reelId');
+      }
+
+      // Sanity-check script populated
+      const scenes = out.body?.script?.scenes ?? [];
+      const analysis = out.body?.analysis ?? null;
+      if (scenes.length === 0) errors.push('script.scenes vazio');
+      if (!analysis) errors.push('analysis vazio');
+
+      return res.status(200).json({
+        ok: errors.length === 0 && out.status === 200,
+        flow,
+        durationMs: Date.now() - t0,
+        statusCode: out.status,
+        reelId: reelId ?? null,
+        scenesReturned: scenes.length,
+        scenesPreview: scenes.slice(0, 3).map((s: any) => ({
+          n: s?.n, papel: s?.papel, tempo: s?.tempo,
+          copyHead: (s?.copy ?? '').slice(0, 80),
+        })),
+        analysisResumo: analysis?.resumo?.slice(0, 200) ?? null,
+        sourceMeta: out.body?.sourceMeta ?? null,
+        reelRow,
+        log,
+        errors,
+        rawPayload: errors.length > 0 ? out.body : undefined,
+      });
+    }
+
+    if (flow === 'gen-radar-brief') {
+      step('start gen-radar-brief — generate-radar-brief real handler');
+      const niche = body.niche as string | undefined;
+
+      const mod: any = await import('./generate-radar-brief.js');
+      step('imported generate-radar-brief');
+
+      const out = await invokeRealHandler(
+        mod,
+        { clientId, niche },
+        cronSecret,
+        GABRIEL_USER_ID,
+      );
+      step(`generate-radar-brief returned status=${out.status}`);
+
+      if (out.status >= 400) {
+        errors.push(`generate-radar-brief ${out.status}: ${JSON.stringify(out.body).slice(0, 600)}`);
+      }
+
+      const pool = getPool();
+      let briefRow: any = null;
+      const briefId: string | undefined = out.body?.briefId;
+      if (briefId) {
+        try {
+          const r = await pool.query(
+            `SELECT id, status, niche,
+                    jsonb_array_length(narratives) AS narratives_count,
+                    jsonb_array_length(hot_topics) AS hot_topics_count,
+                    jsonb_array_length(carousel_ideas) AS ideas_count,
+                    jsonb_array_length(cross_pollination) AS cross_count,
+                    sources_summary, error_message, duration_ms, cost_usd
+               FROM viral_radar_briefs WHERE id = $1`,
+            [briefId],
+          );
+          briefRow = r.rows[0] ?? null;
+          step(`brief row: ${briefRow ? `status=${briefRow.status}` : 'MISSING'}`);
+          if (briefRow && briefRow.status !== 'done') {
+            errors.push(`brief status='${briefRow.status}' (expected 'done')`);
+          }
+        } catch (e: any) {
+          errors.push(`brief db lookup: ${e?.message}`);
+        }
+      } else {
+        errors.push('handler did not return briefId');
+      }
+
+      const brief = out.body?.brief ?? null;
+      const narratives = brief?.narratives ?? [];
+      const hotTopics = brief?.hot_topics ?? [];
+      if (narratives.length === 0 && out.status === 200) errors.push('narratives vazio');
+
+      return res.status(200).json({
+        ok: errors.length === 0 && out.status === 200,
+        flow,
+        durationMs: Date.now() - t0,
+        statusCode: out.status,
+        briefId: briefId ?? null,
+        narrativesCount: narratives.length,
+        hotTopicsCount: hotTopics.length,
+        carouselIdeasCount: brief?.carousel_ideas?.length ?? 0,
+        crossPollinationCount: brief?.cross_pollination?.length ?? 0,
+        narrativesPreview: narratives.slice(0, 3).map((n: any) => ({
+          title: n?.title, why: (n?.why ?? '').slice(0, 100),
+        })),
+        sourcesSummary: brief?.sources_summary ?? null,
+        briefRow,
+        log,
+        errors,
+        rawPayload: errors.length > 0 ? out.body : undefined,
+      });
+    }
+
+    if (flow === 'kai-chat') {
+      step('start kai-chat — kai-simple-chat real handler');
+      const message = (body.message as string) ?? 'Quais carrosseis posso fazer essa semana?';
+      const stream = body.stream === true; // default false (non-SSE = simpler)
+      const useTools = body.useTools !== false; // default true
+
+      const mod: any = await import('./kai-simple-chat.js');
+      step('imported kai-simple-chat');
+
+      // Use internalServiceAuth path — handler accepts SUPABASE_SERVICE_ROLE_KEY.
+      const internalToken = process.env.INTERNAL_SERVICE_TOKEN || process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!internalToken) {
+        errors.push('INTERNAL_SERVICE_TOKEN / SUPABASE_SERVICE_ROLE_KEY missing — cannot call kai-simple-chat');
+        return res.status(500).json({ ok: false, flow, errors, log });
+      }
+
+      // kai-simple-chat doesn't honor verifyAuth bypass — it has own internalServiceAuth
+      // path. Build mockReq with that auth.
+      const mockReq: any = {
+        method: 'POST',
+        url: '/api/kai-simple-chat',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${internalToken}`,
+        },
+        body: {
+          message,
+          clientId,
+          internalServiceAuth: true,
+          userId: GABRIEL_USER_ID,
+          stream,
+          useTools,
+        },
+        query: {},
+      };
+      const sseChunks: string[] = [];
+      let captured: any = null;
+      let statusCode = 200;
+      const mockRes: any = {
+        statusCode: 200,
+        writableEnded: false,
+        setHeader: () => mockRes,
+        getHeader: () => undefined,
+        flushHeaders: () => {},
+        write: (chunk: any) => {
+          sseChunks.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf-8'));
+          return true;
+        },
+        status(c: number) { this.statusCode = c; statusCode = c; return this; },
+        json(p: any) { captured = p; this.writableEnded = true; return this; },
+        send(p: any) { captured = p; this.writableEnded = true; return this; },
+        end() { this.writableEnded = true; return this; },
+        on: () => mockRes,
+      };
+
+      step('calling kai-simple-chat...');
+      try {
+        await mod.default(mockReq, mockRes);
+        step(`kai-simple-chat returned status=${statusCode}, ssechunks=${sseChunks.length}`);
+      } catch (e: any) {
+        errors.push(`kai-simple-chat threw: ${e?.message}`);
+      }
+
+      const sseJoined = sseChunks.join('');
+      const toolEvents: any[] = [];
+      const actionCards: any[] = [];
+      const contentDeltas: string[] = [];
+      // Parse SSE: lines beginning with "data:" carrying JSON.
+      // KAI emitter format: { choices: [{ delta: { content?, tool_running?, action_card?, image?, error? } }] }
+      for (const line of sseJoined.split('\n')) {
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        try {
+          const j = JSON.parse(payload);
+          const delta = j?.choices?.[0]?.delta;
+          if (!delta) continue;
+          if (delta.content) contentDeltas.push(delta.content);
+          if (delta.tool_running) toolEvents.push({ kind: 'tool_running', ...delta.tool_running });
+          if (delta.action_card) actionCards.push(delta.action_card);
+          if (delta.error) toolEvents.push({ kind: 'error', error: delta.error });
+        } catch {}
+      }
+
+      return res.status(200).json({
+        ok: errors.length === 0 && statusCode === 200,
+        flow,
+        durationMs: Date.now() - t0,
+        statusCode,
+        sseChunkCount: sseChunks.length,
+        contentLength: contentDeltas.join('').length,
+        contentHead: contentDeltas.join('').slice(0, 300),
+        toolEvents: toolEvents.slice(0, 10),
+        actionCardsCount: actionCards.length,
+        actionCardsPreview: actionCards.slice(0, 3).map((c: any) => ({
+          id: c?.id, type: c?.type, status: c?.status,
+          planning_item_id: c?.planning_item_id,
+          briefing: c?.data?.briefing?.slice(0, 80),
+        })),
+        capturedJson: captured,
+        log,
+        errors,
+      });
+    }
+
     if (flow === 'check-tables') {
       const pool = getPool();
       const tables = [
@@ -265,6 +575,153 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         flow,
         env,
         durationMs: Date.now() - t0,
+      });
+    }
+
+    if (flow === 'test-automation') {
+      // Fluxo end-to-end planning_automations:
+      //   1. Cria planning_automation tipo schedule daily/now (auto_generate=true)
+      //   2. Dispara process-automations apontando pra ela (manualmente)
+      //   3. Verifica planning_item criado pela automation
+      //   4. Cleanup (default true) — apaga item, runs e a automation
+      //
+      // Body opts:
+      //   { cleanup?: false, statusAfterGeneration?: 'idea'|'draft'|'approved' }
+      step('start test-automation');
+      const pool = getPool();
+
+      // 1. Resolve coluna padrão do workspace Kaleidos
+      const col = await queryOne<{ id: string }>(
+        `SELECT id FROM kanban_columns
+           WHERE workspace_id = $1
+           ORDER BY (is_default IS TRUE) DESC, position ASC
+           LIMIT 1`,
+        [KALEIDOS_WORKSPACE],
+      );
+      if (!col?.id) {
+        errors.push('Sem kanban_columns no workspace Kaleidos');
+        return res.status(200).json({
+          ok: false, flow, errors, log, durationMs: Date.now() - t0,
+        });
+      }
+      step(`column resolved: ${col.id}`);
+
+      // 2. Cria automação de teste — schedule daily 00:00 garante shouldTrigger=true
+      //    em qualquer chamada manual (e o handler já força shouldTrigger=true via
+      //    automationId). content_type=tweet, auto_publish=false.
+      const automationName = `[TEST] dev-test-flow ${new Date().toISOString().slice(0, 16)}`;
+      const insertRes = await pool.query(
+        `INSERT INTO planning_automations
+           (workspace_id, client_id, name, is_active,
+            trigger_type, trigger_config,
+            target_column_id, platform, content_type,
+            auto_generate_content, prompt_template,
+            auto_publish, status_after_generation,
+            auto_generate_image,
+            created_by)
+         VALUES ($1, $2, $3, TRUE,
+                 'schedule', $4::jsonb,
+                 $5, 'twitter', 'tweet',
+                 TRUE, $6,
+                 FALSE, $7,
+                 FALSE,
+                 $8)
+         RETURNING id, name, status_after_generation, content_type, trigger_type`,
+        [
+          KALEIDOS_WORKSPACE,
+          MADUREIRA_CLIENT,
+          automationName,
+          JSON.stringify({ type: 'daily', time: '00:00' }),
+          col.id,
+          'Tweet de teste em PT-BR, 1 frase curta sobre marketing/IA. Sem hashtag.',
+          (body.statusAfterGeneration as string) ?? 'idea',
+          GABRIEL_USER_ID,
+        ],
+      );
+      const automation = insertRes.rows[0];
+      step(`automation created: ${automation.id} status_after=${automation.status_after_generation}`);
+
+      // 3. Dispara process-automations apontando pra essa automation
+      let processStatusCode = 0;
+      let processPayload: any = null;
+      try {
+        const mod: any = await import('./process-automations.js');
+        const mockReq: any = {
+          method: 'POST',
+          headers: {
+            authorization: authHeader,
+            'content-type': 'application/json',
+          },
+          body: { automationId: automation.id },
+          query: {},
+        };
+        const mockRes: any = {
+          statusCode: 200,
+          headersSent: false,
+          setHeader: () => mockRes,
+          status(c: number) { this.statusCode = c; processStatusCode = c; return this; },
+          json(p: any) { processPayload = p; this.headersSent = true; return this; },
+          end() { this.headersSent = true; return this; },
+        };
+        await mod.default(mockReq, mockRes);
+        step(`process-automations status=${processStatusCode} triggered=${processPayload?.triggered}`);
+      } catch (e: any) {
+        errors.push(`process-automations: ${e?.message}`);
+      }
+
+      // 4. Verifica planning_item criado pela automation (filtra por metadata.automation_id)
+      const itemRow = await queryOne<{
+        id: string;
+        title: string;
+        content: string | null;
+        content_type: string;
+        status: string;
+        column_id: string;
+      }>(
+        `SELECT id, title, content, content_type, status, column_id
+           FROM planning_items
+          WHERE workspace_id = $1
+            AND metadata::text LIKE $2
+          ORDER BY created_at DESC
+          LIMIT 1`,
+        [KALEIDOS_WORKSPACE, `%${automation.id}%`],
+      );
+      step(`planning_item created: ${itemRow ? itemRow.id : 'NOT FOUND'}`);
+      if (!itemRow) errors.push('planning_item não foi criado pela automation');
+
+      // 5. Cleanup opcional (default true)
+      const cleanup = body.cleanup !== false;
+      if (cleanup && itemRow?.id) {
+        await pool.query(`DELETE FROM planning_items WHERE id = $1`, [itemRow.id]).catch(() => null);
+        step(`planning_item ${itemRow.id} removed`);
+      }
+      if (cleanup) {
+        await pool.query(`DELETE FROM planning_automation_runs WHERE automation_id = $1`, [automation.id]).catch(() => null);
+        await pool.query(`DELETE FROM planning_automations WHERE id = $1`, [automation.id]).catch(() => null);
+        step(`automation ${automation.id} removed`);
+      }
+
+      return res.status(200).json({
+        ok: errors.length === 0 && !!itemRow,
+        flow,
+        durationMs: Date.now() - t0,
+        automationId: automation.id,
+        automationName,
+        statusAfterGeneration: automation.status_after_generation,
+        processStatusCode,
+        processTriggered: processPayload?.triggered ?? 0,
+        processResults: processPayload?.results ?? [],
+        planningItem: itemRow ? {
+          id: itemRow.id,
+          title: itemRow.title,
+          status: itemRow.status,
+          content_type: itemRow.content_type,
+          contentLen: itemRow.content?.length ?? 0,
+          contentHead: (itemRow.content ?? '').slice(0, 120),
+        } : null,
+        cleanup,
+        log,
+        errors,
       });
     }
 
