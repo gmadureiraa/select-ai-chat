@@ -68,6 +68,7 @@ export const handlerLoaders: Record<string, () => Promise<any>> = {
   'late-webhook': () => import('./_handlers/late-webhook.js'),
   'late-webhook-reprocess': () => import('./_handlers/late-webhook-reprocess.js'),
   'late-webhook-test': () => import('./_handlers/late-webhook-test.js'),
+  'postiz-analytics': () => import('./_handlers/postiz-analytics.js'),
   'postiz-post': () => import('./_handlers/postiz-post.js'),
   'postiz-schedule': () => import('./_handlers/postiz-schedule.js'),
   'postiz-integrations': () => import('./_handlers/postiz-integrations.js'),

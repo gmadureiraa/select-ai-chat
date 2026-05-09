@@ -109,15 +109,29 @@ export default authedPost(async ({ body }) => {
       : undefined,
   });
 
-  // Build settings per-platform
+  // Build settings per-platform — propaga TODOS os campos opcionais
+  // do PlatformOptionsPanel (trialReel, audioName, thumbnail, collaborators, etc).
+  const igExtra: Record<string, unknown> = {};
+  if (platform === 'instagram') {
+    if (igOpts.trialReel && igOpts.trialReel !== 'off') {
+      igExtra.is_trial_reel = true;
+      igExtra.graduation_strategy = igOpts.trialReel === 'auto' ? 'SS_PERFORMANCE' : 'MANUAL';
+    } else {
+      igExtra.is_trial_reel = false;
+    }
+    if (igOpts.collaborators?.length) igExtra.collaborators = igOpts.collaborators.slice(0, 3);
+    if (igOpts.audioName) igExtra.audioName = igOpts.audioName;
+    if (igOpts.instagramThumbnail) igExtra.instagramThumbnail = igOpts.instagramThumbnail;
+    else if (typeof igOpts.thumbOffset === 'number') igExtra.thumbOffset = igOpts.thumbOffset;
+    if (igOpts.shareToFeed !== undefined) igExtra.shareToFeed = igOpts.shareToFeed;
+  }
+
   const settings = buildPlatformSettings(platform, {
     contentType: igOpts.contentType,
     firstComment: igOpts.firstComment || fbOpts.firstComment,
     title: platform === 'youtube' ? content.split('\n')[0]?.substring(0, 100) || 'Untitled' : undefined,
     privacyLevel: platform === 'tiktok' ? 'PUBLIC_TO_EVERYONE' : undefined,
-    extra: {
-      ...(platform === 'instagram' && igOpts.shareToFeed !== undefined ? { shareToFeed: igOpts.shareToFeed } : {}),
-    },
+    extra: igExtra,
   });
 
   const postType: PostizCreatePostBody['type'] = scheduledFor ? 'schedule' : (publishNow ? 'now' : 'draft');

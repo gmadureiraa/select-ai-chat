@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLateAnalytics, PlatformMetrics } from "@/hooks/useLateAnalytics";
+import { usePostizAnalytics as useLateAnalytics, PlatformMetrics } from "@/hooks/usePostizAnalytics";
 import { cn } from "@/lib/utils";
 import {
   RefreshCw, TrendingUp, TrendingDown, Eye, Heart, MessageCircle,
@@ -217,7 +217,7 @@ export function KaiAnalyticsTab({ clientId, client }: KaiAnalyticsTabProps) {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Métricas em tempo real via Late.dev{client?.name ? ` — ${client.name}` : ""}
+            Métricas em tempo real via Postiz{client?.name ? ` — ${client.name}` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
