@@ -45,8 +45,15 @@ export default authedPost(async ({ body }) => {
       return { ok: true, network, stories: await fetcher(cfg, blogId, from, to), from, to };
     }
     case 'timeline': {
-      if (!rest.metric) throw new Error('metric obrigatório (ex: igFollowers, fbFans, twFollowers)');
-      return { ok: true, metric: rest.metric, timeline: await getTimeline(cfg, blogId, rest.metric, from, to) };
+      if (!rest.network || !rest.metric) {
+        throw new Error('network e metric obrigatórios (ex: network=facebook, metric=pageFollows)');
+      }
+      return {
+        ok: true,
+        network: rest.network,
+        metric: rest.metric,
+        timeline: await getTimeline(cfg, blogId, rest.network, rest.metric, from, to, rest.timezone),
+      };
     }
     case 'aggregation': {
       if (!rest.metric) throw new Error('metric obrigatório');

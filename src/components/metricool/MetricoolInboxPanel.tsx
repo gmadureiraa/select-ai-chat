@@ -16,12 +16,23 @@ interface Props {
 
 type InboxMode = 'list-conversations' | 'list-comments' | 'list-reviews';
 
+const PROVIDERS: Array<{ value: string; label: string }> = [
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'facebook', label: 'Facebook' },
+  { value: 'linkedin', label: 'LinkedIn' },
+  { value: 'twitter', label: 'X / Twitter' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'youtube', label: 'YouTube' },
+  { value: 'threads', label: 'Threads' },
+];
+
 export function MetricoolInboxPanel({ clientId }: Props) {
   const [mode, setMode] = useState<InboxMode>('list-conversations');
+  const [provider, setProvider] = useState<string>('instagram');
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
 
-  const { data, isLoading } = useMetricoolInbox(clientId, mode);
+  const { data, isLoading } = useMetricoolInbox(clientId, mode, provider);
   const { sendMessage, replyComment, replyReview, setStatus } = useMetricoolInboxActions(clientId);
 
   const items: any[] = (data?.conversations || data?.comments || data?.reviews || []) as any[];
@@ -53,6 +64,20 @@ export function MetricoolInboxPanel({ clientId }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="text-xs text-muted-foreground">Plataforma:</span>
+          {PROVIDERS.map((p) => (
+            <Button
+              key={p.value}
+              size="sm"
+              variant={provider === p.value ? 'default' : 'outline'}
+              onClick={() => setProvider(p.value)}
+              className="h-7 text-xs"
+            >
+              {p.label}
+            </Button>
+          ))}
+        </div>
         <Tabs value={mode} onValueChange={(v) => setMode(v as InboxMode)}>
           <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="list-conversations" className="gap-1">

@@ -2,16 +2,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiInvoke } from '../lib/apiInvoke';
 
-export function useMetricoolInbox(clientId: string, mode: 'list-conversations' | 'list-comments' | 'list-reviews' = 'list-conversations') {
+export function useMetricoolInbox(
+  clientId: string,
+  mode: 'list-conversations' | 'list-comments' | 'list-reviews' = 'list-conversations',
+  provider: string = 'instagram',
+) {
   return useQuery({
-    queryKey: ['metricool-inbox', clientId, mode],
+    queryKey: ['metricool-inbox', clientId, mode, provider],
     queryFn: async () => {
-      const { data, error } = await apiInvoke('metricool-inbox', { body: { clientId, mode } });
+      const { data, error } = await apiInvoke('metricool-inbox', {
+        body: { clientId, mode, provider },
+      });
       if (error) throw error;
-      return data as { ok: boolean; conversations?: any[]; comments?: any[]; reviews?: any[] };
+      return data as { ok: boolean; provider?: string; conversations?: any[]; comments?: any[]; reviews?: any[] };
     },
     enabled: !!clientId,
-    staleTime: 1000 * 30, // 30s — inbox quer dados frescos
+    staleTime: 1000 * 30,
   });
 }
 

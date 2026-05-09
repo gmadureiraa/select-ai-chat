@@ -28,26 +28,28 @@ export default authedPost(async ({ body }) => {
   const blogId = directBlogId || (clientId ? await resolveBlogId(clientId) : null);
   if (!blogId) throw new Error('Cliente sem blog Metricool mapeado');
 
+  // provider obrigatório pros endpoints inbox — default 'instagram' se não passar
+  const provider = (rest.provider || rest.network || 'instagram') as string;
+
   switch (mode) {
     case 'list-conversations': {
-      const conversations = await listInboxConversations(cfg, blogId, {
+      const conversations = await listInboxConversations(cfg, blogId, provider, {
         status: rest.status,
         limit: rest.limit,
         offset: rest.offset,
       });
-      return { ok: true, conversations };
+      return { ok: true, provider, conversations };
     }
     case 'list-comments': {
-      const comments = await listPostComments(cfg, blogId, {
-        network: rest.network,
+      const comments = await listPostComments(cfg, blogId, provider, {
         limit: rest.limit,
         offset: rest.offset,
       });
-      return { ok: true, comments };
+      return { ok: true, provider, comments };
     }
     case 'list-reviews': {
-      const reviews = await listReviews(cfg, blogId, { network: rest.network });
-      return { ok: true, reviews };
+      const reviews = await listReviews(cfg, blogId, provider);
+      return { ok: true, provider, reviews };
     }
     case 'send-message': {
       if (!rest.conversationId || !rest.text) throw new Error('conversationId e text obrigatórios');

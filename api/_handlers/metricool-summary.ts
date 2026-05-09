@@ -42,14 +42,17 @@ interface SummaryResponse {
   errors?: Record<string, string>;
 }
 
-const TIMELINE_METRICS: Record<string, string> = {
-  instagram: 'igFollowers',
-  facebook: 'fbFans',
-  twitter: 'twFollowers',
-  linkedin: 'liFollowers',
-  tiktok: 'ttFollowers',
-  youtube: 'ytSubscribers',
-  threads: 'thFollowers',
+// Timeline "followers" — Metricool aceita métricas DIFERENTES pra cada rede,
+// e às vezes nem expõe followers via /v2/analytics/timelines. As métricas
+// abaixo foram VALIDADAS via testes; redes não-listadas usam proxy posts.
+//
+// IMPORTANTE: Facebook 'pageFollows' NÃO funciona (validado 2026-05-09).
+// Valid metrics for FB account: post_impressions_unique, interactions, engagement, count.
+// Stick com `count` (agregado de posts) como proxy histórico até descobrir endpoint
+// real de followers (provavelmente é em outro endpoint /stats/account/*).
+const TIMELINE_FOLLOWER_METRICS: Record<string, { metric: string; subject?: string }> = {
+  linkedin: { metric: 'followers' },
+  tiktok: { metric: 'followers_count', subject: 'account' },
 };
 
 const ANALYTICS_NETWORKS = ['instagram', 'facebook', 'twitter', 'linkedin', 'tiktok', 'threads', 'youtube'] as const;
@@ -142,9 +145,12 @@ export default authedPost<SummaryResponse>(async ({ body }) => {
   await Promise.all(
     ANALYTICS_NETWORKS.map(async (network) => {
       try {
+        const tlConfig = TIMELINE_FOLLOWER_METRICS[network];
         const [posts, timelineSeries] = await Promise.all([
           getNetworkPosts(cfg, blogId, network, from, to).catch(() => []),
-          getTimeline(cfg, blogId, TIMELINE_METRICS[network], from, to).catch(() => []),
+          tlConfig
+            ? getTimeline(cfg, blogId, network, tlConfig.metric, from, to).catch(() => [])
+            : Promise.resolve([]),
         ]);
 
         const history = (timelineSeries as any[]).map((t) => ({

@@ -490,17 +490,34 @@ export async function getFacebookStories(
   return data?.data || [];
 }
 
-/** Timeline de uma métrica específica (followers, impressions, reach, etc). */
+/**
+ * Timeline de uma métrica específica.
+ * Endpoint correto: /v2/analytics/timelines com network+metric obrigatórios.
+ *
+ * Networks suportadas: tiktok, tiktokads, pinterest, youtube, facebook, gmb,
+ * instagram, linkedin. NÃO suporta twitter/threads/bluesky aqui.
+ *
+ * Métricas variam por rede. Exemplos:
+ *   facebook: pageFollows, page_actions_post_reactions_total, postsCount, likes
+ *   instagram: postsCount, postsInteractions, email_contacts, count, engagement
+ *   linkedin (company): followers, paidFollowers, deltaFollowers
+ *   linkedin (personal): followers, deltaFollowers, impression
+ *   tiktok (account): followers_count, video_views, profile_views, likes
+ *   pinterest (accounts): followers, following
+ *   youtube: views, interactions, likes, comments, shares
+ */
 export async function getTimeline(
   cfg: MetricoolConfig,
   blogId: string | number,
-  metric: string, // e.g. "igFollowers", "fbFans", "twFollowers"
-  start: string,
-  end: string,
+  network: string,
+  metric: string,
+  from: string,
+  to: string,
+  timezone?: string,
 ): Promise<Array<{ date: string; value: number }>> {
-  const data = await metricoolFetch<any>(cfg, `/stats/timeling/${metric}`, {
+  const data = await metricoolFetch<any>(cfg, '/v2/analytics/timelines', {
     blogId,
-    search: { start, end },
+    search: { network, metric, from, to, ...(timezone ? { timezone } : {}) },
   });
   if (Array.isArray(data)) return data;
   return data?.data || data?.timeline || [];
@@ -537,14 +554,20 @@ export async function getAggregation(
 // Inbox — DMs + comentários + reviews unificados
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Lista conversas inbox de uma plataforma específica.
+ * `provider` é OBRIGATÓRIO (instagram/facebook/linkedin/twitter/etc).
+ */
 export async function listInboxConversations(
   cfg: MetricoolConfig,
   blogId: string | number,
+  provider: string,
   filters: { status?: 'OPEN' | 'CLOSED' | 'PENDING'; limit?: number; offset?: number } = {},
 ): Promise<MetricoolInboxConversation[]> {
   const data = await metricoolFetch<any>(cfg, '/v2/inbox/conversations', {
     blogId,
     search: {
+      provider,
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.limit ? { limit: filters.limit } : {}),
       ...(filters.offset ? { offset: filters.offset } : {}),
@@ -567,14 +590,16 @@ export async function sendInboxMessage(
   });
 }
 
+/** Lista comentários — `provider` obrigatório. */
 export async function listPostComments(
   cfg: MetricoolConfig,
   blogId: string | number,
-  filters: { network?: string; limit?: number; offset?: number } = {},
+  provider: string,
+  filters: { limit?: number; offset?: number } = {},
 ): Promise<any[]> {
   const data = await metricoolFetch<any>(cfg, '/v2/inbox/post-comments', {
     blogId,
-    search: filters as Record<string, string | number>,
+    search: { provider, ...filters } as Record<string, string | number>,
   });
   if (Array.isArray(data)) return data;
   return data?.data || [];
@@ -616,14 +641,15 @@ export async function setInboxStatus(
   });
 }
 
+/** Lista reviews — provider opcional (default 'gmb'). */
 export async function listReviews(
   cfg: MetricoolConfig,
   blogId: string | number,
-  filters: { network?: string } = {},
+  provider = 'gmb',
 ): Promise<any[]> {
   const data = await metricoolFetch<any>(cfg, '/v2/inbox/reviews', {
     blogId,
-    search: filters as Record<string, string>,
+    search: { provider },
   });
   if (Array.isArray(data)) return data;
   return data?.data || [];
