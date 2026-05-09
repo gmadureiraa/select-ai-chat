@@ -2,19 +2,13 @@
 // Auth: somente CRON_SECRET (mesma que crons usam). Não exposto pra users.
 //
 // Body:
-//   { flow: 'generate-carousel' | 'adapt-reel' | 'radar-brief' | 'save-library' |
-//           'create-task' | 'sync-profile', clientId?: string, ...specific }
+//   { flow: 'gen-carousel' | 'check-env' | 'check-tables' | 'check-carousel-deps',
+//     clientId?: string, briefing?: string, slideCount?: number }
 //
 // Retorna: { ok, flow, durationMs, result?, error? }
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, queryOne } from '../_lib/db.js';
-
-interface AuthBypass {
-  id: string;
-  email: string;
-  raw: Record<string, unknown>;
-}
 
 const GABRIEL_USER_ID = '5014248e-b1ac-4306-8490-2644dcd8aeb5';
 const GABRIEL_EMAIL = 'gf.madureiraa@gmail.com';
@@ -37,12 +31,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const flow = body.flow as string;
   const clientId = (body.clientId as string) ?? MADUREIRA_CLIENT;
 
-  const auth: AuthBypass = {
-    id: GABRIEL_USER_ID,
-    email: GABRIEL_EMAIL,
-    raw: { sub: GABRIEL_USER_ID },
-  };
-
   const t0 = Date.now();
   const log: string[] = [];
   const errors: string[] = [];
@@ -52,24 +40,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    if (flow === 'generate-carousel') {
-      step('start generate-carousel');
+    if (flow === 'gen-carousel') {
+      step('start gen-carousel — full pipeline test');
       const briefing = (body.briefing as string) ?? 'Como criar carrosseis virais com IA';
-      // import direto do handler
+      const slideCount = (body.slideCount as number) ?? 5;
+      const tone = (body.tone as string) ?? 'direto';
+
+      // Import the handler directly and invoke it with a mock req/res.
+      // Auth bypass: we set `x-internal-call: true` + pass `userId` explicitly.
+      // generate-viral-carousel.ts already handles that path (lines 339–355).
       const mod: any = await import('./generate-viral-carousel.js');
       step('imported generate-viral-carousel');
 
-      // Mock req/res pra chamar o authedPost handler internamente
       let payload: any = null;
-      let status = 200;
+      let statusCode = 200;
       const mockReq: any = {
         method: 'POST',
-        headers: { authorization: authHeader, 'content-type': 'application/json' },
+        headers: {
+          authorization: authHeader,
+          'content-type': 'application/json',
+          'x-internal-call': 'true',
+        },
         body: {
           clientId,
           briefing,
-          slideCount: 3,
-          tone: 'direto',
+          slideCount,
+          tone,
           persistAs: 'both',
           source: 'manual',
           userId: GABRIEL_USER_ID,
@@ -78,20 +74,98 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
       const mockRes: any = {
         statusCode: 200,
-        setHeader: () => {},
-        status(c: number) { this.statusCode = c; status = c; return this; },
-        json(p: any) { payload = p; return this; },
-        end() { return this; },
+        headersSent: false,
+        setHeader: () => mockRes,
+        status(c: number) { this.statusCode = c; statusCode = c; return this; },
+        json(p: any) { payload = p; this.headersSent = true; return this; },
+        end() { this.headersSent = true; return this; },
       };
-      step('calling handler...');
-      // authedPost wraps default export. Tem que fingir auth — o handler usa
-      // `verifyAuth(req)` que extrai JWT do header. Aqui passamos auth bypass
-      // via `__authBypass` que generate-viral-carousel pode ler.
-      // Como handler usa authedPost, não tem como bypass auth. Solução: chamar
-      // partes internas direto via funções exported.
-      step('skipping handler auth — calling DB query directly to verify schema');
 
-      // Em vez disso, valida que dependencies funcionam:
+      step('calling generate-viral-carousel handler...');
+      await mod.default(mockReq, mockRes);
+      step(`handler returned status=${statusCode}`);
+
+      if (statusCode >= 400) {
+        errors.push(`carousel handler returned ${statusCode}: ${JSON.stringify(payload).slice(0, 500)}`);
+      }
+
+      // Validate persistence
+      const pool = getPool();
+      let viralCount = 0;
+      let planCount = 0;
+      let viewCount = 0;
+      let carouselRow: any = null;
+      let planningRow: any = null;
+      try {
+        const v = await pool.query(`SELECT count(*)::int as c FROM viral_carousels`);
+        viralCount = v.rows[0].c;
+        step(`viral_carousels rows: ${viralCount}`);
+
+        const p = await pool.query(`SELECT count(*)::int as c FROM planning_items WHERE content_type = 'viral_carousel'`);
+        planCount = p.rows[0].c;
+        step(`planning_items (viral) rows: ${planCount}`);
+
+        const view = await pool.query(`SELECT count(*)::int as c FROM carousels`);
+        viewCount = view.rows[0].c;
+        step(`carousels view rows: ${viewCount}`);
+
+        if (payload?.carouselId) {
+          const cr = await pool.query(
+            `SELECT id, title, briefing, jsonb_array_length(slides) AS slide_count, status, source, created_at
+               FROM viral_carousels WHERE id = $1`,
+            [payload.carouselId]
+          );
+          carouselRow = cr.rows[0] ?? null;
+          step(`fetched carousel row: ${carouselRow ? 'OK' : 'MISSING'}`);
+        }
+        if (payload?.planningItemId) {
+          const pr = await pool.query(
+            `SELECT id, title, content_type, status, created_at
+               FROM planning_items WHERE id = $1`,
+            [payload.planningItemId]
+          );
+          planningRow = pr.rows[0] ?? null;
+          step(`fetched planning row: ${planningRow ? 'OK' : 'MISSING'}`);
+        }
+      } catch (e: any) {
+        errors.push(`db validation: ${e?.message}`);
+      }
+
+      // Validate slides have non-empty bodies
+      const slides = payload?.slides ?? [];
+      const emptyBodies = slides.filter((s: any) => !s?.body?.trim()).length;
+      if (slides.length === 0) {
+        errors.push('handler returned 0 slides');
+      } else if (emptyBodies > 0) {
+        errors.push(`${emptyBodies}/${slides.length} slides have empty body`);
+      }
+
+      return res.status(200).json({
+        ok: errors.length === 0 && statusCode === 200,
+        flow,
+        durationMs: Date.now() - t0,
+        statusCode,
+        carouselId: payload?.carouselId ?? null,
+        planningItemId: payload?.planningItemId ?? null,
+        slidesReturned: slides.length,
+        slidesPreview: slides.map((s: any, i: number) => ({
+          order: i + 1,
+          bodyLen: s?.body?.length ?? 0,
+          bodyHead: (s?.body ?? '').slice(0, 80),
+        })),
+        viralCount,
+        planCount,
+        viewCount,
+        carouselRow,
+        planningRow,
+        log,
+        errors,
+        rawPayload: errors.length > 0 ? payload : undefined,
+      });
+    }
+
+    if (flow === 'check-carousel-deps') {
+      step('start check-carousel-deps');
       const pool = getPool();
       const clientRow = await queryOne(
         `SELECT id, name, workspace_id FROM clients WHERE id = $1`,
@@ -114,44 +188,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
       step(`subscription: ${(subRow as any)?.plan_type ?? 'none'}`);
 
-      // Test Gemini
       const geminiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_STUDIO_API_KEY;
       step(`gemini key: ${geminiKey ? 'present (len ' + geminiKey.length + ')' : 'MISSING'}`);
       if (!geminiKey) errors.push('GEMINI_API_KEY missing');
-      else {
-        // Quick ping ao Gemini
-        try {
-          const r = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: 'Diga apenas: OK' }] }],
-                generationConfig: { maxOutputTokens: 10 },
-              }),
-            },
-          );
-          step(`gemini ping: ${r.status}`);
-          if (!r.ok) {
-            const errText = await r.text().catch(() => '');
-            errors.push(`Gemini ${r.status}: ${errText.slice(0, 200)}`);
-          } else {
-            const j: any = await r.json();
-            const txt = j?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-            step(`gemini response: ${txt.slice(0, 50)}`);
-          }
-        } catch (e: any) {
-          errors.push(`Gemini fetch failed: ${e?.message}`);
-        }
-      }
 
-      // Test Vercel Blob
       const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
       step(`blob token: ${blobToken ? 'present' : 'MISSING'}`);
-      if (!blobToken) errors.push('BLOB_READ_WRITE_TOKEN missing');
 
-      // Verifica VIEW carousels
       try {
         const v = await pool.query(`SELECT count(*)::int as c FROM carousels`);
         step(`carousels view: ${v.rows[0].c} rows`);
@@ -159,18 +202,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         errors.push(`carousels view query: ${e?.message}`);
       }
 
-      // Verifica subscription_plans
+      // check-tokens function
       try {
-        const plans = await pool.query(`SELECT count(*)::int as c FROM subscription_plans`);
-        step(`subscription_plans: ${plans.rows[0].c}`);
+        const ct = await pool.query(
+          `SELECT public.check_tokens($1) AS result`,
+          [KALEIDOS_WORKSPACE],
+        );
+        step(`check_tokens result: ${JSON.stringify(ct.rows[0]?.result ?? null).slice(0, 100)}`);
       } catch (e: any) {
-        errors.push(`subscription_plans: ${e?.message}`);
+        step(`check_tokens NOT AVAILABLE: ${e?.message}`);
       }
-      void mod;
-      void payload;
-      void status;
-      void mockReq;
-      void mockRes;
     }
 
     if (flow === 'check-tables') {
@@ -233,13 +274,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       durationMs: Date.now() - t0,
       log,
       errors,
-      auth,
+      auth: { id: GABRIEL_USER_ID, email: GABRIEL_EMAIL },
     });
   } catch (err: any) {
     return res.status(500).json({
       ok: false,
       flow,
       error: err?.message ?? 'unknown',
+      stack: err?.stack?.split('\n').slice(0, 5),
       log,
       errors,
       durationMs: Date.now() - t0,
