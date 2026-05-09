@@ -76,6 +76,7 @@ export const handlerLoaders: Record<string, () => Promise<any>> = {
   'metricool-inbox': () => import('./_handlers/metricool-inbox.js'),
   'metricool-list-brands': () => import('./_handlers/metricool-list-brands.js'),
   'metricool-list-posts': () => import('./_handlers/metricool-list-posts.js'),
+  'metricool-map-brand': () => import('./_handlers/metricool-map-brand.js'),
   'metricool-post': () => import('./_handlers/metricool-post.js'),
   'metricool-realtime': () => import('./_handlers/metricool-realtime.js'),
   'metricool-summary': () => import('./_handlers/metricool-summary.js'),
