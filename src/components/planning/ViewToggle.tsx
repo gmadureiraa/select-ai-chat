@@ -1,8 +1,8 @@
-import { LayoutGrid, Calendar, List } from 'lucide-react';
+import { LayoutGrid, Calendar, List, CalendarDays } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 
-export type PlanningView = 'board' | 'calendar' | 'list';
+export type PlanningView = 'board' | 'calendar' | 'list' | 'editorial';
 
 interface ViewToggleProps {
   view: PlanningView;
@@ -43,9 +43,9 @@ export function ViewToggle({ view, onChange }: ViewToggleProps) {
         <Calendar className="h-3 w-3" />
         <span className="hidden sm:inline">Calendário</span>
       </ToggleGroupItem>
-      <ToggleGroupItem 
-        value="list" 
-        aria-label="List view" 
+      <ToggleGroupItem
+        value="list"
+        aria-label="List view"
         className={cn(
           "gap-1 px-2 h-7 text-xs rounded-md",
           "data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
@@ -55,6 +55,19 @@ export function ViewToggle({ view, onChange }: ViewToggleProps) {
       >
         <List className="h-3 w-3" />
         <span className="hidden sm:inline">Lista</span>
+      </ToggleGroupItem>
+      <ToggleGroupItem
+        value="editorial"
+        aria-label="Editorial calendar view (datas comemorativas Metricool)"
+        className={cn(
+          "gap-1 px-2 h-7 text-xs rounded-md",
+          "data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",
+          "data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground data-[state=off]:bg-transparent",
+          "transition-all duration-150"
+        )}
+      >
+        <CalendarDays className="h-3 w-3" />
+        <span className="hidden sm:inline">Editorial</span>
       </ToggleGroupItem>
     </ToggleGroup>
   );

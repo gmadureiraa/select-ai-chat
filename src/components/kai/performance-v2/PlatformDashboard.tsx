@@ -1,9 +1,15 @@
 // Dashboard genérico por plataforma — alimentado APENAS por Metricool API.
-// Usado dentro do KaiPerformanceTab (v2) com tabs por plataforma.
+// Layout v3 (2026-05-09):
+//   1. KPIs row (4 cards)
+//   2. ⭐ TimeSeriesCharts — 4 line charts (followers, eng, likes, comments)
+//   3. Best Post Highlight
+//   4. Growth Delta (período atual vs anterior)
+//   5. Engagement Heatmap
+//   6. Posts grid + Leaderboard
+//   7. ⏰ Best Times (DENTRO da rede, último bloco)
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Heart, MessageCircle, Eye, TrendingUp, Repeat2, Users } from 'lucide-react';
+import { Heart, Eye, TrendingUp, Users } from 'lucide-react';
 import {
   useMetricoolPosts,
   useMetricoolBrandSummary,
@@ -11,18 +17,32 @@ import {
   aggregatePostsMetrics,
 } from '@/hooks/useMetricoolPerformance';
 import { KPICard } from './components/KPICard';
-import { FollowersSparkline } from './components/FollowersSparkline';
 import { PostsGrid } from './components/PostsGrid';
 import { PostsLeaderboard } from './components/PostsLeaderboard';
 import { BestPostHighlight } from './components/BestPostHighlight';
 import { EngagementHeatmap } from './components/EngagementHeatmap';
 import { GrowthDelta } from './components/GrowthDelta';
+import { TimeSeriesCharts } from './components/TimeSeriesCharts';
+import { MetricoolBestTimesCard } from '@/components/metricool/MetricoolBestTimesCard';
 
 interface Props {
   clientId: string;
   network: MetricoolNetwork;
   period: number; // dias
 }
+
+// Mapeia nossa network pra label do MetricoolBestTimesCard (que aceita platform string).
+const NETWORK_TO_PLATFORM: Record<MetricoolNetwork, string> = {
+  instagram: 'instagram',
+  twitter: 'twitter',
+  threads: 'threads',
+  linkedin: 'linkedin',
+  tiktok: 'tiktok',
+  youtube: 'youtube',
+  facebook: 'facebook',
+  pinterest: 'pinterest',
+  bluesky: 'bluesky',
+};
 
 export function PlatformDashboard({ clientId, network, period }: Props) {
   const { data: posts = [], isLoading: isLoadingPosts } = useMetricoolPosts(clientId, network, period);
@@ -38,7 +58,7 @@ export function PlatformDashboard({ clientId, network, period }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* KPI cards row */}
+      {/* 1. KPI cards row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KPICard
           label="Seguidores"
@@ -72,31 +92,24 @@ export function PlatformDashboard({ clientId, network, period }: Props) {
         />
       </div>
 
-      {/* Followers Sparkline */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <span className="kai-eyebrow text-xs">Evolução de seguidores</span>
-              <h3 className="text-sm font-semibold mt-1">Últimos {period} dias</h3>
-            </div>
-          </div>
-          {isLoading ? (
-            <Skeleton className="h-[80px] w-full" />
-          ) : (
-            <FollowersSparkline data={followersHistory} height={80} />
-          )}
-        </CardContent>
-      </Card>
+      {/* 2. Charts ao longo do tempo (4 line charts) */}
+      <TimeSeriesCharts
+        posts={posts}
+        followersHistory={followersHistory}
+        loading={isLoading}
+        period={period}
+      />
 
-      {/* Best Post Highlight + Growth Delta */}
+      {/* 3. Best Post Highlight */}
       <BestPostHighlight posts={posts} loading={isLoadingPosts} network={network} />
+
+      {/* 4. Growth Delta — período atual vs anterior */}
       <GrowthDelta clientId={clientId} network={network} period={period} />
 
-      {/* Engagement Heatmap (real, baseado nos posts do cliente) */}
+      {/* 5. Engagement Heatmap (real, baseado nos posts do cliente) */}
       <EngagementHeatmap posts={posts} loading={isLoadingPosts} metric="engagement" />
 
-      {/* Top 5 leaderboard + Posts grid lado-a-lado em desktop */}
+      {/* 6. Top 5 leaderboard + Posts grid lado-a-lado em desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-1">
           <PostsLeaderboard posts={posts} network={network} loading={isLoading} />
@@ -115,6 +128,9 @@ export function PlatformDashboard({ clientId, network, period }: Props) {
           </Card>
         </div>
       </div>
+
+      {/* 7. Best Times — fixo embaixo, único da rede atual */}
+      <MetricoolBestTimesCard clientId={clientId} />
     </div>
   );
 }

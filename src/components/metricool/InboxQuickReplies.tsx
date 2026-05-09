@@ -1,7 +1,7 @@
 // InboxQuickReplies — dropdown de templates de resposta rápida.
 // Persiste por cliente no localStorage. Cada template = { id, label, text }.
 import { useEffect, useMemo, useState } from 'react';
-import { Sparkles, Plus, Trash2 } from 'lucide-react';
+import { MessageSquarePlus, Plus, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,8 +98,9 @@ export function InboxQuickReplies({ clientId, currentText, onPick, disabled }: P
           variant="outline"
           disabled={disabled}
           title="Templates de resposta"
+          className="h-9 w-9 p-0 shrink-0"
         >
-          <Sparkles className="h-3 w-3" />
+          <MessageSquarePlus className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">

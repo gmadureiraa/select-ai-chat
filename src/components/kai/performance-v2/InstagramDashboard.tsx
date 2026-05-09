@@ -12,13 +12,14 @@ import {
   aggregatePostsMetrics,
 } from '@/hooks/useMetricoolPerformance';
 import { KPICard } from './components/KPICard';
-import { FollowersSparkline } from './components/FollowersSparkline';
 import { PostsGrid } from './components/PostsGrid';
 import { PostsLeaderboard } from './components/PostsLeaderboard';
 import { BestPostHighlight } from './components/BestPostHighlight';
 import { EngagementHeatmap } from './components/EngagementHeatmap';
 import { GrowthDelta } from './components/GrowthDelta';
 import { FormatBreakdown } from './components/FormatBreakdown';
+import { TimeSeriesCharts } from './components/TimeSeriesCharts';
+import { MetricoolBestTimesCard } from '@/components/metricool/MetricoolBestTimesCard';
 
 interface Props {
   clientId: string;
@@ -93,22 +94,13 @@ export function InstagramDashboardV2({ clientId, period }: Props) {
         />
       </div>
 
-      {/* Followers timeline */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <span className="kai-eyebrow text-xs">Evolução de seguidores</span>
-              <h3 className="text-sm font-semibold mt-1">Últimos {period} dias</h3>
-            </div>
-          </div>
-          {isLoading ? (
-            <Skeleton className="h-[80px] w-full" />
-          ) : (
-            <FollowersSparkline data={followersHistory} height={80} />
-          )}
-        </CardContent>
-      </Card>
+      {/* Charts ao longo do tempo (4 line charts: followers, eng, likes, comments) */}
+      <TimeSeriesCharts
+        posts={[...posts, ...reels]}
+        followersHistory={followersHistory}
+        loading={isLoading}
+        period={period}
+      />
 
       {/* Best post + Growth delta */}
       <BestPostHighlight posts={[...posts, ...reels, ...stories]} loading={isLoading} network="instagram" />
@@ -170,6 +162,9 @@ export function InstagramDashboardV2({ clientId, period }: Props) {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Best Times — fixo embaixo da Performance do Instagram */}
+      <MetricoolBestTimesCard clientId={clientId} />
     </div>
   );
 }

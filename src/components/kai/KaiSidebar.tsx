@@ -24,6 +24,8 @@ import {
   Hash,
   Target,
   Link2,
+  FileText,
+  Calendar,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
@@ -511,17 +513,19 @@ export function KaiSidebar({
               onClick={() => onTabChange("competitors")}
               collapsed={collapsed}
             />
-            {/* Smart Links Metricool — encurtador URL com tracking */}
+            {/* Reports Metricool — Performance Dashboards + PDFs */}
             <NavItem
-              icon={<Link2 className="h-4 w-4" strokeWidth={1.5} />}
-              label="Smart Links"
-              active={activeTab === "smart-links"}
-              onClick={() => onTabChange("smart-links")}
+              icon={<FileText className="h-4 w-4" strokeWidth={1.5} />}
+              label="Relatórios"
+              active={activeTab === "reports"}
+              onClick={() => onTabChange("reports")}
               collapsed={collapsed}
             />
-            {/* Linkin Bio NÃO plugado — código existe em MetricoolLinkinBioEditor.tsx
-                mas decisão do usuário foi não usar essa feature. */}
-            {/* Plano/cobrança removido — KAI 2.0 é uso interno Kaleidos. */}
+            {/* REMOVIDOS DO MENU (decisão usuário 2026-05-09):
+                - Smart Links: código em MetricoolSmartLinksManager.tsx, sem rota
+                - Calendário Editorial: virou sub-tab dentro de Planejamento
+                - Linkin Bio: código em MetricoolLinkinBioEditor.tsx, sem rota
+                - Plano/cobrança: KAI 2.0 é uso interno Kaleidos */}
           </>
         )}
 

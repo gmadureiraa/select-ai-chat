@@ -338,11 +338,10 @@ export default function Kai() {
       "radar-sources-admin",
       // Workspace management (owner / admin):
       "workspace-settings", "workspace-members",
-      // Metricool: inbox unificado, hashtags tracker, competitors analysis,
-      // smart links (encurtador URL), linkin bio (página IG)
-      "inbox", "hashtags", "competitors", "smart-links",
-      // Metricool reports + editorial calendar:
-      "reports", "editorial-calendar",
+      // Metricool: inbox unificado, hashtags tracker, competitors analysis
+      "inbox", "hashtags", "competitors",
+      // Metricool reports (Calendar virou sub-tab de Planejamento)
+      "reports",
     ];
 
     if (toolTabs.includes(tab)) {
@@ -427,15 +426,17 @@ export default function Kai() {
           ) : (
             <ClientRequiredEmpty message="Selecione um cliente pra acompanhar concorrentes." />
           );
-        case "smart-links":
+        case "reports":
           return selectedClient ? (
             <div className={cn("overflow-auto h-full", isMobile ? "p-3" : "p-6")}>
-              <MetricoolSmartLinksManager clientId={selectedClient.id} />
+              <MetricoolReportsManager clientId={selectedClient.id} />
             </div>
           ) : (
-            <ClientRequiredEmpty message="Selecione um cliente pra gerenciar smart links." />
+            <ClientRequiredEmpty message="Selecione um cliente pra gerar e baixar relatórios." />
           );
-        // 'linkinbio' case removido (feature dispensada pelo usuário)
+        // 'editorial-calendar' case removido — virou sub-tab dentro de Planejamento
+        // 'smart-links' case removido — feature mantida no código mas sem rota
+        // 'linkinbio' case removido — feature dispensada pelo usuário
         case "home":
           return (
             <HomeDashboard

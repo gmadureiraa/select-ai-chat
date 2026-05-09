@@ -20,7 +20,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { MetricoolBestTimesCard } from '@/components/metricool/MetricoolBestTimesCard';
+// MetricoolBestTimesCard agora é renderizado DENTRO de cada plataforma
+// (último bloco de cada PlatformDashboard / InstagramDashboardV2), não global.
 import { PlatformDashboard } from './PlatformDashboard';
 import { InstagramDashboardV2 } from './InstagramDashboard';
 import { CrossPlatformComparison } from './CrossPlatformComparison';
@@ -101,10 +102,8 @@ export function MetricoolPerformance({ clientId, client }: Props) {
         </div>
       </div>
 
-      {/* Best Times card — sempre visível acima das tabs */}
-      <MetricoolBestTimesCard clientId={clientId} />
-
-      {/* Platform tabs (com Comparativo no início) */}
+      {/* Platform tabs (com Comparativo no início).
+          Best Times agora é renderizado dentro de CADA plataforma, não global. */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ActiveTab)}>
         <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
           <TabsList className="bg-muted/50 inline-flex min-w-max">
