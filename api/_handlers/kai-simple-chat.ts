@@ -1828,6 +1828,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
     if (!client) return jsonError(res, 404, 'Cliente não encontrado');
 
+    // Lazy mode flag — quando true, pula intent regex pesado, fetches eager
+    // e early returns (image/planning), deixando as 23 tools cuidarem.
+    // Reduz prompt de ~30-40k chars pra ~3-5k chars (50-70% menos tokens).
+    const toolsMode = !!body.useTools && shouldStream;
+
     // 2. Detect intents
     const needsMetrics = isMetricsQuery(message);
     const isReport = isReportRequest(message);
@@ -1860,8 +1865,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? authHeader.slice(7)
       : '';
 
-    // 3. Image Generation
-    if (imageGenRequest.isRequest) {
+    // 3. Image Generation (legado — em toolsMode vira generateImage tool futura)
+    if (imageGenRequest.isRequest && !toolsMode) {
       const imageResult = await generateImage(imageGenRequest.prompt, client.name);
       if (imageResult.error) {
         return jsonError(res, 500, imageResult.error);
@@ -1873,8 +1878,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
     }
 
-    // 4. Planning Card Creation
-    if (planningIntent.isPlanning) {
+    // 4. Planning Card Creation (legado — em toolsMode usar addToPlanning tool)
+    if (planningIntent.isPlanning && !toolsMode) {
       if (
         planningIntent.missingInfo.length > 0 &&
         !planningIntent.sourceUrl &&
@@ -1898,7 +1903,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // 5. Fetch all context in parallel
+    // 5. Fetch all context in parallel (modo eager — pulado em toolsMode)
     let metricsContext = '';
     let comparisonContext = '';
     let topPerformersContext = '';
@@ -1911,6 +1916,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let docsWebsitesContext = '';
 
     const contextPromises: Promise<void>[] = [];
+
+    // Em toolsMode, as 23 tools (getClientContext/getMetrics/searchLibrary/searchRefs/etc)
+    // cuidam do contexto sob demanda — pulamos os fetches eager pra economizar tokens.
+    if (!toolsMode) {
 
     if (comparisonQuery.isComparison && comparisonQuery.period1 && comparisonQuery.period2) {
       contextPromises.push(
@@ -1983,9 +1992,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
     }
 
+    } // end if (!toolsMode)
+
     const [webSearchResult, citedContent] = await Promise.all([
-      needsWebSearch ? performWebSearch(message) : Promise.resolve(null),
-      fetchCitedContent(citations),
+      !toolsMode && needsWebSearch ? performWebSearch(message) : Promise.resolve(null),
+      toolsMode ? Promise.resolve('') : fetchCitedContent(citations),
       ...contextPromises.map((p) => p),
     ]);
 
@@ -2068,6 +2079,54 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
       systemPrompt += `\n## Instruções para Métricas\nAnalise dados disponíveis, identifique padrões, ofereça insights acionáveis.`;
     } else {
       systemPrompt += `\n## Instruções Gerais\n- Siga tom de voz do cliente\n- Seja direto, prático e objetivo\n- Use referências citadas como base\n- Mantenha consistência com a marca`;
+    }
+
+    // 6.5 LAZY MODE OVERRIDE — prompt mínimo + heurísticas de roteamento de tools
+    // Substitui o systemPrompt eager por uma versão enxuta (~3-5k chars)
+    // que ensina o Gemini quando chamar cada uma das 23 tools registradas.
+    if (toolsMode) {
+      systemPrompt = `# REGRAS ABSOLUTAS DE ENTREGA
+${userInstructionsPrompt}
+⛔ PROIBIDO: emojis decorativos no corpo (💡🔥✨🚀💰📈💼🎯), hashtags no LinkedIn, frases tipo "Aqui está", "Segue", "Criei pra você", checklists de validação (✅❌), meta-texto explicando o que você fez.
+✅ ENTREGUE: ações via tools + texto direto, conciso, no tom do cliente.
+
+---
+
+Você é o **kAI**, copiloto operacional do KAI 2.0 — criação de conteúdo, análise de performance, gestão de planejamento e workflow de marca.
+
+## Cliente em foco
+**${client.name}**${client.description ? `\n${client.description}` : ''}
+
+## Modo agentic — você tem 23 ferramentas
+SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundantemente.
+
+### Heurísticas de roteamento (quando chamar cada tool):
+- "quem é esse cliente?", "qual o tom?", "guidelines", "perfil de voz" → \`getClientContext\`
+- "performance", "engajamento", "métricas", "melhor post", "best of" → \`getMetrics\`
+- "tem ref de X?", "buscar inspiração", "exemplos do feed" → \`searchRefs\` (refs externas) ou \`searchLibrary\` (conteúdo próprio)
+- "criar carrossel/reel/post/tweet/thread/newsletter" → \`createContent\` (texto puro) ou \`createViralCarousel\` (carrossel com slides + imagens)
+- "agendar pra X", "marcar pra publicação", "scheduled" → \`scheduleFor\`
+- "publicar agora", "manda" → \`publishNow\`
+- "conectar Instagram/Twitter/LinkedIn/YouTube" → \`connectAccount\`
+- "novo cliente", "criar cliente" → \`createClient\`
+- "outros clientes do workspace", "lista todos" → \`listClients\`
+- "atualizar tom/info/social do cliente" → \`updateClient\`
+- "tarefa interna", "TODO admin", "agenda reunião" → \`createTeamTask\` (NÃO usar pra posts — usa createContent)
+- "automação recorrente", "auto gerar diário", "rotina" → \`createAutomation\` / \`listAutomations\` / \`toggleAutomation\`
+- "salva isso", "guarda essa ref" → \`saveToLibrary\`
+- "engenharia reversa de reel", "adapta esse reel" + URL Instagram → \`analyzeViralReel\`
+- "monitora no radar", "rastrear contas", "brief de tendências" → \`createRadarBrief\`
+- "joga no planejamento", "põe pra revisar" → \`addToPlanning\`
+- "aprovações pendentes", "o que tá pra revisar" → \`listPendingApprovals\`
+- "edita esse rascunho/card" → \`editContent\`
+
+### Princípios operacionais:
+1. **Falta dado do cliente que você não tem?** → \`getClientContext\` PRIMEIRO. Não adivinhe brand voice ou guidelines.
+2. **Vai criar conteúdo do zero?** → opcionalmente \`searchLibrary\` antes pra capturar tom + estrutura dos top performers.
+3. **Recebeu URL de Reel/Post Instagram?** → tool específica (\`analyzeViralReel\` pra adaptação, \`saveToLibrary\` pra arquivar).
+4. **Múltiplas ações?** → encadeie tools em sequência (ex: \`createContent\` → \`addToPlanning\` → \`scheduleFor\`).
+5. **Após executar tool de ação** (publish/schedule/create/automation) → 1 frase curta de confirmação. Sem checklist, sem "feito ✅", sem reescrever o que a tool já mostrou.
+6. **NÃO invente** dados de cliente, métricas, refs ou histórico. Se não tem via tool, BUSCA primeiro.`;
     }
 
     // 7. History windowing
