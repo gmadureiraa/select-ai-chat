@@ -537,7 +537,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const total =
         signals.news.length + signals.ig.length + signals.tiktok.length +
         signals.threads.length + signals.twitter.length + signals.linkedin.length;
-      if (total < 3) {
+      // Threshold reduzido pra 1 (era 3) — clientes sem IG/TikTok scrapeados
+      // ainda recebem brief baseado em news global. Sem isso, briefs nunca eram
+      // criados pra clientes que só usam fontes RSS globais.
+      if (total < 1) {
         detail.push({
           client: client.name,
           status: `skipped_low_signals_${total}`,
@@ -579,7 +582,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
          ) VALUES (
            $1, $2, $3, $4, $5::date,
            $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb,
-           $10::jsonb, $11, $12, $13, 'ready'
+           $10::jsonb, $11, $12, $13, 'done'
          )`,
         [
           client.id,

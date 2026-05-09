@@ -23,6 +23,9 @@ import { PlannedPostModal } from "@sv/components/app/zernio/planned-post-modal";
 // `useSVClient` expõe o clientId selecionado no shell do Kai (Sidebar).
 import { apiInvoke } from "@/lib/apiInvoke";
 import { useSVClient } from "../../MainApp";
+// CrossAppActions: bridge Carrossel → Reels via Zustand. Plugado no
+// preview (idem Radar→Carrossel).
+import { CrossAppActions } from "@/components/kai/viral/CrossAppActions";
 
 // Mesmo injector que o edit usa — garante que a fonte display escolhida
 // esteja disponível no momento do export PNG/PDF.
@@ -156,15 +159,32 @@ export default function PreviewPage(props: {
     setTimeout(() => setFeedbackOpen(true), 800);
   }
 
-  // Zernio scheduling modal — admin only.
+  // 2026-05-09 — Zernio scheduling DESLIGADO no KAI 2.0. Os endpoints
+  // `/api/zernio/*` foram removidos (Zernio era SaaS standalone). KAI 2.0
+  // publica via Metricool (handler `metricool-post`). Mantemos o state pra
+  // não quebrar a árvore JSX, mas o canScheduleZernio é sempre false e o
+  // modal correspondente nunca abre. PlannedPostModal também usa zernio →
+  // canPlanInCalendar = false até migrarmos pro fluxo `planning_items`
+  // unificado do KAI.
   const [zernioOpen, setZernioOpen] = useState(false);
   const isAdmin = isAdminEmail(profile?.email ?? user?.email);
-  // Zernio scheduling (publicação real): admin OR plano Pro (DB key 'business').
-  const canScheduleZernio = isAdmin || profile?.plan === "business";
-  // Calendário (planejamento manual sem Zernio): admin OR Creator/Pro.
-  const canPlanInCalendar =
-    isAdmin || profile?.plan === "pro" || profile?.plan === "business";
+  const canScheduleZernio = false; // disabled: /api/zernio/* removed
+  const canPlanInCalendar = false; // disabled: planned-post-modal hits /api/zernio/*
   const [plannedModalOpenPreview, setPlannedModalOpenPreview] = useState(false);
+  // Metricool publish — fluxo unificado do KAI 2.0. Substitui Zernio.
+  // Captura PNGs dos slides → upload via blob handler → chama metricool-post
+  // que normaliza URLs internamente e cria o agendamento. Salva
+  // metricool_post_id no carousel pra rastreio. Disponível pra qualquer plano
+  // pago + admin enquanto Metricool tiver brand mapeado pro cliente.
+  const canPublishMetricool = isAdmin || profile?.plan === "pro" || profile?.plan === "business";
+  const [metricoolPublishing, setMetricoolPublishing] = useState(false);
+  const [metricoolPostId, setMetricoolPostId] = useState<string | null>(null);
+  const [metricoolMode, setMetricoolMode] = useState<"now" | "schedule">("now");
+  const [metricoolScheduledLocal, setMetricoolScheduledLocal] = useState<string>(() => {
+    const d = new Date(Date.now() + 60 * 60 * 1000); // +1h default
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  });
 
   // ── Salvar na biblioteca do cliente (KAI integration) ─────────────────
   // O carrossel finalizado vira um item em `client_content_library` (destination
@@ -182,26 +202,13 @@ export default function PreviewPage(props: {
   const [carouselEntries, setCarouselEntries] = useState<
     { id: string; status: string; scheduled_for: string | null }[] | null
   >(null);
+  // 2026-05-09 — `/api/zernio/by-carousel` foi removido. KAI 2.0 usa Metricool
+  // pra agendar/publicar (handler `metricool-post`). Por enquanto não temos
+  // endpoint pra listar agendamentos por carouselId no Metricool — quando
+  // tiver, plugar aqui. Skip silencioso.
   useEffect(() => {
-    if (!session || !draft?.id || !canPlanInCalendar) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/zernio/by-carousel?carouselId=${encodeURIComponent(draft.id)}`,
-          { headers: { Authorization: `Bearer ${session.access_token}` } }
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled) setCarouselEntries(data.posts || []);
-      } catch {
-        // silent
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [session, draft?.id, canPlanInCalendar, plannedModalOpenPreview, zernioOpen]);
+    setCarouselEntries(null);
+  }, [draft?.id]);
   async function handleExportZip() {
     await exportZip(draft?.title || "carrossel");
     scheduleFeedbackModal();
@@ -538,6 +545,101 @@ export default function PreviewPage(props: {
       toast.error(msg);
     } finally {
       setSavingToLibrary(false);
+    }
+  }
+
+  /**
+   * Publica/agenda o carrossel atual no Instagram via Metricool (handler
+   * `publish-viral-carousel` que sobe slides pro Vercel Blob e dispara
+   * `metricool-post`). Substitui o fluxo Zernio antigo. Persiste
+   * metricool_post_id no carrossel via `upsertUserCarousel` (campo
+   * `last_publish_media_urls` é escrito server-side pelo handler).
+   *
+   * Pré-requisitos:
+   *  - clientId selecionado (Metricool resolve blogId via client_social_credentials)
+   *  - cliente com brand Metricool mapeado (Settings → Integrações Metricool)
+   *
+   * Errors mais comuns:
+   *  - "Cliente sem blog Metricool mapeado" → Gabriel precisa rodar metricool-map-brand
+   *  - "Falha ao publicar via Metricool" → conta IG não conectada no Metricool
+   */
+  async function handleMetricoolPublish(mode: "now" | "schedule") {
+    if (!draft || slides.length === 0) {
+      toast.error("Carrossel ainda carregando.");
+      return;
+    }
+    if (!clientId) {
+      toast.error("Selecione um cliente no menu lateral antes de publicar.");
+      return;
+    }
+    if (slides.length > 10) {
+      toast.error("Instagram suporta no máximo 10 slides por carrossel.");
+      return;
+    }
+    if (mode === "schedule" && !metricoolScheduledLocal) {
+      toast.error("Defina data/hora pra agendar.");
+      return;
+    }
+    if (metricoolPublishing) return;
+    setMetricoolPublishing(true);
+    try {
+      // Captura PNGs reais via mesmo pipeline do export ZIP.
+      toast.info("Capturando slides...");
+      const captured = await captureSlidesAsDataUrls();
+      if (!captured.length) {
+        throw new Error("Nenhum slide capturado.");
+      }
+      const payloadSlides = captured.map((c) => ({
+        order: c.index,
+        dataUrl: c.dataUrl,
+      }));
+      const captionWithTags =
+        hashtags.length > 0 ? `${caption}\n\n${hashtags.join(" ")}` : caption;
+      // ISO local datetime → ISO 8601 com segundos. Metricool usa
+      // publicationDate.dateTime + timezone.
+      const scheduledFor =
+        mode === "schedule" ? `${metricoolScheduledLocal}:00` : undefined;
+
+      const { data, error } = await apiInvoke<{
+        ok: boolean;
+        mediaUrls?: string[];
+        latePost?: { postId?: string; status?: string };
+        error?: string;
+      }>("publish-viral-carousel", {
+        body: {
+          carouselId: draft.id,
+          clientId,
+          caption: captionWithTags.slice(0, 2200),
+          slides: payloadSlides,
+          scheduledFor,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Falha ao publicar.");
+      }
+      const postId = data?.latePost?.postId ?? null;
+      if (postId) setMetricoolPostId(postId);
+
+      toast.success(
+        mode === "schedule"
+          ? `Agendado pra ${new Date(metricoolScheduledLocal).toLocaleString("pt-BR")} no Metricool.`
+          : "Publicação enviada ao Metricool.",
+        {
+          description: postId ? `Post ID: ${postId.slice(0, 12)}` : undefined,
+          duration: 6000,
+        },
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha ao publicar.";
+      toast.error(msg, {
+        description: msg.includes("blog Metricool")
+          ? "Conecte o cliente em Settings → Metricool primeiro."
+          : undefined,
+        duration: 8000,
+      });
+    } finally {
+      setMetricoolPublishing(false);
     }
   }
 
@@ -1448,7 +1550,7 @@ export default function PreviewPage(props: {
             )}
           </div>
 
-          {/* Publicar — fluxo manual honesto (Graph API ainda não conectada) */}
+          {/* Publicar — Metricool (publicação direta + agendamento) */}
           <div
             style={{
               padding: 22,
@@ -1480,54 +1582,198 @@ export default function PreviewPage(props: {
                 marginBottom: 14,
               }}
             >
-              Exporta os PNGs, copia a legenda daqui e sobe direto no Instagram
-              ou LinkedIn.
+              {canPublishMetricool && clientId
+                ? "Publica direto no Instagram via Metricool. Cliente precisa estar conectado em Settings → Metricool."
+                : "Exporta os PNGs, copia a legenda e sobe direto no Instagram. Pra publicação automática, ative Metricool no plano Pro."}
             </p>
+
+            {/* Botão de copiar caption — sempre disponível como fallback */}
             <button
               type="button"
               onClick={() => void handleCopyCaptionForIG()}
               disabled={!caption}
-              className="sv-btn sv-btn-ink"
+              className="sv-btn sv-btn-outline"
               style={{
                 width: "100%",
                 opacity: caption ? 1 : 0.5,
                 cursor: caption ? "pointer" : "not-allowed",
+                marginBottom: 8,
               }}
             >
               Copiar legenda + hashtags
             </button>
-            <div
-              className="mt-3"
-              style={{
-                padding: "8px 10px",
-                border: "1px dashed var(--sv-ink)",
-                background: "var(--sv-paper)",
-              }}
-            >
+
+            {/* Metricool publish flow — só pra plano Pro+ com clientId. */}
+            {canPublishMetricool && clientId && draft?.id && (
               <div
                 style={{
-                  fontFamily: "var(--sv-mono)",
-                  fontSize: 8.5,
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  color: "var(--sv-muted)",
-                  fontWeight: 700,
+                  marginTop: 12,
+                  padding: 12,
+                  border: "1.5px solid var(--sv-ink)",
+                  background: "var(--sv-paper)",
                 }}
               >
-                Em breve
+                <div
+                  style={{
+                    fontFamily: "var(--sv-mono)",
+                    fontSize: 9,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: "var(--sv-ink)",
+                    fontWeight: 700,
+                    marginBottom: 8,
+                  }}
+                >
+                  Metricool · Instagram
+                </div>
+
+                {/* Mode toggle: agora vs agendar */}
+                <div
+                  className="grid gap-1.5"
+                  style={{ gridTemplateColumns: "1fr 1fr", marginBottom: 10 }}
+                >
+                  {(["now", "schedule"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setMetricoolMode(m)}
+                      disabled={metricoolPublishing}
+                      style={{
+                        padding: "7px 8px",
+                        border: "1.5px solid var(--sv-ink)",
+                        background:
+                          metricoolMode === m
+                            ? "var(--sv-ink)"
+                            : "transparent",
+                        color:
+                          metricoolMode === m
+                            ? "var(--sv-paper)"
+                            : "var(--sv-ink)",
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 9,
+                        letterSpacing: "0.14em",
+                        textTransform: "uppercase",
+                        fontWeight: 700,
+                        cursor: metricoolPublishing ? "wait" : "pointer",
+                      }}
+                    >
+                      {m === "now" ? "Agora" : "Agendar"}
+                    </button>
+                  ))}
+                </div>
+
+                {metricoolMode === "schedule" && (
+                  <input
+                    type="datetime-local"
+                    value={metricoolScheduledLocal}
+                    onChange={(e) => setMetricoolScheduledLocal(e.target.value)}
+                    disabled={metricoolPublishing}
+                    style={{
+                      width: "100%",
+                      padding: "8px 10px",
+                      border: "1.5px solid var(--sv-ink)",
+                      background: "var(--sv-white)",
+                      fontFamily: "var(--sv-mono)",
+                      fontSize: 11,
+                      marginBottom: 10,
+                    }}
+                  />
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => void handleMetricoolPublish(metricoolMode)}
+                  disabled={
+                    metricoolPublishing ||
+                    !caption.trim() ||
+                    slides.length === 0 ||
+                    isExporting
+                  }
+                  className="sv-btn sv-btn-ink"
+                  style={{
+                    width: "100%",
+                    opacity:
+                      metricoolPublishing ||
+                      !caption.trim() ||
+                      slides.length === 0
+                        ? 0.5
+                        : 1,
+                    cursor: metricoolPublishing ? "wait" : "pointer",
+                  }}
+                >
+                  {metricoolPublishing
+                    ? "Publicando..."
+                    : metricoolMode === "now"
+                      ? "Publicar agora"
+                      : "Agendar publicação"}
+                </button>
+
+                {metricoolPostId && (
+                  <div
+                    className="mt-2"
+                    style={{
+                      fontFamily: "var(--sv-mono)",
+                      fontSize: 9,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      color: "var(--sv-muted)",
+                    }}
+                  >
+                    ● Enviado · Metricool ID {metricoolPostId.slice(0, 12)}
+                  </div>
+                )}
               </div>
+            )}
+
+            {/* CrossAppActions: bridge pra Reels Viral (e Ideia/Library). */}
+            {clientId && (
               <div
+                className="mt-4"
                 style={{
-                  fontFamily: "var(--sv-sans)",
-                  fontSize: 11,
-                  color: "var(--sv-ink)",
-                  marginTop: 2,
-                  lineHeight: 1.4,
+                  paddingTop: 12,
+                  borderTop: "1px solid rgba(10,10,10,0.1)",
                 }}
               >
-                Agendamento automático + publicação direta via Instagram Graph API.
+                <div
+                  style={{
+                    fontFamily: "var(--sv-mono)",
+                    fontSize: 9,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: "var(--sv-muted)",
+                    marginBottom: 8,
+                    fontWeight: 700,
+                  }}
+                >
+                  Repurpose
+                </div>
+                <CrossAppActions
+                  source="sv"
+                  topic={draft?.title}
+                  briefing={
+                    slides
+                      .map(
+                        (s, i) =>
+                          `Slide ${i + 1}: ${s.heading ?? ""}\n${s.body ?? ""}`,
+                      )
+                      .join("\n\n")
+                      .slice(0, 4000)
+                  }
+                  metadata={{
+                    carouselId: draft?.id,
+                    visualTemplate: templateId,
+                    slideCount: slides.length,
+                  }}
+                  clientId={clientId}
+                  showCarrossel={false}
+                  showReel={true}
+                  showIdea={true}
+                  showLibrary={false}
+                  size="sm"
+                  direction="row"
+                />
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

@@ -636,6 +636,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         continue;
       }
 
+      // Lock atômico para evitar race-condition entre crons concorrentes.
+      // UPDATE ... WHERE last_triggered_at IS NULL OR not-today garante 1 disparo/dia.
+      // Manual test (isManualTest) bypassa o lock.
+      if (!isManualTest && automation.trigger_type === 'schedule') {
+        const lockResult = await getPool().query(
+          `UPDATE planning_automations
+              SET last_triggered_at = NOW()
+            WHERE id = $1
+              AND (last_triggered_at IS NULL
+                   OR DATE(last_triggered_at AT TIME ZONE 'UTC') < DATE(NOW() AT TIME ZONE 'UTC'))
+            RETURNING id`,
+          [automation.id]
+        );
+        if (lockResult.rowCount === 0) {
+          // Outro processo já pegou hoje. Marca run como skipped + segue.
+          if (runId) {
+            await getPool().query(
+              `UPDATE planning_automation_runs SET status = $1, result = $2, completed_at = NOW(), duration_ms = $3 WHERE id = $4`,
+              ['skipped', 'Already triggered today (race lock)', Date.now() - startTime, runId]
+            );
+          }
+          results.push({ id: automation.id, name: automation.name, triggered: false, runId: runId || undefined });
+          continue;
+        }
+      }
+
       console.log(`[process-automations] triggering: ${automation.name}`);
 
       const itemTitle = triggerData?.title || automation.name;

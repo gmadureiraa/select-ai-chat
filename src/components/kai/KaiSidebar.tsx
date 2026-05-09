@@ -44,7 +44,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { ClientDialog } from "@/components/clients/ClientDialog";
@@ -52,6 +51,24 @@ import { useQuery } from "@tanstack/react-query";
 
 import { toast } from "sonner";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+
+/**
+ * Cabeçalho de seção da sidebar — agrupador visual não-clicável.
+ * Some quando a sidebar está collapsed pra evitar texto cortado.
+ */
+function SidebarSectionHeader({ title, collapsed }: { title: string; collapsed: boolean }) {
+  if (collapsed) {
+    // Mantém um espacinho visual entre grupos mesmo collapsed.
+    return <div className="h-2" aria-hidden="true" />;
+  }
+  return (
+    <div className="px-3 mt-3 mb-1">
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
+        {title}
+      </span>
+    </div>
+  );
+}
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -327,12 +344,16 @@ export function KaiSidebar({
 
       <ClientDialog open={showClientDialog} onOpenChange={setShowClientDialog} />
 
-      {/* Navigation */}
+      {/* Navigation — reorganizada em 5 seções (2026-05-09):
+          DASHBOARD · OPERAÇÃO · ENGAJAMENTO · ANÁLISE · CONFIG · ADMIN.
+          Eliminados duplicados: ThemeToggle do footer (já vive em Settings →
+          Aparência) e "Configurações" do Workspace renomeada pra "Workspace"
+          (a "Configurações" do footer é a global da conta). */}
       <nav
         aria-label="Navegação principal do workspace"
         className="flex-1 px-2 space-y-1 overflow-y-auto scrollbar-hide"
       >
-        {/* Home Dashboard */}
+        {/* ===== DASHBOARD ===== */}
         <NavItem
           icon={<Home className="h-4 w-4" strokeWidth={1.5} />}
           label="Início"
@@ -341,7 +362,9 @@ export function KaiSidebar({
           collapsed={collapsed}
         />
 
-        {/* kAI Chat - Bloqueado para Viewers */}
+        {/* ===== OPERAÇÃO — criar, planejar, agendar ===== */}
+        <SidebarSectionHeader title="Operação" collapsed={collapsed} />
+
         <NavItem
           icon={<MessageSquare className="h-4 w-4" strokeWidth={1.5} />}
           label="kAI Chat"
@@ -352,7 +375,6 @@ export function KaiSidebar({
           showLock={!canUseAssistant}
         />
 
-        {/* Planning - Viewers podem ver (read-only) */}
         <NavItem
           icon={<CalendarDays className="h-4 w-4" strokeWidth={1.5} />}
           label="Planejamento"
@@ -361,7 +383,6 @@ export function KaiSidebar({
           collapsed={collapsed}
         />
 
-        {/* Tarefas internas do time — separado do planejamento de conteúdo */}
         <NavItem
           icon={<CheckSquare className="h-4 w-4" strokeWidth={1.5} />}
           label="Tarefas"
@@ -370,17 +391,6 @@ export function KaiSidebar({
           collapsed={collapsed}
         />
 
-
-        {/* Performance - Viewers podem ver */}
-        <NavItem
-          icon={<BarChart3 className="h-4 w-4" strokeWidth={1.5} />}
-          label="Performance"
-          active={activeTab === "performance"}
-          onClick={() => onTabChange("performance")}
-          collapsed={collapsed}
-        />
-
-        {/* Library - Viewers podem ver */}
         <NavItem
           icon={<Library className="h-4 w-4" strokeWidth={1.5} />}
           label="Biblioteca"
@@ -389,20 +399,7 @@ export function KaiSidebar({
           collapsed={collapsed}
         />
 
-        {/* Grupo "Viral" — quick wins Fase 1 do combo-viral-integration.
-            Itens GLOBAIS (não dependem de cliente): biblioteca + atalhos pros
-            apps standalone (Sequência Viral, Reels Viral, Radar Viral). */}
-        {!collapsed && (
-          <div className="px-3 mt-3 mb-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
-              Viral
-            </span>
-          </div>
-        )}
-
-        {/* Biblioteca Viral removida 2026-05-08 — unificada com biblioteca
-            normal por cliente (client_reference_library). */}
-
+        {/* Geradores virais — globais, não dependem de cliente. */}
         <NavItem
           icon={<Twitter className="h-4 w-4" strokeWidth={1.5} />}
           label="Carrossel"
@@ -427,14 +424,6 @@ export function KaiSidebar({
           collapsed={collapsed}
         />
 
-        {/* 2026-05-08 (replace-viral): grupo "Cliente" duplicado removido.
-            As 3 ferramentas viral (Sequência/Reels/Radar) agora vivem só no
-            grupo "Viral" acima, apontando pros mesmos componentes que eram
-            duplicados aqui. O item "Viral Hunter" (KAI-1.0 legacy) foi
-            descontinuado — seu conteúdo de descoberta (posts próprios,
-            concorrentes, YT, IG, news, trends, ideas) foi absorvido pelo
-            Radar Viral + Library. Backup em _legacy/viral-replaced-2026-05-08/. */}
-
         {/* Automações - Dev e admins do workspace */}
         {(hasDevAccess || canManageTeam) && (
           <NavItem
@@ -446,8 +435,63 @@ export function KaiSidebar({
           />
         )}
 
+        {/* ===== ENGAJAMENTO — DMs, comments, mentions ===== */}
+        {(isOwner || canManageTeam) && (
+          <>
+            <SidebarSectionHeader title="Engajamento" collapsed={collapsed} />
+            <NavItem
+              icon={<MessagesSquare className="h-4 w-4" strokeWidth={1.5} />}
+              label="Inbox"
+              active={activeTab === "inbox"}
+              onClick={() => onTabChange("inbox")}
+              collapsed={collapsed}
+              badge={inboxUnread}
+            />
+          </>
+        )}
 
-        {/* Profiles - Bloqueado para Viewers */}
+        {/* ===== ANÁLISE — performance, hashtags, concorrentes, relatórios ===== */}
+        <SidebarSectionHeader title="Análise" collapsed={collapsed} />
+
+        <NavItem
+          icon={<BarChart3 className="h-4 w-4" strokeWidth={1.5} />}
+          label="Performance"
+          active={activeTab === "performance"}
+          onClick={() => onTabChange("performance")}
+          collapsed={collapsed}
+        />
+
+        {(isOwner || canManageTeam) && (
+          <>
+            <NavItem
+              icon={<Hash className="h-4 w-4" strokeWidth={1.5} />}
+              label="Hashtags"
+              active={activeTab === "hashtags"}
+              onClick={() => onTabChange("hashtags")}
+              collapsed={collapsed}
+            />
+            <NavItem
+              icon={<Target className="h-4 w-4" strokeWidth={1.5} />}
+              label="Concorrentes"
+              active={activeTab === "competitors"}
+              onClick={() => onTabChange("competitors")}
+              collapsed={collapsed}
+            />
+            <NavItem
+              icon={<FileText className="h-4 w-4" strokeWidth={1.5} />}
+              label="Relatórios"
+              active={activeTab === "reports"}
+              onClick={() => onTabChange("reports")}
+              collapsed={collapsed}
+            />
+          </>
+        )}
+
+        {/* ===== CONFIG — perfis (clientes) + workspace ===== */}
+        {(canViewClients || isOwner || canManageTeam) && (
+          <SidebarSectionHeader title="Config" collapsed={collapsed} />
+        )}
+
         {canViewClients && (
           <NavItem
             icon={<Building2 className="h-4 w-4" strokeWidth={1.5} />}
@@ -460,88 +504,33 @@ export function KaiSidebar({
           />
         )}
 
-        {/* Workspace — settings (owner) + members (admin/owner) */}
-        {(isOwner || canManageTeam) && (
-          <>
-            {!collapsed && (
-              <div className="px-3 mt-3 mb-1">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
-                  Workspace
-                </span>
-              </div>
-            )}
-            {isOwner && (
-              <NavItem
-                icon={<Settings className="h-4 w-4" strokeWidth={1.5} />}
-                label="Configurações"
-                active={activeTab === "workspace-settings"}
-                onClick={() => onTabChange("workspace-settings")}
-                collapsed={collapsed}
-              />
-            )}
-            {canManageTeam && (
-              <NavItem
-                icon={<Users className="h-4 w-4" strokeWidth={1.5} />}
-                label="Membros"
-                active={activeTab === "workspace-members"}
-                onClick={() => onTabChange("workspace-members")}
-                collapsed={collapsed}
-              />
-            )}
-            {/* Inbox unificado Metricool — DMs/Comments/Reviews todas plataformas */}
-            <NavItem
-              icon={<MessagesSquare className="h-4 w-4" strokeWidth={1.5} />}
-              label="Inbox"
-              active={activeTab === "inbox"}
-              onClick={() => onTabChange("inbox")}
-              collapsed={collapsed}
-              badge={inboxUnread}
-            />
-            {/* Hashtags Tracker Metricool */}
-            <NavItem
-              icon={<Hash className="h-4 w-4" strokeWidth={1.5} />}
-              label="Hashtags"
-              active={activeTab === "hashtags"}
-              onClick={() => onTabChange("hashtags")}
-              collapsed={collapsed}
-            />
-            {/* Competitors Metricool */}
-            <NavItem
-              icon={<Target className="h-4 w-4" strokeWidth={1.5} />}
-              label="Concorrentes"
-              active={activeTab === "competitors"}
-              onClick={() => onTabChange("competitors")}
-              collapsed={collapsed}
-            />
-            {/* Reports Metricool — Performance Dashboards + PDFs */}
-            <NavItem
-              icon={<FileText className="h-4 w-4" strokeWidth={1.5} />}
-              label="Relatórios"
-              active={activeTab === "reports"}
-              onClick={() => onTabChange("reports")}
-              collapsed={collapsed}
-            />
-            {/* REMOVIDOS DO MENU (decisão usuário 2026-05-09):
-                - Smart Links: código em MetricoolSmartLinksManager.tsx, sem rota
-                - Calendário Editorial: virou sub-tab dentro de Planejamento
-                - Linkin Bio: código em MetricoolLinkinBioEditor.tsx, sem rota
-                - Plano/cobrança: KAI 2.0 é uso interno Kaleidos */}
-          </>
+        {isOwner && (
+          <NavItem
+            icon={<Settings className="h-4 w-4" strokeWidth={1.5} />}
+            label="Workspace"
+            active={activeTab === "workspace-settings"}
+            onClick={() => onTabChange("workspace-settings")}
+            collapsed={collapsed}
+          />
         )}
 
-        {/* Admin — só super_admin enxerga */}
+        {canManageTeam && (
+          <NavItem
+            icon={<Users className="h-4 w-4" strokeWidth={1.5} />}
+            label="Membros"
+            active={activeTab === "workspace-members"}
+            onClick={() => onTabChange("workspace-members")}
+            collapsed={collapsed}
+          />
+        )}
+
+        {/* ===== ADMIN — só super_admin enxerga ===== */}
         {isSuperAdmin && (
           <>
-            {!collapsed && (
-              <div className="px-3 mt-3 mb-1">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
-                  Admin
-                </span>
-              </div>
-            )}
+            <SidebarSectionHeader title="Admin" collapsed={collapsed} />
             <NavItem
               icon={<Radar className="h-4 w-4" strokeWidth={1.5} />}
-              label="Fontes Radar"
+              label="Fontes do Radar"
               active={activeTab === "radar-sources-admin"}
               onClick={() => onTabChange("radar-sources-admin")}
               collapsed={collapsed}
@@ -550,7 +539,10 @@ export function KaiSidebar({
         )}
       </nav>
 
-      {/* Footer */}
+      {/* Footer — utilities globais.
+          Tema removido daqui (vivia duplicado): a aparência claro/escuro é
+          configurada em Configurações → Aparência. Notification bell continua
+          aqui pra ser quick-access independente de qual tab está ativa. */}
       <div className={cn("p-2 space-y-0.5 border-t border-sidebar-border", collapsed && "p-1.5")}>
         {/* MCP Docs */}
         <NavItem
@@ -561,7 +553,7 @@ export function KaiSidebar({
           collapsed={collapsed}
         />
 
-        {/* Settings */}
+        {/* Configurações pessoais — perfil, tema, notificações, segurança, AI usage */}
         {canViewSettings && (
           <NavItem
             icon={<Settings className="h-4 w-4" strokeWidth={1.5} />}
@@ -572,19 +564,8 @@ export function KaiSidebar({
           />
         )}
 
-        {/* Notifications */}
+        {/* Sino de notificações — quick access em qualquer tab */}
         <NotificationBell variant="sidebar" collapsed={collapsed} />
-
-        {/* Theme toggle */}
-        <div
-          className={cn(
-            "flex items-center gap-3 px-3 h-9 text-muted-foreground hover:text-foreground rounded-md hover:bg-accent transition-colors",
-            collapsed && "justify-center px-2",
-          )}
-        >
-          <ThemeToggle className="h-7 w-7 -ml-1.5" />
-          {!collapsed && <span className="text-sm">Tema</span>}
-        </div>
 
         {/* Collapse Toggle */}
         {!isMobile && (

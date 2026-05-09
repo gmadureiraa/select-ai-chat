@@ -195,48 +195,57 @@ export function CrossPlatformComparison({ clientId, period }: Props) {
     );
   }
 
-  // Top 3 highlights
+  // Top 3 highlights — guarda contra valores zerados (vencedor com 0 reach é bug)
+  // Floor de "min 3 posts" no winner de eng% pra evitar outliers (1 post 100%).
   const winners = {
-    posts: sorted('posts')[0],
-    reach: sorted('reach')[0],
-    engagement: sorted('engagement')[0],
+    posts: sorted('posts').find((r) => r.posts > 0) ?? null,
+    reach: sorted('reach').find((r) => r.reach > 0) ?? null,
+    engagement: sorted('engagement').find((r) => r.engagement > 0 && r.posts >= 3) ?? null,
   };
 
   return (
     <div className="space-y-4">
-      {/* Highlights */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Card className="bg-sky-500/5 border-sky-500/30">
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Eye className="h-4 w-4 text-sky-500" />
-              <span className="text-xs uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold">Mais ativa</span>
-            </div>
-            <div className="text-base font-bold">{winners.posts.label}</div>
-            <div className="text-xs text-muted-foreground">{fmt(winners.posts.posts)} posts no período</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-emerald-500/5 border-emerald-500/30">
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Heart className="h-4 w-4 text-emerald-500" />
-              <span className="text-xs uppercase tracking-wider text-emerald-700 dark:text-emerald-400 font-semibold">Maior alcance</span>
-            </div>
-            <div className="text-base font-bold">{winners.reach.label}</div>
-            <div className="text-xs text-muted-foreground">{fmt(winners.reach.reach)} pessoas alcançadas</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-amber-500/5 border-amber-500/30">
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="h-4 w-4 text-amber-500" />
-              <span className="text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 font-semibold">Maior eng %</span>
-            </div>
-            <div className="text-base font-bold">{winners.engagement.label}</div>
-            <div className="text-xs text-muted-foreground">{winners.engagement.engagement.toFixed(2)}% de engajamento</div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Highlights — só renderiza se há winner real */}
+      {(winners.posts || winners.reach || winners.engagement) && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {winners.posts && (
+            <Card className="bg-sky-500/5 border-sky-500/30">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Eye className="h-4 w-4 text-sky-500" />
+                  <span className="text-xs uppercase tracking-wider text-sky-700 dark:text-sky-400 font-semibold">Mais ativa</span>
+                </div>
+                <div className="text-base font-bold">{winners.posts.label}</div>
+                <div className="text-xs text-muted-foreground">{fmt(winners.posts.posts)} posts no período</div>
+              </CardContent>
+            </Card>
+          )}
+          {winners.reach && (
+            <Card className="bg-emerald-500/5 border-emerald-500/30">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Heart className="h-4 w-4 text-emerald-500" />
+                  <span className="text-xs uppercase tracking-wider text-emerald-700 dark:text-emerald-400 font-semibold">Maior alcance</span>
+                </div>
+                <div className="text-base font-bold">{winners.reach.label}</div>
+                <div className="text-xs text-muted-foreground">{fmt(winners.reach.reach)} pessoas alcançadas</div>
+              </CardContent>
+            </Card>
+          )}
+          {winners.engagement && (
+            <Card className="bg-amber-500/5 border-amber-500/30">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="h-4 w-4 text-amber-500" />
+                  <span className="text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 font-semibold">Maior eng %</span>
+                </div>
+                <div className="text-base font-bold">{winners.engagement.label}</div>
+                <div className="text-xs text-muted-foreground">{winners.engagement.engagement.toFixed(2)}% de engajamento</div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Comparativo ordenável */}
       <Card>

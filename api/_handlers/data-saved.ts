@@ -15,8 +15,16 @@ import { getPool } from '../_lib/db.js';
 const PostSchema = z.object({
   platform: z.string().min(1).max(40),
   refId: z.string().min(1).max(200),
+  // Aceita tanto `niche` quanto `nicheSlug` (frontend Dashboard usa nicheSlug).
   niche: z.string().max(100).optional(),
-  notes: z.string().max(2000).optional(),
+  nicheSlug: z.string().max(100).optional(),
+  // Aceita `notes` (legacy) e `note` (frontend).
+  notes: z.string().max(4000).optional(),
+  note: z.string().max(4000).optional(),
+  // Campos achatados do frontend — empacotamos em ref_data jsonb.
+  title: z.string().max(500).optional(),
+  sourceUrl: z.string().max(2000).optional(),
+  thumbnail: z.string().max(2000).optional(),
   workspaceId: z.string().uuid().optional(),
   clientId: z.string().uuid().optional(),
   refData: z.record(z.unknown()).optional(),
@@ -47,7 +55,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         LIMIT $4`,
       [auth.id, platform, niche, limit],
     );
-    return res.status(200).json({ items: rows.rows, count: rows.rowCount });
+    // Achata ref_data → top-level pra compatibilidade com `SavedItemRow` do
+    // frontend (espera title/note/source_url/thumbnail/niche_slug flat).
+    const items = rows.rows.map((r: any) => {
+      const rd = r.ref_data ?? {};
+      return {
+        id: r.id,
+        platform: r.platform,
+        ref_id: r.ref_id,
+        niche: r.niche ?? null,
+        niche_slug: r.niche ?? null,
+        title: rd.title ?? null,
+        note: r.notes ?? rd.note ?? null,
+        source_url: rd.source_url ?? rd.sourceUrl ?? null,
+        thumbnail: rd.thumbnail ?? null,
+        saved_at: r.saved_at,
+      };
+    });
+    return res.status(200).json({ items, count: rows.rowCount });
   }
 
   if (method === 'POST') {
@@ -55,7 +80,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!parsed.success) {
       return jsonError(res, 400, parsed.error.errors.map((e) => e.message).join('; '));
     }
-    const { platform, refId, niche, notes, workspaceId, clientId, refData } = parsed.data;
+    const {
+      platform,
+      refId,
+      niche,
+      nicheSlug,
+      notes,
+      note,
+      title,
+      sourceUrl,
+      thumbnail,
+      workspaceId,
+      clientId,
+      refData,
+    } = parsed.data;
+    const resolvedNiche = niche ?? nicheSlug ?? null;
+    const resolvedNote = note ?? notes ?? null;
+    // Empacota campos flat dentro de ref_data (DB schema usa jsonb pra esses).
+    const mergedRefData = {
+      ...(refData ?? {}),
+      ...(title !== undefined ? { title } : {}),
+      ...(sourceUrl !== undefined ? { source_url: sourceUrl } : {}),
+      ...(thumbnail !== undefined ? { thumbnail } : {}),
+    };
     const r = await pool.query(
       `INSERT INTO radar_saved_items
          (user_id, workspace_id, client_id, platform, ref_id, ref_data, niche, notes)
@@ -71,9 +118,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         clientId ?? null,
         platform,
         refId,
-        JSON.stringify(refData ?? {}),
-        niche ?? null,
-        notes ?? null,
+        JSON.stringify(mergedRefData),
+        resolvedNiche,
+        resolvedNote,
       ],
     );
     return res.status(200).json({ ok: true, id: r.rows[0]?.id });

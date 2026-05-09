@@ -46,6 +46,12 @@ export interface SourceMeta {
   timestamp?: string;
   videoUrl?: string;
   displayUrl?: string;
+  /**
+   * Transcrição literal do áudio falado do reel ORIGINAL (PT-BR ou idioma
+   * da fala). Vazio quando o reel é só visual/musical. Stash dentro de
+   * source_meta pra não exigir migration de schema.
+   */
+  originalTranscript?: string | null;
 }
 
 export interface SourceAnalysis {
@@ -112,10 +118,14 @@ export interface AdaptResponse {
   sourceMeta?: SourceMeta;
   analysis: SourceAnalysis;
   script: AdaptedScript;
+  /** Transcrição literal do áudio do reel ORIGINAL (referência). */
+  originalTranscript?: string | null;
   /** Tempo total da geração em ms. */
   durationMs?: number;
   /** ID do script persistido (DB) — opcional. */
   scriptId?: string | null;
+  /** Quando true, o handler reaproveitou um reel já analisado <24h. */
+  cached?: boolean;
 }
 
 /**

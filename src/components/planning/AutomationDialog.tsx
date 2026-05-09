@@ -565,7 +565,7 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? 'Editar Automação' : 'Nova Automação'}
@@ -698,6 +698,27 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
                     value={scheduleTime}
                     onChange={(e) => setScheduleTime(e.target.value)}
                   />
+                </div>
+
+                {/* Preview amigável do schedule */}
+                <div className="flex items-start gap-2 p-2.5 bg-muted/40 rounded-md text-xs">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground">
+                      {scheduleType === 'daily' && `Todo dia às ${scheduleTime}`}
+                      {scheduleType === 'weekly' && scheduleDays.length > 0 &&
+                        `Toda ${scheduleDays.map(d => WEEKDAYS.find(w => w.value === d)?.label).filter(Boolean).join(', ')} às ${scheduleTime}`}
+                      {scheduleType === 'weekly' && scheduleDays.length === 0 &&
+                        'Selecione pelo menos um dia'}
+                      {scheduleType === 'monthly' && scheduleDays.length > 0 &&
+                        `Dia(s) ${scheduleDays.join(', ')} de cada mês às ${scheduleTime}`}
+                      {scheduleType === 'monthly' && scheduleDays.length === 0 &&
+                        'Informe os dias do mês'}
+                    </p>
+                    <p className="text-muted-foreground mt-0.5">
+                      Trigger roda 1x ao dia (idempotente). Múltiplos disparos no mesmo dia são bloqueados.
+                    </p>
+                  </div>
                 </div>
               </TabsContent>
 

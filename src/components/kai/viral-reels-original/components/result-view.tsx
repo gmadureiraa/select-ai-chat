@@ -428,6 +428,66 @@ export function ResultView({
         )}
       </section>
 
+      {/* TRANSCRIÇÃO ORIGINAL — referência. Renderiza só se vier não-vazia
+          do handler (pode ser null em reels só musical/visual). */}
+      {(() => {
+        const original =
+          data.originalTranscript ??
+          source.originalTranscript ??
+          null;
+        if (!original || !original.trim()) return null;
+        return (
+          <section
+            style={{
+              background: "var(--color-rv-soft)",
+              border: "1.5px solid var(--color-rv-ink)",
+              boxShadow: "5px 5px 0 0 var(--color-rv-ink)",
+              padding: "26px 26px 22px",
+            }}
+          >
+            <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+              <div>
+                <div className="rv-eyebrow">
+                  <span className="rv-rec-dot" /> TRANSCRIÇÃO DO REEL ORIGINAL
+                </div>
+                <p
+                  className="rv-mono"
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: "var(--color-rv-muted)",
+                    marginTop: 6,
+                  }}
+                >
+                  Áudio falado do reel de @{source.ownerUsername ?? "—"} · só referência
+                </p>
+              </div>
+              <button
+                onClick={() => handleCopy("Transcrição", original)}
+                className="rv-btn"
+                style={{ padding: "6px 10px", fontSize: 9 }}
+              >
+                {copied === "Transcrição" ? <Check size={11} /> : <Copy size={11} />}
+                {copied === "Transcrição" ? "Copiado" : "Copiar"}
+              </button>
+            </div>
+            <p
+              style={{
+                fontSize: 14,
+                lineHeight: 1.6,
+                whiteSpace: "pre-wrap",
+                color: "var(--color-rv-ink)",
+                margin: 0,
+                fontStyle: "italic",
+              }}
+            >
+              {original}
+            </p>
+          </section>
+        );
+      })()}
+
       {/* SCRIPT — TÍTULO + HOOK DESTACADO + ROTEIRO COMPLETO */}
       <section
         style={{

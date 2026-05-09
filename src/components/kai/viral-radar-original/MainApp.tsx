@@ -26,7 +26,6 @@ import {
   Menu,
   X,
   LogOut,
-  Radio,
 } from "lucide-react";
 
 import "./styles/globals.css";
@@ -39,7 +38,6 @@ import DashboardPage from "./pages/Dashboard";
 import SavedPage from "./pages/Saved";
 import NewslettersPage from "./pages/Newsletters";
 import AdminPage from "./pages/Admin";
-import { ClientSourcesManager } from "./components/ClientSourcesManager";
 
 import type { Client } from "@/hooks/useClients";
 
@@ -47,7 +45,15 @@ import type { Client } from "@/hooks/useClients";
 import { useClientWorkspaceContext } from "@/components/kai/viral/lib/use-client-workspace-context";
 import { ClientContextHeader } from "@/components/kai/viral/ClientContextHeader";
 
-type ViewId = "dashboard" | "saved" | "newsletters" | "sources" | "admin";
+/**
+ * ViewId — tabs internas do Radar.
+ *
+ * 2026-05-09: tab "sources" removida daqui. Configuração de fontes
+ * per-client agora vive na tab "Viral" do Perfil do Cliente
+ * (`ClientViralSettingsTab`). O Radar fica focado só no dashboard +
+ * salvos + newsletters + admin.
+ */
+type ViewId = "dashboard" | "saved" | "newsletters" | "admin";
 
 interface NavItem {
   id: ViewId;
@@ -67,7 +73,6 @@ const NAV: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "saved", label: "Salvos", icon: BookmarkCheck },
   { id: "newsletters", label: "Newsletters", icon: Mail },
-  { id: "sources", label: "Fontes", icon: Radio },
   { id: "admin", label: "Admin", icon: Shield, badge: "DEV", adminOnly: true },
 ];
 
@@ -95,11 +100,11 @@ function RadarShell({
   const [view, setView] = useState<ViewId>("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // KAI context — header banner + nome do client pro tab "Fontes".
-  // Radar dashboard ainda é nicho-driven (crypto/marketing/ai); só "Fontes"
-  // depende do clientId selecionado.
+  // KAI context — header banner com cliente atual. Radar dashboard é
+  // nicho-driven (crypto/marketing/ai); fontes per-client foram movidas
+  // pro Perfil do Cliente (tab Viral).
+  void clientName; // silencia unused: prop ainda aceita pra compatibilidade
   const { data: clientCtx } = useClientWorkspaceContext(clientId);
-  const resolvedClientName = clientCtx?.client?.name ?? clientName ?? null;
 
   const isAdmin = isAdminEmail(session.data?.user?.email);
   const navItems = NAV.filter((n) => !n.adminOnly || isAdmin);
@@ -113,13 +118,6 @@ function RadarShell({
         return <SavedPage />;
       case "newsletters":
         return <NewslettersPage />;
-      case "sources":
-        return (
-          <ClientSourcesManager
-            clientId={clientId}
-            clientName={resolvedClientName}
-          />
-        );
       case "admin":
         return <AdminPage />;
       default:

@@ -36,7 +36,10 @@ Português brasileiro coloquial, com cadência de fala. Use o tom emocional EXAT
 - O CTA do user vai onde o CTA original estava.
 
 🔒 REGRA #6 — VOCÊ É ENGENHEIRO REVERSO
-Não é copywriter. Decifre o código de um reel que funcionou e replique com novo conteúdo.`;
+Não é copywriter. Decifre o código de um reel que funcionou e replique com novo conteúdo.
+
+🔒 REGRA #7 — TRANSCREVA O ORIGINAL
+Antes de gerar o script novo, transcreva o áudio falado do reel original em PT-BR (ou idioma da fala) em texto corrido, sem timestamps, no campo \`originalTranscript\`. Se o reel não tiver áudio falado (só música/visual), retorna string vazia. Essa transcrição é REFERÊNCIA pro user comparar — não é o roteiro novo.`;
 
 const RESPONSE_SCHEMA = {
   type: 'object',
@@ -87,16 +90,46 @@ const RESPONSE_SCHEMA = {
       },
       required: ['titulo', 'hook', 'roteiroCompleto', 'scenes', 'captionSugerida', 'notasProducao'],
     },
+    /**
+     * Transcrição literal do áudio original (PT-BR ou idioma da fala).
+     * Texto corrido, sem timestamps. Serve como referência pro user
+     * comparar com o roteiro novo. Best-effort: pode vir vazio se o reel
+     * for só visual/musical.
+     */
+    originalTranscript: { type: 'string' },
   },
   required: ['analysis', 'script'],
 };
 
 function extractShortCode(url: string): string | null {
-  const m = url.match(/instagram\.com\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
+  // Suporta com/sem segmento de username (instagram.com/<user>/reel/<code>).
+  const m = url.match(
+    /instagram\.com\/(?:[^\/]+\/)?(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/,
+  );
   return m ? m[1] : null;
 }
 function isValidIgUrl(url: string): boolean {
-  return /^https?:\/\/(?:www\.)?instagram\.com\/(?:reel|reels|p|tv)\/[A-Za-z0-9_-]+/i.test(url);
+  // Aceita reel/reels/p/tv (Apify cobre todos). Validação estrita
+  // happens depois (precisa ser type=Video). client-side `isValidInstagramUrl`
+  // só aceita reels — esse handler aceita tudo pra dar erro mais claro
+  // ("isso é foto/carrossel, cola um reel") em vez de rejeitar de cara.
+  return /^https?:\/\/(?:www\.)?instagram\.com\/(?:[^\/]+\/)?(?:reel|reels|p|tv)\/[A-Za-z0-9_-]+/i.test(
+    url,
+  );
+}
+
+/**
+ * Extrai videoUrl do item Apify. Reels normais vêm com `type='Video'` +
+ * `videoUrl` direto. Sidecar (carrossel) pode ter primeiro child video,
+ * então tentamos `childPosts[0].videoUrl` como fallback.
+ */
+function pickVideoUrl(item: any): string | null {
+  if (item?.videoUrl) return item.videoUrl as string;
+  if (item?.type === 'Sidecar' && Array.isArray(item.childPosts)) {
+    const firstVideo = item.childPosts.find((c: any) => c?.videoUrl);
+    if (firstVideo?.videoUrl) return firstVideo.videoUrl as string;
+  }
+  return null;
 }
 
 async function scrapeReel(sourceUrl: string, apifyKey: string) {
@@ -260,6 +293,36 @@ export default authedPost(async ({ user, body }) => {
   const shortCode = extractShortCode(sourceUrl);
   const pool = getPool();
 
+  // Dedupe: se já existe um reel `done` desse mesmo cliente + sourceUrl no
+  // último 24h, retorna ele direto sem queimar Apify+Gemini+tokens. User
+  // que quiser re-rodar deve apagar o item anterior pelo HistorySidebar.
+  const existing = await queryOne<{
+    id: string;
+    source_meta: any;
+    analysis: any;
+    script: any;
+  }>(
+    `SELECT id, source_meta, analysis, script
+        FROM viral_reels
+       WHERE client_id = $1
+         AND source_url = $2
+         AND status = 'done'
+         AND created_at > NOW() - INTERVAL '24 hours'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+    [clientId, sourceUrl],
+  );
+  if (existing && existing.analysis && existing.script) {
+    return {
+      ok: true,
+      reelId: existing.id,
+      analysis: existing.analysis,
+      script: existing.script,
+      sourceMeta: existing.source_meta ?? undefined,
+      cached: true,
+    };
+  }
+
   // Insert pending row
   const reelRow = await queryOne<{ id: string }>(
     `INSERT INTO viral_reels
@@ -286,27 +349,59 @@ export default authedPost(async ({ user, body }) => {
   try {
     // 1. Scrape via Apify
     const item = await scrapeReel(sourceUrl, APIFY_KEY);
-    if (item.type !== 'Video' || !item.videoUrl) {
-      throw new Error('URL não é um Reel/vídeo. Cola um link de Reel, não foto/carrossel.');
+    const videoUrl = pickVideoUrl(item);
+    if (!videoUrl) {
+      // type='Image' ou Sidecar sem vídeo → mensagem clara pro user.
+      const kind = item?.type ?? 'desconhecido';
+      throw new Error(
+        kind === 'Image'
+          ? 'Esse link é uma FOTO. O Reels Viral só aceita vídeo (reel ou IGTV).'
+          : kind === 'Sidecar'
+          ? 'Esse link é um CARROSSEL sem vídeo. Cola um reel/post de vídeo.'
+          : `Esse post não é vídeo (type=${kind}). Cola um link de Reel.`,
+      );
     }
 
     const sourceMeta = {
       shortCode: item.shortCode,
       ownerUsername: item.ownerUsername,
+      ownerFullName: item.ownerFullName,
       caption: item.caption,
       videoDuration: item.videoDuration,
       videoPlayCount: item.videoPlayCount,
       likesCount: item.likesCount,
       commentsCount: item.commentsCount,
       timestamp: item.timestamp,
-      videoUrl: item.videoUrl,
+      videoUrl,
       displayUrl: item.displayUrl,
+      url: sourceUrl,
     };
 
-    // 2. Download MP4
-    const videoRes = await fetch(item.videoUrl);
-    if (!videoRes.ok) throw new Error(`Download MP4 falhou: ${videoRes.status}`);
-    const videoBytes = Buffer.from(await videoRes.arrayBuffer());
+    // 2. Download MP4 (com timeout pra evitar hang no edge function)
+    const dlController = new AbortController();
+    const dlTimeout = setTimeout(() => dlController.abort(), 45_000);
+    let videoBytes: Buffer;
+    try {
+      const videoRes = await fetch(videoUrl, { signal: dlController.signal });
+      if (!videoRes.ok) {
+        throw new Error(
+          `Download MP4 falhou: ${videoRes.status}. CDN do Instagram pode estar bloqueando — tenta outro reel.`,
+        );
+      }
+      videoBytes = Buffer.from(await videoRes.arrayBuffer());
+    } finally {
+      clearTimeout(dlTimeout);
+    }
+
+    // Guard de tamanho — Gemini File API aguenta até ~2GB mas reels >100MB
+    // são raros e geralmente significam vídeo longo (>3min). Cortamos em
+    // 100MB pra não estourar timeout do Vercel function (max ~60s/300s).
+    const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+    if (videoBytes.byteLength > MAX_VIDEO_BYTES) {
+      throw new Error(
+        `Vídeo muito grande (${(videoBytes.byteLength / 1024 / 1024).toFixed(0)}MB). Reels Viral aceita até 100MB.`,
+      );
+    }
 
     // 3. Upload to Gemini File API
     const fileUri = await uploadToGemini(GEMINI_KEY, videoBytes);
@@ -342,6 +437,13 @@ Analise o vídeo anexado e gere o JSON conforme schema, ADAPTANDO o conteúdo à
     }
 
     const dur = Date.now() - t0;
+    // Stash originalTranscript dentro de source_meta (tabela ainda não tem
+    // coluna dedicada — mantemos lean evitando migration). MainApp lê via
+    // `reel.source_meta?.originalTranscript`.
+    const enrichedMeta = {
+      ...sourceMeta,
+      originalTranscript: result.originalTranscript ?? null,
+    };
     await pool.query(
       `UPDATE viral_reels
           SET source_meta = $1::jsonb,
@@ -351,7 +453,7 @@ Analise o vídeo anexado e gere o JSON conforme schema, ADAPTANDO o conteúdo à
               duration_ms = $4
         WHERE id = $5`,
       [
-        JSON.stringify(sourceMeta),
+        JSON.stringify(enrichedMeta),
         JSON.stringify(result.analysis),
         JSON.stringify(result.script),
         dur,
@@ -364,7 +466,9 @@ Analise o vídeo anexado e gere o JSON conforme schema, ADAPTANDO o conteúdo à
       reelId,
       analysis: result.analysis,
       script: result.script,
-      sourceMeta,
+      sourceMeta: enrichedMeta,
+      originalTranscript: result.originalTranscript ?? null,
+      durationMs: dur,
     };
   } catch (innerErr: any) {
     const msg = innerErr?.message ?? String(innerErr);

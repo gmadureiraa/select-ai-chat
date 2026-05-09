@@ -45,19 +45,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   await tryAuth(req);
 
   const niche = (req.query.niche as string) || "marketing";
+  const clientId = (req.query.clientId as string) || null;
 
   try {
-    // KAI usa viral_radar_briefs (não daily_briefs)
-    const rows = await query<BriefRow>(
-      `SELECT id::text, niche, brief_date::text, narratives, hot_topics,
+    // Status canônico do brief é 'done' (writer trigger checa 'done').
+    // Aceita também 'ready'/'completed' por retrocompat com cron-generate-daily-brief
+    // antigo, e suporta filtro opcional por clientId quando o KAI passa o cliente atual.
+    // 1. Tenta primeiro com clientId + niche exato (ideal: cliente tem brief
+    //    custom no nicho selecionado). 2. Fallback: clientId sem filtro de niche.
+    //    3. Último fallback: brief global mais recente desse niche.
+    const baseSelect = `SELECT id::text, niche, brief_date::text, narratives, hot_topics,
               carousel_ideas, cross_pollination, model_used, cost_usd::text
          FROM viral_radar_briefs
-        WHERE niche = $1
-          AND status = 'completed'
+        WHERE status IN ('done', 'ready', 'completed')`;
+
+    let rows: BriefRow[] = [];
+    if (clientId) {
+      // Tentativa 1: clientId + niche
+      rows = await query<BriefRow>(
+        `${baseSelect}
+          AND client_id = $1
+          AND niche = $2
         ORDER BY brief_date DESC, created_at DESC
         LIMIT 2`,
-      [niche],
-    );
+        [clientId, niche],
+      );
+      if (rows.length === 0) {
+        // Tentativa 2: clientId sem niche (cron pode ter gravado niche='general')
+        rows = await query<BriefRow>(
+          `${baseSelect}
+            AND client_id = $1
+          ORDER BY brief_date DESC, created_at DESC
+          LIMIT 2`,
+          [clientId],
+        );
+      }
+    }
+    if (rows.length === 0) {
+      // Tentativa 3: brief global mais recente desse niche (sem cliente)
+      rows = await query<BriefRow>(
+        `${baseSelect}
+          AND niche = $1
+        ORDER BY brief_date DESC, created_at DESC
+        LIMIT 2`,
+        [niche],
+      );
+    }
 
     if (rows.length === 0) {
       return res.status(200).json({ brief: null, previous: null });

@@ -1,9 +1,10 @@
 import { memo, useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { 
+import {
   MoreHorizontal, Calendar, Flag,
-  Twitter, Linkedin, Instagram, Youtube, Mail, FileText, Video, Facebook, AtSign
+  Twitter, Linkedin, Instagram, Youtube, Mail, FileText, Video, Facebook, AtSign,
+  Heart, MessageCircle, Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -17,8 +18,15 @@ import {
 import { cn } from '@/lib/utils';
 import { PublicationStatusBadge } from './PublicationStatusBadge';
 import { useClientPlatformStatus } from '@/hooks/useClientPlatformStatus';
+import { getPlanningItemMetrics } from '@/hooks/usePostMetrics';
 import { PLATFORM_COLOR_MAP } from '@/types/contentTypes';
 import type { PlanningItem } from '@/hooks/usePlanningItems';
+
+function fmtCompact(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return '–';
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
 
 interface PlanningListRowProps {
   item: PlanningItem;
@@ -59,6 +67,7 @@ export const PlanningListRow = memo(function PlanningListRow({
 
   const publicationMode = useMemo(() => getPublicationMode(item.platform), [item.platform, getPublicationMode]);
   const platformStatus = useMemo(() => getPlatformStatus(item.platform), [item.platform, getPlatformStatus]);
+  const postMetrics = item.status === 'published' ? getPlanningItemMetrics(item) : null;
 
   return (
     <div
@@ -114,6 +123,33 @@ export const PlanningListRow = memo(function PlanningListRow({
           </>
         ) : (
           <span className="text-muted-foreground/40">Sem data</span>
+        )}
+      </div>
+
+      {/* Performance pós-publicação (só preenchida quando status='published') */}
+      <div
+        className="shrink-0 w-[110px] hidden xl:flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums"
+        title={postMetrics ? 'Performance pós-publicação' : undefined}
+      >
+        {postMetrics ? (
+          <>
+            <span className="inline-flex items-center gap-0.5">
+              <Heart className="h-3 w-3 text-rose-500" />
+              {fmtCompact(postMetrics.likes)}
+            </span>
+            <span className="inline-flex items-center gap-0.5">
+              <MessageCircle className="h-3 w-3 text-sky-500" />
+              {fmtCompact(postMetrics.comments)}
+            </span>
+            {postMetrics.reach > 0 && (
+              <span className="inline-flex items-center gap-0.5">
+                <Eye className="h-3 w-3 text-emerald-500" />
+                {fmtCompact(postMetrics.reach)}
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
         )}
       </div>
 

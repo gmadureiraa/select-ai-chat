@@ -100,9 +100,12 @@ export default function DashboardPage({ clientId = null }: DashboardPageProps = 
       try {
         const jwt = await getJwtToken();
         const headers = jwt ? { Authorization: `Bearer ${jwt}` } : undefined;
+        const briefUrl = clientId
+          ? `/api/radar-brief?niche=${niche.id}&clientId=${encodeURIComponent(clientId)}`
+          : `/api/radar-brief?niche=${niche.id}`;
         const [briefRes, subRes, savedTopicRes, savedIdeaRes, syncRes] =
           await Promise.all([
-            fetch(`/api/radar-brief?niche=${niche.id}`, { headers }),
+            fetch(briefUrl, { headers }),
             fetch("/api/radar-subscription", { headers }),
             fetch("/api/data/saved?platform=topic", { headers }),
             fetch("/api/data/saved?platform=idea", { headers }),
@@ -153,7 +156,7 @@ export default function DashboardPage({ clientId = null }: DashboardPageProps = 
     return () => {
       cancel = true;
     };
-  }, [session.data?.user?.id, niche.id]);
+  }, [session.data?.user?.id, niche.id, clientId]);
 
   const handleSaveIdea = useCallback(
     async (idea: BriefCarouselIdea) => {

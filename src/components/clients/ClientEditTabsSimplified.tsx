@@ -9,7 +9,7 @@ import {
   User, Loader2, Globe, Instagram, Twitter,
   Linkedin, Youtube, Mail, Megaphone, Check,
   Building, MessageSquare, Users, Target, Plug, FileText, Brain,
-  BarChart3, RefreshCw
+  BarChart3, RefreshCw, Radar as RadarIcon
 } from "lucide-react";
 import { useImportClientSocialContent } from "@/hooks/useImportClientSocialContent";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
@@ -20,6 +20,7 @@ import { ClientDocumentsManager } from "./ClientDocumentsManager";
 import { VisualReferencesManager } from "./VisualReferencesManager";
 import { AIContextTab } from "./AIContextTab";
 import { ClientAnalyticsTab } from "./ClientAnalyticsTab";
+import { ClientViralSettingsTab } from "./ClientViralSettingsTab";
 import { Client, useClients } from "@/hooks/useClients";
 import { useClientWebsites } from "@/hooks/useClientWebsites";
 import { useClientDocuments } from "@/hooks/useClientDocuments";
@@ -154,12 +155,13 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
         </div>
       </div>
 
-      {/* Simplified Tabs: 6 tabs (added Analytics as final).
-          Mobile: scroll horizontal pra evitar grid-cols-6 apertado.
-          Desktop: grid full-width. */}
+      {/* Simplified Tabs: 7 tabs (Viral adicionada 2026-05-09 — agrega
+          configs de Radar/Carrossel/Reels que antes viviam dentro dos
+          apps virais).
+          Mobile: scroll horizontal. Desktop: grid full-width. */}
       <Tabs defaultValue="profile" className="w-full">
         <div className="overflow-x-auto -mx-2 sm:mx-0 px-2 sm:px-0 scrollbar-hide">
-          <TabsList className="inline-flex w-max min-w-full sm:grid sm:grid-cols-6">
+          <TabsList className="inline-flex w-max min-w-full sm:grid sm:grid-cols-7">
             <TabsTrigger value="profile" className="text-xs gap-1 whitespace-nowrap">
               <User className="h-3.5 w-3.5" aria-hidden="true" />
               Perfil
@@ -175,6 +177,10 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
             <TabsTrigger value="integrations" className="text-xs gap-1 whitespace-nowrap">
               <Plug className="h-3.5 w-3.5" aria-hidden="true" />
               Integrações
+            </TabsTrigger>
+            <TabsTrigger value="viral" className="text-xs gap-1 whitespace-nowrap">
+              <RadarIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              Viral
             </TabsTrigger>
             <TabsTrigger value="ai-context" className="text-xs gap-1 whitespace-nowrap">
               <Brain className="h-3.5 w-3.5" aria-hidden="true" />
@@ -334,6 +340,12 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
           <SocialIntegrationsPanel clientId={client.id} />
           {/* Cards detalhados legacy (todas plataformas, com descrições) */}
           <SocialIntegrationsTab clientId={client.id} />
+        </TabsContent>
+
+        {/* Tab: Viral — fontes do Radar + ponteiros pra Carrossel/Reels.
+            Configs antes espalhadas dentro dos 3 apps agora moram aqui. */}
+        <TabsContent value="viral" className="mt-4">
+          <ClientViralSettingsTab clientId={client.id} clientName={name || null} />
         </TabsContent>
 
         {/* Tab: AI Context */}

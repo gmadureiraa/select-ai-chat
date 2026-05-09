@@ -1,7 +1,8 @@
 import * as React from "react";
-import { Eye, Heart, Image as ImageIcon, MessageCircle, Repeat2 } from "lucide-react";
+import { Eye, FileText, Heart, Image as ImageIcon, MessageCircle, Repeat2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -12,6 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { PostTranscriptionDialog } from "./PostTranscriptionDialog";
+import type { TranscriptionSource } from "@/hooks/usePostTranscription";
+import { getNetworkBranding } from "@/lib/network-branding";
 
 export interface MetricoolPost {
   id: string | number;
@@ -55,6 +59,10 @@ export interface PostsGridProps {
   onClick?: (post: MetricoolPost) => void;
   sortBy?: PostsGridSort;
   className?: string;
+  /** Habilita botão "Transcrição" em cada card. */
+  clientId?: string;
+  /** Origem dos posts pra chave UNIQUE da transcrição. Default: 'metricool' */
+  transcriptionSource?: TranscriptionSource;
 }
 
 const ptBR = new Intl.NumberFormat("pt-BR");
@@ -129,6 +137,8 @@ export function PostsGrid({
   onClick,
   sortBy: initialSort = "recent",
   className,
+  clientId,
+  transcriptionSource = "metricool",
 }: PostsGridProps) {
   const [sortBy, setSortBy] = React.useState<PostsGridSort>(initialSort);
 
@@ -176,6 +186,8 @@ export function PostsGrid({
 
   const sorted = sortPosts(safe, sortBy);
   const sharesLabel = SHARES_LABEL[network] || "Compart.";
+  const branding = getNetworkBranding(network);
+  const NetworkIcon = branding.icon;
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -234,7 +246,8 @@ export function PostsGrid({
               }
               className={cn(
                 "overflow-hidden flex flex-col transition-all",
-                interactive && "cursor-pointer hover:shadow-md hover:ring-2 hover:ring-primary/30",
+                interactive &&
+                  cn("cursor-pointer hover:shadow-md hover:ring-2", branding.ringColor),
               )}
             >
               <div className="relative aspect-square bg-muted overflow-hidden">
@@ -253,6 +266,16 @@ export function PostsGrid({
                     <ImageIcon className="h-8 w-8" />
                   </div>
                 )}
+                {/* Badge da rede no canto superior esquerdo (cor própria, ícone branco) */}
+                <div
+                  className={cn(
+                    "absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded-md shadow-sm",
+                    branding.bgGradient,
+                  )}
+                  title={branding.label}
+                >
+                  <NetworkIcon className={cn("h-3 w-3", branding.iconOnBgClass)} />
+                </div>
                 {showEngBadge && (
                   <Badge
                     variant={engVariant as "approved" | "secondary"}
@@ -277,7 +300,10 @@ export function PostsGrid({
                     <MessageCircle className="h-3.5 w-3.5" />
                     {fmtNum(post.comments)}
                   </span>
-                  <span className="inline-flex items-center gap-1" title={sharesLabel}>
+                  <span
+                    className={cn("inline-flex items-center gap-1", branding.textColor)}
+                    title={sharesLabel}
+                  >
                     <Repeat2 className="h-3.5 w-3.5" />
                     {fmtNum(post.shares)}
                   </span>
@@ -286,6 +312,28 @@ export function PostsGrid({
                     {fmtNum(getPostViews(post))}
                   </span>
                 </div>
+
+                {clientId ? (
+                  <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                    <PostTranscriptionDialog
+                      clientId={clientId}
+                      post={post as any}
+                      source={transcriptionSource}
+                      network={String(network)}
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-full justify-start gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+                          type="button"
+                        >
+                          <FileText className="h-3 w-3" />
+                          Transcrição
+                        </Button>
+                      }
+                    />
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           );

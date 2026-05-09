@@ -40,6 +40,7 @@ import {
   listClientsTool,
   createClientTool,
   addToPlanningTool,
+  getPostTranscriptionTool,
   type ToolExecutionContext,
 } from '../_lib/kai-chat-tools/index.js';
 
@@ -2244,6 +2245,7 @@ SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundante
       registry.register(listClientsTool);
       registry.register(createClientTool);
       registry.register(addToPlanningTool);
+      registry.register(getPostTranscriptionTool);
 
       setSseHeaders(res);
       const emit = createKAIEmitter(res);

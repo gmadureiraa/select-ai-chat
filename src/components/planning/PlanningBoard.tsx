@@ -418,8 +418,8 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
 
         {view === 'editorial' && (
           <div className="h-full overflow-y-auto">
-            {filters.clientId ? (
-              <MetricoolCalendarView clientId={filters.clientId} />
+            {effectiveFilters.clientId ? (
+              <MetricoolCalendarView clientId={effectiveFilters.clientId} />
             ) : (
               <div className="flex items-center justify-center h-full p-8">
                 <div className="text-center max-w-md">

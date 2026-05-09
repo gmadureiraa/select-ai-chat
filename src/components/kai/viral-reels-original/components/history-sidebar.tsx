@@ -4,9 +4,13 @@
  * Estética cream/REC consistente com o resto do MainApp — não usa shadcn
  * pra não quebrar o look. É um plus do KAI (no standalone tinha página
  * dedicada `/app/meus-roteiros`).
+ *
+ * Mobile: sidebar vira off-canvas drawer (esconde por default <md, abre via
+ * trigger flutuante "Histórico (n)").
  */
 
-import { Trash2, History } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Trash2, History, X } from "lucide-react";
 import type { ReelRow } from "../types";
 
 interface Props {
@@ -17,6 +21,23 @@ interface Props {
   loading?: boolean;
 }
 
+const MOBILE_BREAKPOINT = 768;
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const onChange = () => setIsMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return isMobile;
+}
+
 export function HistorySidebar({
   reels,
   selectedId,
@@ -24,16 +45,76 @@ export function HistorySidebar({
   onDelete,
   loading,
 }: Props) {
-  return (
+  const isMobile = useIsMobile();
+  const [open, setOpen] = useState(false);
+
+  // Wrap a click handler so mobile drawer fecha após selecionar.
+  const handleSelect = (r: ReelRow) => {
+    onSelect(r);
+    if (isMobile) setOpen(false);
+  };
+
+  // Trigger flutuante mobile (só visible when fechado)
+  if (isMobile && !open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={`Abrir histórico (${reels.length})`}
+        className="rv-mono"
+        style={{
+          position: "fixed",
+          bottom: 18,
+          left: 18,
+          zIndex: 50,
+          background: "var(--color-rv-ink)",
+          color: "var(--color-rv-cream)",
+          border: "1.5px solid var(--color-rv-ink)",
+          boxShadow: "3px 3px 0 0 var(--color-rv-rec)",
+          padding: "10px 14px",
+          fontSize: 11,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          fontWeight: 700,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          cursor: "pointer",
+        }}
+      >
+        <History size={13} /> Histórico · {reels.length}
+      </button>
+    );
+  }
+
+  // Mobile drawer overlay
+  const aside = (
+    <>
+    {isMobile && (
+      <div
+        onClick={() => setOpen(false)}
+        aria-hidden
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(10,9,8,0.45)",
+          zIndex: 55,
+        }}
+      />
+    )}
     <aside
       style={{
-        width: 280,
+        width: isMobile ? "min(86vw, 320px)" : 280,
         flexShrink: 0,
         background: "var(--color-rv-cream)",
         borderRight: "1.5px solid var(--color-rv-ink)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        position: isMobile ? "fixed" : "relative",
+        inset: isMobile ? "0 auto 0 0" : "auto",
+        zIndex: isMobile ? 60 : "auto",
+        boxShadow: isMobile ? "6px 0 0 0 var(--color-rv-ink)" : "none",
       }}
     >
       <div
@@ -70,6 +151,23 @@ export function HistorySidebar({
         >
           {reels.length}
         </span>
+        {isMobile && (
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Fechar histórico"
+            style={{
+              marginLeft: 4,
+              background: "transparent",
+              border: "1px solid var(--color-rv-line)",
+              padding: 4,
+              cursor: "pointer",
+              color: "var(--color-rv-ink)",
+            }}
+          >
+            <X size={12} />
+          </button>
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: 8 }}>
@@ -104,13 +202,13 @@ export function HistorySidebar({
           return (
             <div
               key={r.id}
-              onClick={() => onSelect(r)}
+              onClick={() => handleSelect(r)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  onSelect(r);
+                  handleSelect(r);
                 }
               }}
               style={{
@@ -211,5 +309,8 @@ export function HistorySidebar({
         })}
       </div>
     </aside>
+    </>
   );
+
+  return aside;
 }

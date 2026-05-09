@@ -443,7 +443,11 @@ export default function MainApp({ clientId, client }: Props) {
       // refresca lista do histórico (handler já persistiu em viral_reels)
       qc.invalidateQueries({ queryKey: REELS_KEY(clientId) });
       if (data.reelId) setSelectedId(data.reelId);
-      toast.success("Roteiro gerado!");
+      if ((data as AdaptResponse).cached) {
+        toast.info("Reabri o roteiro que você já gerou desse reel (<24h).");
+      } else {
+        toast.success("Roteiro gerado!");
+      }
     } catch (err: any) {
       const msg = err?.message ?? "Erro ao gerar roteiro";
       toast.error(msg, { duration: 4500 });
@@ -534,7 +538,10 @@ export default function MainApp({ clientId, client }: Props) {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
               className="mx-auto"
-              style={{ maxWidth: 1180, padding: "60px 28px 100px" }}
+              style={{
+                maxWidth: 1180,
+                padding: "clamp(28px, 6vw, 60px) clamp(16px, 4vw, 28px) 100px",
+              }}
             >
               {/* HEADER COMPACTO */}
               <div
@@ -834,7 +841,10 @@ export default function MainApp({ clientId, client }: Props) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25 }}
               className="mx-auto"
-              style={{ maxWidth: 1280, padding: "40px 28px 100px" }}
+              style={{
+                maxWidth: 1280,
+                padding: "clamp(20px, 4vw, 40px) clamp(16px, 4vw, 28px) 100px",
+              }}
             >
               <ResultView
                 data={result}

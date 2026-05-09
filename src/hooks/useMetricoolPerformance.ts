@@ -162,13 +162,17 @@ export function n(v: unknown, fallback = 0): number {
   return Number.isFinite(num) ? num : fallback;
 }
 
-export function getPostMetric(p: MetricoolPost, key: 'likes' | 'comments' | 'shares' | 'reach' | 'impressions' | 'views' | 'engagement'): number {
+export function getPostMetric(p: MetricoolPost, key: 'likes' | 'comments' | 'shares' | 'reach' | 'impressions' | 'views' | 'saves' | 'engagement'): number {
   if (key === 'likes') return n(p.likes ?? p.reactions);
   if (key === 'comments') return n(p.comments);
   if (key === 'shares') return n(p.shares ?? p.reposts ?? p.retweets);
   if (key === 'reach') return n(p.reach);
   if (key === 'impressions') return n(p.impressions ?? p.views ?? p.videoViews);
-  if (key === 'views') return n(p.views ?? p.videoViews ?? p.impressions);
+  if (key === 'views') {
+    // IG video fields variam: videoViews (Reels), views, plays. Fallback impressions só se nada de view existir.
+    return n(p.videoViews ?? p.views ?? (p as any).plays ?? p.impressions);
+  }
+  if (key === 'saves') return n(p.saves ?? p.saved ?? (p as any).savedCount);
   if (key === 'engagement') {
     if (p.engagementRate) return n(p.engagementRate);
     const reach = n(p.reach);
@@ -180,7 +184,7 @@ export function getPostMetric(p: MetricoolPost, key: 'likes' | 'comments' | 'sha
 }
 
 export function aggregatePostsMetrics(posts: MetricoolPost[]) {
-  let imp = 0, likes = 0, comments = 0, shares = 0, reach = 0, views = 0;
+  let imp = 0, likes = 0, comments = 0, shares = 0, reach = 0, views = 0, saves = 0;
   for (const p of posts) {
     imp += getPostMetric(p, 'impressions');
     likes += getPostMetric(p, 'likes');
@@ -188,6 +192,7 @@ export function aggregatePostsMetrics(posts: MetricoolPost[]) {
     shares += getPostMetric(p, 'shares');
     reach += getPostMetric(p, 'reach');
     views += getPostMetric(p, 'views');
+    saves += getPostMetric(p, 'saves');
   }
   const eng = likes + comments + shares;
   return {
@@ -197,6 +202,7 @@ export function aggregatePostsMetrics(posts: MetricoolPost[]) {
     totalShares: shares,
     totalReach: reach,
     totalViews: views,
+    totalSaves: saves,
     avgEngagementRate: reach > 0 ? (eng / reach) * 100 : 0,
     postsCount: posts.length,
   };
@@ -204,7 +210,7 @@ export function aggregatePostsMetrics(posts: MetricoolPost[]) {
 
 export function topPostsByMetric(
   posts: MetricoolPost[],
-  metric: 'engagement' | 'reach' | 'likes' | 'comments' | 'impressions' | 'views',
+  metric: 'engagement' | 'reach' | 'likes' | 'comments' | 'impressions' | 'views' | 'saves',
   limit = 5,
 ): MetricoolPost[] {
   return [...posts]

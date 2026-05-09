@@ -9,16 +9,7 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import {
-  Instagram,
-  Twitter,
-  Linkedin,
-  Music2,
-  Youtube,
-  AtSign,
-  Share2,
-  RefreshCw,
-} from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 // MetricoolBestTimesCard agora é renderizado DENTRO de cada plataforma
 // (último bloco de cada PlatformDashboard / InstagramDashboardV2), não global.
@@ -28,6 +19,11 @@ import { CrossPlatformComparison } from './CrossPlatformComparison';
 import type { Client } from '@/hooks/useClients';
 import type { MetricoolNetwork } from '@/hooks/useMetricoolPerformance';
 import { BarChart3 } from 'lucide-react';
+import {
+  CORE_NETWORKS,
+  getNetworkBranding,
+} from '@/lib/network-branding';
+import { cn } from '@/lib/utils';
 
 interface Props {
   clientId: string;
@@ -42,15 +38,11 @@ const PERIOD_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 365, label: '1a' },
 ];
 
-const ALL_PLATFORMS: Array<{ id: MetricoolNetwork; label: string; icon: any }> = [
-  { id: 'instagram', label: 'Instagram', icon: Instagram },
-  { id: 'twitter', label: 'X / Twitter', icon: Twitter },
-  { id: 'threads', label: 'Threads', icon: AtSign },
-  { id: 'linkedin', label: 'LinkedIn', icon: Linkedin },
-  { id: 'tiktok', label: 'TikTok', icon: Music2 },
-  { id: 'youtube', label: 'YouTube', icon: Youtube },
-  { id: 'facebook', label: 'Facebook', icon: Share2 },
-];
+// Lista canônica vem de network-branding.ts — sem mais hardcode.
+const ALL_PLATFORMS = CORE_NETWORKS.map((id) => {
+  const b = getNetworkBranding(id);
+  return { id: id as MetricoolNetwork, label: b.label, branding: b };
+});
 
 type ActiveTab = MetricoolNetwork | 'comparison';
 
@@ -114,16 +106,37 @@ export function MetricoolPerformance({ clientId, client }: Props) {
               <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span>Comparativo</span>
             </TabsTrigger>
-            {platforms.map((p) => (
-              <TabsTrigger
-                key={p.id}
-                value={p.id}
-                className="gap-1.5 sm:gap-2 px-2.5 sm:px-4 text-xs sm:text-sm"
-              >
-                <p.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>{p.label}</span>
-              </TabsTrigger>
-            ))}
+            {platforms.map((p) => {
+              const Icon = p.branding.icon;
+              const isActive = activeTab === p.id;
+              return (
+                <TabsTrigger
+                  key={p.id}
+                  value={p.id}
+                  className={cn(
+                    'gap-1.5 sm:gap-2 px-2.5 sm:px-4 text-xs sm:text-sm transition-all',
+                    'data-[state=active]:shadow-sm',
+                    // Quando ativa, ganha tint sutil + borda inferior na cor da rede
+                    isActive && p.branding.accentBg,
+                    isActive &&
+                      'data-[state=active]:ring-1 ' + p.branding.ringColor,
+                  )}
+                  style={
+                    isActive
+                      ? { boxShadow: `inset 0 -2px 0 ${p.branding.primaryHex}` }
+                      : undefined
+                  }
+                >
+                  <Icon
+                    className={cn(
+                      'h-3.5 w-3.5 sm:h-4 sm:w-4 transition-colors',
+                      isActive && p.branding.textColor,
+                    )}
+                  />
+                  <span>{p.label}</span>
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
         </div>
 

@@ -1,10 +1,10 @@
 import { useState, useMemo, memo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { 
-  MoreHorizontal, 
+import {
+  MoreHorizontal,
   Twitter, Linkedin, Instagram, Youtube, Mail, FileText, Video, Facebook, AtSign,
-  Calendar, MessageSquare, Image as ImageIcon, Flag, Layers
+  Calendar, MessageSquare, Image as ImageIcon, Flag, Layers, Heart, Eye
 } from 'lucide-react';
 import { ImageLightbox } from './ImageLightbox';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { PublicationStatusBadge } from './PublicationStatusBadge';
+import { Badge } from '@/components/ui/badge';
+import { getPlanningItemMetrics } from '@/hooks/usePostMetrics';
 import { useClientPlatformStatus } from '@/hooks/useClientPlatformStatus';
 import { PLATFORM_COLOR_MAP, getContentTypeLabel } from '@/types/contentTypes';
 import type { PlanningItem } from '@/hooks/usePlanningItems';
@@ -145,6 +147,9 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   const hasMedia = item.media_urls && item.media_urls.length > 0;
   const firstMediaUrl = hasMedia ? item.media_urls[0] : null;
   const isImage = firstMediaUrl && !firstMediaUrl.match(/\.(mp4|webm|mov)$/i);
+
+  // Métricas pós-publicação (só se status='published' e metadata.metrics presente)
+  const postMetrics = isPublished ? getPlanningItemMetrics(item) : null;
 
   // visibleFields com defaults seguros (preserva visual atual quando viewSettings ausente)
   const vf = viewSettings?.visibleFields;
@@ -384,6 +389,34 @@ export const PlanningItemCard = memo(function PlanningItemCard({
           <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-2.5">
             {item.description || item.content}
           </p>
+        )}
+
+        {/* Mini-stats pós-publicação */}
+        {postMetrics && (
+          <div className="flex items-center gap-3 text-[10px] text-muted-foreground mb-2 tabular-nums">
+            <span className="inline-flex items-center gap-0.5" title="Curtidas">
+              <Heart className="h-3 w-3 text-rose-500" />
+              {postMetrics.likes >= 1000 ? `${(postMetrics.likes / 1000).toFixed(1)}k` : postMetrics.likes}
+            </span>
+            <span className="inline-flex items-center gap-0.5" title="Comentários">
+              <MessageSquare className="h-3 w-3 text-sky-500" />
+              {postMetrics.comments >= 1000 ? `${(postMetrics.comments / 1000).toFixed(1)}k` : postMetrics.comments}
+            </span>
+            {postMetrics.reach > 0 && (
+              <span className="inline-flex items-center gap-0.5" title="Alcance">
+                <Eye className="h-3 w-3 text-emerald-500" />
+                {postMetrics.reach >= 1000 ? `${(postMetrics.reach / 1000).toFixed(1)}k` : postMetrics.reach}
+              </span>
+            )}
+            {postMetrics.eng_rate > 0 && (
+              <Badge
+                variant={postMetrics.eng_rate > 5 ? 'default' : 'secondary'}
+                className="text-[9px] h-4 px-1 ml-auto"
+              >
+                {postMetrics.eng_rate.toFixed(1)}%
+              </Badge>
+            )}
+          </div>
         )}
 
         {/* Divider */}

@@ -65,3 +65,4 @@ export { searchRefsTool } from './searchRefs.js';
 export { listClientsTool } from './listClients.js';
 export { createClientTool } from './createClient.js';
 export { addToPlanningTool } from './addToPlanning.js';
+export { getPostTranscriptionTool } from './getPostTranscription.js';

@@ -1,4 +1,4 @@
-import { Twitter, Linkedin, Loader2, Check, Trash2, Share2, RefreshCw, Instagram, Video, Youtube, AlertCircle } from "lucide-react";
+import { Loader2, Check, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,60 +7,22 @@ import { useLateConnection, LatePlatform } from "@/hooks/useLateConnection";
 import { useClientPlatformStatus } from "@/hooks/useClientPlatformStatus";
 import { useToast } from "@/components/ui/use-toast";
 import { MetricoolBrandMapper } from "@/components/metricool/MetricoolBrandMapper";
+import { getNetworkBranding } from "@/lib/network-branding";
+import { cn } from "@/lib/utils";
 
 interface SocialIntegrationsTabProps {
   clientId: string;
 }
 
-const platformConfig: Record<LatePlatform, { 
-  name: string; 
-  icon: React.ComponentType<{ className?: string }>; 
-  color: string;
-  description: string;
-  comingSoon?: boolean;
-}> = {
-  twitter: { 
-    name: "X / Twitter", 
-    icon: Twitter, 
-    color: "bg-black",
-    description: "Publique tweets automaticamente"
-  },
-  linkedin: { 
-    name: "LinkedIn", 
-    icon: Linkedin, 
-    color: "bg-[#0A66C2]",
-    description: "Posts e artigos profissionais"
-  },
-  instagram: { 
-    name: "Instagram", 
-    icon: Instagram, 
-    color: "bg-gradient-to-tr from-[#833AB4] via-[#FD1D1D] to-[#F77737]",
-    description: "Feed, Reels e Stories"
-  },
-  facebook: { 
-    name: "Facebook", 
-    icon: Share2, 
-    color: "bg-[#1877F2]",
-    description: "Posts e Stories em páginas"
-  },
-  threads: { 
-    name: "Threads", 
-    icon: Share2, 
-    color: "bg-black",
-    description: "Threads do Instagram"
-  },
-  tiktok: { 
-    name: "TikTok", 
-    icon: Video, 
-    color: "bg-black",
-    description: "Vídeos curtos virais"
-  },
-  youtube: { 
-    name: "YouTube", 
-    icon: Youtube, 
-    color: "bg-[#FF0000]",
-    description: "Vídeos e Shorts"
-  },
+// Descrições curtas por plataforma (vão pro card subtitle).
+const PLATFORM_DESCRIPTIONS: Record<LatePlatform, string> = {
+  twitter: "Publique tweets automaticamente",
+  linkedin: "Posts e artigos profissionais",
+  instagram: "Feed, Reels e Stories",
+  facebook: "Posts e Stories em páginas",
+  threads: "Threads do Instagram",
+  tiktok: "Vídeos curtos virais",
+  youtube: "Vídeos e Shorts",
 };
 
 export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) {
@@ -102,46 +64,45 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
   };
 
   const renderPlatformCard = (platform: LatePlatform) => {
-    const config = platformConfig[platform];
+    const branding = getNetworkBranding(platform);
+    const Icon = branding.icon;
+    const description = PLATFORM_DESCRIPTIONS[platform];
     const credential = getCredentialForPlatform(platform);
-    const Icon = config.icon;
     const isConnecting = lateConnection.isLoading && lateConnection.currentPlatform === platform;
-
-    if (config.comingSoon) {
-      return (
-        <Card key={platform} className="border-2 border-dashed border-muted opacity-60">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`h-10 w-10 rounded-lg ${config.color} flex items-center justify-center`}>
-                  <Icon className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">{config.name}</CardTitle>
-                  <CardDescription>{config.description}</CardDescription>
-                </div>
-              </div>
-              <Badge variant="secondary" className="text-xs">Em breve</Badge>
-            </div>
-          </CardHeader>
-        </Card>
-      );
-    }
+    const isConnected = !!credential?.is_valid;
 
     return (
-      <Card key={platform} className="border-2 border-dashed border-primary/20 hover:border-primary/40 transition-colors">
-        <CardHeader className="pb-3">
+      <Card
+        key={platform}
+        className={cn(
+          "relative border-2 transition-all hover:shadow-md overflow-hidden",
+          isConnected
+            ? cn(branding.borderColor, branding.accentBg)
+            : "border-dashed border-primary/20 hover:border-primary/40",
+        )}
+      >
+        {/* Faixa colorida no topo — assinatura visual da rede */}
+        <div
+          aria-hidden
+          className={cn("absolute inset-x-0 top-0 h-1", branding.bgGradient)}
+        />
+        <CardHeader className="pb-3 pt-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`h-10 w-10 rounded-lg ${config.color} flex items-center justify-center`}>
-                <Icon className="h-5 w-5 text-white" />
+              <div
+                className={cn(
+                  "h-10 w-10 rounded-lg flex items-center justify-center shadow-sm",
+                  branding.bgGradient,
+                )}
+              >
+                <Icon className={cn("h-5 w-5", branding.iconOnBgClass)} />
               </div>
               <div>
-                <CardTitle className="text-base">{config.name}</CardTitle>
-                <CardDescription>{config.description}</CardDescription>
+                <CardTitle className="text-base">{branding.label}</CardTitle>
+                <CardDescription>{description}</CardDescription>
               </div>
             </div>
-            {credential?.is_valid && (
+            {isConnected && (
               <Badge variant="outline" className="text-green-600 border-green-600">
                 <Check className="h-3 w-3 mr-1" />
                 Conectado
@@ -150,17 +111,18 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          {credential?.is_valid ? (
+          {isConnected ? (
             <div className="space-y-3">
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-sm">
                   <span className="text-muted-foreground">Conta conectada:</span>{" "}
-                  <span className="font-medium">{credential.account_name || config.name}</span>
+                  <span className="font-medium">{credential?.account_name || branding.label}</span>
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Conectado em: {credential.last_validated_at 
-                    ? new Date(credential.last_validated_at).toLocaleDateString('pt-BR')
-                    : 'N/A'}
+                  Conectado em:{" "}
+                  {credential?.last_validated_at
+                    ? new Date(credential.last_validated_at).toLocaleDateString("pt-BR")
+                    : "N/A"}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -195,18 +157,22 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Conecte sua conta {config.name} para publicação automática.
+                Conecte sua conta {branding.label} para publicação automática.
               </p>
               <Button
                 onClick={() => lateConnection.openOAuth(platform)}
                 disabled={isConnecting}
-                className={config.color}
+                className={cn(
+                  branding.bgGradient,
+                  branding.iconOnBgClass,
+                  "hover:opacity-90 border-0",
+                )}
               >
                 {isConnecting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                <Icon className="h-4 w-4 mr-2" />
-                Conectar {config.name}
+                <Icon className={cn("h-4 w-4 mr-2", branding.iconOnBgClass)} />
+                Conectar {branding.label}
               </Button>
-              
+
               {credential?.validation_error && (
                 <div className="p-2 rounded bg-destructive/10 text-destructive text-xs">
                   {credential.validation_error}

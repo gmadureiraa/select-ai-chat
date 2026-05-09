@@ -4,15 +4,22 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle, Eye, Trophy, ExternalLink, Image as ImageIcon } from 'lucide-react';
+import { Heart, MessageCircle, Eye, Trophy, ExternalLink, Image as ImageIcon, FileText, ListChecks } from 'lucide-react';
+import { useOpenPlanningFromPost } from '@/hooks/useOpenPlanningFromPost';
 import { type MetricoolPost, getPostMetric, topPostsByMetric } from '@/hooks/useMetricoolPerformance';
 import { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PostTranscriptionDialog } from './PostTranscriptionDialog';
+import type { TranscriptionSource } from '@/hooks/usePostTranscription';
 
 interface Props {
   posts: MetricoolPost[];
   loading?: boolean;
   network?: string;
+  /** Habilita botão "Transcrição". */
+  clientId?: string;
+  /** Default: 'metricool' */
+  transcriptionSource?: TranscriptionSource;
 }
 
 const METRICS = [
@@ -39,7 +46,8 @@ function getUrl(p: MetricoolPost): string | null {
   return (p.url || p.permalink || null) as string | null;
 }
 
-export function BestPostHighlight({ posts, loading }: Props) {
+export function BestPostHighlight({ posts, loading, network, clientId, transcriptionSource = 'metricool' }: Props) {
+  const openPlanning = useOpenPlanningFromPost();
   const [metric, setMetric] = useState<typeof METRICS[number]['value']>('engagement');
 
   if (loading) return <Skeleton className="h-[260px] w-full" />;
@@ -141,14 +149,40 @@ export function BestPostHighlight({ posts, loading }: Props) {
               </div>
             </div>
 
-            {url && (
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <a href={url} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Ver post original
-                </a>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => openPlanning({ id: top.id as string | number, url: url || undefined })}
+              >
+                <ListChecks className="h-3.5 w-3.5" />
+                Abrir no Planejamento
               </Button>
-            )}
+              {url && (
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <a href={url} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Ver post original
+                  </a>
+                </Button>
+              )}
+              {clientId ? (
+                <PostTranscriptionDialog
+                  clientId={clientId}
+                  post={top as any}
+                  source={transcriptionSource}
+                  network={network || 'instagram'}
+                  trigger={
+                    <Button variant="outline" size="sm" className="gap-1.5" type="button">
+                      <FileText className="h-3.5 w-3.5" />
+                      Transcrição
+                    </Button>
+                  }
+                />
+              ) : null}
+            </div>
           </div>
         </div>
       </CardContent>

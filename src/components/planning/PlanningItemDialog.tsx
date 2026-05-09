@@ -35,6 +35,7 @@ import { RichContentEditor } from './RichContentEditor';
 import { ThreadEditor, ThreadTweet } from './ThreadEditor';
 import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationModal';
 import { PlanningItemComments } from './PlanningItemComments';
+import { PlanningItemPerformance } from './PlanningItemPerformance';
 import { MentionableInput } from './MentionableInput';
 import { RecurrenceConfig } from './RecurrenceConfig';
 import { PlatformOptionsPanel, PlatformOptionsState } from './PlatformOptionsPanel';
@@ -602,6 +603,9 @@ export function PlanningItemDialog({
           )}>
             {/* LEFT: Content area */}
             <div className="p-6 space-y-4 overflow-y-auto border-r border-border/30">
+              {/* Performance pós-publicação — só renderiza se status='published' + postId */}
+              {effectiveItem && <PlanningItemPerformance item={effectiveItem} />}
+
               {/* Viral Carousel banner — quick jump to Sequência Viral editor */}
               {(() => {
                 const meta = (effectiveItem?.metadata as any) || {};

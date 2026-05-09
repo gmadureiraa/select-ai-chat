@@ -144,15 +144,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.warn("[cron-master] madureira workflows trigger failed:", err?.message);
   }
 
+  // 4. Roda planning_automations (schedule + RSS) — fire-and-forget. Sem este
+  // trigger, todas as automações criadas via UI (presets, RSS) ficavam órfãs
+  // (só rodavam via "Testar Agora"). Hobby plan = piggyback no master cron.
+  let planningAutomationsTriggered = false;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    await fetch(`${baseUrl}/api/process-automations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cronSecret}`,
+        "x-vercel-cron": "1",
+      },
+      signal: controller.signal,
+    }).catch(() => {});
+    clearTimeout(timeout);
+    planningAutomationsTriggered = true;
+  } catch (err: any) {
+    console.warn("[cron-master] planning_automations trigger failed:", err?.message);
+  }
+
   return res.status(200).json({
     ok: true,
     triggered_at: new Date().toISOString(),
     pro_clients: proClients.length,
     triggered_count: triggered.length,
     madureira_workflows_triggered: madureiraTriggered,
+    planning_automations_triggered: planningAutomationsTriggered,
     mview_refreshed: mviewRefreshed,
     triggered,
     errors,
-    note: "Scrapers + Madureira workflows continuam rodando em background. Verifique DB pra resultados.",
+    note: "Scrapers + Madureira workflows + planning_automations continuam rodando em background. Verifique DB pra resultados.",
   });
 }

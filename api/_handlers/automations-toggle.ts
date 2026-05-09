@@ -16,12 +16,15 @@ export default authedPost(async ({ body, user }) => {
   const data = parsed.data;
   const pool = getPool();
 
-  // Verifica acesso (workspace_member OR super_admin)
+  // Verifica acesso (workspace owner/admin OR super_admin) — pause/resume é
+  // ação privilegiada porque controla execução automática de IA + custos.
   const access = await queryOne<{ ok: boolean; workspace_id: string; name: string }>(
     `SELECT TRUE AS ok, pa.workspace_id, pa.name
        FROM planning_automations pa
        LEFT JOIN workspace_members wm
-         ON wm.workspace_id = pa.workspace_id AND wm.user_id = $2
+         ON wm.workspace_id = pa.workspace_id
+        AND wm.user_id = $2
+        AND wm.role IN ('owner', 'admin')
       WHERE pa.id = $1
         AND (
           wm.id IS NOT NULL
