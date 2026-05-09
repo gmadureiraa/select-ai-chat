@@ -74,12 +74,23 @@ export interface MetricoolProviderStatus {
 }
 
 export interface MetricoolInstagramData {
+  // Campos válidos confirmados pela API (validação 2026-05-09):
+  //   autoPublish, audioName, boost, boostBeneficiary, boostPayer,
+  //   carouselProductTags, carouselTags, collaborators, productTags,
+  //   shareTrialAutomatically, showReelOnFeed, tags, type
   type?: 'POST' | 'REEL' | 'STORY' | 'CAROUSEL';
   autoPublish?: boolean;
   showReelOnFeed?: boolean;
+  shareTrialAutomatically?: boolean; // Trial Reel auto-promotion ('SS_PERFORMANCE'-equivalente)
+  audioName?: string;
+  collaborators?: string[];
   tags?: Array<{ username: string; x?: number; y?: number }>;
   productTags?: Array<unknown>;
   carouselTags?: Record<string, Array<unknown>>;
+  carouselProductTags?: Record<string, Array<unknown>>;
+  boost?: number;
+  boostPayer?: string;
+  boostBeneficiary?: string;
 }
 
 export interface MetricoolTwitterData {
@@ -769,10 +780,18 @@ export async function getRealtimeSessions(
 
 /**
  * Mapeia nossa platform string + content type pra `instagramData.type` Metricool.
+ * Aceita só os campos que a API Metricool confirmadamente reconhece.
  */
 export function buildInstagramData(
   contentType?: string,
-  opts: { autoPublish?: boolean; showReelOnFeed?: boolean; tags?: any[] } = {},
+  opts: {
+    autoPublish?: boolean;
+    showReelOnFeed?: boolean;
+    shareTrialAutomatically?: boolean;
+    audioName?: string;
+    collaborators?: string[];
+    tags?: any[];
+  } = {},
 ): MetricoolInstagramData {
   const ct = contentType?.toLowerCase();
   let type: MetricoolInstagramData['type'] = 'POST';
@@ -784,9 +803,14 @@ export function buildInstagramData(
     type,
     autoPublish: opts.autoPublish !== false,
   };
-  if (type === 'REEL' && opts.showReelOnFeed !== undefined) {
-    data.showReelOnFeed = opts.showReelOnFeed;
+  if (type === 'REEL') {
+    if (opts.showReelOnFeed !== undefined) data.showReelOnFeed = opts.showReelOnFeed;
+    if (opts.shareTrialAutomatically !== undefined) {
+      data.shareTrialAutomatically = opts.shareTrialAutomatically;
+    }
   }
+  if (opts.audioName) data.audioName = opts.audioName;
+  if (opts.collaborators?.length) data.collaborators = opts.collaborators.slice(0, 3);
   if (opts.tags?.length) data.tags = opts.tags;
   return data;
 }

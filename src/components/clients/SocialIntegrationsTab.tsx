@@ -6,6 +6,7 @@ import { useSocialCredentials } from "@/hooks/useSocialCredentials";
 import { useLateConnection, LatePlatform } from "@/hooks/useLateConnection";
 import { useClientPlatformStatus } from "@/hooks/useClientPlatformStatus";
 import { useToast } from "@/components/ui/use-toast";
+import { MetricoolBrandMapper } from "@/components/metricool/MetricoolBrandMapper";
 
 interface SocialIntegrationsTabProps {
   clientId: string;
@@ -72,6 +73,10 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
 
   const lateConnection = useLateConnection({ clientId });
   const { verifyAccounts, isVerifying } = useClientPlatformStatus(clientId);
+
+  // Metricool blogId atual (lookup da 1ª credential que tenha)
+  const currentMetricoolBlogId =
+    credentials?.find((c: any) => c.metadata?.metricool_blog_id)?.metadata?.metricool_blog_id || null;
 
   const handleSyncWithLate = async () => {
     try {
@@ -247,10 +252,16 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
       </div>
 
       <div className="grid gap-4">
-        {(['twitter', 'linkedin', 'instagram', 'facebook', 'threads', 'tiktok', 'youtube'] as LatePlatform[]).map(platform => 
+        {(['twitter', 'linkedin', 'instagram', 'facebook', 'threads', 'tiktok', 'youtube'] as LatePlatform[]).map(platform =>
           renderPlatformCard(platform)
         )}
       </div>
+
+      {/* Metricool brand mapping — analytics + publishing nativos */}
+      <MetricoolBrandMapper
+        clientId={clientId}
+        currentBlogId={currentMetricoolBlogId}
+      />
     </div>
   );
 }

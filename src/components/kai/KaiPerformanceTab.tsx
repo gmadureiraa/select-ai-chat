@@ -8,6 +8,7 @@ import { useTwitterPosts } from "@/hooks/useTwitterMetrics";
 import { useLinkedInPosts } from "@/hooks/useLinkedInPosts";
 import type { Client } from "@/hooks/useClients";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MetricoolBestTimesCard } from "@/components/metricool/MetricoolBestTimesCard";
 import { PlatformSyncButton, type SyncPlatform } from "@/components/performance/PlatformSyncButton";
 
 // Lazy-load dos dashboards de cada canal — eles puxam recharts (chart-vendor) e
@@ -131,6 +132,11 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
               className="shrink-0"
             />
           )}
+        </div>
+
+        {/* Best Times Metricool — heatmap por plataforma sempre visível acima dos canais */}
+        <div className="mt-4">
+          <MetricoolBestTimesCard clientId={clientId} />
         </div>
 
         <TabsContent value="instagram" className="mt-4">

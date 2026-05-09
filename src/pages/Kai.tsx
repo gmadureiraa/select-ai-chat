@@ -128,11 +128,12 @@ const WorkspaceMembersTab = lazy(() =>
     default: m.WorkspaceMembersTab,
   })),
 );
-const BillingTab = lazy(() =>
-  import("@/components/billing/BillingTab").then((m) => ({
-    default: m.BillingTab,
-  })),
-);
+// BillingTab REMOVIDO — KAI 2.0 é uso interno Kaleidos, sem cobrança por workspace.
+// O arquivo src/components/billing/BillingTab.tsx ainda existe mas não é mais
+// importado nem montado em rota nenhuma.
+import { MetricoolInboxPanel } from "@/components/metricool/MetricoolInboxPanel";
+import { MetricoolHashtagsTracker } from "@/components/metricool/MetricoolHashtagsTracker";
+import { MetricoolCompetitorsPanel } from "@/components/metricool/MetricoolCompetitorsPanel";
 
 export default function Kai() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -249,8 +250,15 @@ export default function Kai() {
       redirectTab = "planning";
     }
 
-    // Billing — só owner
-    if (tab === "billing" && !isOwner) {
+    // Billing tab removida — caso alguém ainda navegue via URL antiga, redireciona
+    if (tab === "billing") {
+      params.delete("tab");
+      navigate(`?${params.toString()}`, { replace: true });
+      setTab(null);
+      return;
+    }
+    // (gate antigo abaixo agora unreachable, mantido pra histórico)
+    if (false && tab === "billing" && !isOwner) {
       shouldRedirect = true;
       redirectTab = "planning";
     }
@@ -319,7 +327,9 @@ export default function Kai() {
       // Admin (super_admin only):
       "radar-sources-admin",
       // Workspace management (owner / admin):
-      "workspace-settings", "workspace-members", "billing",
+      "workspace-settings", "workspace-members",
+      // Metricool: inbox unificado, hashtags tracker, competitors analysis
+      "inbox", "hashtags", "competitors",
     ];
 
     if (toolTabs.includes(tab)) {
@@ -386,11 +396,23 @@ export default function Kai() {
           ) : (
             <ClientRequiredEmpty message="Apenas owners e admins podem gerenciar membros." />
           );
-        case "billing":
-          return isOwner ? (
-            <BillingTab />
+        case "inbox":
+          return selectedClient ? (
+            <MetricoolInboxPanel clientId={selectedClient.id} />
           ) : (
-            <ClientRequiredEmpty message="Apenas o proprietário do workspace pode gerenciar a assinatura." />
+            <ClientRequiredEmpty message="Selecione um cliente pra ver o Inbox unificado." />
+          );
+        case "hashtags":
+          return selectedClient ? (
+            <MetricoolHashtagsTracker clientId={selectedClient.id} />
+          ) : (
+            <ClientRequiredEmpty message="Selecione um cliente pra rastrear hashtags." />
+          );
+        case "competitors":
+          return selectedClient ? (
+            <MetricoolCompetitorsPanel clientId={selectedClient.id} />
+          ) : (
+            <ClientRequiredEmpty message="Selecione um cliente pra acompanhar concorrentes." />
           );
         case "home":
           return (

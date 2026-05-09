@@ -20,7 +20,9 @@ import {
   CheckSquare,
   Radar,
   Users,
-  CreditCard,
+  MessagesSquare,
+  Hash,
+  Target,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
@@ -453,15 +455,31 @@ export function KaiSidebar({
                 collapsed={collapsed}
               />
             )}
-            {isOwner && (
-              <NavItem
-                icon={<CreditCard className="h-4 w-4" strokeWidth={1.5} />}
-                label="Plano e cobrança"
-                active={activeTab === "billing"}
-                onClick={() => onTabChange("billing")}
-                collapsed={collapsed}
-              />
-            )}
+            {/* Inbox unificado Metricool — DMs/Comments/Reviews todas plataformas */}
+            <NavItem
+              icon={<MessagesSquare className="h-4 w-4" strokeWidth={1.5} />}
+              label="Inbox"
+              active={activeTab === "inbox"}
+              onClick={() => onTabChange("inbox")}
+              collapsed={collapsed}
+            />
+            {/* Hashtags Tracker Metricool */}
+            <NavItem
+              icon={<Hash className="h-4 w-4" strokeWidth={1.5} />}
+              label="Hashtags"
+              active={activeTab === "hashtags"}
+              onClick={() => onTabChange("hashtags")}
+              collapsed={collapsed}
+            />
+            {/* Competitors Metricool */}
+            <NavItem
+              icon={<Target className="h-4 w-4" strokeWidth={1.5} />}
+              label="Concorrentes"
+              active={activeTab === "competitors"}
+              onClick={() => onTabChange("competitors")}
+              collapsed={collapsed}
+            />
+            {/* Plano/cobrança removido — KAI 2.0 é uso interno Kaleidos. */}
           </>
         )}
 
