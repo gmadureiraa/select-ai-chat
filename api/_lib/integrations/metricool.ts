@@ -237,7 +237,6 @@ async function metricoolFetch<T>(
   opts: CallOptions = {},
 ): Promise<T> {
   const url = new URL(`${cfg.apiUrl}${path.startsWith('/') ? path : '/' + path}`);
-  // userId é OBRIGATÓRIO em toda call (vai como query param)
   url.searchParams.set('userId', cfg.userId);
   if (opts.blogId !== undefined) url.searchParams.set('blogId', String(opts.blogId));
   if (opts.search) {
@@ -254,14 +253,35 @@ async function metricoolFetch<T>(
     ...(opts.headers || {}),
   };
 
-  const r = await fetch(url.toString(), {
-    method: opts.method || (opts.body !== undefined ? 'POST' : 'GET'),
+  const method = opts.method || (opts.body !== undefined ? 'POST' : 'GET');
+  const init: RequestInit = {
+    method,
     headers,
     ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
-  });
+  };
 
-  const text = await r.text();
-  if (!r.ok) {
+  // Retry exponencial com jitter pra 429/503 (rate-limit Metricool ~30 req/h)
+  const MAX_RETRIES = 3;
+  let lastErr: any = null;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const r = await fetch(url.toString(), init);
+
+    // Telemetria: log warning quando rate-limit ficando próximo
+    const remaining = r.headers.get('x-ratelimit-remaining');
+    if (remaining !== null && Number(remaining) < 5) {
+      console.warn(`[metricool] rate-limit baixo: ${remaining} req restantes. path=${path}`);
+    }
+
+    const text = await r.text();
+    if (r.ok) {
+      if (!text) return undefined as unknown as T;
+      try {
+        return JSON.parse(text) as T;
+      } catch {
+        return text as unknown as T;
+      }
+    }
+
     let msg = `Metricool ${r.status}`;
     try {
       const j = JSON.parse(text);
@@ -271,24 +291,46 @@ async function metricoolFetch<T>(
     const err = new Error(msg) as Error & { status?: number; body?: string };
     err.status = r.status;
     err.body = text;
+    lastErr = err;
+
+    // Retry só em 429 (rate-limit) ou 503/504 (transient)
+    if ((r.status === 429 || r.status === 503 || r.status === 504) && attempt < MAX_RETRIES) {
+      const delay = 1000 * Math.pow(2, attempt) + Math.floor(Math.random() * 500);
+      console.warn(`[metricool] ${r.status} retry ${attempt + 1}/${MAX_RETRIES} em ${delay}ms — ${path}`);
+      await new Promise((r) => setTimeout(r, delay));
+      continue;
+    }
     throw err;
   }
-  if (!text) return undefined as unknown as T;
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    return text as unknown as T;
-  }
+  throw lastErr;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Brand / Profile management
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Lista todas as brands (= clientes) da conta Metricool. */
-export async function listBrands(cfg: MetricoolConfig): Promise<MetricoolBrand[]> {
+// Cache em módulo: brands raramente mudam, evita 1 req por load do dashboard
+const BRANDS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+let brandsCache: { userId: string; data: MetricoolBrand[]; expiresAt: number } | null = null;
+
+/** Lista todas as brands (= clientes) da conta Metricool. Cache 24h por userId. */
+export async function listBrands(
+  cfg: MetricoolConfig,
+  opts: { force?: boolean } = {},
+): Promise<MetricoolBrand[]> {
+  const now = Date.now();
+  if (
+    !opts.force &&
+    brandsCache &&
+    brandsCache.userId === cfg.userId &&
+    brandsCache.expiresAt > now
+  ) {
+    return brandsCache.data;
+  }
   const data = await metricoolFetch<MetricoolBrand[]>(cfg, '/admin/simpleProfiles');
-  return Array.isArray(data) ? data : [];
+  const arr = Array.isArray(data) ? data : [];
+  brandsCache = { userId: cfg.userId, data: arr, expiresAt: now + BRANDS_CACHE_TTL_MS };
+  return arr;
 }
 
 /** Lista contas sociais conectadas de um brand. */

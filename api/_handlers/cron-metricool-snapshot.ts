@@ -32,7 +32,8 @@ import {
 const SNAPSHOT_NETWORKS: MetricoolAnalyticsNetwork[] = [
   'instagram',
   'facebook',
-  'twitter',
+  // 'twitter' — analytics retorna só postsCount, snapshot diário ficaria zerado.
+  //             followers de X ainda assim coletado se o cliente publicar (planning_items metrics).
   'linkedin',
   'tiktok',
   'threads',
@@ -141,11 +142,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startedAt = Date.now();
 
   // 1. Pega clientes com metricool_blog_id mapeado (1 row por client + blog_id único)
+  //    ORDER BY garante ordem determinística pra rotation funcionar (cap silencioso).
   const clients = await query<{ client_id: string; blog_id: string }>(
     `SELECT DISTINCT client_id, metadata->>'metricool_blog_id' AS blog_id
        FROM client_social_credentials
       WHERE metadata->>'metricool_blog_id' IS NOT NULL
-        AND client_id IS NOT NULL`,
+        AND client_id IS NOT NULL
+      ORDER BY client_id`,
   );
 
   if (clients.length === 0) {
@@ -179,18 +182,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tasksRun++;
 
       try {
-        // Posts da rede + reels/stories (IG/FB)
+        // Posts da rede + reels/stories (IG/FB) — flags rastreiam quem falhou
+        // pra distinguir "API caiu" de "0 posts reais" no raw_data.
+        const apiErrors: string[] = [];
         const [posts, reels, stories] = await Promise.all([
-          getNetworkPosts(cfg, c.blog_id, network, from, to).catch(() => [] as any[]),
+          getNetworkPosts(cfg, c.blog_id, network, from, to).catch((e) => {
+            apiErrors.push(`posts:${e?.status ?? 'err'}`);
+            return [] as any[];
+          }),
           network === 'instagram'
-            ? getInstagramReels(cfg, c.blog_id, from, to).catch(() => [])
+            ? getInstagramReels(cfg, c.blog_id, from, to).catch((e) => {
+                apiErrors.push(`reels:${e?.status ?? 'err'}`);
+                return [];
+              })
             : network === 'facebook'
-              ? getFacebookReels(cfg, c.blog_id, from, to).catch(() => [])
+              ? getFacebookReels(cfg, c.blog_id, from, to).catch((e) => {
+                  apiErrors.push(`reels:${e?.status ?? 'err'}`);
+                  return [];
+                })
               : Promise.resolve([] as any[]),
           network === 'instagram'
-            ? getInstagramStories(cfg, c.blog_id, from, to).catch(() => [])
+            ? getInstagramStories(cfg, c.blog_id, from, to).catch((e) => {
+                apiErrors.push(`stories:${e?.status ?? 'err'}`);
+                return [];
+              })
             : network === 'facebook'
-              ? getFacebookStories(cfg, c.blog_id, from, to).catch(() => [])
+              ? getFacebookStories(cfg, c.blog_id, from, to).catch((e) => {
+                  apiErrors.push(`stories:${e?.status ?? 'err'}`);
+                  return [];
+                })
               : Promise.resolve([] as any[]),
         ]);
 
@@ -275,6 +295,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 fetched_at: now.toISOString(),
                 window_from: from,
                 window_to: to,
+                api_failed: apiErrors.length > 0 ? apiErrors : undefined,
               }),
             ],
           );

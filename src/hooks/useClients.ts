@@ -104,39 +104,18 @@ export const useClients = () => {
 
   const createClient = useMutation({
     mutationFn: async (clientData: CreateClientData) => {
-      console.log("[createClient] workspace context:", { 
-        workspaceId: workspace?.id,
-        workspaceName: workspace?.name 
-      });
-      
       if (!workspace?.id) {
-        const err = new Error("Você não está em nenhum workspace");
-        console.error("[createClient] ERRO: Sem workspace", err);
-        throw err;
+        throw new Error("Você não está em nenhum workspace");
       }
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      console.log("[createClient] session check:", { 
-        hasSession: !!sessionData?.session,
-        userId: sessionData?.session?.user?.id,
-        sessionError 
-      });
-
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      console.log("[createClient] user check:", { 
-        userId: user?.id,
-        userEmail: user?.email,
-        userError 
-      });
+      const { data: { user } } = await supabase.auth.getUser();
 
       if (!user?.id) {
-        const err = new Error("Você precisa estar logado para criar perfis");
-        console.error("[createClient] ERRO: Sem usuário autenticado", err);
-        throw err;
+        throw new Error("Você precisa estar logado para criar perfis");
       }
 
       const { websites, ...client } = clientData;
-      
+
       const insertPayload = {
         name: client.name,
         description: client.description,
@@ -147,7 +126,6 @@ export const useClients = () => {
         function_templates: client.function_templates || [],
         workspace_id: workspace.id,
       };
-      console.log("[createClient] INSERT payload:", insertPayload);
 
       const { data, error } = await supabase
         .from("clients")
@@ -156,13 +134,6 @@ export const useClients = () => {
         .single();
 
       if (error) {
-        console.error("[createClient] SUPABASE ERROR:", {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          fullError: error
-        });
         const enrichedError = new Error(
           `${error.message} (code: ${error.code})${error.hint ? ` - Hint: ${error.hint}` : ""}`
         );
@@ -171,8 +142,6 @@ export const useClients = () => {
         (enrichedError as any).hint = error.hint;
         throw enrichedError;
       }
-      
-      console.log("[createClient] SUCCESS:", data);
       
       // Add websites with scraping if provided
       if (websites && websites.length > 0) {

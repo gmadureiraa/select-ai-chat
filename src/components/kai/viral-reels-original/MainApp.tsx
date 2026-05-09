@@ -212,7 +212,6 @@ export default function MainApp({ clientId, client }: Props) {
       // Cacheia o planningId do reel pra próximos cliques + invalida lista
       // do planning (caso esteja aberta noutra tab).
       setPlannedByReel((prev) => ({ ...prev, [res.reelId]: res.planningId }));
-      qc.invalidateQueries({ queryKey: ["planning_items"] });
       qc.invalidateQueries({ queryKey: ["planning-items"] });
       const goToPlanning = () => {
         // Preserva client atual nos searchParams + força tab=planning + openItem
@@ -356,7 +355,6 @@ export default function MainApp({ clientId, client }: Props) {
     },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["client-reference-library"] });
-      qc.invalidateQueries({ queryKey: ["reference-library"] });
       if (res.existing) {
         toast.info("Reel original já está nas referências");
       } else {

@@ -33,7 +33,9 @@ import {
 const BACKFILL_NETWORKS: MetricoolAnalyticsNetwork[] = [
   'instagram',
   'facebook',
-  'twitter',
+  // 'twitter' — Metricool /v2/analytics/posts/twitter retorna só postsCount,
+  //              backfill grava zeros e polui dashboards. Usar /stats/twitter/posts
+  //              (legacy v1) quando habilitarmos métricas X de verdade.
   'linkedin',
   'tiktok',
   'threads',
@@ -122,8 +124,9 @@ function engagementRate(p: any): number | null {
   const eng = metric(p, 'likes') + metric(p, 'comments') + metric(p, 'shares');
   const reach = metric(p, 'reach');
   const imp = metric(p, 'impressions');
-  const views = metric(p, 'views');
-  const denom = Math.max(reach, imp, views);
+  // Mesma fórmula do snapshot: prefere reach > impressions, NUNCA usa views como denom
+  // (reels têm views inflados → eng_rate fica artificialmente baixa).
+  const denom = Math.max(reach, imp);
   if (denom <= 0) return null;
   return Number(((eng / denom) * 100).toFixed(3));
 }
@@ -147,12 +150,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const pool = getPool();
   const startedAt = Date.now();
 
-  // 1. Pega clientes mapeados
+  // 1. Pega clientes mapeados — ORDER BY garante ordem determinística pra rotation
+  //    funcionar (cap MAX_TASKS_PER_RUN só processa 25 tasks/run; clientes seguintes
+  //    rodam no próximo dia).
   const clients = await query<{ client_id: string; blog_id: string }>(
     `SELECT DISTINCT client_id, metadata->>'metricool_blog_id' AS blog_id
        FROM client_social_credentials
       WHERE metadata->>'metricool_blog_id' IS NOT NULL
-        AND client_id IS NOT NULL`,
+        AND client_id IS NOT NULL
+      ORDER BY client_id`,
   );
 
   if (clients.length === 0) {

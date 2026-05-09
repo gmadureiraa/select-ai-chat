@@ -7,6 +7,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
 import { tryAuth } from '../_lib/auth.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const LATE_API_BASE = 'https://getlate.dev/api/v1';
 
@@ -405,9 +406,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const isCron =
     req.headers['x-vercel-cron'] === '1' ||
     (cronSecret && authHeader === `Bearer ${cronSecret}`);
+  let authedUserId: string | null = null;
   if (!isCron) {
     const user = await tryAuth(req);
     if (!user) return jsonError(res, 401, 'Unauthorized');
+    authedUserId = user.id;
   }
 
   const startTime = Date.now();
@@ -422,6 +425,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? JSON.parse(req.body)
         : {};
     const targetClientId: string | undefined = body?.clientId;
+
+    // Guard: se user autenticado passou clientId, valida acesso.
+    // Cron (isCron=true, authedUserId=null) escapa o guard porque itera todos os clients do DB.
+    if (authedUserId && targetClientId) {
+      try {
+        await assertClientAccess(authedUserId, targetClientId);
+      } catch (e: any) {
+        return jsonError(res, e?.status || 403, e?.message || 'forbidden');
+      }
+    }
+    // Se user autenticado NÃO passou clientId, bloqueia listagem cross-tenant
+    // (apenas cron pode fazer batch de todos os clients)
+    if (authedUserId && !targetClientId) {
+      return jsonError(res, 400, 'clientId obrigatório para chamadas autenticadas');
+    }
 
     // Get clients with Late connected (have late_profile_id in metadata)
     const credentials = targetClientId

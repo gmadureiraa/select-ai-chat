@@ -92,9 +92,98 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
+  // 1.5. Local-first — tenta resolver via metricool_posts (populado pelo
+  //      cron-metricool-backfill-posts às 5h UTC). Se o post já está local
+  //      e foi sincronizado nas últimas 12h, atualiza direto sem hit API.
+  //      Reduz drasticamente requests à Metricool (cap horário ~30 req).
+  const itemKeys = items
+    .filter((i) => i.client_id && i.platform && i.external_post_id)
+    .map((i) => ({
+      planning_id: i.id,
+      client_id: i.client_id as string,
+      // Metricool grava post_id como `${network}:${id}` (ver pickPostId no backfill)
+      post_id: `${i.platform}:${i.external_post_id}`,
+      network: NETWORK_MAP[i.platform || ''] as string,
+    }))
+    .filter((k) => k.network);
+
+  let localResolved = 0;
+  const resolvedItemIds = new Set<string>();
+  if (itemKeys.length > 0) {
+    const localPosts = await query<{
+      client_id: string;
+      network: string;
+      post_id: string;
+      likes: number | null;
+      comments: number | null;
+      shares: number | null;
+      saves: number | null;
+      reach: number | null;
+      impressions: number | null;
+      views: number | null;
+      video_views: number | null;
+      engagement_rate: string | null;
+      last_synced_at: string;
+    }>(
+      `SELECT client_id, network, post_id, likes, comments, shares, saves,
+              reach, impressions, views, video_views, engagement_rate, last_synced_at
+         FROM metricool_posts
+        WHERE (client_id, network, post_id) = ANY(
+          SELECT (k->>'client_id')::uuid, k->>'network', k->>'post_id'
+            FROM jsonb_array_elements($1::jsonb) k
+        )
+          AND last_synced_at > NOW() - INTERVAL '12 hours'`,
+      [JSON.stringify(itemKeys.map((k) => ({ client_id: k.client_id, network: k.network, post_id: k.post_id })))],
+    );
+    const byKey = new Map(
+      localPosts.map((p) => [`${p.client_id}::${p.network}::${p.post_id}`, p]),
+    );
+    for (const k of itemKeys) {
+      const local = byKey.get(`${k.client_id}::${k.network}::${k.post_id}`);
+      if (!local) continue;
+      const item = items.find((i) => i.id === k.planning_id);
+      if (!item) continue;
+      const metrics: any = {
+        likes: local.likes ?? 0,
+        comments: local.comments ?? 0,
+        shares: local.shares ?? 0,
+        saves: local.saves ?? 0,
+        reach: local.reach ?? 0,
+        impressions: local.impressions ?? 0,
+        views: local.views ?? local.video_views ?? 0,
+        engagement_rate: local.engagement_rate ? Number(local.engagement_rate) : null,
+        source: 'metricool_posts_local',
+        last_synced_at: local.last_synced_at,
+      };
+      const newMeta = {
+        ...(item.metadata || {}),
+        metrics,
+        metrics_synced_at: local.last_synced_at,
+      };
+      await pool.query(
+        `UPDATE planning_items SET metadata = $1::jsonb, updated_at = NOW() WHERE id = $2`,
+        [JSON.stringify(newMeta), item.id],
+      );
+      localResolved++;
+      resolvedItemIds.add(item.id);
+    }
+  }
+
+  // Filtra items que ainda precisam ir pra API
+  const remainingItems = items.filter((i) => !resolvedItemIds.has(i.id));
+  if (remainingItems.length === 0) {
+    return res.status(200).json({
+      ok: true,
+      candidates: items.length,
+      localResolved,
+      message: 'all resolved from local cache',
+      durationMs: Date.now() - startedAt,
+    });
+  }
+
   // 2. Agrupa por (blogId, network) pra reduzir fan-out de chamadas
-  // Resolve blogId por client_id em batch
-  const clientIds = Array.from(new Set(items.map((i) => i.client_id).filter(Boolean) as string[]));
+  // Resolve blogId por client_id em batch — só clientes dos remainingItems
+  const clientIds = Array.from(new Set(remainingItems.map((i) => i.client_id).filter(Boolean) as string[]));
   const blogMap = new Map<string, string>();
   if (clientIds.length > 0) {
     const rows = await query<{ client_id: string; blog_id: string }>(
@@ -132,7 +221,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const buckets = new Map<string, Bucket>();
-  for (const item of items) {
+  for (const item of remainingItems) {
     if (!item.client_id) continue;
     const blogId = blogMap.get(item.client_id);
     if (!blogId) continue;
@@ -231,6 +320,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({
     ok: true,
     candidates: items.length,
+    localResolved,
+    apiCandidates: remainingItems.length,
     buckets: buckets.size,
     updated,
     notFound,

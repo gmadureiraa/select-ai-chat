@@ -3,6 +3,7 @@
 // _lib/integrations/postiz.ts. Criar handler dedicado quando o front migrar.
 import { authedPost } from '../_lib/handler.js';
 import { query } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const LATE_API_BASE = 'https://getlate.dev/api/v1';
 
@@ -26,12 +27,13 @@ async function fetchFollowerStats(profileId: string, apiKey: string, fromDate: s
   return data.accounts || data.data || [];
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const lateApiKey = process.env.LATE_API_KEY;
   if (!lateApiKey) throw new Error('LATE_API_KEY not configured');
 
   const { clientId, period = 7 } = body;
   if (!clientId) throw new Error('clientId required');
+  await assertClientAccess(user.id, clientId);
 
   const credentials = await query<any>(
     `SELECT metadata, platform FROM client_social_credentials

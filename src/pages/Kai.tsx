@@ -131,7 +131,10 @@ const AutomationsTab = lazy(() =>
 // BillingTab REMOVIDO — KAI 2.0 é uso interno Kaleidos, sem cobrança por workspace.
 // O arquivo src/components/billing/BillingTab.tsx ainda existe mas não é mais
 // importado nem montado em rota nenhuma.
-import { MetricoolInboxPanel } from "@/components/metricool/MetricoolInboxPanel";
+// MetricoolInboxPanel é 1197 linhas — lazy pra não inflar bundle inicial
+const MetricoolInboxPanel = lazy(() =>
+  import("@/components/metricool/MetricoolInboxPanel").then((m) => ({ default: m.MetricoolInboxPanel })),
+);
 // 2026-05-09 — MetricoolCalendarView e MetricoolSmartLinksManager removidos:
 //   * editorial-calendar foi removido do switch (Calendar live em PlanningBoard)
 //   * smart-links foi removido do switch

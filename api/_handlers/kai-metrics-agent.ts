@@ -3,6 +3,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { tryAuth } from '../_lib/auth.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 function buildMetricsContext(metrics: any[], posts: any[], clientName?: string): string {
   if (metrics.length === 0 && posts.length === 0) return 'Não há dados de métricas disponíveis para este cliente.';
@@ -51,10 +53,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
   applyCors(res);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
+  const user = await tryAuth(req);
+  if (!user) return jsonError(res, 401, 'Unauthorized');
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : (req.body ? JSON.parse(req.body) : {});
     const { clientId, question, period, platform } = body;
     if (!clientId) return jsonError(res, 400, 'clientId é obrigatório');
+    try {
+      await assertClientAccess(user.id, clientId);
+    } catch (e: any) {
+      return jsonError(res, e?.status || 403, e?.message || 'forbidden');
+    }
 
     const pool = getPool();
     const metricsRes = platform

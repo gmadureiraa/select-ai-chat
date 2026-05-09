@@ -1,10 +1,12 @@
 // Migrated from supabase/functions/fetch-instagram-metrics/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, username } = body;
   if (!clientId || !username) throw new Error('clientId and username are required');
+  await assertClientAccess(user.id, clientId);
 
   const apifyApiKey = process.env.APIFY_API_KEY || process.env.APIFY_API_TOKEN;
   if (!apifyApiKey) throw new Error('APIFY_API_KEY not configured');

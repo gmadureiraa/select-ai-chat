@@ -5,6 +5,7 @@
 //   - RIGHT (flex 1): detalhe da conversa selecionada com header sticky + mensagens + reply box sticky
 //   - Mobile: lista cheia, detalhe abre como Sheet
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import {
   getInboxItemUnreadCount,
   useMetricoolInbox,
@@ -501,21 +502,35 @@ export function MetricoolInboxPanel({ clientId }: Props) {
     const unread = filteredItems.filter((i) => getUnreadCount(i) > 0);
     if (unread.length === 0) return;
     setBulkBusy(true);
+    let success = 0;
+    let failed = 0;
     try {
       // concurrency: 3 — Metricool aplica rate-limit agressivo em /inbox/*.
       // Paralelo total (Promise.all) com 50+ items causa 429 e ban temporário.
       // silent:true — invalida UMA vez no fim do batch (vs N=unread.length).
-      await withConcurrency(unread, 3, (i) =>
-        setStatus.mutateAsync({
-          id: String(i.id),
-          status: 'OPEN',
-          type: bulkType,
-          silent: true,
-        }),
-      );
+      await withConcurrency(unread, 3, async (i) => {
+        try {
+          await setStatus.mutateAsync({
+            id: String(i.id),
+            status: 'OPEN',
+            type: bulkType,
+            silent: true,
+          });
+          success++;
+        } catch {
+          failed++;
+        }
+      });
     } finally {
       setBulkBusy(false);
       invalidate();
+      if (failed === 0) {
+        toast.success(`${success} marcadas como lidas`);
+      } else if (success === 0) {
+        toast.error(`Falha ao marcar ${failed} mensagens`);
+      } else {
+        toast.warning(`${success} marcadas, ${failed} falharam`);
+      }
     }
   };
 
