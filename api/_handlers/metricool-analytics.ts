@@ -52,7 +52,17 @@ export default authedPost(async ({ body }) => {
         ok: true,
         network: rest.network,
         metric: rest.metric,
-        timeline: await getTimeline(cfg, blogId, rest.network, rest.metric, from, to, rest.timezone),
+        ...(rest.subject ? { subject: rest.subject } : {}),
+        timeline: await getTimeline(
+          cfg,
+          blogId,
+          rest.network,
+          rest.metric,
+          from,
+          to,
+          rest.timezone,
+          rest.subject,
+        ),
       };
     }
     case 'aggregation': {

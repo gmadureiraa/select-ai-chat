@@ -120,18 +120,30 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
 
   usePlanningRealtime();
 
+  // Rastreia qual openItemId já foi processado pra evitar loop de
+  // setSearchParams → re-render → effect re-roda. Sem essa guard, o
+  // poll a cada 15s recriava ref de `items`, retrigerando o effect e
+  // causando "piscar" da aba.
+  const handledOpenItemRef = useRef<string | null>(null);
+
   useEffect(() => {
     const openItemId = searchParams.get('openItem');
-    if (openItemId && items.length > 0) {
-      const itemToOpen = items.find(item => item.id === openItemId);
-      if (itemToOpen) {
-        setEditingItem(itemToOpen);
-        setDialogOpen(true);
-        const newParams = new URLSearchParams(searchParams);
-        newParams.delete('openItem');
-        setSearchParams(newParams, { replace: true });
-      }
+    if (!openItemId) {
+      handledOpenItemRef.current = null;
+      return;
     }
+    if (handledOpenItemRef.current === openItemId) return;
+    if (items.length === 0) return;
+
+    const itemToOpen = items.find(item => item.id === openItemId);
+    if (!itemToOpen) return;
+
+    handledOpenItemRef.current = openItemId;
+    setEditingItem(itemToOpen);
+    setDialogOpen(true);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('openItem');
+    setSearchParams(newParams, { replace: true });
   }, [searchParams, items, setSearchParams]);
 
   const handleFiltersChange = (newFilters: PlanningFilters) => {

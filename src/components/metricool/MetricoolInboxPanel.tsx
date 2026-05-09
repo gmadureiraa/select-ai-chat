@@ -79,19 +79,76 @@ function getItemText(item: any): string {
 }
 
 function getItemAuthor(item: any): string {
-  return (
-    item?.participantName ?? item?.authorName ?? item?.author ?? ''
-  ).toString();
+  // Metricool retorna shapes diferentes por provider/tipo:
+  // IG DM: from?.username | from?.full_name
+  // FB DM: from?.name | participantName
+  // LI DM: from?.firstName + lastName
+  // X DM: from?.username | screenName
+  // Comments: commentor?.name | from?.username
+  // Reviews: reviewer?.name | author?.displayName
+  const fromFirst = item?.from?.firstName;
+  const fromLast = item?.from?.lastName;
+  const fromFullName =
+    fromFirst || fromLast
+      ? `${fromFirst ?? ''} ${fromLast ?? ''}`.trim()
+      : '';
+
+  const candidate =
+    item?.participantName ??
+    item?.authorName ??
+    item?.author?.displayName ??
+    item?.author?.name ??
+    item?.author ??
+    item?.from?.full_name ??
+    item?.from?.name ??
+    item?.from?.username ??
+    fromFullName ??
+    item?.commentor?.name ??
+    item?.commentor?.username ??
+    item?.reviewer?.name ??
+    item?.reviewer?.displayName ??
+    item?.user?.name ??
+    item?.user?.username ??
+    item?.username ??
+    item?.screenName ??
+    item?.senderName ??
+    '';
+
+  return (candidate || '').toString().trim();
 }
 
 function getItemAvatar(item: any): string | undefined {
   return (
-    item?.participantPicture ?? item?.authorPicture ?? item?.avatar ?? undefined
+    item?.participantPicture ??
+    item?.authorPicture ??
+    item?.author?.picture ??
+    item?.author?.avatarUrl ??
+    item?.from?.profile_picture_url ??
+    item?.from?.picture ??
+    item?.from?.avatar ??
+    item?.from?.avatarUrl ??
+    item?.commentor?.picture ??
+    item?.commentor?.avatarUrl ??
+    item?.reviewer?.picture ??
+    item?.reviewer?.avatarUrl ??
+    item?.user?.picture ??
+    item?.user?.avatarUrl ??
+    item?.profilePicture ??
+    item?.avatar ??
+    undefined
   );
 }
 
 function getItemHandle(item: any): string | undefined {
-  return item?.participantHandle ?? item?.authorHandle ?? undefined;
+  return (
+    item?.participantHandle ??
+    item?.authorHandle ??
+    item?.from?.username ??
+    item?.user?.username ??
+    item?.username ??
+    item?.screenName ??
+    undefined
+  );
 }
 
 function getInitials(name: string): string {

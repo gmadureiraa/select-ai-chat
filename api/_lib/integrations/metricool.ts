@@ -503,19 +503,22 @@ export async function getFacebookStories(
 
 /**
  * Timeline de uma métrica específica.
- * Endpoint correto: /v2/analytics/timelines com network+metric obrigatórios.
+ * Endpoint correto: /v2/analytics/timelines com network+metric obrigatórios,
+ * e `subject` quase sempre obrigatório (account/posts/reels/stories/etc).
  *
  * Networks suportadas: tiktok, tiktokads, pinterest, youtube, facebook, gmb,
- * instagram, linkedin. NÃO suporta twitter/threads/bluesky aqui.
+ * instagram, linkedin, threads. Twitter só expõe postsCount.
  *
- * Métricas variam por rede. Exemplos:
- *   facebook: pageFollows, page_actions_post_reactions_total, postsCount, likes
- *   instagram: postsCount, postsInteractions, email_contacts, count, engagement
- *   linkedin (company): followers, paidFollowers, deltaFollowers
- *   linkedin (personal): followers, deltaFollowers, impression
- *   tiktok (account): followers_count, video_views, profile_views, likes
- *   pinterest (accounts): followers, following
- *   youtube: views, interactions, likes, comments, shares
+ * Resposta canônica: `{data: [{metric, values: [{dateTime, value}]}]}`.
+ * Esta função desempacota para `[{date, value}]`.
+ *
+ * Métricas validadas (2026-05-09) para followers:
+ *   instagram (account): followers
+ *   facebook  (account): pageFollows
+ *   youtube   (account): totalSubscribers
+ *   threads   (account): followers_count
+ *   linkedin  (account): followers
+ *   tiktok    (account): followers_count
  */
 export async function getTimeline(
   cfg: MetricoolConfig,
@@ -525,13 +528,31 @@ export async function getTimeline(
   from: string,
   to: string,
   timezone?: string,
+  subject?: string,
 ): Promise<Array<{ date: string; value: number }>> {
   const data = await metricoolFetch<any>(cfg, '/v2/analytics/timelines', {
     blogId,
-    search: { network, metric, from, to, ...(timezone ? { timezone } : {}) },
+    search: {
+      network,
+      metric,
+      from,
+      to,
+      ...(subject ? { subject } : {}),
+      ...(timezone ? { timezone } : {}),
+    },
   });
-  if (Array.isArray(data)) return data;
-  return data?.data || data?.timeline || [];
+  // Resposta nova: {data: [{metric, values: [{dateTime, value}]}]}
+  const series = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+  const first = series[0];
+  if (first && Array.isArray(first.values)) {
+    return first.values.map((v: any) => ({
+      date: v.dateTime ?? v.date ?? '',
+      value: typeof v.value === 'number' ? v.value : Number(v.value) || 0,
+    }));
+  }
+  // Fallback formato legado: array direto de {date,value}
+  if (Array.isArray(data?.timeline)) return data.timeline;
+  return [];
 }
 
 /** Brand summary: agregado de posts num período. */

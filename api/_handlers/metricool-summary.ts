@@ -43,15 +43,29 @@ interface SummaryResponse {
 }
 
 // Timeline "followers" — Metricool aceita métricas DIFERENTES pra cada rede,
-// e às vezes nem expõe followers via /v2/analytics/timelines. As métricas
-// abaixo foram VALIDADAS via testes; redes não-listadas usam proxy posts.
+// e quase TODAS exigem `subject` no endpoint /v2/analytics/timelines.
+// Mapeamentos abaixo foram VALIDADOS via curl (2026-05-09):
 //
-// IMPORTANTE: Facebook 'pageFollows' NÃO funciona (validado 2026-05-09).
-// Valid metrics for FB account: post_impressions_unique, interactions, engagement, count.
-// Stick com `count` (agregado de posts) como proxy histórico até descobrir endpoint
-// real de followers (provavelmente é em outro endpoint /stats/account/*).
+//   instagram:  network=instagram&subject=account&metric=followers      -> ok (1 ponto/dia)
+//   facebook:   network=facebook&subject=account&metric=pageFollows     -> ok (série diária)
+//   youtube:    network=youtube&subject=account&metric=totalSubscribers -> ok
+//   threads:    network=threads&subject=account&metric=followers_count  -> ok (1 ponto/dia)
+//   linkedin:   network=linkedin&subject=account&metric=followers       -> ok (sem subject = 500)
+//   tiktok:     network=tiktok&subject=account&metric=followers_count   -> ok
+//
+// NÃO suportadas pelo timelines (Metricool não expõe followers history):
+//   twitter:    valid values=[postsCount] (sem followers)
+//   pinterest/bluesky: dependem de connection do blog
+//
+// Histórico curto: para Instagram/Threads/TikTok/LinkedIn/YouTube a Metricool
+// só retorna ~1 ponto/dia (snapshot atual), então o gráfico fica praticamente
+// flat. Facebook é a exceção e retorna série diária real.
 const TIMELINE_FOLLOWER_METRICS: Record<string, { metric: string; subject?: string }> = {
-  linkedin: { metric: 'followers' },
+  instagram: { metric: 'followers', subject: 'account' },
+  facebook: { metric: 'pageFollows', subject: 'account' },
+  youtube: { metric: 'totalSubscribers', subject: 'account' },
+  threads: { metric: 'followers_count', subject: 'account' },
+  linkedin: { metric: 'followers', subject: 'account' },
   tiktok: { metric: 'followers_count', subject: 'account' },
 };
 
@@ -149,14 +163,22 @@ export default authedPost<SummaryResponse>(async ({ body }) => {
         const [posts, timelineSeries] = await Promise.all([
           getNetworkPosts(cfg, blogId, network, from, to).catch(() => []),
           tlConfig
-            ? getTimeline(cfg, blogId, network, tlConfig.metric, from, to).catch(() => [])
+            ? getTimeline(
+                cfg,
+                blogId,
+                network,
+                tlConfig.metric,
+                from,
+                to,
+                undefined,
+                tlConfig.subject,
+              ).catch(() => [])
             : Promise.resolve([]),
         ]);
 
-        const history = (timelineSeries as any[]).map((t) => ({
-          date: t.date ?? t.dateTime,
-          followers: n(t.value ?? t.total ?? t.followers),
-        })).filter((h) => h.date);
+        const history = (timelineSeries as Array<{ date: string; value: number }>)
+          .map((t) => ({ date: t.date, followers: n(t.value) }))
+          .filter((h) => h.date);
 
         const current = history.length > 0 ? history[history.length - 1].followers : 0;
 

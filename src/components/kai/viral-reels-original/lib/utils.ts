@@ -6,13 +6,15 @@
 
 /**
  * Extrai o shortCode de uma URL do Instagram.
- * Aceita SOMENTE /reel/ e /reels/ (rejeita /p/ carrossel e /tv/ igtv pra
- * não queimar 1 hit Apify antes do guard `item.type !== "Video"` rejeitar).
+ * Aceita /reel/, /reels/, /p/ e /tv/ — IG serve reels via /p/ quando o link
+ * vem de carrossel/post regular ou link compartilhado, então rejeitar /p/
+ * de cara queima reels reais. O guard real `item.type !== "Video"` no
+ * handler server-side dá erro claro pra foto/carrossel-sem-video.
  * Suporta com ou sem trailing slash, com ou sem segmento de username.
  */
 export function extractShortCode(url: string): string | null {
   const match = url.match(
-    /instagram\.com\/(?:[^\/]+\/)?reels?\/([A-Za-z0-9_-]+)/
+    /instagram\.com\/(?:[^\/]+\/)?(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/
   );
   return match ? match[1] : null;
 }

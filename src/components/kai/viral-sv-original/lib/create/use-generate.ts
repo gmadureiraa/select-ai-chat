@@ -57,8 +57,16 @@ export interface GenerateCarouselInput {
   sourceType?: "idea" | "link" | "video" | "instagram" | "ai";
   sourceUrl?: string;
   advanced?: AdvancedGenerationOptions;
-  /** writer (default) = IA escreve. layout-only = IA só formata em slides. */
+  /** writer (default) = IA escreve. IA layout-only = só formata em slides. */
   mode?: GenerationMode;
+  /**
+   * KAI integration: cliente selecionado no shell KAI (Sidebar).
+   * Quando vier, o adapter `/api/generate` usa esse cliente direto em
+   * vez de cair pro fallback "primeiro client do workspace". Evita 400
+   * "Nenhum cliente associado ao seu workspace" quando o workspace_members
+   * lookup falha por ordering ou mismatch RLS.
+   */
+  clientId?: string | null;
 }
 
 export function useGenerate(session: Session | null) {
@@ -136,6 +144,10 @@ export function useGenerate(session: Session | null) {
             designTemplate: input.designTemplate ?? "manifesto",
             advanced: advanced ?? undefined,
             mode: input.mode ?? "writer",
+            // KAI multi-tenant: passa clientId explicitamente quando user
+            // selecionou cliente na Sidebar — adapter prefere esse a
+            // resolver via workspace_members fallback.
+            clientId: input.clientId ?? undefined,
           }),
           signal: AbortSignal.timeout(130_000),
         });
@@ -203,6 +215,15 @@ export function useGenerate(session: Session | null) {
           msg =
             "A geração demorou demais e foi cancelada. Pode ser sobrecarga do Gemini ou source muito grande. Tenta de novo em alguns minutos, ou simplifica o briefing.";
         }
+        // Diagnóstico: log completo do erro pra console pra que se o
+        // catch genérico de cima cair no "Erro inesperado ao gerar." a
+        // gente veja a causa real no DevTools.
+        // eslint-disable-next-line no-console
+        console.error("[use-generate] generateCarousel falhou:", err, {
+          msg,
+          status: (err as GenerationError)?.status,
+          code: (err as GenerationError)?.code,
+        });
         setError(msg);
         throw err;
       } finally {

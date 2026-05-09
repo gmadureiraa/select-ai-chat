@@ -483,7 +483,25 @@ export default function NewCarouselPage() {
   }
 
   function explainGenError(err: unknown): string {
-    if (!(err instanceof Error)) return "Erro inesperado ao gerar.";
+    // Diagnóstico: log SEMPRE — se cair no fallback abaixo a gente vê o que veio.
+    // eslint-disable-next-line no-console
+    console.error("[create-new] geração falhou:", err);
+    if (!(err instanceof Error)) {
+      // Não-Error: tenta extrair string. Antes voltava genérico que escondia a causa.
+      try {
+        const text =
+          typeof err === "string"
+            ? err
+            : err && typeof err === "object"
+              ? (err as { message?: string; error?: string }).message ||
+                (err as { error?: string }).error ||
+                JSON.stringify(err).slice(0, 200)
+              : "";
+        return text || "Erro inesperado ao gerar.";
+      } catch {
+        return "Erro inesperado ao gerar.";
+      }
+    }
     const e = err as GenerationError;
     if (e.code === "PLAN_LIMIT_REACHED" || e.status === 403) {
       // Dispara popup de desconto — é o momento natural pra oferecer upgrade.
@@ -715,6 +733,10 @@ export default function NewCarouselPage() {
         designTemplate,
         advanced,
         mode,
+        // KAI: amarra geração ao cliente do shell (URL ?client=...).
+        // Sem isso, o adapter cai num fallback que pode resolver client
+        // errado ou bater 400 "Nenhum cliente associado ao seu workspace".
+        clientId,
       });
       const chosen = variations[0];
       if (!chosen) throw new Error("IA não devolveu slides.");

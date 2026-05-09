@@ -49,6 +49,7 @@ import {
   Minus,
 } from 'lucide-react';
 import { type MetricoolPost, getPostMetric } from '@/hooks/useMetricoolPerformance';
+import type { SnapshotData } from '@/hooks/useHistoricalSnapshots';
 import { cn } from '@/lib/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,6 +106,14 @@ export interface MetricChartHeroProps {
   lastUpdatedAt?: number;
   /** Métrica inicial. Default: engagement. */
   defaultMetric?: HeroMetric;
+  /**
+   * Snapshots históricos diários do nosso DB (`metricool_daily_snapshots`).
+   * Quando presente:
+   *   - `followers` chart: usa snapshots (não `followersHistory` da Metricool API)
+   *   - outras métricas: snapshots como base + fallback bucketByDay(posts) p/ dias
+   *     que ainda não foram capturados pelo cron.
+   */
+  historicalSnapshots?: SnapshotData[];
 }
 
 // Alias interno mantido pra evitar churn no resto do arquivo
@@ -239,26 +248,85 @@ export function MetricChartHero({
   period,
   lastUpdatedAt,
   defaultMetric = 'engagement',
+  historicalSnapshots,
 }: Props) {
   const [selected, setSelected] = useState<HeroMetric>(defaultMetric);
   const buckets = useMemo(() => bucketByDay(posts, period), [posts, period]);
 
+  // Snapshots históricos do nosso DB — quando presente, sobrescrevem
+  // `followersHistory` da API Metricool (que só tem 30-90d) e dão base sólida
+  // pra qualquer métrica diária.
+  const snapshotsByDay = useMemo(() => {
+    if (!historicalSnapshots || historicalSnapshots.length === 0) return null;
+    const map = new Map<string, SnapshotData>();
+    for (const s of historicalSnapshots) map.set(s.date, s);
+    return map;
+  }, [historicalSnapshots]);
+
   const followersSeries = useMemo(() => {
+    // Prefere snapshots locais (history acumulada) em vez de followersHistory
+    // (Metricool API só dá ~1 ponto/dia e janela curta).
+    if (historicalSnapshots && historicalSnapshots.length > 0) {
+      return historicalSnapshots
+        .filter((s) => s.followers != null && s.followers > 0)
+        .map((s) => ({
+          shortDate: new Date(`${s.date}T12:00:00`).toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: 'short',
+          }),
+          date: s.date,
+          value: s.followers as number,
+        }));
+    }
     return followersHistory.map((p) => ({
       shortDate: new Date(p.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
       date: p.date,
       value: p.followers,
     }));
-  }, [followersHistory]);
+  }, [followersHistory, historicalSnapshots]);
 
   const series = useMemo(() => {
     if (selected === 'followers') return followersSeries;
-    return buckets.map((b) => ({
-      shortDate: b.shortDate,
-      date: b.date,
-      value: b[selected as Exclude<HeroMetric, 'followers'>] as number,
-    }));
-  }, [selected, buckets, followersSeries]);
+    return buckets.map((b) => {
+      // Snapshot do dia (se existir) tem prioridade pra métricas que requerem
+      // agregação total (likes/comments/shares/reach/impressions/views/saves).
+      const snap = snapshotsByDay?.get(b.date);
+      let value: number;
+      if (snap) {
+        switch (selected) {
+          case 'engagement':
+            value = snap.total_likes + snap.total_comments + snap.total_shares;
+            break;
+          case 'likes':
+            value = snap.total_likes;
+            break;
+          case 'comments':
+            value = snap.total_comments;
+            break;
+          case 'reach':
+            value = snap.total_reach;
+            break;
+          case 'impressions':
+            value = snap.total_impressions;
+            break;
+          case 'views':
+            value = snap.total_views;
+            break;
+          case 'saves':
+            value = snap.total_saves;
+            break;
+          case 'engagementRate':
+            value = snap.avg_engagement_rate;
+            break;
+          default:
+            value = b[selected as Exclude<HeroMetric, 'followers'>] as number;
+        }
+      } else {
+        value = b[selected as Exclude<HeroMetric, 'followers'>] as number;
+      }
+      return { shortDate: b.shortDate, date: b.date, value };
+    });
+  }, [selected, buckets, followersSeries, snapshotsByDay]);
 
   const def = METRICS.find((m) => m.key === selected) ?? METRICS[0];
   const Icon = def.icon;

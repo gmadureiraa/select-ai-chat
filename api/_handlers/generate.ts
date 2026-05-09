@@ -148,12 +148,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (!internalRes.ok) {
+      // Tenta parsear JSON do inner pra propagar `error`/`code` real
+      // pro frontend (em vez de embrulhar tudo em "Geração falhou: {...}").
       const errText = await internalRes.text().catch(() => '');
-      return jsonError(
-        res,
-        internalRes.status,
-        `Geração falhou: ${errText.slice(0, 300)}`,
-      );
+      let innerJson: any = null;
+      try {
+        innerJson = JSON.parse(errText);
+      } catch {
+        /* não era JSON */
+      }
+      console.error('[api/generate adapter] inner failed', {
+        status: internalRes.status,
+        body: errText.slice(0, 500),
+      });
+      const innerMsg =
+        innerJson?.message ?? innerJson?.error ?? errText.slice(0, 300);
+      return res.status(internalRes.status).json({
+        error: innerMsg || 'Geração falhou no motor interno',
+        code: innerJson?.error || undefined,
+        upstream: { status: internalRes.status },
+      });
     }
 
     const data = (await internalRes.json()) as {
@@ -183,7 +197,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       planningItemId: data.planningItemId ?? null,
     });
   } catch (err: any) {
-    console.error('[api/generate adapter] error:', err);
-    return jsonError(res, 500, err?.message ?? 'Erro inesperado ao gerar.');
+    console.error('[api/generate adapter] error:', {
+      message: err?.message,
+      name: err?.name,
+      stack: err?.stack?.split('\n').slice(0, 5).join('\n'),
+    });
+    // Mensagem real pro frontend (não fallback genérico) + flag de origem.
+    const msg = err?.message
+      ? `Adapter /api/generate falhou: ${err.message}`
+      : 'Erro inesperado ao gerar (adapter).';
+    return jsonError(res, 500, msg);
   }
 }

@@ -25,6 +25,7 @@ import { GrowthDelta } from './components/GrowthDelta';
 import { MetricChartHero } from './components/MetricChartHero';
 import { MetricoolBestTimesCard } from '@/components/metricool/MetricoolBestTimesCard';
 import { useOpenPlanningFromPost } from '@/hooks/useOpenPlanningFromPost';
+import { useHistoricalSnapshots } from '@/hooks/useHistoricalSnapshots';
 
 interface Props {
   clientId: string;
@@ -35,6 +36,7 @@ interface Props {
 export function PlatformDashboard({ clientId, network, period }: Props) {
   const { data: posts = [], isLoading: isLoadingPosts } = useMetricoolPosts(clientId, network, period);
   const { data: summary, isLoading: isLoadingSummary, dataUpdatedAt } = useMetricoolBrandSummary(clientId, period);
+  const { data: snapshotResp } = useHistoricalSnapshots(clientId, network, period);
 
   const platformSummary = summary?.platforms?.[network];
   const followersHistory = platformSummary?.followerStats?.history || [];
@@ -51,6 +53,7 @@ export function PlatformDashboard({ clientId, network, period }: Props) {
       <MetricChartHero
         posts={posts}
         followersHistory={followersHistory}
+        historicalSnapshots={snapshotResp?.snapshots}
         loading={isLoading}
         period={period}
         lastUpdatedAt={dataUpdatedAt}

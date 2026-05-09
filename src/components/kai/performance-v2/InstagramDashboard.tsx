@@ -22,6 +22,7 @@ import { FormatBreakdown } from './components/FormatBreakdown';
 import { MetricChartHero } from './components/MetricChartHero';
 import { MetricoolBestTimesCard } from '@/components/metricool/MetricoolBestTimesCard';
 import { useOpenPlanningFromPost } from '@/hooks/useOpenPlanningFromPost';
+import { useHistoricalSnapshots } from '@/hooks/useHistoricalSnapshots';
 
 interface Props {
   clientId: string;
@@ -37,6 +38,7 @@ export function InstagramDashboardV2({ clientId, period }: Props) {
   const storiesPeriod = Math.min(period, 7);
   const { data: stories = [], isLoading: isLoadingStories } = useMetricoolStories(clientId, 'instagram', storiesPeriod);
   const { data: summary, isLoading: isLoadingSummary, dataUpdatedAt } = useMetricoolBrandSummary(clientId, period);
+  const { data: snapshotResp } = useHistoricalSnapshots(clientId, 'instagram', period);
 
   const igSummary = summary?.platforms?.instagram;
   const followersHistory = igSummary?.followerStats?.history || [];
@@ -73,6 +75,7 @@ export function InstagramDashboardV2({ clientId, period }: Props) {
       <MetricChartHero
         posts={[...posts, ...reels]}
         followersHistory={followersHistory}
+        historicalSnapshots={snapshotResp?.snapshots}
         loading={isLoading}
         period={period}
         lastUpdatedAt={dataUpdatedAt}

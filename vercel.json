@@ -35,6 +35,10 @@
   },
   "crons": [
     {
+      "path": "/api/cron-metricool-snapshot",
+      "schedule": "0 6 * * *"
+    },
+    {
       "path": "/api/cron-radar-master",
       "schedule": "0 7 * * *"
     },
