@@ -46,11 +46,54 @@ export default authedPost(async ({ body, user }) => {
     throw new Error('Workflow não encontrado ou acesso negado');
   }
 
-  // Validação leve do cron — 5 segmentos separados por espaço
+  // Validação cron mais robusta — 5 segmentos + ranges válidos.
+  // Aceita: '*' | número | range 'a-b' | lista 'a,b,c' | lista de ranges 'a-b,c-d'.
   if (data.schedule_cron !== undefined) {
     const parts = data.schedule_cron.trim().split(/\s+/);
     if (parts.length < 5) {
       throw new Error('schedule_cron inválido — esperado 5 segmentos (min hour dom month dow)');
+    }
+    const RANGES = [
+      { name: 'min', min: 0, max: 59 },
+      { name: 'hour', min: 0, max: 23 },
+      { name: 'dom', min: 1, max: 31 },
+      { name: 'month', min: 1, max: 12 },
+      { name: 'dow', min: 0, max: 7 },
+    ];
+    function validateSegment(seg: string, range: { name: string; min: number; max: number }) {
+      if (seg === '*') return;
+      const items = seg.split(',');
+      for (const item of items) {
+        // Interval syntax: '*/5' or '0-30/5'
+        const stepMatch = item.match(/^(\*|\d+(?:-\d+)?)\/(\d+)$/);
+        if (stepMatch) {
+          const stepNum = Number(stepMatch[2]);
+          if (!Number.isInteger(stepNum) || stepNum < 1) {
+            throw new Error(`cron[${range.name}] step inválido: ${item}`);
+          }
+          continue;
+        }
+        if (item.includes('-')) {
+          const [a, b] = item.split('-').map(Number);
+          if (!Number.isFinite(a) || !Number.isFinite(b) || a > b) {
+            throw new Error(`cron[${range.name}] range inválido: ${item}`);
+          }
+          if (a < range.min || b > range.max) {
+            throw new Error(`cron[${range.name}] fora do range ${range.min}-${range.max}: ${item}`);
+          }
+          continue;
+        }
+        const n = Number(item);
+        if (!Number.isInteger(n)) {
+          throw new Error(`cron[${range.name}] valor inválido: ${item}`);
+        }
+        if (n < range.min || n > range.max) {
+          throw new Error(`cron[${range.name}] fora do range ${range.min}-${range.max}: ${item}`);
+        }
+      }
+    }
+    for (let i = 0; i < 5; i++) {
+      validateSegment(parts[i], RANGES[i]);
     }
   }
 

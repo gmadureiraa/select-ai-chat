@@ -15,7 +15,7 @@
 // Inspiração: src/components/performance/EnhancedAreaChart.tsx (legacy) — header
 // com seletor + total agregado + delta vs período anterior, gradient suave,
 // tooltip rico em pt-BR.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -47,7 +47,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
+  Download,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { type MetricoolPost, getPostMetric } from '@/hooks/useMetricoolPerformance';
 import type { SnapshotData } from '@/hooks/useHistoricalSnapshots';
 import { cn } from '@/lib/utils';
@@ -183,10 +185,14 @@ function bucketByDay(posts: MetricoolPost[], period: number): DayBucket[] {
     b.views += getPostMetric(p, 'views');
     b.saves += getPostMetric(p, 'saves');
   }
-  // Engagement total + rate per day (após loop pra ter reach final)
+  // Engagement total + rate per day (após loop pra ter reach final).
+  // Fallback impressions quando reach=0 (Twitter/Threads/LinkedIn) — alinhado a
+  // `aggregatePostsMetrics` em useMetricoolPerformance.ts pra eng% não cair a 0
+  // em redes sem reach.
   for (const b of buckets.values()) {
     b.engagement = b.likes + b.comments + b.shares;
-    b.engagementRate = b.reach > 0 ? (b.engagement / b.reach) * 100 : 0;
+    const denom = Math.max(b.reach, b.impressions);
+    b.engagementRate = denom > 0 ? (b.engagement / denom) * 100 : 0;
   }
 
   return Array.from(buckets.values()).sort((a, b) => a.date.localeCompare(b.date));
@@ -215,23 +221,29 @@ function fmtRelative(ts: number): string {
   return `${d}d atrás`;
 }
 
-// Calcula valor agregado (total ou último) + delta vs período anterior
+// Calcula valor agregado (total ou último) + delta vs período anterior.
+// Para non-point usa partição simétrica (descarta ponto central de séries
+// ímpares pra não comparar 3d vs 4d).
 function summarizeSeries(
   series: Array<{ value: number }>,
   isPoint: boolean,
 ): { current: number; delta: number; deltaPct: number } {
   if (series.length === 0) return { current: 0, delta: 0, deltaPct: 0 };
   if (isPoint) {
+    // Para series isPoint (followers): pega o primeiro valor NÃO-ZERO como baseline
+    // pra não jogar deltaPct = 0 quando snapshots começam só no meio da janela.
     const current = series[series.length - 1]?.value ?? 0;
-    const previous = series[0]?.value ?? 0;
-    const delta = current - previous;
-    const deltaPct = previous > 0 ? (delta / previous) * 100 : 0;
+    const baseline = series.find((s) => s.value > 0)?.value ?? 0;
+    const delta = current - baseline;
+    const deltaPct = baseline > 0 ? (delta / baseline) * 100 : 0;
     return { current, delta, deltaPct };
   }
-  // Soma metade recente vs metade anterior
-  const half = Math.floor(series.length / 2);
+  // Partição simétrica: se length ímpar, descarta o ponto central
+  const len = series.length;
+  const half = Math.floor(len / 2);
+  const offset = len % 2 === 1 ? 1 : 0; // pula ponto central
   const first = series.slice(0, half).reduce((a, b) => a + (b.value || 0), 0);
-  const second = series.slice(half).reduce((a, b) => a + (b.value || 0), 0);
+  const second = series.slice(half + offset).reduce((a, b) => a + (b.value || 0), 0);
   const total = first + second;
   const delta = second - first;
   const deltaPct = first > 0 ? (delta / first) * 100 : second > 0 ? 100 : 0;
@@ -252,6 +264,15 @@ export function MetricChartHero({
 }: Props) {
   const [selected, setSelected] = useState<HeroMetric>(defaultMetric);
   const buckets = useMemo(() => bucketByDay(posts, period), [posts, period]);
+
+  // Tick a cada 60s pra `Atualizado X min atrás` recompor sem stale render.
+  // Sem isso a string fica congelada até a próxima invalidate.
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    if (!lastUpdatedAt) return;
+    const t = setInterval(() => forceTick((n) => n + 1), 60_000);
+    return () => clearInterval(t);
+  }, [lastUpdatedAt]);
 
   // Snapshots históricos do nosso DB — quando presente, sobrescrevem
   // `followersHistory` da API Metricool (que só tem 30-90d) e dão base sólida
@@ -395,24 +416,48 @@ export function MetricChartHero({
             </div>
           </div>
 
-          <Select value={selected} onValueChange={(v) => setSelected(v as HeroMetric)}>
-            <SelectTrigger className="w-full md:w-[200px] h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {METRICS.map((m) => {
-                const MIcon = m.icon;
-                return (
-                  <SelectItem key={m.key} value={m.key} className="text-xs">
-                    <span className="flex items-center gap-2">
-                      <MIcon className="h-3.5 w-3.5" style={{ color: m.color }} />
-                      {m.label}
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={selected} onValueChange={(v) => setSelected(v as HeroMetric)}>
+              <SelectTrigger className="w-full md:w-[200px] h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {METRICS.map((m) => {
+                  const MIcon = m.icon;
+                  return (
+                    <SelectItem key={m.key} value={m.key} className="text-xs">
+                      <span className="flex items-center gap-2">
+                        <MIcon className="h-3.5 w-3.5" style={{ color: m.color }} />
+                        {m.label}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-2.5 hidden sm:inline-flex"
+              onClick={() => {
+                if (series.length === 0) return;
+                const header = `data,${def.key}\n`;
+                const body = series
+                  .map((s) => `${s.date},${def.isPercent ? s.value.toFixed(3) : Math.round(s.value)}`)
+                  .join('\n');
+                const blob = new Blob([header + body], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `kai-performance-${def.key}-${period}d.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              title="Exportar série como CSV"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
 

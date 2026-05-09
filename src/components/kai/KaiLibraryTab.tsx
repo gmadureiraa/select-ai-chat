@@ -5,13 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useReferenceLibrary, ReferenceItem, CreateReferenceData } from "@/hooks/useReferenceLibrary";
-import { useClientVisualReferences, ClientVisualReference } from "@/hooks/useClientVisualReferences";
+import { useReferenceLibrary, CreateReferenceData, ReferenceItem } from "@/hooks/useReferenceLibrary";
+import { useClientVisualReferences } from "@/hooks/useClientVisualReferences";
 import { useUnifiedContent } from "@/hooks/useUnifiedContent";
 import { useContentLibrary } from "@/hooks/useContentLibrary";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { ReferenceCard } from "@/components/references/ReferenceCard";
 import { ReferenceDialog } from "@/components/references/ReferenceDialog";
 import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog";
 import { ClientReferencesManager } from "@/components/clients/ClientReferencesManager";
@@ -20,7 +18,6 @@ import { CaseStudyGrid } from "@/components/kai/library/CaseStudyGrid";
 import { AddContentDialog } from "@/components/kai/library/AddContentDialog";
 import { VisualReferenceUploader } from "@/components/kai/library/VisualReferenceUploader";
 import { Client } from "@/hooks/useClients";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { TabHeader } from "@/components/kai/TabHeader";
 
@@ -32,16 +29,15 @@ interface KaiLibraryTabProps {
 export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
   const [activeTab, setActiveTab] = useState("content");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  
-  // Workspace permissions
-  const { canDeleteFromLibrary, canEditInLibrary } = useWorkspace();
 
-  // Reference Library
+  // Workspace permissions
+  const { canDeleteFromLibrary } = useWorkspace();
+
+  // Reference Library — usado pra count + dialog Add no header (refs tab)
   const [referenceDialogOpen, setReferenceDialogOpen] = useState(false);
   const [selectedReference, setSelectedReference] = useState<ReferenceItem | null>(null);
   const [referenceViewOpen, setReferenceViewOpen] = useState(false);
-  const { references, createReference, updateReference, deleteReference } = useReferenceLibrary(clientId);
+  const { references, createReference, updateReference } = useReferenceLibrary(clientId);
 
   // Visual References
   const [visualUploaderOpen, setVisualUploaderOpen] = useState(false);
@@ -53,46 +49,26 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
 
   // Unified Content (Instagram, Twitter, LinkedIn posts) - excludes case_study and report
   const { data: unifiedContent } = useUnifiedContent(clientId);
-  
+
   // Content library for counting case studies and reports
   const { contents: libraryContent } = useContentLibrary(clientId);
 
   // Count case studies and reports
-  const caseStudiesCount = useMemo(() => 
+  const caseStudiesCount = useMemo(() =>
     libraryContent?.filter(item => item.content_type === 'case_study').length || 0
   , [libraryContent]);
 
-  const reportsCount = useMemo(() => 
+  const reportsCount = useMemo(() =>
     libraryContent?.filter(item => item.content_type === 'report').length || 0
   , [libraryContent]);
 
   // Filter unified content to exclude case_study and report (they have their own tabs)
   const filteredUnifiedCount = useMemo(() => {
     if (!unifiedContent) return 0;
-    return unifiedContent.filter(item => 
+    return unifiedContent.filter(item =>
       item.content_type !== 'case_study' && item.content_type !== 'report'
     ).length;
   }, [unifiedContent]);
-
-  const filteredReferences = useMemo(() => {
-    let result = references || [];
-    
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(r =>
-        r.title.toLowerCase().includes(query) ||
-        r.content.toLowerCase().includes(query)
-      );
-    }
-    
-    // Sort by newest
-    result = [...result].sort((a, b) => 
-      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-    );
-    
-    return result;
-  }, [references, searchQuery]);
 
   const handleSaveReference = (data: CreateReferenceData) => {
     if (selectedReference) {
@@ -102,75 +78,6 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
     }
     setReferenceDialogOpen(false);
     setSelectedReference(null);
-  };
-
-  const toggleSelection = (id: string) => {
-    const newSelected = new Set(selectedItems);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedItems(newSelected);
-  };
-
-  const handleClearSelection = () => {
-    setSelectedItems(new Set());
-  };
-
-  const handleDeleteSelected = async () => {
-    if (selectedItems.size === 0) return;
-    
-    const confirmDelete = window.confirm(`Excluir ${selectedItems.size} item(s) selecionado(s)?`);
-    if (!confirmDelete) return;
-
-    try {
-      const deletePromises = Array.from(selectedItems).map(id => {
-        if (activeTab === "references") {
-          return deleteReference.mutateAsync(id);
-        }
-        return Promise.resolve();
-      });
-      
-      await Promise.all(deletePromises);
-      setSelectedItems(new Set());
-      toast.success(`${selectedItems.size} item(s) excluído(s)`);
-    } catch (error) {
-      toast.error("Erro ao excluir itens");
-    }
-  };
-
-  const renderReferenceItem = (reference: ReferenceItem) => {
-    const isSelected = selectedItems.has(reference.id);
-    
-    return (
-      <div key={reference.id} className="relative group">
-        <div className={cn(
-          "absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity",
-          isSelected && "opacity-100"
-        )}>
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={() => toggleSelection(reference.id)}
-            className="bg-background"
-          />
-        </div>
-        <ReferenceCard
-          reference={reference}
-          onView={() => {
-            setSelectedReference(reference);
-            setReferenceViewOpen(true);
-          }}
-          onEdit={() => {
-            setSelectedReference(reference);
-            setReferenceDialogOpen(true);
-          }}
-          onDelete={() => deleteReference.mutate(reference.id)}
-          canDelete={canDeleteFromLibrary}
-          canEdit={canEditInLibrary}
-        />
-      </div>
-    );
   };
 
   const handleAddButtonClick = () => {
@@ -276,9 +183,10 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         {/* Esse componente tem: format chip colorido, source handle, tags reais, */}
         {/* CrossAppActions, edit/delete on hover, abre ReferenceGalleryDialog com */}
         {/* cenas-chave (RefSceneStrip) + KPI cards (likes/comments/views/shares/saves) */}
-        {/* + slides_text por slide pra carrosseis */}
+        {/* + slides_text por slide pra carrosseis. */}
+        {/* externalSearchQuery: header global da Biblioteca controla a busca interna */}
         <TabsContent value="references" className="mt-4 flex-1 overflow-y-auto">
-          <ClientReferencesManager clientId={clientId} />
+          <ClientReferencesManager clientId={clientId} externalSearchQuery={searchQuery} />
         </TabsContent>
 
         {/* Case Studies */}

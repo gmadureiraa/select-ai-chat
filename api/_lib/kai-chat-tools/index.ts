@@ -66,3 +66,5 @@ export { listClientsTool } from './listClients.js';
 export { createClientTool } from './createClient.js';
 export { addToPlanningTool } from './addToPlanning.js';
 export { getPostTranscriptionTool } from './getPostTranscription.js';
+export { getPlanningItemTool } from './getPlanningItem.js';
+export { getRecentPerformanceTool } from './getRecentPerformance.js';

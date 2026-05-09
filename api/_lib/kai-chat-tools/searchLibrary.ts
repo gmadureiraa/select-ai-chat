@@ -111,9 +111,19 @@ export const searchLibraryTool: RegisteredTool<SearchLibraryArgs, SearchLibraryD
             reference_type: string | null;
             source_url: string | null;
           }>(
+            // Busca em title, content E metadata->>'transcribed_text'
+            // (157+ refs Madureira têm o conhecimento real na transcrição,
+            //  não no content puro). Também busca em metadata->>'source_handle'
+            //  pra perguntas tipo "@tobi tem ref?".
             `SELECT id, title, content, reference_type, source_url
                FROM client_reference_library
-              WHERE client_id = $1 AND (title ILIKE $2 OR content ILIKE $2)
+              WHERE client_id = $1
+                AND (
+                  title ILIKE $2
+                  OR content ILIKE $2
+                  OR (metadata->>'transcribed_text') ILIKE $2
+                  OR (metadata->>'source_handle') ILIKE $2
+                )
               LIMIT $3`,
             [ctx.clientId, pattern, limit],
           )

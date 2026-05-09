@@ -9,9 +9,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Plus, Search, Trash2, ExternalLink, Loader2, Edit,
   FileText, Video, Mic, BookOpen, MessageSquare, ScrollText,
-  Layers, Film, Image as ImageIcon, Mail, AtSign, Eye
+  Layers, Film, Image as ImageIcon, Mail, AtSign, Eye, Filter, Hash, X as XIcon
 } from "lucide-react";
 import { useReferenceLibrary, ReferenceItem, ReferenceType } from "@/hooks/useReferenceLibrary";
 import { ReferenceGalleryDialog } from "./ReferenceGalleryDialog";
@@ -33,7 +41,25 @@ const FORMAT_CHIP: Record<
 
 interface ClientReferencesManagerProps {
   clientId: string;
+  /**
+   * Quando passado, esconde o header interno (search + botão Adicionar)
+   * e usa essa string como filtro de busca. Permite controle externo
+   * a partir do KaiLibraryTab (search global da Biblioteca).
+   */
+  externalSearchQuery?: string;
 }
+
+const FORMAT_FILTERS: { value: string; label: string }[] = [
+  { value: "all", label: "Todos formatos" },
+  { value: "carousel", label: "Carrossel" },
+  { value: "reel", label: "Reel" },
+  { value: "static", label: "Imagem única" },
+  { value: "tweet", label: "Tweet" },
+  { value: "thread", label: "Thread" },
+  { value: "newsletter", label: "Newsletter" },
+  { value: "article", label: "Artigo" },
+  { value: "email", label: "Email mkt" },
+];
 
 const REFERENCE_TYPES: { value: ReferenceType; label: string; icon: React.ElementType }[] = [
   { value: "tweet", label: "Tweet/Post", icon: MessageSquare },
@@ -45,9 +71,17 @@ const REFERENCE_TYPES: { value: ReferenceType; label: string; icon: React.Elemen
   { value: "other", label: "Outro", icon: FileText },
 ];
 
-export function ClientReferencesManager({ clientId }: ClientReferencesManagerProps) {
+export function ClientReferencesManager({ clientId, externalSearchQuery }: ClientReferencesManagerProps) {
   const { references, isLoading, createReference, updateReference, deleteReference } = useReferenceLibrary(clientId);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [internalSearchQuery, setInternalSearchQuery] = useState("");
+  const isExternallyControlled = typeof externalSearchQuery === "string";
+  const searchQuery = isExternallyControlled ? (externalSearchQuery as string) : internalSearchQuery;
+  const setSearchQuery = (v: string) => setInternalSearchQuery(v);
+
+  // Filters
+  const [formatFilter, setFormatFilter] = useState<string>("all");
+  const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingRef, setEditingRef] = useState<ReferenceItem | null>(null);
   const [galleryRef, setGalleryRef] = useState<ReferenceItem | null>(null);
@@ -62,15 +96,84 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [sourceHandle, setSourceHandle] = useState("");
 
+  // Tags agregadas: top 12 tags únicas das refs (caímos de cardinality alta)
+  const availableTags = useMemo(() => {
+    const counter = new Map<string, number>();
+    for (const ref of references) {
+      const meta = (ref.metadata as Record<string, any> | null) ?? {};
+      const tags = Array.isArray(meta.tags) ? (meta.tags as unknown[]) : [];
+      for (const t of tags) {
+        if (typeof t !== "string") continue;
+        const norm = t.trim();
+        if (!norm) continue;
+        // Filtra tags lixo (são chips cosméticos: format/swipe/inspiration)
+        if (["swipe", "inspiration", "carousel", "reel", "static", "tweet", "thread", "newsletter", "article", "email"].includes(norm.toLowerCase())) continue;
+        counter.set(norm, (counter.get(norm) ?? 0) + 1);
+      }
+    }
+    return Array.from(counter.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([tag, count]) => ({ tag, count }));
+  }, [references]);
+
   const filteredReferences = useMemo(() => {
-    if (!searchQuery.trim()) return references;
-    const query = searchQuery.toLowerCase();
-    return references.filter(ref => 
-      ref.title.toLowerCase().includes(query) ||
-      ref.content.toLowerCase().includes(query) ||
-      ref.reference_type.toLowerCase().includes(query)
-    );
-  }, [references, searchQuery]);
+    let result = references;
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter((ref) => {
+        const meta = (ref.metadata as Record<string, any> | null) ?? {};
+        const tags = Array.isArray(meta.tags) ? (meta.tags as string[]) : [];
+        const transcribed = (meta.transcribed_text as string | undefined) ?? "";
+        const sourceHandle = (meta.source_handle as string | undefined) ?? "";
+        return (
+          ref.title.toLowerCase().includes(q) ||
+          ref.content.toLowerCase().includes(q) ||
+          ref.reference_type.toLowerCase().includes(q) ||
+          transcribed.toLowerCase().includes(q) ||
+          sourceHandle.toLowerCase().includes(q) ||
+          tags.some((t) => typeof t === "string" && t.toLowerCase().includes(q))
+        );
+      });
+    }
+    if (formatFilter !== "all") {
+      result = result.filter((ref) => {
+        const meta = (ref.metadata as Record<string, any> | null) ?? {};
+        const fmt = (meta.format as string | undefined) ?? ref.reference_type;
+        return fmt === formatFilter;
+      });
+    }
+    if (activeTags.size > 0) {
+      result = result.filter((ref) => {
+        const meta = (ref.metadata as Record<string, any> | null) ?? {};
+        const tags = Array.isArray(meta.tags) ? (meta.tags as string[]) : [];
+        const norm = new Set(tags.filter((t) => typeof t === "string").map((t) => t.toLowerCase()));
+        for (const tag of activeTags) {
+          if (!norm.has(tag.toLowerCase())) return false;
+        }
+        return true;
+      });
+    }
+    return result;
+  }, [references, searchQuery, formatFilter, activeTags]);
+
+  const toggleTag = (tag: string) => {
+    setActiveTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  };
+
+  const clearFilters = () => {
+    setFormatFilter("all");
+    setActiveTags(new Set());
+    if (!isExternallyControlled) setInternalSearchQuery("");
+  };
+
+  const hasActiveFilters =
+    formatFilter !== "all" || activeTags.size > 0 || (searchQuery.trim().length > 0);
 
   const resetForm = () => {
     setTitle("");
@@ -180,28 +283,113 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar referências..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9"
-          />
+      {/* Header — escondido quando controlado externamente */}
+      {!isExternallyControlled && (
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar referências..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-          setIsAddDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="h-9">
+      )}
+
+      {/* Filters bar — sempre visível */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Format filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5">
+              <Filter className="h-3.5 w-3.5" />
+              <span className="text-xs">
+                {FORMAT_FILTERS.find((f) => f.value === formatFilter)?.label ?? "Formato"}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-44">
+            <DropdownMenuLabel className="text-xs">Filtrar por formato</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {FORMAT_FILTERS.map((f) => (
+              <DropdownMenuItem
+                key={f.value}
+                onClick={() => setFormatFilter(f.value)}
+                className="text-xs"
+              >
+                {f.label}
+                {formatFilter === f.value && (
+                  <Badge variant="secondary" className="ml-auto text-[9px]">ativo</Badge>
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Tags chips inline (top 12) */}
+        {availableTags.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            <Hash className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+            {availableTags.map(({ tag, count }) => {
+              const active = activeTags.has(tag);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-colors ${
+                    active
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background hover:bg-muted border-border"
+                  }`}
+                  aria-pressed={active}
+                >
+                  {tag}
+                  <span className="opacity-60 tabular-nums">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs gap-1 ml-auto"
+            onClick={clearFilters}
+          >
+            <XIcon className="h-3 w-3" />
+            Limpar filtros
+          </Button>
+        )}
+
+        {/* Add button — só aparece quando NÃO é controlado (header dele tem proprio) */}
+        {!isExternallyControlled && (
+          <div className="ml-auto">
+            <Button
+              size="sm"
+              className="h-8"
+              onClick={() => {
+                resetForm();
+                setIsAddDialogOpen(true);
+              }}
+            >
               <Plus className="h-4 w-4 mr-1" />
               Adicionar
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          </div>
+        )}
+      </div>
+
+      {/* Edit/Add Dialog — controlado por isAddDialogOpen, sem DialogTrigger */}
+      <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+        setIsAddDialogOpen(open);
+        if (!open) resetForm();
+      }}>
+        <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>
                 {editingRef ? "Editar Referência" : "Nova Referência"}
@@ -332,7 +520,6 @@ export function ClientReferencesManager({ clientId }: ClientReferencesManagerPro
             </div>
           </DialogContent>
         </Dialog>
-      </div>
 
       {/* References List */}
       {filteredReferences.length === 0 ? (

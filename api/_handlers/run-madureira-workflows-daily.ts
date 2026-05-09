@@ -452,16 +452,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
 
-  // 1. Lista workflows ativos do Madureira
-  const workflows = await query<WorkflowRow>(
-    `SELECT id, workspace_id, agent_id, name, schedule_cron, config
-       FROM ai_workflows
-      WHERE is_active = true
-        AND name LIKE 'madureira-%'`,
-  );
+  // Query params: ?only=<workflow_id> filtra um único workflow (manual test).
+  // ?force=1 pula verificação isDueToday e idempotência (force re-run hoje).
+  const onlyId = (typeof req.query?.only === 'string' && req.query.only) || null;
+  const forceRun = req.query?.force === '1' || req.query?.force === 'true';
 
-  // 2. Filtra os que devem disparar HOJE
-  const due = workflows.filter((w) => isDueToday(w.schedule_cron, now));
+  // 1. Lista workflows ativos do Madureira
+  let workflows: WorkflowRow[];
+  if (onlyId) {
+    workflows = await query<WorkflowRow>(
+      `SELECT id, workspace_id, agent_id, name, schedule_cron, config
+         FROM ai_workflows
+        WHERE id = $1`,
+      [onlyId],
+    );
+  } else {
+    workflows = await query<WorkflowRow>(
+      `SELECT id, workspace_id, agent_id, name, schedule_cron, config
+         FROM ai_workflows
+        WHERE is_active = true
+          AND name LIKE 'madureira-%'`,
+    );
+  }
+
+  // 2. Filtra os que devem disparar HOJE (a menos que force=1 ou only=<id>)
+  const due = forceRun || onlyId
+    ? workflows
+    : workflows.filter((w) => isDueToday(w.schedule_cron, now));
 
   if (due.length === 0) {
     return res.status(200).json({
@@ -488,18 +505,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // 4. Idempotência: se já rodou hoje, skip
+  // 4. Idempotência: se já rodou hoje, skip (a menos que force=1)
   const skipNames: string[] = [];
-  for (const w of due) {
-    const last = await queryOne<{ id: string }>(
-      `SELECT id FROM ai_workflow_runs
-        WHERE workflow_id = $1
-          AND date_trunc('day', started_at) = date_trunc('day', now())
-          AND status = 'completed'
-        LIMIT 1`,
-      [w.id],
-    );
-    if (last) skipNames.push(w.name);
+  if (!forceRun) {
+    for (const w of due) {
+      const last = await queryOne<{ id: string }>(
+        `SELECT id FROM ai_workflow_runs
+          WHERE workflow_id = $1
+            AND date_trunc('day', started_at) = date_trunc('day', now())
+            AND status = 'completed'
+          LIMIT 1`,
+        [w.id],
+      );
+      if (last) skipNames.push(w.name);
+    }
   }
   const todoWorkflows = due.filter((w) => !skipNames.includes(w.name));
 

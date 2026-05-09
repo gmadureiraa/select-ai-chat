@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   BarChart3,
-  Briefcase,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -20,16 +19,9 @@ import {
   Terminal,
   CheckSquare,
   Radar,
-  Users,
   MessagesSquare,
-  Hash,
-  Target,
-  Link2,
-  FileText,
-  Calendar,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
-import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -187,7 +179,6 @@ export function KaiSidebar({
   const { user } = useAuth();
   
   const { hasDevAccess } = useDevAccess();
-  const { isSuperAdmin } = useSuperAdmin();
   const selectedClient = clients?.find(c => c.id === selectedClientId);
   const [showClientDialog, setShowClientDialog] = useState(false);
   const hasClients = clients && clients.length > 0;
@@ -451,7 +442,9 @@ export function KaiSidebar({
           </>
         )}
 
-        {/* ===== ANÁLISE — performance, hashtags, concorrentes, relatórios ===== */}
+        {/* ===== ANÁLISE — só performance global agora.
+            Hashtags/Concorrentes/Relatórios viraram per-client (Perfil → Viral
+            → Hashtags/Concorrentes/Relatórios) — decisão UX 2026-05-09. */}
         <SidebarSectionHeader title="Análise" collapsed={collapsed} />
 
         <NavItem
@@ -462,79 +455,20 @@ export function KaiSidebar({
           collapsed={collapsed}
         />
 
-        {(isOwner || canManageTeam) && (
-          <>
-            <NavItem
-              icon={<Hash className="h-4 w-4" strokeWidth={1.5} />}
-              label="Hashtags"
-              active={activeTab === "hashtags"}
-              onClick={() => onTabChange("hashtags")}
-              collapsed={collapsed}
-            />
-            <NavItem
-              icon={<Target className="h-4 w-4" strokeWidth={1.5} />}
-              label="Concorrentes"
-              active={activeTab === "competitors"}
-              onClick={() => onTabChange("competitors")}
-              collapsed={collapsed}
-            />
-            <NavItem
-              icon={<FileText className="h-4 w-4" strokeWidth={1.5} />}
-              label="Relatórios"
-              active={activeTab === "reports"}
-              onClick={() => onTabChange("reports")}
-              collapsed={collapsed}
-            />
-          </>
-        )}
-
-        {/* ===== CONFIG — perfis (clientes) + workspace ===== */}
-        {(canViewClients || isOwner || canManageTeam) && (
-          <SidebarSectionHeader title="Config" collapsed={collapsed} />
-        )}
-
+        {/* ===== CONFIG — apenas Perfis aqui.
+            Workspace/Membros/Fontes do Radar foram movidos pra
+            Configurações (footer) — decisão UX 2026-05-09. */}
         {canViewClients && (
-          <NavItem
-            icon={<Building2 className="h-4 w-4" strokeWidth={1.5} />}
-            label="Perfis"
-            active={activeTab === "clients"}
-            onClick={() => isViewer ? showPermissionMessage() : onTabChange("clients")}
-            collapsed={collapsed}
-            disabled={isViewer}
-            showLock={isViewer}
-          />
-        )}
-
-        {isOwner && (
-          <NavItem
-            icon={<Briefcase className="h-4 w-4" strokeWidth={1.5} />}
-            label="Workspace"
-            active={activeTab === "workspace-settings"}
-            onClick={() => onTabChange("workspace-settings")}
-            collapsed={collapsed}
-          />
-        )}
-
-        {canManageTeam && (
-          <NavItem
-            icon={<Users className="h-4 w-4" strokeWidth={1.5} />}
-            label="Membros"
-            active={activeTab === "workspace-members"}
-            onClick={() => onTabChange("workspace-members")}
-            collapsed={collapsed}
-          />
-        )}
-
-        {/* ===== ADMIN — só super_admin enxerga ===== */}
-        {isSuperAdmin && (
           <>
-            <SidebarSectionHeader title="Admin" collapsed={collapsed} />
+            <SidebarSectionHeader title="Config" collapsed={collapsed} />
             <NavItem
-              icon={<Radar className="h-4 w-4" strokeWidth={1.5} />}
-              label="Fontes do Radar"
-              active={activeTab === "radar-sources-admin"}
-              onClick={() => onTabChange("radar-sources-admin")}
+              icon={<Building2 className="h-4 w-4" strokeWidth={1.5} />}
+              label="Perfis"
+              active={activeTab === "clients"}
+              onClick={() => isViewer ? showPermissionMessage() : onTabChange("clients")}
               collapsed={collapsed}
+              disabled={isViewer}
+              showLock={isViewer}
             />
           </>
         )}

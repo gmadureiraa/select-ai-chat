@@ -6,6 +6,7 @@
 // Resolve blogId via client_social_credentials.metadata.metricool_blog_id.
 // Suporta: post normal, carousel (2-10 imgs), reel (vídeo), story.
 import { authedPost } from '../_lib/handler.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { getPool, queryOne } from '../_lib/db.js';
 import {
   getMetricoolConfig,
@@ -18,7 +19,7 @@ import {
 
 const ALLOWED_PLATFORMS = ['twitter', 'x', 'linkedin', 'instagram', 'tiktok', 'youtube', 'facebook', 'threads', 'pinterest', 'bluesky'] as const;
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const {
     clientId,
     platform,
@@ -36,6 +37,7 @@ export default authedPost(async ({ body }) => {
   } = body;
 
   if (!clientId) throw new Error('clientId é obrigatório');
+  await assertClientAccess(user.id, clientId);
 
   // platforms[] tem prioridade; senão usa platform single
   const platforms: string[] = (rawPlatforms && rawPlatforms.length > 0)

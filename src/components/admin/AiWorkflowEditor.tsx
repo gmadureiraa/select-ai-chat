@@ -167,6 +167,31 @@ export function AiWorkflowEditor({ workflow, open, onOpenChange }: AiWorkflowEdi
               <Calendar className="h-4 w-4" />
               schedule_cron
             </Label>
+
+            {/* Presets rápidos — clique pra preencher cron */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { label: 'Diário 9h UTC', cron: '0 9 * * *' },
+                { label: 'Diário 12h UTC', cron: '0 12 * * *' },
+                { label: 'Seg-Sex 12h', cron: '0 12 * * 1-5' },
+                { label: 'Seg, Qua, Sex', cron: '0 12 * * 1,3,5' },
+                { label: 'Sex 14h', cron: '0 14 * * 5' },
+                { label: 'Qui 18h', cron: '0 18 * * 4' },
+                { label: 'Dia 1 do mês', cron: '0 9 1 * *' },
+              ].map((p) => (
+                <Button
+                  key={p.cron}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setScheduleCron(p.cron)}
+                >
+                  {p.label}
+                </Button>
+              ))}
+            </div>
+
             <Input
               id="wf-cron"
               value={scheduleCron}
@@ -185,6 +210,9 @@ export function AiWorkflowEditor({ workflow, open, onOpenChange }: AiWorkflowEdi
                 {describeCron(scheduleCron)}
               </p>
             )}
+            <p className="text-[10px] text-muted-foreground">
+              Cron é avaliado em UTC. Vercel cron dispara no master cron diário (7h UTC) que enfileira workflows due hoje.
+            </p>
           </div>
 
           {/* is_active */}

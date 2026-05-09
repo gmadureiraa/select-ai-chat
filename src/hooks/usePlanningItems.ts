@@ -60,6 +60,13 @@ export interface PlanningFilters {
   priority?: PlanningPriority;
   assignedTo?: string;
   search?: string;
+  /**
+   * Filtra por presença/ausência de métricas em metadata.metrics.
+   * 'with'    → só posts publicados que já têm metrics persistidas
+   * 'without' → posts publicados sem métricas (ainda não sincados)
+   * undefined → sem filtro
+   */
+  metrics?: 'with' | 'without';
 }
 
 export interface CreatePlanningItemInput {
@@ -166,7 +173,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
 
       const data = allData;
 
-      return (data || []).map(item => ({
+      let mapped = (data || []).map(item => ({
         ...item,
         labels: Array.isArray(item.labels) ? item.labels : [],
         media_urls: Array.isArray(item.media_urls) ? item.media_urls : [],
@@ -174,6 +181,23 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
         priority: (item.priority || 'medium') as PlanningPriority,
         status: (item.status || 'idea') as PlanningStatus,
       })) as PlanningItem[];
+
+      // Client-side: filtro por presença/ausência de métricas. Aplicado aqui
+      // pq metrics vive em metadata.jsonb (custo SQL maior pra pouca redução).
+      if (filters.metrics === 'with') {
+        mapped = mapped.filter(it => {
+          const m = (it.metadata as any)?.metrics;
+          return m && typeof m === 'object' && typeof m.likes === 'number';
+        });
+      } else if (filters.metrics === 'without') {
+        mapped = mapped.filter(it => {
+          if (it.status !== 'published') return false;
+          const m = (it.metadata as any)?.metrics;
+          return !m || typeof m.likes !== 'number';
+        });
+      }
+
+      return mapped;
     },
     enabled: !!workspaceId,
     // Substitui Supabase Realtime do planning: poll a cada 15s para
@@ -234,11 +258,11 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
     }
   });
 
-  // Update item
+  // Update item — passa `silent: true` em moves rápidos pra evitar spam de toasts
   const updateItem = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<PlanningItem> & { id: string }) => {
+    mutationFn: async ({ id, silent: _silent, ...updates }: Partial<PlanningItem> & { id: string; silent?: boolean }) => {
       const updateData: Record<string, unknown> = {};
-      
+
       if (updates.title !== undefined) updateData.title = updates.title;
       if (updates.description !== undefined) updateData.description = updates.description;
       if (updates.content !== undefined) updateData.content = updates.content;
@@ -267,9 +291,11 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
-      toast.success('Salvo');
+      if (!vars.silent) {
+        toast.success('Salvo');
+      }
     },
     onError: (error) => {
       toast.error('Erro ao atualizar: ' + error.message);

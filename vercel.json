@@ -35,6 +35,10 @@
   },
   "crons": [
     {
+      "path": "/api/cron-metricool-backfill-posts",
+      "schedule": "0 5 * * *"
+    },
+    {
       "path": "/api/cron-metricool-snapshot",
       "schedule": "0 6 * * *"
     },

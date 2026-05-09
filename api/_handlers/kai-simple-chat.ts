@@ -41,6 +41,8 @@ import {
   createClientTool,
   addToPlanningTool,
   getPostTranscriptionTool,
+  getPlanningItemTool,
+  getRecentPerformanceTool,
   type ToolExecutionContext,
 } from '../_lib/kai-chat-tools/index.js';
 
@@ -1830,7 +1832,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!client) return jsonError(res, 404, 'Cliente não encontrado');
 
     // Lazy mode flag — quando true, pula intent regex pesado, fetches eager
-    // e early returns (image/planning), deixando as 23 tools cuidarem.
+    // e early returns (image/planning), deixando as 26 tools cuidarem.
     // Reduz prompt de ~30-40k chars pra ~3-5k chars (50-70% menos tokens).
     const toolsMode = !!body.useTools && shouldStream;
 
@@ -1918,7 +1920,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const contextPromises: Promise<void>[] = [];
 
-    // Em toolsMode, as 23 tools (getClientContext/getMetrics/searchLibrary/searchRefs/etc)
+    // Em toolsMode, as 26 tools (getClientContext/getMetrics/searchLibrary/searchRefs/etc)
     // cuidam do contexto sob demanda — pulamos os fetches eager pra economizar tokens.
     if (!toolsMode) {
 
@@ -2084,7 +2086,7 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
 
     // 6.5 LAZY MODE OVERRIDE — prompt mínimo + heurísticas de roteamento de tools
     // Substitui o systemPrompt eager por uma versão enxuta (~3-5k chars)
-    // que ensina o Gemini quando chamar cada uma das 23 tools registradas.
+    // que ensina o Gemini quando chamar cada uma das 26 tools registradas.
     if (toolsMode) {
       systemPrompt = `# REGRAS ABSOLUTAS DE ENTREGA
 ${userInstructionsPrompt}
@@ -2098,12 +2100,18 @@ Você é o **kAI**, copiloto operacional do KAI 2.0 — criação de conteúdo, 
 ## Cliente em foco
 **${client.name}**${client.description ? `\n${client.description}` : ''}
 
-## Modo agentic — você tem 23 ferramentas
+## Regra de ouro — ACREDITE NAS TOOLS PRIMEIRO
+Você NÃO tem o histórico, métricas, briefing nem rascunhos do cliente carregados de cara. A ÚNICA forma confiável de obter qualquer dado factual é chamar uma tool. Não invente, não chute. Se não souber, **chama tool**.
+
+## Modo agentic — você tem 26 ferramentas
 SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundantemente.
 
 ### Heurísticas de roteamento (quando chamar cada tool):
 - "quem é esse cliente?", "qual o tom?", "guidelines", "perfil de voz" → \`getClientContext\`
-- "performance", "engajamento", "métricas", "melhor post", "best of" → \`getMetrics\`
+- "performance dessa semana", "como tá hoje", "como foi ontem" (curto/recente) → \`getRecentPerformance\`
+- "performance 30/90d", "melhor post histórico", "comparativo", "deep dive" → \`getMetrics\`
+- "esse rascunho", "esse post", "o último card", "o que eu acabei de criar" → \`getPlanningItem\` (latest=true) ANTES de editar/agendar/publicar
+- "transcreva esse post", "o que o reel diz", "o que tem no carrossel" → \`getPostTranscription\` (com postId)
 - "tem ref de X?", "buscar inspiração", "exemplos do feed" → \`searchRefs\` (refs externas) ou \`searchLibrary\` (conteúdo próprio)
 - "criar carrossel/reel/post/tweet/thread/newsletter" → \`createContent\` (texto puro) ou \`createViralCarousel\` (carrossel com slides + imagens)
 - "agendar pra X", "marcar pra publicação", "scheduled" → \`scheduleFor\`
@@ -2119,15 +2127,16 @@ SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundante
 - "monitora no radar", "rastrear contas", "brief de tendências" → \`createRadarBrief\`
 - "joga no planejamento", "põe pra revisar" → \`addToPlanning\`
 - "aprovações pendentes", "o que tá pra revisar" → \`listPendingApprovals\`
-- "edita esse rascunho/card" → \`editContent\`
+- "edita esse rascunho/card" → \`getPlanningItem\` (recupera ID + content) → \`editContent\`
 
 ### Princípios operacionais:
-1. **Falta dado do cliente que você não tem?** → \`getClientContext\` PRIMEIRO. Não adivinhe brand voice ou guidelines.
-2. **Vai criar conteúdo do zero?** → opcionalmente \`searchLibrary\` antes pra capturar tom + estrutura dos top performers.
-3. **Recebeu URL de Reel/Post Instagram?** → tool específica (\`analyzeViralReel\` pra adaptação, \`saveToLibrary\` pra arquivar).
-4. **Múltiplas ações?** → encadeie tools em sequência (ex: \`createContent\` → \`addToPlanning\` → \`scheduleFor\`).
-5. **Após executar tool de ação** (publish/schedule/create/automation) → 1 frase curta de confirmação. Sem checklist, sem "feito ✅", sem reescrever o que a tool já mostrou.
-6. **NÃO invente** dados de cliente, métricas, refs ou histórico. Se não tem via tool, BUSCA primeiro.`;
+1. **Falta dado do cliente?** → \`getClientContext\` PRIMEIRO. Não adivinhe brand voice ou guidelines.
+2. **Vai editar/agendar/publicar um post mencionado vagamente** ("esse post", "o último") → \`getPlanningItem\` com latest=true ANTES da ação, pra resolver o ID real.
+3. **Vai criar conteúdo do zero?** → opcionalmente \`searchLibrary\` antes pra capturar tom + estrutura dos top performers.
+4. **Recebeu URL de Reel/Post Instagram?** → tool específica (\`analyzeViralReel\` pra adaptação, \`saveToLibrary\` pra arquivar).
+5. **Múltiplas ações?** → encadeie tools em sequência (ex: \`createContent\` → \`addToPlanning\` → \`scheduleFor\`).
+6. **Após executar tool de ação** (publish/schedule/create/automation) → 1 frase curta de confirmação. Sem checklist, sem "feito ✅", sem reescrever o que a tool já mostrou.
+7. **NÃO invente** dados de cliente, métricas, refs ou histórico. Se não tem via tool, BUSCA primeiro. Se a tool falhar, só aí pergunte ao usuário.`;
     }
 
     // 7. History windowing
@@ -2246,6 +2255,8 @@ SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundante
       registry.register(createClientTool);
       registry.register(addToPlanningTool);
       registry.register(getPostTranscriptionTool);
+      registry.register(getPlanningItemTool);
+      registry.register(getRecentPerformanceTool);
 
       setSseHeaders(res);
       const emit = createKAIEmitter(res);

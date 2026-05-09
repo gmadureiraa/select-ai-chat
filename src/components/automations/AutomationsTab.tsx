@@ -103,7 +103,7 @@ const contentTypeLabels: Record<string, string> = {
 
 export function AutomationsTab() {
   const { automations, isLoading, toggleAutomation, deleteAutomation, triggerAutomation } = usePlanningAutomations();
-  const { workflows, agents, isLoading: workflowsLoading, toggleWorkflow } = useAiWorkflows();
+  const { workflows, agents, isLoading: workflowsLoading, toggleWorkflow, triggerWorkflow } = useAiWorkflows();
   const workflowIds = useMemo(() => workflows.map(w => w.id), [workflows]);
   const { data: latestRunsByWorkflow = {} } = useLatestRunsByWorkflow(workflowIds);
   const { clients } = useClients();
@@ -411,7 +411,7 @@ export function AutomationsTab() {
         return (
           <Card key={clientId}>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <CardTitle className="text-lg flex items-center gap-2">
                   {client?.avatar_url ? (
                     <img src={client.avatar_url} alt="" className="h-6 w-6 rounded-full object-cover" />
@@ -423,7 +423,7 @@ export function AutomationsTab() {
                     {clientAutomations.length} automação{clientAutomations.length !== 1 ? 'ões' : ''}
                   </Badge>
                 </CardTitle>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   {activeInGroup.length > 0 && (
                     <span className="flex items-center gap-1">
                       <span className="h-2 w-2 rounded-full bg-green-500" />
@@ -435,6 +435,31 @@ export function AutomationsTab() {
                       <span className="h-2 w-2 rounded-full bg-muted-foreground" />
                       {pausedInGroup.length} pausada{pausedInGroup.length !== 1 ? 's' : ''}
                     </span>
+                  )}
+                  {/* Bulk actions */}
+                  {activeInGroup.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => activeInGroup.forEach((a) => toggleAutomation.mutate({ id: a.id, is_active: false }))}
+                      title="Pausar todas as automações ativas deste cliente"
+                    >
+                      <Pause className="h-3 w-3 mr-1" />
+                      Pausar todas
+                    </Button>
+                  )}
+                  {pausedInGroup.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => pausedInGroup.forEach((a) => toggleAutomation.mutate({ id: a.id, is_active: true }))}
+                      title="Ativar todas as automações pausadas deste cliente"
+                    >
+                      <Play className="h-3 w-3 mr-1" />
+                      Ativar todas
+                    </Button>
                   )}
                 </div>
               </div>
@@ -495,6 +520,8 @@ export function AutomationsTab() {
             onViewRuns={(id) => setWorkflowRunsId(id)}
             onEditWorkflow={(w) => setEditingWorkflow(w)}
             onEditAgent={(a) => setEditingAgent(a)}
+            onTriggerWorkflow={(id) => triggerWorkflow.mutate(id)}
+            triggerLoadingId={triggerWorkflow.isPending ? (triggerWorkflow.variables as string) : null}
           />
         </TabsContent>
       </Tabs>
@@ -780,6 +807,8 @@ interface AiWorkflowsSectionProps {
   onViewRuns: (id: string) => void;
   onEditWorkflow?: (workflow: AiWorkflow) => void;
   onEditAgent?: (agent: AiAgent) => void;
+  onTriggerWorkflow?: (id: string) => void;
+  triggerLoadingId?: string | null;
 }
 
 function AiWorkflowsSection({
@@ -791,6 +820,8 @@ function AiWorkflowsSection({
   onViewRuns,
   onEditWorkflow,
   onEditAgent,
+  onTriggerWorkflow,
+  triggerLoadingId,
 }: AiWorkflowsSectionProps) {
   // Hooks ANTES de qualquer return condicional (regra de hooks).
   const grouped = useMemo(() => {
@@ -891,6 +922,8 @@ function AiWorkflowsSection({
                   onToggle={onToggle}
                   onViewRuns={onViewRuns}
                   onEdit={onEditWorkflow}
+                  onTrigger={onTriggerWorkflow}
+                  isTriggering={triggerLoadingId === workflow.id}
                 />
               ))}
             </CardContent>
@@ -907,9 +940,11 @@ interface AiWorkflowCardProps {
   onToggle: (id: string, is_active: boolean) => void;
   onViewRuns: (id: string) => void;
   onEdit?: (workflow: AiWorkflow) => void;
+  onTrigger?: (id: string) => void;
+  isTriggering?: boolean;
 }
 
-function AiWorkflowCard({ workflow, lastRun, onToggle, onViewRuns, onEdit }: AiWorkflowCardProps) {
+function AiWorkflowCard({ workflow, lastRun, onToggle, onViewRuns, onEdit, onTrigger, isTriggering }: AiWorkflowCardProps) {
   const health = getWorkflowHealth(workflow, lastRun);
   const styles = HEALTH_STYLES[health.state];
   const cron = describeCron(workflow.schedule_cron);
@@ -978,11 +1013,34 @@ function AiWorkflowCard({ workflow, lastRun, onToggle, onViewRuns, onEdit }: AiW
                 Próxima: {formatDistanceToNow(nextRun, { addSuffix: true, locale: ptBR })}
               </span>
             )}
+            {lastRun?.cost_usd != null && (
+              <span className="flex items-center gap-1 font-mono">
+                <span className="text-muted-foreground">$</span>
+                {Number(lastRun.cost_usd).toFixed(4)}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
+        {onTrigger && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onTrigger(workflow.id)}
+            disabled={isTriggering || !workflow.is_active}
+            className="h-8"
+            title={workflow.is_active ? 'Disparar agora (manual test)' : 'Ative o workflow primeiro'}
+          >
+            {isTriggering ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <TestTube2 className="h-4 w-4 mr-1" />
+            )}
+            <span className="hidden sm:inline">Testar</span>
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"
@@ -1022,7 +1080,22 @@ interface AiWorkflowRunsDialogProps {
 }
 
 function AiWorkflowRunsDialog({ workflowId, workflow, open, onOpenChange }: AiWorkflowRunsDialogProps) {
-  const { data: runs = [], isLoading } = useAiWorkflowRuns(workflowId, 20);
+  const { data: runs = [], isLoading } = useAiWorkflowRuns(workflowId, 50);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'failed' | 'partial'>('all');
+
+  const filteredRuns = useMemo(() => {
+    if (statusFilter === 'all') return runs;
+    if (statusFilter === 'failed') {
+      return runs.filter((r) => r.status === 'failed' || r.status === 'failed_validation' || r.status === 'crashed');
+    }
+    return runs.filter((r) => r.status === statusFilter);
+  }, [runs, statusFilter]);
+
+  // Aggregate metrics for header
+  const totalCost = runs.reduce((acc, r) => acc + (r.cost_usd ? Number(r.cost_usd) : 0), 0);
+  const totalDuration = runs.reduce((acc, r) => acc + (r.duration_ms ?? 0), 0);
+  const successCount = runs.filter((r) => r.status === 'success' || r.status === 'completed' || r.status === 'partial').length;
+  const failedCount = runs.filter((r) => r.status === 'failed' || r.status === 'failed_validation' || r.status === 'crashed').length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1033,9 +1106,46 @@ function AiWorkflowRunsDialog({ workflowId, workflow, open, onOpenChange }: AiWo
             {workflow?.name ?? 'Execuções do workflow'}
           </DialogTitle>
           <DialogDescription>
-            Últimas 20 execuções do cron. Output = planning_items criados, violations = frames proibidos detectados.
+            Últimas 50 execuções do cron. Output = planning_items criados, violations = frames proibidos detectados.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Stats + filtro */}
+        {!isLoading && runs.length > 0 && (
+          <div className="flex items-center justify-between border-b pb-3 gap-3 flex-wrap">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                {successCount} sucesso{successCount !== 1 ? 's' : ''}
+              </span>
+              <span className="flex items-center gap-1">
+                <XCircle className="h-3 w-3 text-red-500" />
+                {failedCount} falha{failedCount !== 1 ? 's' : ''}
+              </span>
+              {totalCost > 0 && (
+                <span className="font-mono">
+                  Custo total: ${totalCost.toFixed(4)}
+                </span>
+              )}
+              {totalDuration > 0 && (
+                <span>
+                  Tempo total: {(totalDuration / 1000).toFixed(1)}s
+                </span>
+              )}
+            </div>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+              <SelectTrigger className="w-[140px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="success">Sucesso</SelectItem>
+                <SelectItem value="partial">Parcial</SelectItem>
+                <SelectItem value="failed">Falhas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {isLoading && (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -1051,10 +1161,16 @@ function AiWorkflowRunsDialog({ workflowId, workflow, open, onOpenChange }: AiWo
           </div>
         )}
 
-        {!isLoading && runs.length > 0 && (
-          <ScrollArea className="max-h-[60vh] pr-3">
+        {!isLoading && filteredRuns.length === 0 && runs.length > 0 && (
+          <div className="py-8 text-center text-muted-foreground text-sm">
+            Nenhuma run com este filtro. <button onClick={() => setStatusFilter('all')} className="text-primary hover:underline">Limpar filtro</button>
+          </div>
+        )}
+
+        {!isLoading && filteredRuns.length > 0 && (
+          <ScrollArea className="max-h-[55vh] pr-3">
             <div className="space-y-2">
-              {runs.map((run) => (
+              {filteredRuns.map((run) => (
                 <RunRow key={run.id} run={run} />
               ))}
             </div>

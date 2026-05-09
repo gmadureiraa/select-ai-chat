@@ -8,13 +8,17 @@ import {
   Bot,
   Calendar,
   Zap,
+  MessageSquare,
+  Settings,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "@/hooks/useWorkspace";
 
 interface QuickActionsProps {
   onNavigate: (tab: string) => void;
   onCreateClient?: () => void;
+  hasClients?: boolean;
 }
 
 interface QuickAction {
@@ -24,43 +28,62 @@ interface QuickAction {
   icon: React.ElementType;
   onClick: () => void;
   accent: string; // tailwind classes for icon bg
+  primary?: boolean; // marca a ação principal
+  hidden?: boolean;
 }
 
-export function QuickActions({ onNavigate, onCreateClient }: QuickActionsProps) {
-  const actions: QuickAction[] = [
+export function QuickActions({
+  onNavigate,
+  onCreateClient,
+  hasClients = true,
+}: QuickActionsProps) {
+  // Permissões — esconde "Convidar membro" pra quem não pode gerenciar.
+  // Owner/admin veem; viewers/editors não.
+  const { canManageTeam } = useWorkspace();
+
+  // Quando não tem cliente cadastrado, "Cadastrar cliente" vira a ação principal
+  // e algumas ações específicas-de-cliente (carrossel/reel/radar) ficam ocultas.
+  const allActions: QuickAction[] = [
+    {
+      key: "client",
+      label: hasClients ? "Novo cliente" : "Cadastrar cliente",
+      description: hasClients ? "Cadastrar perfil novo" : "Comece por aqui",
+      icon: UserPlus,
+      onClick: () => {
+        if (onCreateClient) onCreateClient();
+        else onNavigate("clients");
+      },
+      accent: hasClients
+        ? "bg-emerald-500/10 text-emerald-500"
+        : "bg-primary/15 text-primary",
+      primary: !hasClients,
+    },
     {
       key: "carousel",
       label: "Criar carrossel",
-      description: "Gerar carrossel viral",
+      description: "Sequência viral",
       icon: Sparkles,
       onClick: () => onNavigate("viral-carrossel"),
       accent: "bg-primary/10 text-primary",
+      hidden: !hasClients,
     },
     {
       key: "reel",
       label: "Roteiro de reel",
-      description: "Análise + script",
+      description: "Engenharia reversa",
       icon: Film,
       onClick: () => onNavigate("viral-reels-page"),
       accent: "bg-purple-500/10 text-purple-400",
+      hidden: !hasClients,
     },
     {
       key: "radar",
       label: "Abrir radar",
-      description: "Ideias virais por cliente",
+      description: "Tendências por cliente",
       icon: Radar,
       onClick: () => onNavigate("viral-radar-page"),
       accent: "bg-orange-500/10 text-orange-400",
-    },
-    {
-      key: "library",
-      // viral-library foi unificada com KaiLibraryTab (per cliente) em 2026-05-08.
-      // Mantemos o atalho mas aponta pra biblioteca do cliente selecionado.
-      label: "Biblioteca",
-      description: "Refs e posts salvos",
-      icon: ImageIcon,
-      onClick: () => onNavigate("library"),
-      accent: "bg-cyan-500/10 text-cyan-400",
+      hidden: !hasClients,
     },
     {
       key: "planning",
@@ -71,15 +94,22 @@ export function QuickActions({ onNavigate, onCreateClient }: QuickActionsProps) 
       accent: "bg-blue-500/10 text-blue-400",
     },
     {
-      key: "client",
-      label: "Novo cliente",
-      description: "Cadastrar perfil",
-      icon: UserPlus,
-      onClick: () => {
-        if (onCreateClient) onCreateClient();
-        else onNavigate("clients");
-      },
-      accent: "bg-emerald-500/10 text-emerald-500",
+      key: "library",
+      label: "Biblioteca",
+      description: "Refs e posts salvos",
+      icon: ImageIcon,
+      onClick: () => onNavigate("library"),
+      accent: "bg-cyan-500/10 text-cyan-400",
+      hidden: !hasClients,
+    },
+    {
+      key: "assistant",
+      label: "Chat KAI",
+      description: "Pergunta & gera (⌘K)",
+      icon: MessageSquare,
+      onClick: () => onNavigate("assistant"),
+      accent: "bg-fuchsia-500/10 text-fuchsia-400",
+      hidden: !hasClients,
     },
     {
       key: "automations",
@@ -87,17 +117,36 @@ export function QuickActions({ onNavigate, onCreateClient }: QuickActionsProps) 
       description: "Fluxos n8n",
       icon: Bot,
       onClick: () => onNavigate("automations"),
-      accent: "bg-fuchsia-500/10 text-fuchsia-400",
+      accent: "bg-amber-500/10 text-amber-400",
     },
     {
       key: "members",
       label: "Convidar membro",
       description: "Adicionar ao workspace",
       icon: Zap,
-      onClick: () => onNavigate("workspace-members"),
-      accent: "bg-amber-500/10 text-amber-400",
+      onClick: () => {
+        // Members hoje vivem em Settings → Members (decisão UX 2026-05-09)
+        const url = new URL(window.location.href);
+        url.searchParams.set("tab", "settings");
+        url.searchParams.set("section", "members");
+        window.history.pushState({}, "", url.toString());
+        onNavigate("settings");
+      },
+      accent: "bg-teal-500/10 text-teal-400",
+      hidden: !canManageTeam,
+    },
+    {
+      key: "settings",
+      label: "Configurações",
+      description: "Workspace + perfis",
+      icon: Settings,
+      onClick: () => onNavigate("settings"),
+      accent: "bg-muted/50 text-muted-foreground",
+      hidden: !canManageTeam, // só owners/admins veem atalho aqui
     },
   ];
+
+  const actions = allActions.filter((a) => !a.hidden);
 
   return (
     <motion.div
@@ -118,9 +167,10 @@ export function QuickActions({ onNavigate, onCreateClient }: QuickActionsProps) 
                 key={a.key}
                 onClick={a.onClick}
                 className={cn(
-                  "flex flex-col items-start gap-2 p-3 rounded-lg border border-border/40",
-                  "hover:border-border/80 hover:bg-accent/40 transition-all duration-200",
-                  "text-left group"
+                  "flex flex-col items-start gap-2 p-3 rounded-lg border transition-all duration-200 text-left group",
+                  a.primary
+                    ? "border-primary/40 bg-primary/[0.04] hover:border-primary/70 hover:bg-primary/[0.07] ring-1 ring-primary/15"
+                    : "border-border/40 hover:border-border/80 hover:bg-accent/40"
                 )}
               >
                 <div

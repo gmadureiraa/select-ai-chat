@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -14,6 +15,7 @@ import {
   ChevronRight,
   Copy,
   Check,
+  Sparkles,
 } from "lucide-react";
 import {
   Dialog,
@@ -88,8 +90,31 @@ export const PostContentDialog = ({
 }: PostContentDialogProps) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [copied, setCopied] = useState(false);
+  const navigate = useNavigate();
 
   if (!post) return null;
+
+  const discussInKai = () => {
+    if (!post) return;
+    const captionPreview = (post.full_content || post.caption || "(sem legenda)").slice(0, 800);
+    const lines = [
+      `Quero discutir esse post${post.posted_at ? ` de ${format(new Date(post.posted_at), "d 'de' MMMM, yyyy", { locale: ptBR })}` : ""} comigo.`,
+      ``,
+      `Tipo: ${post.post_type ?? "post"}`,
+      `Métricas: ${post.likes ?? 0} likes · ${post.comments ?? 0} coments · ${post.shares ?? 0} shares · ${post.saves ?? 0} saves · alcance ${post.reach ?? 0}${post.engagement_rate != null ? ` · eng ${post.engagement_rate.toFixed(2)}%` : ""}`,
+      post.permalink ? `Link: ${post.permalink}` : "",
+      ``,
+      `Legenda:`,
+      captionPreview,
+      ``,
+      `Analisa o que funcionou (ou não) e me dá 3 ângulos pra repurpose.`,
+    ].filter(Boolean).join("\n");
+
+    navigate(`/kaleidos?client=${post.client_id}&tab=assistant&from=performance`, {
+      state: { pendingMessage: lines },
+    });
+    onOpenChange(false);
+  };
 
   // Get images from storage paths or fallback to thumbnail
   const images: string[] = [];
@@ -287,7 +312,16 @@ export const PostContentDialog = ({
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-2 flex-wrap">
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-1"
+                onClick={discussInKai}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Discutir no kAI
+              </Button>
               {post.permalink && (
                 <Button
                   variant="outline"

@@ -10,6 +10,7 @@
 //   templates        — lista templates customizados (/stats/report/reporttemplateName)
 //   status           — checa status de job de geração de PDF
 import { authedPost } from '../_lib/handler.js';
+import { assertClientAccess } from '../_lib/access.js';
 import {
   getMetricoolConfig,
   resolveBlogId,
@@ -26,9 +27,18 @@ import {
   listReportTemplates,
 } from '../_lib/integrations/metricool.js';
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, mode = 'list', blogId: directBlogId, ...rest } = body;
+  // mode 'templates' lista templates da conta (não cliente-específico) — pula auth check.
+  if (mode !== 'templates') {
+    if (!clientId) throw new Error('clientId é obrigatório');
+    await assertClientAccess(user.id, clientId);
+  }
   const cfg = getMetricoolConfig();
+  if (mode === 'templates') {
+    const templates = await listReportTemplates(cfg);
+    return { ok: true, templates };
+  }
   const blogId = directBlogId || (clientId ? await resolveBlogId(clientId) : null);
   if (!blogId) throw new Error('Cliente sem blog Metricool mapeado');
 
@@ -98,11 +108,6 @@ export default authedPost(async ({ body }) => {
       rest.metric,
     );
     return { ok: true, bestPosts };
-  }
-
-  if (mode === 'templates') {
-    const templates = await listReportTemplates(cfg);
-    return { ok: true, templates };
   }
 
   if (mode === 'status') {

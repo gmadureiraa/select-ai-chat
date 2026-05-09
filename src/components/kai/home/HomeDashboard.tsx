@@ -57,6 +57,7 @@ import { RecentActivity } from "./RecentActivity";
 import { RadarHighlights } from "./RadarHighlights";
 import { ViralStatsCard } from "./ViralStatsCard";
 import { TopViralContentCard } from "./TopViralContentCard";
+import { NotificationsBell } from "./NotificationsBell";
 
 interface HomeDashboardProps {
   onNavigate: (tab: string) => void;
@@ -129,9 +130,12 @@ export function HomeDashboard({ onNavigate, onOpenItem, onSelectClient }: HomeDa
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const { clients, isLoading: isLoadingClients } = useClients();
-  const { workspace } = useWorkspaceContext();
+  const { workspace, subscription } = useWorkspaceContext();
   const workspaceId = workspace?.id;
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
+
+  // Plano atual exibido no eyebrow do hero (Free/Pro/Enterprise/etc).
+  const planLabel = subscription?.plan?.name ?? null;
 
   const { data: userProfile } = useQuery({
     queryKey: ["user-profile-home", user?.id],
@@ -469,11 +473,19 @@ export function HomeDashboard({ onNavigate, onOpenItem, onSelectClient }: HomeDa
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-end justify-between"
+          className="flex items-end justify-between gap-4"
         >
-          <div>
-            <div className="mb-2">
-              <span className="kai-eyebrow">Cockpit do workspace</span>
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2 flex-wrap">
+              <span className="kai-eyebrow">{workspace?.name ?? "Cockpit"}</span>
+              {planLabel && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] h-4 px-1.5 capitalize border-primary/30 text-primary/80 bg-primary/5"
+                >
+                  {planLabel}
+                </Badge>
+              )}
             </div>
             <h1 className="text-2xl md:text-3xl font-light text-foreground tracking-tight">
               {getTimeGreeting()}
@@ -482,18 +494,41 @@ export function HomeDashboard({ onNavigate, onOpenItem, onSelectClient }: HomeDa
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
               {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })} ·{" "}
-              <span className="text-foreground/70">{stats.totalItems} itens no pipeline</span>
+              <span className="text-foreground/70">
+                {stats.totalItems} {stats.totalItems === 1 ? "item" : "itens"} no
+                pipeline
+              </span>
+              {clients && clients.length > 0 && (
+                <>
+                  {" · "}
+                  <span className="text-foreground/70">
+                    {clients.length} cliente{clients.length === 1 ? "" : "s"}
+                  </span>
+                </>
+              )}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 hidden md:flex kai-btn-rec"
-            onClick={() => onNavigate("planning")}
-          >
-            <CalendarDays className="h-3.5 w-3.5" />
-            Ver planejamento
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <NotificationsBell
+              onNavigate={onNavigate}
+              onFilterKpi={(kpi) =>
+                setActiveFilter({
+                  type: "kpi",
+                  value: kpi,
+                  label: kpi === "overdue" ? "Atrasados" : "Hoje",
+                })
+              }
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 hidden md:flex kai-btn-rec"
+              onClick={() => onNavigate("planning")}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Ver planejamento
+            </Button>
+          </div>
         </motion.div>
 
         {/* ─── Active filter indicator ─── */}
@@ -584,22 +619,35 @@ export function HomeDashboard({ onNavigate, onOpenItem, onSelectClient }: HomeDa
         {/* ─── Workspace Stats Cards (clientes, agendados, publicados, tokens) ─── */}
         <WorkspaceStatsCards onNavigate={onNavigate} />
 
-        {/* ─── Viral Stats — uso das ferramentas virais nos últimos 30d ─── */}
-        <ViralStatsCard onNavigate={onNavigate} range="30d" />
-
-        {/* ─── Performance cross-cliente — ranking de engagement por cliente ─── */}
-        <CrossClientPerformanceCard
-          onSelectClient={(clientId) => {
-            if (onSelectClient) onSelectClient(clientId, "library");
-            else onNavigate("clients");
-          }}
+        {/* ─── Quick actions — ações primárias antes de qualquer panel
+              denso. hasClients controla quais atalhos aparecem (sem cliente,
+              só Cadastrar / Planejamento / Automações / Configurações). ─── */}
+        <QuickActions
+          onNavigate={onNavigate}
+          hasClients={(clients?.length ?? 0) > 0}
         />
 
-        {/* ─── Quick actions ─── */}
-        <QuickActions onNavigate={onNavigate} />
-
-        {/* ─── Suas tarefas internas ─── */}
+        {/* ─── Suas tarefas internas (compacto) ─── */}
         <MyTasksWidget onNavigate={onNavigate} />
+
+        {/* ─── Viral Stats — uso das ferramentas virais nos últimos 30d.
+              Só aparece se já tem cliente cadastrado (até lá os dados são
+              todos zero e o card vira ruído visual). ─── */}
+        {(clients?.length ?? 0) > 0 && (
+          <ViralStatsCard onNavigate={onNavigate} range="30d" />
+        )}
+
+        {/* ─── Performance cross-cliente — ranking de engagement por cliente.
+              Hidden quando workspace ainda não tem clientes (evita estado
+              vazio redundante depois do banner de onboarding). ─── */}
+        {(clients?.length ?? 0) > 0 && (
+          <CrossClientPerformanceCard
+            onSelectClient={(clientId) => {
+              if (onSelectClient) onSelectClient(clientId, "library");
+              else onNavigate("clients");
+            }}
+          />
+        )}
 
         {/* ─── KPI Row (filtros do pipeline) ─── */}
         <motion.div

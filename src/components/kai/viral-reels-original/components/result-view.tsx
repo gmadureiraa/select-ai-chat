@@ -20,11 +20,13 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   BookmarkPlus,
+  CalendarPlus,
   Check,
   Copy,
   Download,
   Eye,
   ExternalLink,
+  FileText,
   Heart,
   Lightbulb,
   MessageCircle,
@@ -61,8 +63,15 @@ interface ResultViewProps {
   onReset: () => void;
   onSaveAsIdea?: () => void;
   onSaveToLibrary?: () => void;
+  onSaveOriginalAsRef?: () => void;
   isSavingIdea?: boolean;
   isSavingLibrary?: boolean;
+  isSavingOriginalRef?: boolean;
+  /**
+   * Quando true, esse reel já foi enviado pro planejamento nessa sessão
+   * (ou anteriormente). UI muda pra "Já está no planejamento".
+   */
+  alreadyPlanned?: boolean;
   /**
    * Slot pra ações cross-app (KAI integration). Renderizado na top strip à
    * direita das ações nativas. Tipicamente recebe `<CrossAppActions
@@ -78,8 +87,11 @@ export function ResultView({
   onReset,
   onSaveAsIdea,
   onSaveToLibrary,
+  onSaveOriginalAsRef,
   isSavingIdea,
   isSavingLibrary,
+  isSavingOriginalRef,
+  alreadyPlanned,
   crossActions,
 }: ResultViewProps) {
   const source: SourceMeta = data.source ?? data.sourceMeta ?? {};
@@ -714,6 +726,80 @@ export function ResultView({
           </ul>
         </div>
       </section>
+
+      {/* PÓS-GERAÇÃO — destinos do roteiro novo + reel original */}
+      {(onSaveAsIdea || onSaveOriginalAsRef || onSaveToLibrary) && (
+        <section
+          className="mt-2"
+          style={{
+            borderTop: "1.5px solid var(--color-rv-ink)",
+            paddingTop: 28,
+          }}
+        >
+          <div className="rv-eyebrow mb-3">
+            <span className="rv-rec-dot" /> PRÓXIMOS PASSOS · ONDE GUARDAR
+          </div>
+          <p
+            className="rv-mono"
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              color: "var(--color-rv-muted)",
+              marginBottom: 18,
+            }}
+          >
+            Manda pro planejamento, salva o roteiro na library ou guarda o reel original como referência.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {onSaveAsIdea && (
+              <button
+                onClick={onSaveAsIdea}
+                disabled={isSavingIdea}
+                className="rv-btn rv-btn-rec"
+                title={
+                  alreadyPlanned
+                    ? "Já está no planejamento — clica pra abrir"
+                    : "Cria card 'idea' no Planning desse cliente"
+                }
+              >
+                <CalendarPlus size={14} />
+                {alreadyPlanned
+                  ? "Abrir no planejamento"
+                  : isSavingIdea
+                    ? "Enviando..."
+                    : "Enviar para Planejamento"}
+              </button>
+            )}
+            {onSaveOriginalAsRef && (
+              <button
+                onClick={onSaveOriginalAsRef}
+                disabled={isSavingOriginalRef}
+                className="rv-btn"
+                title="Salva o reel original (link, transcrição, métricas, cenas) na biblioteca de referências do cliente"
+              >
+                <BookmarkPlus size={14} />
+                {isSavingOriginalRef
+                  ? "Salvando..."
+                  : "Salvar reel original como referência"}
+              </button>
+            )}
+            {onSaveToLibrary && (
+              <button
+                onClick={onSaveToLibrary}
+                disabled={isSavingLibrary}
+                className="rv-btn rv-btn-ghost"
+                title="Salva o roteiro adaptado na content library + refs do cliente"
+              >
+                <FileText size={14} />
+                {isSavingLibrary
+                  ? "Salvando..."
+                  : "Salvar roteiro na biblioteca"}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* CTA secundário */}
       <div className="flex items-center justify-center gap-3 pt-6">

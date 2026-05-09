@@ -23,6 +23,8 @@ import {
   Send,
   Plug,
   Compass,
+  Activity,
+  FileSearch,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -35,7 +37,7 @@ import { cn } from "@/lib/utils";
 /**
  * KaiToolsTray
  *
- * Tray (Sheet lateral / gaveta inferior em mobile) que mostra todas as 23 tools
+ * Tray (Sheet lateral / gaveta inferior em mobile) que mostra todas as 26 tools
  * registradas no kai-simple-chat agrupadas por categoria. Cada tool tem:
  *   - ícone + nome amigável
  *   - descrição curta
@@ -97,6 +99,14 @@ const TOOLS: ToolEntry[] = [
     description: "Salva um conteúdo gerado direto no board de planning.",
     example: "Salva esse post no planejamento como rascunho pra sexta.",
     icon: CalendarPlus,
+    category: "Conteúdo",
+  },
+  {
+    id: "getPlanningItem",
+    name: "Pegar rascunho/post",
+    description: "Busca um post específico do planejamento (ID, último, ou último de status).",
+    example: "Pega o último rascunho que criei agora.",
+    icon: FileSearch,
     category: "Conteúdo",
   },
 
@@ -239,6 +249,14 @@ const TOOLS: ToolEntry[] = [
     icon: BarChart3,
     category: "Radar",
   },
+  {
+    id: "getRecentPerformance",
+    name: "Performance recente",
+    description: "Atalho rápido pra performance da semana (sem chart, mais rápido).",
+    example: "Como tá a performance dessa semana?",
+    icon: Activity,
+    category: "Radar",
+  },
 
   // ── Publicação ──────────────────────────────────────────────────────────
   {
@@ -344,7 +362,7 @@ export function KaiToolsTray({ onPickPrompt, variant = "inline", className }: Ka
             O que o KAI pode fazer
           </SheetTitle>
           <SheetDescription className="text-xs">
-            23 capacidades organizadas. Clique num exemplo pra colar no chat.
+            26 capacidades organizadas. Clique num exemplo pra colar no chat.
           </SheetDescription>
           <div className="relative pt-2">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/4 h-3.5 w-3.5 text-muted-foreground" />

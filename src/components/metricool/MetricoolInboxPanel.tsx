@@ -5,7 +5,12 @@
 //   - RIGHT (flex 1): detalhe da conversa selecionada com header sticky + mensagens + reply box sticky
 //   - Mobile: lista cheia, detalhe abre como Sheet
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useMetricoolInbox, useMetricoolInboxActions } from '@/hooks/useMetricoolInbox';
+import {
+  getInboxItemUnreadCount,
+  useMetricoolInbox,
+  useMetricoolInboxActions,
+} from '@/hooks/useMetricoolInbox';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -72,67 +77,113 @@ const PROVIDERS: Array<{
   return { value: id, label: b.label, short: b.shortLabel, Icon: b.icon };
 });
 
+// Shape REAL da API Metricool (verificado via curl 2026-05-09):
+//
+// DM (conversation):
+//   { id, self: '<ownerId>', provider, status: 'PENDING'|'READ', creationDate,
+//     lastUpdateTime, lastReadTime,
+//     participants: [{ id, name, imageProfileUrl? }, ...],
+//     messages: [{ id, from, to, text, publicationDateTime, attachments,
+//                  properties? }, ...] }
+//   → "lastMessage" não existe — pegar último item de messages[].
+//   → autor ≠ self: filtrar participants pelo id !== self.
+//   → unreadCount não existe — derivar de status === 'PENDING'.
+//
+// Comment:
+//   { id, self, provider, status, creationDate, lastUpdateTime,
+//     participants: [{ id, name }],            // 1 entry, id = handle
+//     owner: '<handle>',                       // top-level
+//     text: '...',                             // top-level
+//     root: { element: { id, owner, link, text, mediaUrls, ... } } }
+//   → autor: participants[0].name ?? owner.
+//
+// Review (provider gmb/facebook):
+//   shape similar a comment com `rating` numérico no top.
+
+/** Retorna o participante "outro lado" da conversa (não o dono da conta). */
+function getCounterparty(item: any): any | null {
+  const self = item?.self ? String(item.self) : null;
+  const participants: any[] = Array.isArray(item?.participants) ? item.participants : [];
+  if (participants.length === 0) return null;
+  if (self) {
+    const other = participants.find((p) => String(p?.id) !== self);
+    if (other) return other;
+  }
+  // Fallback: primeiro participante (caso self não bata, ex.: comments têm 1 só).
+  return participants[0];
+}
+
 function getItemText(item: any): string {
-  return (
-    item?.lastMessage ?? item?.text ?? item?.content ?? item?.message ?? ''
-  ).toString();
+  // 1) DM: último msg do array messages.
+  const msgs: any[] = Array.isArray(item?.messages) ? item.messages : [];
+  if (msgs.length > 0) {
+    const last = msgs[msgs.length - 1];
+    const t = (last?.text ?? '').toString();
+    if (t) return t;
+    // Mensagem só com share/reaction/attachment — devolve placeholder semântico.
+    if (last?.properties?.shares?.length) return '🔗 compartilhou um post';
+    if (last?.properties?.reactions?.length) {
+      const r = last.properties.reactions[0]?.reaction;
+      return r ? `${r} reagiu` : 'reagiu';
+    }
+    if (last?.properties?.story?.reply_to) return '📷 respondeu story';
+    if (last?.properties?.is_unsupported) return '(mensagem não suportada)';
+    if (Array.isArray(last?.attachments) && last.attachments.length > 0) {
+      return '📎 anexo';
+    }
+  }
+  // 2) Comment / review: text top-level.
+  return (item?.text ?? item?.lastMessage ?? item?.content ?? item?.message ?? '')
+    .toString();
 }
 
 function getItemAuthor(item: any): string {
-  // Metricool retorna shapes diferentes por provider/tipo:
-  // IG DM: from?.username | from?.full_name
-  // FB DM: from?.name | participantName
-  // LI DM: from?.firstName + lastName
-  // X DM: from?.username | screenName
-  // Comments: commentor?.name | from?.username
-  // Reviews: reviewer?.name | author?.displayName
-  const fromFirst = item?.from?.firstName;
-  const fromLast = item?.from?.lastName;
-  const fromFullName =
-    fromFirst || fromLast
-      ? `${fromFirst ?? ''} ${fromLast ?? ''}`.trim()
-      : '';
-
+  // Prioridade: counterparty.name (DM/comment/review) → owner (comment) →
+  // demais fallbacks pra resiliência se Metricool mudar shape.
+  const cp = getCounterparty(item);
+  const cpName = cp?.name ?? cp?.username ?? cp?.id;
   const candidate =
+    cpName ??
+    item?.owner ??
     item?.participantName ??
     item?.authorName ??
     item?.author?.displayName ??
     item?.author?.name ??
-    item?.author ??
-    item?.from?.full_name ??
+    (typeof item?.author === 'string' ? item.author : undefined) ??
     item?.from?.name ??
     item?.from?.username ??
-    fromFullName ??
-    item?.commentor?.name ??
-    item?.commentor?.username ??
-    item?.reviewer?.name ??
-    item?.reviewer?.displayName ??
     item?.user?.name ??
     item?.user?.username ??
     item?.username ??
-    item?.screenName ??
     item?.senderName ??
     '';
 
-  return (candidate || '').toString().trim();
+  const r = (candidate || '').toString().trim();
+  if (!r || r === 'undefined' || r === 'null') {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[Inbox] sem nome de autor:',
+      JSON.stringify(item).slice(0, 500),
+    );
+    return 'Sem identificação';
+  }
+  return r;
 }
 
 function getItemAvatar(item: any): string | undefined {
+  const cp = getCounterparty(item);
   return (
+    cp?.imageProfileUrl ??
+    cp?.picture ??
+    cp?.profilePicture ??
+    cp?.avatar ??
+    cp?.avatarUrl ??
     item?.participantPicture ??
     item?.authorPicture ??
     item?.author?.picture ??
     item?.author?.avatarUrl ??
     item?.from?.profile_picture_url ??
     item?.from?.picture ??
-    item?.from?.avatar ??
-    item?.from?.avatarUrl ??
-    item?.commentor?.picture ??
-    item?.commentor?.avatarUrl ??
-    item?.reviewer?.picture ??
-    item?.reviewer?.avatarUrl ??
-    item?.user?.picture ??
-    item?.user?.avatarUrl ??
     item?.profilePicture ??
     item?.avatar ??
     undefined
@@ -140,16 +191,29 @@ function getItemAvatar(item: any): string | undefined {
 }
 
 function getItemHandle(item: any): string | undefined {
-  return (
+  // Em comments do IG, participants[0].id === handle (e === name).
+  // Em DMs IG, participants[].id é numérico — então só vira handle quando
+  // for diferente do name (caso name vire display name e id vire @).
+  const cp = getCounterparty(item);
+  const handle =
+    cp?.username ??
+    (cp?.id && cp?.name && String(cp.id) !== String(cp.name) && /^[a-z0-9._-]+$/i.test(String(cp.id))
+      ? cp.id
+      : undefined) ??
     item?.participantHandle ??
     item?.authorHandle ??
     item?.from?.username ??
     item?.user?.username ??
     item?.username ??
-    item?.screenName ??
-    undefined
-  );
+    undefined;
+  return handle ? String(handle) : undefined;
 }
+
+/** Conta msgs PENDING como "não lidas" quando API não devolve unreadCount.
+ *  Implementação canônica vive em `useMetricoolInbox.ts` (export
+ *  `getInboxItemUnreadCount`) — re-exportada aqui só pra manter backward
+ *  compat com chamadas locais. */
+const getUnreadCount = getInboxItemUnreadCount;
 
 function getInitials(name: string): string {
   if (!name) return '?';
@@ -182,48 +246,135 @@ async function withConcurrency<T>(
 }
 
 function getItemDate(item: any): Date | null {
-  const v = item?.lastMessageDate ?? item?.createdAt ?? item?.date ?? item?.timestamp;
+  // Metricool: DM/comment usam lastUpdateTime/creationDate. Msg usa publicationDateTime.
+  const v =
+    item?.lastUpdateTime ??
+    item?.publicationDateTime ??
+    item?.creationDate ??
+    item?.lastMessageDate ??
+    item?.createdAt ??
+    item?.date ??
+    item?.timestamp;
   if (!v) return null;
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d;
 }
 
-function getMessages(item: any): Array<{ id?: string; text: string; from?: 'self' | 'them'; date?: Date | null }> {
-  // Tenta extrair thread real se existir; senão usa o último msg como bubble único.
+function getMessages(
+  item: any,
+): Array<{
+  id?: string;
+  text: string;
+  from?: 'self' | 'them';
+  date?: Date | null;
+  pending?: boolean;
+}> {
+  // DM Metricool: messages[] com { from, to, text, publicationDateTime, properties }.
+  // 'self' (top-level do thread) é o ID do dono — usado pra detectar isSelf.
   const arr = item?.messages ?? item?.thread ?? item?.replies;
+  const selfId = item?.self ? String(item.self) : null;
   if (Array.isArray(arr) && arr.length > 0) {
-    return arr.map((m: any, i: number) => {
-      const isSelf =
-        m?.from === 'self' ||
-        m?.fromSelf === true ||
-        m?.isSelf === true ||
-        (typeof m?.direction === 'string' && m.direction.toLowerCase() === 'out');
-      const date = m?.date ?? m?.createdAt ?? m?.timestamp ?? null;
-      return {
-        id: m?.id ?? String(i),
-        text: (m?.text ?? m?.content ?? m?.message ?? '').toString(),
-        from: isSelf ? 'self' : 'them',
-        date: date ? new Date(date) : null,
-      };
-    }).filter((m) => m.text);
+    const mapped = arr
+      .map((m: any, i: number) => {
+        const fromId = m?.from != null ? String(m.from) : null;
+        const isSelf =
+          (selfId && fromId && fromId === selfId) ||
+          m?.from === 'self' ||
+          m?.fromSelf === true ||
+          m?.isSelf === true ||
+          (typeof m?.direction === 'string' && m.direction.toLowerCase() === 'out');
+        const date =
+          m?.publicationDateTime ?? m?.date ?? m?.createdAt ?? m?.timestamp ?? null;
+
+        let text = (m?.text ?? m?.content ?? m?.message ?? '').toString();
+        if (!text) {
+          if (m?.properties?.shares?.length) {
+            text = `🔗 ${m.properties.shares[0]?.link ?? 'compartilhou um post'}`;
+          } else if (m?.properties?.reactions?.length) {
+            const r = m.properties.reactions[0]?.reaction;
+            text = r ? `${r} reagiu` : 'reagiu';
+          } else if (m?.properties?.story?.reply_to) {
+            text = '📷 respondeu story';
+          } else if (m?.properties?.is_unsupported) {
+            text = '(mensagem não suportada)';
+          } else if (Array.isArray(m?.attachments) && m.attachments.length > 0) {
+            text = '📎 anexo';
+          }
+        }
+        return {
+          id: m?.id ?? String(i),
+          text,
+          from: (isSelf ? 'self' : 'them') as 'self' | 'them',
+          date: date ? new Date(date) : null,
+          pending: m?.pending === true,
+        };
+      })
+      .filter((m) => m.text);
+    // Metricool devolve mais recente primeiro — UI espera ordem cronológica.
+    return mapped.slice().reverse();
   }
   const text = getItemText(item);
   const date = getItemDate(item);
   return text ? [{ id: 'last', text, from: 'them', date }] : [];
 }
 
+// Persistência leve de UI por cliente (search + unreadOnly).
+const uiStateKey = (clientId: string) => `kai-inbox-ui-${clientId}`;
+
+function loadUiState(clientId: string): { search: string; unreadOnly: boolean } {
+  if (typeof window === 'undefined') return { search: '', unreadOnly: false };
+  try {
+    const raw = window.localStorage.getItem(uiStateKey(clientId));
+    if (!raw) return { search: '', unreadOnly: false };
+    const p = JSON.parse(raw);
+    return {
+      search: typeof p?.search === 'string' ? p.search : '',
+      unreadOnly: !!p?.unreadOnly,
+    };
+  } catch {
+    return { search: '', unreadOnly: false };
+  }
+}
+
+function saveUiState(
+  clientId: string,
+  state: { search: string; unreadOnly: boolean },
+) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(uiStateKey(clientId), JSON.stringify(state));
+  } catch {
+    /* quota — ignora */
+  }
+}
+
 export function MetricoolInboxPanel({ clientId }: Props) {
+  const isMobile = useIsMobile();
   const [mode, setMode] = useState<InboxMode>('list-conversations');
   const [provider, setProvider] = useState<string>('instagram');
-  const [search, setSearch] = useState<string>('');
-  const [unreadOnly, setUnreadOnly] = useState(false);
+  const initialUi = useMemo(() => loadUiState(clientId), [clientId]);
+  const [search, setSearch] = useState<string>(initialUi.search);
+  const [unreadOnly, setUnreadOnly] = useState(initialUi.unreadOnly);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState<string>('');
   const [bulkBusy, setBulkBusy] = useState(false);
   const [mobileSheet, setMobileSheet] = useState(false);
 
+  // Recarrega ui state quando troca cliente.
+  useEffect(() => {
+    const s = loadUiState(clientId);
+    setSearch(s.search);
+    setUnreadOnly(s.unreadOnly);
+    setSelectedItemId(null);
+  }, [clientId]);
+
+  // Persiste search + unreadOnly por cliente.
+  useEffect(() => {
+    saveUiState(clientId, { search, unreadOnly });
+  }, [clientId, search, unreadOnly]);
+
   const { data, isLoading } = useMetricoolInbox(clientId, mode, provider);
-  const { sendMessage, replyComment, replyReview, setStatus } =
+  const { sendMessage, replyComment, replyReview, setStatus, invalidate } =
     useMetricoolInboxActions(clientId);
 
   const items: any[] = useMemo(
@@ -234,7 +385,7 @@ export function MetricoolInboxPanel({ clientId }: Props) {
   const filteredItems = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((item) => {
-      if (unreadOnly && !(Number(item?.unreadCount) > 0)) return false;
+      if (unreadOnly && !(getUnreadCount(item) > 0)) return false;
       if (!q) return true;
       const text = getItemText(item).toLowerCase();
       const author = getItemAuthor(item).toLowerCase();
@@ -250,25 +401,28 @@ export function MetricoolInboxPanel({ clientId }: Props) {
     }
     if (!selectedItemId || !filteredItems.some((i) => String(i.id) === selectedItemId)) {
       // No mobile não auto-seleciona pra não abrir sheet por engano
-      if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      if (!isMobile) {
         setSelectedItemId(String(filteredItems[0].id));
       }
     }
-  }, [filteredItems, selectedItemId]);
+  }, [filteredItems, selectedItemId, isMobile]);
 
   // Reseta draft quando muda item selecionado.
   useEffect(() => {
     setReplyDraft('');
   }, [selectedItemId]);
 
-  // Reset ao trocar de modo/provider/cliente.
+  // Reset ao trocar de modo/provider/cliente. Também fecha sheet mobile —
+  // senão o usuário fica olhando uma conversa do provider antigo.
   const handleModeChange = (v: string) => {
     setMode(v as InboxMode);
     setSelectedItemId(null);
+    setMobileSheet(false);
   };
   const handleProviderChange = (v: string) => {
     setProvider(v);
     setSelectedItemId(null);
+    setMobileSheet(false);
   };
 
   const selectedItem = useMemo(
@@ -277,7 +431,7 @@ export function MetricoolInboxPanel({ clientId }: Props) {
   );
 
   const totalUnread = useMemo(
-    () => items.reduce((acc, i) => acc + (Number(i?.unreadCount) || 0), 0),
+    () => items.reduce((acc, i) => acc + (getUnreadCount(i) || 0), 0),
     [items],
   );
   const openCount = useMemo(() => {
@@ -300,22 +454,27 @@ export function MetricoolInboxPanel({ clientId }: Props) {
     const text = replyDraft.trim();
     if (!text) return;
     const id = String(selectedItem.id);
-    if (mode === 'list-conversations') {
-      await sendMessage.mutateAsync({ conversationId: id, text });
-    } else if (mode === 'list-comments') {
-      await replyComment.mutateAsync({
-        commentId: id,
-        text,
-        network: selectedItem.network,
-      });
-    } else if (mode === 'list-reviews') {
-      await replyReview.mutateAsync({
-        reviewId: id,
-        text,
-        network: selectedItem.network,
-      });
-    }
+    // Limpa draft já — UX optimistic. Se erro, snackbar mostra (próxima
+    // melhoria seria toast de erro, mas Metricool pode aceitar e demorar).
     setReplyDraft('');
+    // Shape Metricool real usa `provider`, não `network`. Fallback pro
+    // provider selecionado no painel.
+    const network =
+      (selectedItem?.provider as string | undefined) ||
+      (selectedItem?.network as string | undefined) ||
+      provider;
+    try {
+      if (mode === 'list-conversations') {
+        await sendMessage.mutateAsync({ conversationId: id, text });
+      } else if (mode === 'list-comments') {
+        await replyComment.mutateAsync({ commentId: id, text, network });
+      } else if (mode === 'list-reviews') {
+        await replyReview.mutateAsync({ reviewId: id, text, network });
+      }
+    } catch {
+      // Restaura draft se falhou — mais útil que perder o texto digitado.
+      setReplyDraft(text);
+    }
   };
 
   const handleClose = async (item: any) => {
@@ -339,27 +498,30 @@ export function MetricoolInboxPanel({ clientId }: Props) {
 
   const handleMarkAllRead = async () => {
     if (!supportsBulk) return;
-    const unread = filteredItems.filter((i) => Number(i?.unreadCount) > 0);
+    const unread = filteredItems.filter((i) => getUnreadCount(i) > 0);
     if (unread.length === 0) return;
     setBulkBusy(true);
     try {
       // concurrency: 3 — Metricool aplica rate-limit agressivo em /inbox/*.
       // Paralelo total (Promise.all) com 50+ items causa 429 e ban temporário.
+      // silent:true — invalida UMA vez no fim do batch (vs N=unread.length).
       await withConcurrency(unread, 3, (i) =>
         setStatus.mutateAsync({
           id: String(i.id),
           status: 'OPEN',
           type: bulkType,
+          silent: true,
         }),
       );
     } finally {
       setBulkBusy(false);
+      invalidate();
     }
   };
 
   const handleSelectItem = (item: any) => {
     setSelectedItemId(String(item.id));
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    if (isMobile) {
       setMobileSheet(true);
     }
   };
@@ -533,7 +695,7 @@ export function MetricoolInboxPanel({ clientId }: Props) {
                 filteredItems.map((item) => {
                   const id = String(item.id);
                   const isSelected = selectedItemId === id;
-                  const unread = Number(item?.unreadCount) || 0;
+                  const unread = getUnreadCount(item);
                   const isUnread = unread > 0;
                   const date = getItemDate(item);
                   const author = getItemAuthor(item) || 'Anônimo';
@@ -732,11 +894,15 @@ function ConversationDetail({
   const author = getItemAuthor(item) || 'Anônimo';
   const handle = getItemHandle(item);
   const avatarUrl = getItemAvatar(item);
-  const network = (item?.network || item?.platform || '') as string;
+  // Metricool real shape usa `provider`. Mantemos `network`/`platform` como
+  // fallback caso o backend evolua o shape (defensivo).
+  const network = (item?.provider || item?.network || item?.platform || '') as string;
   const networkMeta = PROVIDERS.find((p) => p.value === network.toLowerCase());
   const lastDate = getItemDate(item);
   const messages = useMemo(() => getMessages(item), [item]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesCountRef = useRef(messages.length);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -745,6 +911,20 @@ function ConversationDetail({
     ta.style.height = 'auto';
     ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`;
   }, [replyDraft]);
+
+  // Auto-scroll bottom: quando troca conversa (jump instantâneo) E quando
+  // chega msg nova na conversa atual (smooth). Compara count anterior pra
+  // detectar nova msg em vez de só o length atual.
+  useEffect(() => {
+    const newCount = messages.length;
+    const grew = newCount > messagesCountRef.current;
+    messagesCountRef.current = newCount;
+    if (newCount === 0) return;
+    messagesEndRef.current?.scrollIntoView({
+      behavior: grew ? 'smooth' : 'auto',
+      block: 'end',
+    });
+  }, [messages.length, item?.id]);
 
   const isThread = mode === 'list-conversations';
   const placeholder =
@@ -846,41 +1026,50 @@ function ConversationDetail({
             Sem mensagens.
           </div>
         ) : isThread ? (
-          // ⚠️ Endpoint Metricool /v2/inbox/conversations/{id}/messages não está
-          // disponível no wrapper. Mostrar múltiplos bubbles com fallback de 1
-          // mensagem só engana o user (parece histórico vazio).
-          // Workaround: 1 card grande com lastMessage + nota + link externo.
-          <div className="space-y-3">
-            <div className="rounded-lg border bg-background p-4">
-              <div className="text-[11px] text-muted-foreground mb-2 uppercase tracking-wide font-medium">
-                Última mensagem
-              </div>
-              <p className="text-sm whitespace-pre-wrap">
-                {messages[messages.length - 1]?.text || '(sem texto)'}
-              </p>
-              {lastDate && (
-                <div className="text-[10px] text-muted-foreground mt-2">
-                  {formatDistanceToNow(lastDate, {
-                    addSuffix: true,
-                    locale: ptBR,
-                  })}
-                </div>
-              )}
-            </div>
-            <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
-              <p className="mb-2">
-                Histórico completo da thread não disponível via API. Para ver
-                todas as mensagens trocadas, abra direto no Metricool.
-              </p>
-              <a
-                href="https://app.metricool.com/inbox"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
+          // Thread completa — Metricool retorna messages[] inline na conversa
+          // (verificado 2026-05-09). Render como bubbles cronológicos.
+          <div className="space-y-2">
+            {messages.map((m, idx) => (
+              <div
+                key={m.id ?? idx}
+                className={cn(
+                  'flex',
+                  m.from === 'self' ? 'justify-end' : 'justify-start',
+                )}
               >
-                Abrir thread no Metricool →
-              </a>
-            </div>
+                <div
+                  className={cn(
+                    'max-w-[75%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap relative',
+                    m.from === 'self'
+                      ? 'bg-primary text-primary-foreground rounded-br-sm'
+                      : 'bg-muted rounded-bl-sm',
+                    m.pending && 'opacity-60',
+                  )}
+                >
+                  {m.text}
+                  <div
+                    className={cn(
+                      'text-[10px] mt-1 opacity-70 flex items-center gap-1',
+                      m.from === 'self' ? 'justify-end' : 'justify-start',
+                    )}
+                  >
+                    {m.pending && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
+                    {m.date &&
+                      (m.pending ? (
+                        <span>enviando…</span>
+                      ) : (
+                        <span>
+                          {formatDistanceToNow(m.date, {
+                            addSuffix: true,
+                            locale: ptBR,
+                          })}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} aria-hidden />
           </div>
         ) : (
           // Comments / reviews — mostra item original como card + replies
@@ -921,12 +1110,14 @@ function ConversationDetail({
                       m.from === 'self'
                         ? 'bg-primary text-primary-foreground rounded-br-sm'
                         : 'bg-muted rounded-bl-sm',
+                      m.pending && 'opacity-60',
                     )}
                   >
                     {m.text}
                   </div>
                 </div>
               ))}
+            <div ref={messagesEndRef} aria-hidden />
           </div>
         )}
       </ScrollArea>
@@ -946,6 +1137,8 @@ function ConversationDetail({
             value={replyDraft}
             onChange={(e) => setReplyDraft(e.target.value)}
             onKeyDown={(e) => {
+              // Guard IME: durante composição (PT-BR acentos, CJK), não dispara.
+              if ((e.nativeEvent as KeyboardEvent).isComposing) return;
               if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                 e.preventDefault();
                 onSend();

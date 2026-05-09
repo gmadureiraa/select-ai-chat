@@ -8,6 +8,7 @@ import {
   TrendingUp,
   Heart,
   Eye,
+  AlertTriangle,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -233,11 +234,19 @@ export function CrossPlatformComparison({ clientId, period, archivedChannels = [
     engagement: sorted('engagement').find((r) => r.engagement > 0 && r.posts >= 3) ?? null,
   };
 
+  // "Pior" plataforma — menor eng % com pelo menos 3 posts. Útil pra entender
+  // o que NÃO está funcionando.
+  const eligibleForWorst = activePlatforms.filter((r) => r.posts >= 3);
+  const worstEng =
+    eligibleForWorst.length >= 2
+      ? [...eligibleForWorst].sort((a, b) => a.engagement - b.engagement)[0]
+      : null;
+
   return (
     <div className="space-y-4">
       {/* Highlights — só renderiza se há winner real */}
-      {(winners.posts || winners.reach || winners.engagement) && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {(winners.posts || winners.reach || winners.engagement || worstEng) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           {winners.posts && (
             <Card className="bg-sky-500/5 border-sky-500/30">
               <CardContent className="pt-4 pb-4">
@@ -271,6 +280,20 @@ export function CrossPlatformComparison({ clientId, period, archivedChannels = [
                 </div>
                 <div className="text-base font-bold">{winners.engagement.label}</div>
                 <div className="text-xs text-muted-foreground">{winners.engagement.engagement.toFixed(2)}% de engajamento</div>
+              </CardContent>
+            </Card>
+          )}
+          {worstEng && (
+            <Card className="bg-rose-500/5 border-rose-500/30">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="h-4 w-4 text-rose-500" />
+                  <span className="text-xs uppercase tracking-wider text-rose-700 dark:text-rose-400 font-semibold">Precisa atenção</span>
+                </div>
+                <div className="text-base font-bold">{worstEng.label}</div>
+                <div className="text-xs text-muted-foreground">
+                  {worstEng.engagement.toFixed(2)}% eng · {fmt(worstEng.posts)} posts
+                </div>
               </CardContent>
             </Card>
           )}

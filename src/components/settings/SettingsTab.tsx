@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { User, Sun, Moon, Palette, Key, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "next-themes";
@@ -23,29 +24,48 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import Documentation from "@/pages/Documentation";
 import { AIUsageSettings } from "@/components/settings/AIUsageSettings";
 import { WebhookSettings } from "@/components/settings/WebhookSettings";
+import { WorkspaceSettingsTab } from "@/components/workspace/WorkspaceSettingsTab";
+import { WorkspaceMembersTab } from "@/components/workspace/WorkspaceMembersTab";
+import { RadarSourcesManager } from "@/components/admin/RadarSourcesManager";
+import { IntegrationsSettings } from "@/components/settings/IntegrationsSettings";
+import { AuditLogSettings } from "@/components/settings/AuditLogSettings";
 
 export function SettingsTab() {
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
-  const { canManageTeam } = useWorkspace();
+  const { canManageTeam, isOwner } = useWorkspace();
+  const { isSuperAdmin } = useSuperAdmin();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useIsMobile();
-  
+
   // State for name editing
   const [editedName, setEditedName] = useState<string | null>(null);
   const [isSavingName, setIsSavingName] = useState(false);
-  
+
   // State for password reset
   const [isSendingReset, setIsSendingReset] = useState(false);
-  
-  
+
+
   // Initialize section from URL section parameter
   const sectionParam = searchParams.get("section");
-  const validSections: SettingsSection[] = ["profile", "team", "notifications", "appearance", "docs", "ai-usage", "webhooks"];
-  const initialSection = validSections.includes(sectionParam as SettingsSection) 
-    ? (sectionParam as SettingsSection) 
+  const validSections: SettingsSection[] = [
+    "profile",
+    "workspace",
+    "members",
+    "team",
+    "notifications",
+    "appearance",
+    "radar-sources",
+    "integrations",
+    "audit-log",
+    "docs",
+    "ai-usage",
+    "webhooks",
+  ];
+  const initialSection = validSections.includes(sectionParam as SettingsSection)
+    ? (sectionParam as SettingsSection)
     : "profile";
   
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
@@ -327,12 +347,22 @@ export function SettingsTab() {
     switch (activeSection) {
       case "profile":
         return renderProfileSection();
+      case "workspace":
+        return isOwner ? <WorkspaceSettingsTab /> : renderProfileSection();
+      case "members":
+        return canManageTeam ? <WorkspaceMembersTab /> : renderProfileSection();
       case "team":
         return <TeamManagement />;
       case "notifications":
         return renderNotificationsSection();
       case "appearance":
         return renderAppearanceSection();
+      case "radar-sources":
+        return isSuperAdmin ? <RadarSourcesManager /> : renderProfileSection();
+      case "integrations":
+        return <IntegrationsSettings />;
+      case "audit-log":
+        return canManageTeam ? <AuditLogSettings /> : renderProfileSection();
       case "docs":
         return <Documentation />;
       case "ai-usage":
@@ -358,6 +388,10 @@ export function SettingsTab() {
           activeSection={activeSection}
           onSectionChange={handleSectionChange}
           showTeam={canManageTeam}
+          showWorkspace={isOwner}
+          showMembers={canManageTeam}
+          showRadarSources={isSuperAdmin}
+          showAuditLog={canManageTeam}
         />
         
         {/* Content */}

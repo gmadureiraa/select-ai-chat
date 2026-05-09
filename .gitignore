@@ -25,3 +25,9 @@ dist-ssr
 .vercel
 .env*.local
 .env.local.tmp
+
+# Secrets — NÃO COMMITAR (P0 segurança 2026-05-09)
+.env
+.env.production.local
+.env.vercel-temp
+*.tsbuildinfo

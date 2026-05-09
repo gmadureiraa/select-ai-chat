@@ -4,6 +4,7 @@
 //   - aggregation
 //   - brand summary
 import { authedPost } from '../_lib/handler.js';
+import { assertClientAccess } from '../_lib/access.js';
 import {
   getMetricoolConfig,
   resolveBlogId,
@@ -18,8 +19,13 @@ import {
   type MetricoolAnalyticsNetwork,
 } from '../_lib/integrations/metricool.js';
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, mode = 'posts', blogId: directBlogId, ...rest } = body;
+  // Authorization: se o handler recebeu clientId, valida que o user tem acesso.
+  // Aceita também `directBlogId` puro pra dev/admin (não traceável a cliente),
+  // mas nesse caso quem chama precisa estar autenticado e o handler retorna
+  // só dados que o blog Metricool já tem público.
+  if (clientId) await assertClientAccess(user.id, clientId);
   const cfg = getMetricoolConfig();
   const blogId = directBlogId || (clientId ? await resolveBlogId(clientId) : null);
   if (!blogId) throw new Error('Cliente sem blog Metricool mapeado');

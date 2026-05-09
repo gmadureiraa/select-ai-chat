@@ -8,6 +8,9 @@ import {
   Twitter,
   Linkedin,
   Flame,
+  Activity,
+  TrendingUp,
+  Search as SearchIcon,
 } from "lucide-react";
 
 interface QuickSuggestionsProps {
@@ -15,6 +18,9 @@ interface QuickSuggestionsProps {
   clientId?: string;
   clientName?: string;
   isContentTemplate?: boolean;
+  /** Origem da navegação. Quando vem de uma tab específica (ex: 'performance'),
+   *  as sugestões priorizam prompts relevantes àquele contexto. */
+  context?: "performance" | "planning" | "library" | "default";
 }
 
 interface SuggestionGroup {
@@ -25,6 +31,49 @@ interface SuggestionGroup {
     prompt: (clientName?: string) => string;
   }[];
 }
+
+const performanceGroups: SuggestionGroup[] = [
+  {
+    title: "Análise da semana",
+    items: [
+      {
+        icon: Activity,
+        label: "Esta semana",
+        prompt: (c) => `Como tá a performance${c ? ` do ${c}` : ""} essa semana? Resume em 3 bullets.`,
+      },
+      {
+        icon: BarChart3,
+        label: "Últimos 30 dias",
+        prompt: (c) => `Performance${c ? ` do ${c}` : ""} nos últimos 30 dias com KPIs e top 3 posts.`,
+      },
+      {
+        icon: TrendingUp,
+        label: "Comparar mês",
+        prompt: (c) => `Compara a performance${c ? ` do ${c}` : ""} desse mês com o mês passado e me dá os 3 movimentos mais relevantes.`,
+      },
+    ],
+  },
+  {
+    title: "Insights acionáveis",
+    items: [
+      {
+        icon: Sparkles,
+        label: "Melhor post",
+        prompt: (c) => `Qual foi o melhor post${c ? ` do ${c}` : ""} recente e por que funcionou? Use a transcrição se tiver.`,
+      },
+      {
+        icon: Lightbulb,
+        label: "3 ideias do top",
+        prompt: (c) => `Pega o top 3 posts${c ? ` do ${c}` : ""} desse mês e me dá 3 ideias novas pra repurpose.`,
+      },
+      {
+        icon: SearchIcon,
+        label: "O que travou?",
+        prompt: (c) => `Identifica o post${c ? ` do ${c}` : ""} com pior performance da última semana e me diz o que pode ter travado.`,
+      },
+    ],
+  },
+];
 
 const groups: SuggestionGroup[] = [
   {
@@ -84,10 +133,11 @@ const groups: SuggestionGroup[] = [
   },
 ];
 
-export function QuickSuggestions({ onSelect, clientName }: QuickSuggestionsProps) {
+export function QuickSuggestions({ onSelect, clientName, context = "default" }: QuickSuggestionsProps) {
+  const activeGroups = context === "performance" ? performanceGroups : groups;
   return (
     <div className="space-y-4 w-full max-w-2xl mx-auto">
-      {groups.map((group) => (
+      {activeGroups.map((group) => (
         <div key={group.title} className="space-y-1.5">
           <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/60 px-1">
             {group.title}

@@ -11,6 +11,7 @@
 //   'delete-catalog'   — deleta imagem (params: itemid)
 //   'delete-button'    — deleta botão (params: itemid)
 import { authedPost } from '../_lib/handler.js';
+import { assertClientAccess } from '../_lib/access.js';
 import {
   getMetricoolConfig,
   resolveBlogId,
@@ -25,8 +26,10 @@ import {
   deleteInstagramBioButton,
 } from '../_lib/integrations/metricool.js';
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, mode = 'get', blogId: directBlogId, ...rest } = body;
+  if (!clientId) throw new Error('clientId é obrigatório');
+  await assertClientAccess(user.id, clientId);
   const cfg = getMetricoolConfig();
   const blogId = directBlogId || (clientId ? await resolveBlogId(clientId) : null);
   if (!blogId) throw new Error('Cliente sem blog Metricool mapeado');

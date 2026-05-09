@@ -42,6 +42,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
   const [editingItem, setEditingItem] = useState<PlanningItem | null>(null);
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
   const [defaultColumnId, setDefaultColumnId] = useState<string | undefined>();
+  const [defaultTitle, setDefaultTitle] = useState<string | undefined>();
   const [showAutomations, setShowAutomations] = useState(false);
   const [showClickUpImport, setShowClickUpImport] = useState(false);
   const { settings, setSettings } = useViewSettings();
@@ -173,10 +174,11 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
     setDialogOpen(true);
   };
 
-  const handleNewCard = (columnId?: string, date?: Date) => {
+  const handleNewCard = (columnId?: string, date?: Date, title?: string) => {
     setEditingItem(null);
     setDefaultColumnId(columnId);
     setDefaultDate(date);
+    setDefaultTitle(title);
     setDialogOpen(true);
   };
 
@@ -216,7 +218,8 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
       updateData = { due_date: `${year}-${month}-${day}` };
     }
 
-    updateItem.mutate({ id: itemId, ...updateData });
+    // silent=true → updateItem não dispara toast 'Salvo' (já mostramos 'Item movido')
+    updateItem.mutate({ id: itemId, silent: true, ...updateData } as any);
     toast.success('Item movido para ' + format(newDate, 'dd/MM'));
   }, [items, updateItem]);
 
@@ -433,7 +436,9 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
             {effectiveFilters.clientId ? (
               <MetricoolCalendarView
                 clientId={effectiveFilters.clientId}
-                onCreatePlanningItem={(date) => handleNewCard(undefined, date)}
+                onCreatePlanningItem={(date, eventTitle) =>
+                  handleNewCard(undefined, date, eventTitle)
+                }
               />
             ) : (
               <div className="flex items-center justify-center h-full p-8">
@@ -460,6 +465,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
         defaultColumnId={defaultColumnId}
         defaultDate={defaultDate}
         defaultClientId={localFilters.clientId || clientId}
+        defaultTitle={defaultTitle}
         onSave={handleCreateItem}
         onUpdate={handleUpdateItem}
         onDelete={isViewer ? undefined : async (id) => { await deleteItem.mutateAsync(id); }}

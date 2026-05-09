@@ -94,6 +94,84 @@ export function useMetricoolPosts(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Posts locais (tabela metricool_posts populada por cron-metricool-backfill-posts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lê posts da tabela local `metricool_posts` (em vez de chamar Metricool API
+ * direto). Sobrevive ao window de 30-90d da API e responde mais rápido.
+ *
+ * Cron `cron-metricool-backfill-posts` (5h UTC) atualiza a tabela todo dia.
+ * Use isto pra TODA leitura de "últimos 30/60/90 dias" — só caia pra
+ * `useMetricoolPosts` (API direta) em janelas mais curtas que ainda não
+ * foram backfilled (ex: posts publicados nas últimas horas).
+ */
+export function useMetricoolPostsLocal(
+  clientId: string,
+  network: MetricoolNetwork,
+  period: number = 30,
+  options: { limit?: number } = {},
+) {
+  return useQuery({
+    queryKey: ['metricool-posts-local', clientId, network, period, options.limit ?? 200],
+    queryFn: async (): Promise<MetricoolPost[]> => {
+      const { data, error } = await apiInvoke('metricool-posts-local', {
+        body: {
+          clientId,
+          network,
+          from: isoFromDays(period),
+          to: isoNow(),
+          limit: options.limit ?? 200,
+        },
+      });
+      if (error) throw error;
+      return ((data as any)?.posts || []) as MetricoolPost[];
+    },
+    enabled: !!clientId && !!network,
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+/**
+ * Estratégia "local first, API fallback": tenta `metricool_posts` local;
+ * se vazio, cai pra Metricool API direta. Útil pra clientes recém-mapeados
+ * onde o cron ainda não rodou.
+ */
+export function useMetricoolPostsHybrid(
+  clientId: string,
+  network: MetricoolNetwork,
+  period: number = 30,
+) {
+  const local = useMetricoolPostsLocal(clientId, network, period);
+  const remoteEnabled = local.isFetched && (local.data?.length ?? 0) === 0;
+  const remote = useQuery({
+    queryKey: ['metricool-posts-hybrid-remote', clientId, network, period],
+    queryFn: async (): Promise<MetricoolPost[]> => {
+      const { data, error } = await apiInvoke('metricool-analytics', {
+        body: {
+          clientId,
+          mode: 'posts',
+          network,
+          from: isoFromDays(period),
+          to: isoNow(),
+        },
+      });
+      if (error) throw error;
+      return (data as any)?.posts || [];
+    },
+    enabled: !!clientId && !!network && remoteEnabled,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  return {
+    data: (local.data?.length ?? 0) > 0 ? local.data : remote.data ?? [],
+    isLoading: local.isLoading || (remoteEnabled && remote.isLoading),
+    error: local.error || remote.error,
+    source: (local.data?.length ?? 0) > 0 ? ('local' as const) : ('remote' as const),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Reels (IG/FB) e Stories (IG/FB)
 // ─────────────────────────────────────────────────────────────────────────────
 

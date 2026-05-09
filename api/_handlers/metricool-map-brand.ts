@@ -5,12 +5,18 @@
 //   autoSync=true: além de mapear, lê /admin/simpleProfiles e popula
 //   metadata com twitter/instagram/facebook/linkedin handles do brand.
 import { authedPost } from '../_lib/handler.js';
+import { assertClientAccess, assertWorkspaceAccess } from '../_lib/access.js';
 import { getPool, query } from '../_lib/db.js';
 import { getMetricoolConfig, listBrands } from '../_lib/integrations/metricool.js';
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, blogId, brandLabel, autoSync = true } = body;
   if (!clientId || !blogId) throw new Error('clientId e blogId obrigatórios');
+
+  // Mapear blog Metricool é ação sensível (vai escrever credentials).
+  // Exige user com role owner/admin no workspace que owns o cliente.
+  const { workspaceId } = await assertClientAccess(user.id, clientId);
+  await assertWorkspaceAccess(user.id, workspaceId, ['owner', 'admin']);
 
   const cfg = getMetricoolConfig();
   const pool = getPool();

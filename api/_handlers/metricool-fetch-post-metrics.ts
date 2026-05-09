@@ -13,6 +13,7 @@
 //
 // Postiz/Late: hooks deixados como TODO (planning v2 atual usa metricool por padrão).
 import { authedPost } from '../_lib/handler.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { getPool, queryOne } from '../_lib/db.js';
 import {
   getMetricoolConfig,
@@ -57,7 +58,7 @@ function networkForPlatform(platform: string | null | undefined): MetricoolAnaly
   return map[platform] ?? null;
 }
 
-export default authedPost(async ({ body }): Promise<FetchResult> => {
+export default authedPost(async ({ body, user }): Promise<FetchResult> => {
   const {
     planningItemId,
     postId: directPostId,
@@ -115,6 +116,10 @@ export default authedPost(async ({ body }): Promise<FetchResult> => {
 
   // 3. Resolve blogId + platform
   const clientId = directClientId || item?.client_id;
+  if (!clientId) {
+    return { ok: false, source: 'metricool', error: 'clientId não pôde ser resolvido' };
+  }
+  await assertClientAccess(user.id, clientId);
   const platform = directPlatform || item?.platform || meta.target_platforms?.[0];
   const network = networkForPlatform(platform);
   if (!network) {

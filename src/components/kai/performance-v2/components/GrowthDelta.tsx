@@ -1,6 +1,12 @@
-// GrowthDelta — calcula crescimento % vs período anterior usando 2 queries
-// (período atual + período anterior do mesmo tamanho).
+// GrowthDelta — calcula crescimento % vs período anterior usando UMA query
+// (period × 2) e particionando local, evitando dupla chamada e respeitando
+// o window-cap da Metricool API.
+//
+// Usa snapshots históricos quando disponíveis (períodos > 30d) pra fugir do
+// limite ~30-90d da Metricool API que tornava previousPosts artificialmente 0.
+import { useMemo } from 'react';
 import { useMetricoolPosts, type MetricoolNetwork, aggregatePostsMetrics } from '@/hooks/useMetricoolPerformance';
+import { useHistoricalSnapshots } from '@/hooks/useHistoricalSnapshots';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
@@ -29,22 +35,64 @@ function formatValue(v: number, fmt: 'number' | 'percent'): string {
 }
 
 export function GrowthDelta({ clientId, network, period }: Props) {
-  // Período atual
-  const { data: currentPosts = [], isLoading: lc } = useMetricoolPosts(clientId, network, period);
-
-  // Período anterior — query manual com from/to ajustados
-  // Hook reaproveitado mas com period × 2 (vai pegar últimos 2× period)
+  // UMA query estendida — particiona em current vs previous local
   const { data: extendedPosts = [], isLoading: lp } = useMetricoolPosts(clientId, network, period * 2);
 
-  // previousPosts = extendedPosts MENOS currentPosts (filtrar por data)
-  const cutoff = Date.now() - period * 86400_000;
-  const previousPosts = extendedPosts.filter((p) => {
-    const d = new Date((p.date || p.publishedAt || p.publishDate || '') as string);
-    return !Number.isNaN(d.getTime()) && d.getTime() < cutoff;
-  });
+  // Snapshots cobrem 2× period — quando disponíveis, sobrescrevem o cálculo
+  // baseado em posts (que sofre window-cap da Metricool em períodos longos).
+  const { data: snapshotResp } = useHistoricalSnapshots(clientId, network, period * 2);
 
-  const cur = aggregatePostsMetrics(currentPosts);
-  const prev = aggregatePostsMetrics(previousPosts);
+  const cutoffTs = Date.now() - period * 86400_000;
+  const { cur, prev } = useMemo(() => {
+    // Path A: snapshots locais (preferido pra range > 30d)
+    const snaps = snapshotResp?.snapshots || [];
+    if (snaps.length > 0 && period >= 7) {
+      const cutoffDate = new Date(cutoffTs);
+      const cutoffKey = cutoffDate.toISOString().slice(0, 10);
+      let cP = { likes: 0, comments: 0, shares: 0, reach: 0, imp: 0, count: 0 };
+      let pP = { likes: 0, comments: 0, shares: 0, reach: 0, imp: 0, count: 0 };
+      for (const s of snaps) {
+        const target = s.date >= cutoffKey ? cP : pP;
+        target.likes += s.total_likes;
+        target.comments += s.total_comments;
+        target.shares += s.total_shares;
+        target.reach += s.total_reach;
+        target.imp += s.total_impressions;
+        target.count += s.posts_count;
+      }
+      const denomC = Math.max(cP.reach, cP.imp);
+      const denomP = Math.max(pP.reach, pP.imp);
+      return {
+        cur: {
+          postsCount: cP.count,
+          totalLikes: cP.likes,
+          totalComments: cP.comments,
+          totalReach: cP.reach,
+          avgEngagementRate: denomC > 0 ? ((cP.likes + cP.comments + cP.shares) / denomC) * 100 : 0,
+        },
+        prev: {
+          postsCount: pP.count,
+          totalLikes: pP.likes,
+          totalComments: pP.comments,
+          totalReach: pP.reach,
+          avgEngagementRate: denomP > 0 ? ((pP.likes + pP.comments + pP.shares) / denomP) * 100 : 0,
+        },
+      };
+    }
+    // Path B: posts da Metricool API (window <= 30d normalmente OK)
+    const currentPosts = extendedPosts.filter((p) => {
+      const d = new Date((p.date || p.publishedAt || p.publishDate || '') as string);
+      return !Number.isNaN(d.getTime()) && d.getTime() >= cutoffTs;
+    });
+    const previousPosts = extendedPosts.filter((p) => {
+      const d = new Date((p.date || p.publishedAt || p.publishDate || '') as string);
+      return !Number.isNaN(d.getTime()) && d.getTime() < cutoffTs;
+    });
+    return {
+      cur: aggregatePostsMetrics(currentPosts),
+      prev: aggregatePostsMetrics(previousPosts),
+    };
+  }, [extendedPosts, snapshotResp, cutoffTs, period]);
 
   const items: DeltaItem[] = [
     { label: 'Posts', current: cur.postsCount, previous: prev.postsCount },
@@ -53,7 +101,7 @@ export function GrowthDelta({ clientId, network, period }: Props) {
     { label: 'Eng %', current: cur.avgEngagementRate, previous: prev.avgEngagementRate, format: 'percent' },
   ];
 
-  const isLoading = lc || lp;
+  const isLoading = lp;
 
   if (isLoading) return <Skeleton className="h-[140px] w-full" />;
 

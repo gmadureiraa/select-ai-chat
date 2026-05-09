@@ -1,9 +1,9 @@
-import { memo, useCallback, KeyboardEvent } from "react";
+import { memo, useCallback, useState, KeyboardEvent } from "react";
 import { ReferenceItem } from "@/hooks/useReferenceLibrary";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Eye, ExternalLink } from "lucide-react";
+import { Edit, Trash2, Eye, ExternalLink, ImageOff } from "lucide-react";
 import { getContentTypeLabel } from "@/types/contentTypes";
 import { getPublicUrl } from "@/lib/storage";
 import { cleanContentForPreview } from "@/lib/text-utils";
@@ -42,6 +42,8 @@ const getPreviewImageUrl = (reference: ReferenceItem): string | null => {
 export const ReferenceCard = memo(function ReferenceCard({ reference, onEdit, onDelete, onView, canDelete = true, canEdit = true }: ReferenceCardProps) {
   const cleanedContent = cleanContentForPreview(reference.content);
   const imageUrl = getPreviewImageUrl(reference);
+  const [imgFailed, setImgFailed] = useState(false);
+  const showImage = imageUrl && !imgFailed;
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -60,17 +62,25 @@ export const ReferenceCard = memo(function ReferenceCard({ reference, onEdit, on
       aria-label={`Ver referência: ${reference.title}`}
     >
       {/* Image Preview */}
-      {imageUrl ? (
+      {showImage ? (
         <div className="relative h-[100px] bg-muted overflow-hidden shrink-0">
-          <img 
-            src={imageUrl} 
+          <img
+            src={imageUrl as string}
             alt={reference.title}
             className="w-full h-full object-cover"
-            onError={(e) => {
-              // Hide broken images
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
+            loading="lazy"
+            onError={() => setImgFailed(true)}
           />
+          <div className="absolute top-2 left-2">
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-background/80 backdrop-blur-sm">
+              {getContentTypeLabel(reference.reference_type)}
+            </Badge>
+          </div>
+        </div>
+      ) : imgFailed ? (
+        // Fallback: imagem definida mas falhou — placeholder consistente
+        <div className="relative h-[100px] bg-gradient-to-br from-muted/40 to-muted/70 overflow-hidden shrink-0 flex items-center justify-center">
+          <ImageOff className="h-6 w-6 text-muted-foreground/40" aria-hidden="true" />
           <div className="absolute top-2 left-2">
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-background/80 backdrop-blur-sm">
               {getContentTypeLabel(reference.reference_type)}
@@ -87,12 +97,12 @@ export const ReferenceCard = memo(function ReferenceCard({ reference, onEdit, on
           </div>
         </CardHeader>
       )}
-      
-      <div className={`flex flex-col flex-1 ${imageUrl ? 'p-3' : ''}`}>
-        {imageUrl && (
+
+      <div className={`flex flex-col flex-1 ${showImage || imgFailed ? 'p-3' : ''}`}>
+        {(showImage || imgFailed) && (
           <h3 className="text-sm font-medium line-clamp-2 mb-1">{reference.title}</h3>
         )}
-        <CardContent className={`flex-1 ${imageUrl ? 'p-0' : 'py-0'}`}>
+        <CardContent className={`flex-1 ${showImage || imgFailed ? 'p-0' : 'py-0'}`}>
           <p className="text-xs text-muted-foreground line-clamp-3">
             {cleanedContent}
           </p>
@@ -109,7 +119,7 @@ export const ReferenceCard = memo(function ReferenceCard({ reference, onEdit, on
             </a>
           )}
         </CardContent>
-        <CardFooter className={`flex justify-end gap-1 pt-3 pb-3 border-t mt-auto ${imageUrl ? 'px-0' : ''}`}>
+        <CardFooter className={`flex justify-end gap-1 pt-3 pb-3 border-t mt-auto ${showImage || imgFailed ? 'px-0' : ''}`}>
           <Button
             variant="ghost"
             size="icon"

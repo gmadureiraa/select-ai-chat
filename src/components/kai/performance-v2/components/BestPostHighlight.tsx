@@ -32,6 +32,11 @@ const METRICS = [
   { value: 'impressions', label: 'Impressões' },
 ] as const;
 
+// Redes sem `reach` na Metricool (X/Threads/LI normalmente). Pra elas o
+// default 'engagement' ainda funciona via fallback de impressions, mas
+// 'reach' direto retorna 0 → cai pro impressions automaticamente.
+const NETWORKS_WITHOUT_REACH = new Set(['twitter', 'x', 'threads', 'linkedin']);
+
 function fmt(n: number, decimals = 0): string {
   return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: decimals }).format(n);
 }
@@ -52,10 +57,14 @@ export function BestPostHighlight({ posts, loading, network, clientId, transcrip
   const openPlanning = useOpenPlanningFromPost();
   const [metric, setMetric] = useState<typeof METRICS[number]['value']>('engagement');
   const branding = getNetworkBranding(network);
+  const noReach = NETWORKS_WITHOUT_REACH.has(String(network || '').toLowerCase());
 
   if (loading) return <Skeleton className="h-[260px] w-full" />;
 
-  const top = topPostsByMetric(posts, metric, 1)[0];
+  // Resolve métrica efetiva: se user pediu 'reach' mas rede não tem reach,
+  // cai pra 'impressions' (que getPostMetric também trata via fallback).
+  const effectiveMetric = noReach && metric === 'reach' ? 'impressions' : metric;
+  const top = topPostsByMetric(posts, effectiveMetric, 1)[0];
   if (!top) {
     return (
       <Card>
@@ -69,7 +78,7 @@ export function BestPostHighlight({ posts, loading, network, clientId, transcrip
   const caption = getCaption(top);
   const thumb = getThumb(top);
   const url = getUrl(top);
-  const score = getPostMetric(top, metric);
+  const score = getPostMetric(top, effectiveMetric);
   const date = top.date || top.publishedAt || top.publishDate;
 
   // Border + trophy + stat card "primário" (métrica selecionada) tintados com

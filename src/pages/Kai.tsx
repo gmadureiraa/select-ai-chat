@@ -56,9 +56,10 @@ const KaiLibraryTab = lazy(() =>
 const KaiAssistantTab = lazy(() =>
   import("@/components/kai/KaiAssistantTab").then((m) => ({ default: m.KaiAssistantTab })),
 );
-const KaiAnalyticsTab = lazy(() =>
-  import("@/components/kai/KaiAnalyticsTab").then((m) => ({ default: m.KaiAnalyticsTab })),
-);
+// KaiAnalyticsTab REMOVIDO da rota em 2026-05-09 — Performance v4 (Metricool)
+// cobre tudo que ele fazia. Sidebar nem expõe mais "Analytics". `?tab=analytics`
+// redireciona pra `performance` no useEffect abaixo.
+//
 // ViralHunterTab (KAI-1.0 legacy) was removed em 2026-05-08 — substituido pelos
 // 3 generadores Viral (sequence/reels/radar) que são as ports das versões atuais
 // dos repos standalone (sequencia-viral, reels-viral, radar-viral). Backup em
@@ -118,28 +119,19 @@ const SettingsTab = lazy(() =>
 const AutomationsTab = lazy(() =>
   import("@/components/automations/AutomationsTab").then((m) => ({ default: m.AutomationsTab })),
 );
-const RadarSourcesManager = lazy(() =>
-  import("@/components/admin/RadarSourcesManager").then((m) => ({
-    default: m.RadarSourcesManager,
-  })),
-);
-const WorkspaceSettingsTab = lazy(() =>
-  import("@/components/workspace/WorkspaceSettingsTab").then((m) => ({
-    default: m.WorkspaceSettingsTab,
-  })),
-);
-const WorkspaceMembersTab = lazy(() =>
-  import("@/components/workspace/WorkspaceMembersTab").then((m) => ({
-    default: m.WorkspaceMembersTab,
-  })),
-);
+// 2026-05-09 — RadarSourcesManager, WorkspaceSettingsTab e WorkspaceMembersTab
+// foram movidos pra dentro de SettingsTab (sections workspace, members,
+// radar-sources). Imports lazy removidos daqui — agora vivem em
+// src/components/settings/SettingsTab.tsx.
+//
+// MetricoolHashtagsTracker, MetricoolCompetitorsPanel e MetricoolReportsManager
+// viraram sub-tabs per-client dentro do Perfil do Cliente (tab Viral). Ainda
+// existem como componentes — só não montam mais em rota global do Kai.tsx.
+//
 // BillingTab REMOVIDO — KAI 2.0 é uso interno Kaleidos, sem cobrança por workspace.
 // O arquivo src/components/billing/BillingTab.tsx ainda existe mas não é mais
 // importado nem montado em rota nenhuma.
 import { MetricoolInboxPanel } from "@/components/metricool/MetricoolInboxPanel";
-import { MetricoolHashtagsTracker } from "@/components/metricool/MetricoolHashtagsTracker";
-import { MetricoolCompetitorsPanel } from "@/components/metricool/MetricoolCompetitorsPanel";
-import { MetricoolReportsManager } from "@/components/metricool/MetricoolReportsManager";
 // 2026-05-09 — MetricoolCalendarView e MetricoolSmartLinksManager removidos:
 //   * editorial-calendar foi removido do switch (Calendar live em PlanningBoard)
 //   * smart-links foi removido do switch
@@ -218,9 +210,36 @@ export default function Kai() {
     }
 
     // Removed tabs - redirect if accessing them
-    const removedTabs = ["agent-builder", "research-lab", "knowledge-base", "team", "account", "templates", "format-rules", "repurpose", "canvas"];
+    // analytics adicionado em 2026-05-09 (Performance v4 cobre)
+    const removedTabs = ["agent-builder", "research-lab", "knowledge-base", "team", "account", "templates", "format-rules", "repurpose", "canvas", "analytics"];
     if (removedTabs.includes(tab)) {
       shouldRedirect = true;
+      if (tab === "analytics") redirectTab = "performance";
+    }
+
+    // Tabs reorganizadas 2026-05-09 — viraram sections em Settings ou
+    // sub-tabs no Perfil do Cliente. Redirect inline preserva bookmarks.
+    // workspace-settings/workspace-members/radar-sources-admin → Settings
+    // hashtags/competitors/reports → Perfil do Cliente (tab Viral)
+    const redirectToSettings: Record<string, string> = {
+      "workspace-settings": "workspace",
+      "workspace-members": "members",
+      "radar-sources-admin": "radar-sources",
+    };
+    if (tab in redirectToSettings) {
+      const params = new URLSearchParams(searchParams);
+      params.set("tab", "settings");
+      params.set("section", redirectToSettings[tab]);
+      setSearchParams(params);
+      return;
+    }
+    // Hashtags/Concorrentes/Relatórios viraram per-client. Sem cliente
+    // selecionado, manda pra perfis. Com cliente, manda pra performance
+    // (que ainda funciona globalmente).
+    const removedClientTabs = ["hashtags", "competitors", "reports"];
+    if (removedClientTabs.includes(tab)) {
+      shouldRedirect = true;
+      redirectTab = "performance";
     }
     
     // Viewer-blocked tabs
@@ -324,18 +343,16 @@ export default function Kai() {
     // viral-library removida em 2026-05-08 — unificada com biblioteca normal
     // do cliente (client_reference_library) com scenes/slides/format.
     const toolTabs = [
-      "clients", "settings", "automations", "assistant", "analytics", "home",
+      "clients", "settings", "automations", "assistant", "home",
       "mcp",
       // Grupo "Viral" único (globais, não precisam de cliente):
       "viral-carrossel", "viral-reels-page", "viral-radar-page",
-      // Admin (super_admin only):
-      "radar-sources-admin",
-      // Workspace management (owner / admin):
-      "workspace-settings", "workspace-members",
-      // Metricool: inbox unificado, hashtags tracker, competitors analysis
-      "inbox", "hashtags", "competitors",
-      // Metricool reports (Calendar virou sub-tab de Planejamento)
-      "reports",
+      // Metricool: só inbox unificado fica global (push notifications de DMs).
+      "inbox",
+      // 2026-05-09: removidos workspace-settings, workspace-members,
+      // radar-sources-admin (viraram sections em Settings); hashtags,
+      // competitors, reports (viraram per-client no Perfil → Viral).
+      // Esses tabs agora redirecionam via useEffect logo no topo.
     ];
 
     if (toolTabs.includes(tab)) {
@@ -384,49 +401,11 @@ export default function Kai() {
           );
         case "mcp":
           return <MCPDocsTab />;
-        case "radar-sources-admin":
-          return isSuperAdmin ? (
-            <RadarSourcesManager />
-          ) : (
-            <ClientRequiredEmpty message="Acesso restrito a super admins." />
-          );
-        case "workspace-settings":
-          return isOwner ? (
-            <WorkspaceSettingsTab />
-          ) : (
-            <ClientRequiredEmpty message="Apenas o proprietário do workspace pode acessar essas configurações." />
-          );
-        case "workspace-members":
-          return canManageTeam ? (
-            <WorkspaceMembersTab />
-          ) : (
-            <ClientRequiredEmpty message="Apenas owners e admins podem gerenciar membros." />
-          );
         case "inbox":
           return selectedClient ? (
             <MetricoolInboxPanel clientId={selectedClient.id} />
           ) : (
             <ClientRequiredEmpty message="Selecione um cliente pra ver o Inbox unificado." />
-          );
-        case "hashtags":
-          return selectedClient ? (
-            <MetricoolHashtagsTracker clientId={selectedClient.id} />
-          ) : (
-            <ClientRequiredEmpty message="Selecione um cliente pra rastrear hashtags." />
-          );
-        case "competitors":
-          return selectedClient ? (
-            <MetricoolCompetitorsPanel clientId={selectedClient.id} />
-          ) : (
-            <ClientRequiredEmpty message="Selecione um cliente pra acompanhar concorrentes." />
-          );
-        case "reports":
-          return selectedClient ? (
-            <div className={cn("overflow-auto h-full", isMobile ? "p-3" : "p-6")}>
-              <MetricoolReportsManager clientId={selectedClient.id} />
-            </div>
-          ) : (
-            <ClientRequiredEmpty message="Selecione um cliente pra gerar e baixar relatórios." />
           );
         // 'editorial-calendar' case removido — virou sub-tab dentro de Planejamento
         // 'smart-links' case removido — feature mantida no código mas sem rota
@@ -455,14 +434,6 @@ export default function Kai() {
           return <SettingsTab />;
         case "automations":
           return <AutomationsTab />;
-        case "analytics":
-          return selectedClient ? (
-            <div className={cn("overflow-auto h-full", isMobile ? "p-3" : "p-6")}>
-              <KaiAnalyticsTab clientId={selectedClient.id} client={selectedClient} />
-            </div>
-          ) : (
-            <ClientRequiredEmpty message="Escolha um cliente pra ver métricas e analytics consolidadas." />
-          );
         case "assistant":
           return selectedClient ? (
             <div className="h-full overflow-hidden">

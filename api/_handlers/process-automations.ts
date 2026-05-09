@@ -980,6 +980,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const publishedPlatforms: string[] = [];
         const publishedUrls: Record<string, string> = {};
         const latePostIds: Record<string, string> = {};
+        const publishErrors: Array<{ platform: string; error: string }> = [];
 
         for (const target of targetPlatforms) {
           try {
@@ -1009,11 +1010,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               latePostIds[target] = id;
               if (resp.data.postUrl || resp.data.url) publishedUrls[target] = resp.data.postUrl || resp.data.url;
             } else {
-              console.warn(`[publish] ${target} failed:`, resp.data?.error || resp.status);
+              const errMsg = resp.data?.error || `HTTP ${resp.status}`;
+              const friendly = /not connected|missing.*account|no integration|account_not_found|invalid_credential/i.test(errMsg)
+                ? `Plataforma ${target} não conectada para este cliente. Conecte via Integrações.`
+                : errMsg;
+              publishErrors.push({ platform: target, error: friendly });
+              console.warn(`[publish] ${target} failed:`, errMsg);
             }
-          } catch (e) {
+          } catch (e: any) {
+            publishErrors.push({ platform: target, error: e?.message || 'Exception' });
             console.error(`[publish] ${target} exception:`, e);
           }
+        }
+
+        // Persiste publishErrors no metadata pra UI mostrar
+        if (publishErrors.length > 0) {
+          updatedMetadata = { ...updatedMetadata, publish_errors: publishErrors };
+          await getPool().query(
+            `UPDATE planning_items SET metadata = $1::jsonb WHERE id = $2`,
+            [JSON.stringify(updatedMetadata), newItem.id],
+          ).catch(() => null);
         }
 
         if (publishedPlatforms.length > 0) {

@@ -83,10 +83,13 @@ export async function runToolLoop(
       );
     }
     const url = `${GEMINI_API_BASE}/${activeModel}:streamGenerateContent?key=${apiKey}&alt=sse`;
-    const body = {
+    const body: Record<string, unknown> = {
       contents: workingContents,
       systemInstruction: { parts: [{ text: systemInstruction }] },
       tools: [{ functionDeclarations: registry.getDeclarations() }],
+      // toolConfig.AUTO — Gemini decide entre chamar tool ou responder em texto.
+      // Explícito pra deixar claro o contrato (default já é AUTO mas facilita debug).
+      toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
       generationConfig: {
         temperature,
         topP: 0.95,

@@ -1,21 +1,37 @@
 /**
- * ClientViralSettingsTab — agrega TODAS as configs per-client dos 3 apps
- * virais (Radar, Carrossel, Reels) dentro do Perfil do Cliente.
+ * ClientViralSettingsTab — agrega TODAS as configs/análises per-client
+ * dentro do Perfil do Cliente.
  *
  * Reorganização UX 2026-05-09:
- *   - Antes: cada app viral tinha settings/fontes dentro do próprio app
- *   - Depois: app só renderiza dashboard, configs vivem aqui
+ *   - Antes: hashtags/concorrentes/relatórios eram tabs globais na sidebar.
+ *   - Depois: tudo per-client mora aqui (faz mais sentido por cliente).
  *
  * Sub-tabs:
- *   - Radar      — fontes RSS/IG/YT/etc per-client (ClientSourcesManager)
- *   - Carrossel  — pontero pros campos de marca (Contexto IA + Referências)
- *   - Reels      — idem (carrossel/reels usam brand voice/refs do cliente)
+ *   - Radar       — fontes RSS/IG/YT/etc per-client (ClientSourcesManager)
+ *   - Carrossel   — pontero pros campos de marca (Contexto IA + Referências)
+ *   - Reels       — idem (carrossel/reels usam brand voice/refs do cliente)
+ *   - Hashtags    — tracking Metricool por cliente
+ *   - Concorrentes — análise Metricool por cliente
+ *   - Relatórios  — relatórios Metricool por cliente
  */
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Radar as RadarIcon, LayoutGrid, Film, Info, Check, X as XIcon } from "lucide-react";
+import {
+  Radar as RadarIcon,
+  LayoutGrid,
+  Film,
+  Info,
+  Check,
+  X as XIcon,
+  Hash,
+  Target,
+  FileText,
+} from "lucide-react";
 import { ClientSourcesManager } from "@/components/kai/viral-radar-original/components/ClientSourcesManager";
 import { useClientContext } from "@/hooks/useClientContext";
+import { MetricoolHashtagsTracker } from "@/components/metricool/MetricoolHashtagsTracker";
+import { MetricoolCompetitorsPanel } from "@/components/metricool/MetricoolCompetitorsPanel";
+import { MetricoolReportsManager } from "@/components/metricool/MetricoolReportsManager";
 // 2026-05-09 — Removido `import "@/components/kai/viral-radar-original/styles/globals.css"`.
 // O top-level import vazava tokens RDV (paper, REC coral) globalmente quando
 // user abria Perfil do Cliente. O viral-radar-original/MainApp.tsx já importa
@@ -44,20 +60,36 @@ export function ClientViralSettingsTab({ clientId, clientName }: ClientViralSett
 
   return (
     <Tabs defaultValue="radar" className="w-full">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="radar" className="text-xs gap-1">
-          <RadarIcon className="h-3.5 w-3.5" />
-          Radar
-        </TabsTrigger>
-        <TabsTrigger value="carousel" className="text-xs gap-1">
-          <LayoutGrid className="h-3.5 w-3.5" />
-          Carrossel
-        </TabsTrigger>
-        <TabsTrigger value="reels" className="text-xs gap-1">
-          <Film className="h-3.5 w-3.5" />
-          Reels
-        </TabsTrigger>
-      </TabsList>
+      {/* Mobile: scroll horizontal · Desktop: 6 colunas grid (alinhado
+          com ClientEditTabsSimplified que usa `grid-cols-7` no parent). */}
+      <div className="overflow-x-auto -mx-2 sm:mx-0 px-2 sm:px-0 scrollbar-hide">
+        <TabsList className="inline-flex w-max min-w-full sm:grid sm:grid-cols-6">
+          <TabsTrigger value="radar" className="text-xs gap-1 whitespace-nowrap">
+            <RadarIcon className="h-3.5 w-3.5" />
+            Radar
+          </TabsTrigger>
+          <TabsTrigger value="carousel" className="text-xs gap-1 whitespace-nowrap">
+            <LayoutGrid className="h-3.5 w-3.5" />
+            Carrossel
+          </TabsTrigger>
+          <TabsTrigger value="reels" className="text-xs gap-1 whitespace-nowrap">
+            <Film className="h-3.5 w-3.5" />
+            Reels
+          </TabsTrigger>
+          <TabsTrigger value="hashtags" className="text-xs gap-1 whitespace-nowrap">
+            <Hash className="h-3.5 w-3.5" />
+            Hashtags
+          </TabsTrigger>
+          <TabsTrigger value="competitors" className="text-xs gap-1 whitespace-nowrap">
+            <Target className="h-3.5 w-3.5" />
+            Concorrentes
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="text-xs gap-1 whitespace-nowrap">
+            <FileText className="h-3.5 w-3.5" />
+            Relatórios
+          </TabsTrigger>
+        </TabsList>
+      </div>
 
       {/* Radar — fontes per-client */}
       <TabsContent value="radar" className="mt-4">
@@ -210,6 +242,22 @@ export function ClientViralSettingsTab({ clientId, clientName }: ClientViralSett
             />
           </CardContent>
         </Card>
+      </TabsContent>
+
+      {/* Hashtags — tracking Metricool por cliente.
+          Antes era tab global; agora vive aqui pra ficar acoplado ao perfil. */}
+      <TabsContent value="hashtags" className="mt-4">
+        <MetricoolHashtagsTracker clientId={clientId} />
+      </TabsContent>
+
+      {/* Concorrentes — análise Metricool por cliente. */}
+      <TabsContent value="competitors" className="mt-4">
+        <MetricoolCompetitorsPanel clientId={clientId} />
+      </TabsContent>
+
+      {/* Relatórios — Metricool reports por cliente. */}
+      <TabsContent value="reports" className="mt-4">
+        <MetricoolReportsManager clientId={clientId} />
       </TabsContent>
     </Tabs>
   );

@@ -1,15 +1,19 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   User, Loader2, Globe, Instagram, Twitter,
   Linkedin, Youtube, Mail, Megaphone, Check,
   Building, MessageSquare, Users, Target, Plug, FileText, Brain,
-  BarChart3, RefreshCw, Radar as RadarIcon
+  BarChart3, RefreshCw, Radar as RadarIcon,
+  LayoutGrid, Film, AlertCircle
 } from "lucide-react";
 import { useImportClientSocialContent } from "@/hooks/useImportClientSocialContent";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
@@ -24,8 +28,10 @@ import { ClientViralSettingsTab } from "./ClientViralSettingsTab";
 import { Client, useClients } from "@/hooks/useClients";
 import { useClientWebsites } from "@/hooks/useClientWebsites";
 import { useClientDocuments } from "@/hooks/useClientDocuments";
+import { useClientContext } from "@/hooks/useClientContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
+import { cn } from "@/lib/utils";
 
 interface ClientEditTabsSimplifiedProps {
   client: Client;
@@ -49,18 +55,88 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [hasChanges, setHasChanges] = useState(false);
   const [identityGuide, setIdentityGuide] = useState(client.identity_guide || "");
-  
+  const navigate = useNavigate();
+
   const [socialMedia, setSocialMedia] = useState<Record<string, string>>(
     client.social_media as Record<string, string> || {}
   );
   const [tags, setTags] = useState<Record<string, string>>(
     client.tags as Record<string, string> || {}
   );
-  
+
   const { updateClient } = useClients();
   const { websites } = useClientWebsites(client.id);
   const { documents } = useClientDocuments(client.id);
+  const { data: ctx } = useClientContext(client.id);
   const { toast } = useToast();
+
+  // ──────────────────────────────────────────────────────────────────
+  // Completeness score — feedback visual de quão "pronto" o cliente
+  // está pra ser usado nos geradores virais. Cada bool conta 1 ponto;
+  // peso igual pra simplicidade. Agrupado por tab pra mostrar badge
+  // "Faltando" inline em cada trigger.
+  // ──────────────────────────────────────────────────────────────────
+  const refsCount = ctx?.referenceLibrary?.length ?? 0;
+  const visualRefsCount = ctx?.visualReferences?.length ?? 0;
+  const hasVoiceProfile = !!(ctx?.tone || ctx?.client?.voice_profile);
+  const hasIdentityGuide = !!(identityGuide && identityGuide.trim());
+
+  const tabCompletion = useMemo(() => {
+    const profileFields = [
+      !!description.trim(),
+      !!tags.segment,
+      !!tags.tone,
+      !!tags.audience,
+      !!tags.objectives,
+    ];
+    const digitalFields = [
+      !!socialMedia.website,
+      !!socialMedia.instagram,
+      !!socialMedia.linkedin || !!socialMedia.twitter || !!socialMedia.youtube,
+    ];
+    const referencesFields = [
+      documents.length > 0,
+      refsCount > 0,
+      visualRefsCount > 0,
+    ];
+    const aiContextFields = [hasIdentityGuide, hasVoiceProfile];
+
+    return {
+      profile: {
+        done: profileFields.filter(Boolean).length,
+        total: profileFields.length,
+      },
+      digital: {
+        done: digitalFields.filter(Boolean).length,
+        total: digitalFields.length,
+      },
+      references: {
+        done: referencesFields.filter(Boolean).length,
+        total: referencesFields.length,
+      },
+      aiContext: {
+        done: aiContextFields.filter(Boolean).length,
+        total: aiContextFields.length,
+      },
+    };
+  }, [
+    description,
+    tags,
+    socialMedia,
+    documents.length,
+    refsCount,
+    visualRefsCount,
+    hasIdentityGuide,
+    hasVoiceProfile,
+  ]);
+
+  const overallCompletion = useMemo(() => {
+    const totals = Object.values(tabCompletion).reduce(
+      (acc, t) => ({ done: acc.done + t.done, total: acc.total + t.total }),
+      { done: 0, total: 0 },
+    );
+    return totals.total === 0 ? 0 : Math.round((totals.done / totals.total) * 100);
+  }, [tabCompletion]);
 
   // Serializa o form como string estável pra debounce — evita loop de
   // re-render por nova ref de objeto a cada render.
@@ -142,7 +218,7 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
             </div>
           )}
         </div>
-        <div className="flex-1 space-y-1">
+        <div className="flex-1 space-y-2 min-w-0">
           <Input
             value={name}
             onChange={(e) => { setName(e.target.value); markChanged(); }}
@@ -152,7 +228,104 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
           <p className="text-sm text-muted-foreground line-clamp-2">
             {description || "Adicione uma descrição para este cliente..."}
           </p>
+
+          {/* Completeness bar — feedback visual de "perfil pronto pra
+              gerar conteúdo". Reage a campos preenchidos em todas as tabs. */}
+          <div className="flex items-center gap-2 pt-1">
+            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden max-w-[280px]">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  overallCompletion >= 80
+                    ? "bg-emerald-500"
+                    : overallCompletion >= 40
+                      ? "bg-amber-500"
+                      : "bg-destructive/60",
+                )}
+                style={{ width: `${overallCompletion}%` }}
+              />
+            </div>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {overallCompletion}% completo
+            </span>
+          </div>
         </div>
+
+        {/* Quick actions — atalhos pros 3 apps virais sem precisar fechar
+            o dialog primeiro. Mantém o dialog aberto pra preservar contexto;
+            usuário fecha quando quiser. */}
+        <TooltipProvider delayDuration={200}>
+          <div className="hidden md:flex items-center gap-1.5 shrink-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => {
+                    onClose();
+                    navigate(`/kaleidos?tab=viral-carrossel&client=${client.id}`);
+                  }}
+                  aria-label="Criar carrossel"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Criar carrossel</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => {
+                    onClose();
+                    navigate(`/kaleidos?tab=viral-reels-page&client=${client.id}`);
+                  }}
+                  aria-label="Reels Viral"
+                >
+                  <Film className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Reels Viral</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => {
+                    onClose();
+                    navigate(`/kaleidos?tab=viral-radar-page&client=${client.id}`);
+                  }}
+                  aria-label="Abrir Radar"
+                >
+                  <RadarIcon className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Radar do cliente</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => {
+                    onClose();
+                    navigate(`/kaleidos?tab=performance&client=${client.id}`);
+                  }}
+                  aria-label="Métricas"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Performance</TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
       </div>
 
       {/* Simplified Tabs: 7 tabs (Viral adicionada 2026-05-09 — agrega
@@ -165,14 +338,26 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
             <TabsTrigger value="profile" className="text-xs gap-1 whitespace-nowrap">
               <User className="h-3.5 w-3.5" aria-hidden="true" />
               Perfil
+              <TabCompletionDot
+                done={tabCompletion.profile.done}
+                total={tabCompletion.profile.total}
+              />
             </TabsTrigger>
             <TabsTrigger value="digital" className="text-xs gap-1 whitespace-nowrap">
               <Globe className="h-3.5 w-3.5" aria-hidden="true" />
               Digital
+              <TabCompletionDot
+                done={tabCompletion.digital.done}
+                total={tabCompletion.digital.total}
+              />
             </TabsTrigger>
             <TabsTrigger value="references" className="text-xs gap-1 whitespace-nowrap">
               <FileText className="h-3.5 w-3.5" aria-hidden="true" />
               Referências
+              <TabCompletionDot
+                done={tabCompletion.references.done}
+                total={tabCompletion.references.total}
+              />
             </TabsTrigger>
             <TabsTrigger value="integrations" className="text-xs gap-1 whitespace-nowrap">
               <Plug className="h-3.5 w-3.5" aria-hidden="true" />
@@ -185,6 +370,10 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
             <TabsTrigger value="ai-context" className="text-xs gap-1 whitespace-nowrap">
               <Brain className="h-3.5 w-3.5" aria-hidden="true" />
               Contexto IA
+              <TabCompletionDot
+                done={tabCompletion.aiContext.done}
+                total={tabCompletion.aiContext.total}
+              />
             </TabsTrigger>
             <TabsTrigger value="analytics" className="text-xs gap-1 whitespace-nowrap">
               <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -371,6 +560,44 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * TabCompletionDot — pequeno indicador (✓ / ! / ·) ao lado do label
+ * da tab. Verde quando 100%, âmbar quando parcial, oculto quando vazio.
+ * Mantém o trigger compacto (4×4 px com ring sutil).
+ */
+function TabCompletionDot({ done, total }: { done: number; total: number }) {
+  if (total === 0) return null;
+  const pct = (done / total) * 100;
+  if (pct >= 100) {
+    return (
+      <span
+        className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500"
+        aria-label={`${done} de ${total} preenchidos`}
+      >
+        <Check className="h-2.5 w-2.5" />
+      </span>
+    );
+  }
+  if (pct === 0) {
+    return (
+      <span
+        className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive/15 text-destructive/80"
+        aria-label="Vazio — preencher recomendado"
+      >
+        <AlertCircle className="h-2.5 w-2.5" />
+      </span>
+    );
+  }
+  return (
+    <span
+      className="ml-0.5 inline-flex h-3.5 px-1 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[9px] font-medium tabular-nums"
+      aria-label={`${done} de ${total} preenchidos`}
+    >
+      {done}/{total}
+    </span>
   );
 }
 

@@ -142,7 +142,7 @@ export function AIInsightsCard({
     
     const message = `Baseado nesses insights de performance do ${platform === "instagram" ? "Instagram" : "YouTube"} (${formattedPeriod}):\n\n${truncatedInsights}\n\nGere 5 ideias de conteúdo criativas para melhorar nosso engajamento.`;
     
-    navigate(`/kaleidos?client=${clientId}&tab=assistant`, {
+    navigate(`/kaleidos?client=${clientId}&tab=assistant&from=performance`, {
       state: { pendingMessage: message }
     });
   };

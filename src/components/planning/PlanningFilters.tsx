@@ -58,6 +58,7 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
     filters.priority,
     filters.search,
     filters.assignedTo,
+    filters.metrics,
   ].filter(Boolean).length;
 
   const hasActiveFilters = activeFiltersCount > 0;
@@ -139,6 +140,24 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
           {statuses.map(s => (
             <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
           ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={filters.metrics || 'all'}
+        onValueChange={(v) => onChange({ ...filters, metrics: v === 'all' ? undefined : (v as 'with' | 'without') })}
+      >
+        <SelectTrigger className={cn(
+          "h-7 text-xs border-0 bg-transparent hover:bg-muted/50 focus:ring-0 focus:ring-offset-0 rounded-md",
+          filters.metrics && "text-foreground bg-muted/50",
+          inSheet ? "w-full border" : "w-[110px]"
+        )}>
+          <SelectValue placeholder="Métricas" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Métricas: todas</SelectItem>
+          <SelectItem value="with">Com métricas</SelectItem>
+          <SelectItem value="without">Sem métricas</SelectItem>
         </SelectContent>
       </Select>
 

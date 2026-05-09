@@ -17,7 +17,7 @@
  * é só registrado no log e ignorado pra fins de query.
  */
 
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
   LayoutDashboard,
   BookmarkCheck,
@@ -26,6 +26,7 @@ import {
   Menu,
   X,
   LogOut,
+  Loader2,
 } from "lucide-react";
 
 import "./styles/globals.css";
@@ -34,10 +35,14 @@ import { NicheProvider, useActiveNiche } from "./lib/niche-context";
 import { useNeonSession, signOutAndReset } from "./lib/auth-client";
 import { isAdminEmail } from "./lib/admin-emails";
 
+// Dashboard é eager (default landing); Saved/Newsletters/Admin lazy pra
+// reduzir o initial chunk. Admin tem 1162 linhas de tabelas/forms que
+// só super-admin precisa carregar. Newsletter é só lista linkada — peso
+// pequeno mas não justifica pagar no first paint do Radar.
 import DashboardPage from "./pages/Dashboard";
-import SavedPage from "./pages/Saved";
-import NewslettersPage from "./pages/Newsletters";
-import AdminPage from "./pages/Admin";
+const SavedPage = lazy(() => import("./pages/Saved"));
+const NewslettersPage = lazy(() => import("./pages/Newsletters"));
+const AdminPage = lazy(() => import("./pages/Admin"));
 
 import type { Client } from "@/hooks/useClients";
 
@@ -115,11 +120,23 @@ function RadarShell({
       case "dashboard":
         return <DashboardPage clientId={clientId} />;
       case "saved":
-        return <SavedPage />;
+        return (
+          <Suspense fallback={<RadarLazyFallback />}>
+            <SavedPage />
+          </Suspense>
+        );
       case "newsletters":
-        return <NewslettersPage />;
+        return (
+          <Suspense fallback={<RadarLazyFallback />}>
+            <NewslettersPage />
+          </Suspense>
+        );
       case "admin":
-        return <AdminPage />;
+        return (
+          <Suspense fallback={<RadarLazyFallback />}>
+            <AdminPage />
+          </Suspense>
+        );
       default:
         return null;
     }
@@ -556,6 +573,25 @@ function NicheSwitcher() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function RadarLazyFallback() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 320,
+      }}
+    >
+      <Loader2
+        size={20}
+        style={{ color: "var(--color-rdv-rec)" }}
+        className="animate-spin"
+      />
     </div>
   );
 }

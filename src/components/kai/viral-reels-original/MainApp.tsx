@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -103,7 +103,11 @@ export default function MainApp({ clientId, client }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const userFirstName = useFirstName(client);
+  // Mantém id do planning_item criado pra cada reel (cache em memória) —
+  // permite "Já está no planejamento" sem nova query no banco.
+  const [plannedByReel, setPlannedByReel] = useState<Record<string, string>>({});
 
   // ── histórico ─────────────────────────────────────────────────────
   const reelsQuery = useQuery<ReelRow[]>({
@@ -147,6 +151,22 @@ export default function MainApp({ clientId, client }: Props) {
     mutationFn: async (reel: ReelRow) => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Sem usuário autenticado");
+
+      // Idempotência: se já existe planning_item com source=reels-viral
+      // + reel_id matching, retorna { existing: id }. Filter via
+      // ->> assume metadata é JSONB no Postgres (que é o caso).
+      const { data: existing } = await supabase
+        .from("planning_items")
+        .select("id")
+        .eq("client_id", clientId)
+        .eq("metadata->>source", "reels-viral")
+        .eq("metadata->>reel_id", reel.id)
+        .limit(1)
+        .maybeSingle();
+      if (existing?.id) {
+        return { existing: true as const, planningId: existing.id, reelId: reel.id };
+      }
+
       const title = reel.script?.titulo ?? reel.tema;
       const body = [
         `Roteiro adaptado do reel @${reel.source_meta?.ownerUsername ?? "—"}`,
@@ -156,30 +176,197 @@ export default function MainApp({ clientId, client }: Props) {
         "",
         reel.script?.roteiroCompleto ?? "",
       ].join("\n");
-      const { error } = await supabase.from("planning_items").insert([
-        {
-          client_id: clientId,
-          workspace_id: (client as any).workspace_id,
-          title,
-          content: body,
-          status: "idea",
-          platform: "instagram",
-          created_by: u.user.id,
-          // 2026-05-09 — preserva trace pra debugging + agrupa ideias do
-          // mesmo source/owner depois (filtros no Planning view).
-          metadata: {
-            source: "reels-viral",
-            source_url: reel.source_url,
-            owner_username: reel.source_meta?.ownerUsername ?? null,
-            reel_id: reel.id,
-          } as never,
-        },
-      ]);
+      const { data: inserted, error } = await supabase
+        .from("planning_items")
+        .insert([
+          {
+            client_id: clientId,
+            workspace_id: (client as any).workspace_id,
+            title,
+            content: body,
+            status: "idea",
+            platform: "instagram",
+            content_type: "reel",
+            created_by: u.user.id,
+            // 2026-05-09 — preserva trace pra debugging + agrupa ideias do
+            // mesmo source/owner depois (filtros no Planning view).
+            metadata: {
+              source: "reels-viral",
+              source_url: reel.source_url,
+              owner_username: reel.source_meta?.ownerUsername ?? null,
+              reel_id: reel.id,
+              scenes: reel.script?.scenes ?? [],
+            } as never,
+          },
+        ])
+        .select("id")
+        .single();
       if (error) throw error;
-      return reel.id;
+      return {
+        existing: false as const,
+        planningId: inserted!.id as string,
+        reelId: reel.id,
+      };
     },
-    onSuccess: () => toast.success("Salvo como ideia no Planning"),
+    onSuccess: (res) => {
+      // Cacheia o planningId do reel pra próximos cliques + invalida lista
+      // do planning (caso esteja aberta noutra tab).
+      setPlannedByReel((prev) => ({ ...prev, [res.reelId]: res.planningId }));
+      qc.invalidateQueries({ queryKey: ["planning_items"] });
+      qc.invalidateQueries({ queryKey: ["planning-items"] });
+      const goToPlanning = () => {
+        // Preserva client atual nos searchParams + força tab=planning + openItem
+        const next = new URLSearchParams(window.location.search);
+        next.set("tab", "planning");
+        next.set("openItem", res.planningId);
+        navigate({ search: next.toString() });
+      };
+      if (res.existing) {
+        toast.info("Já está no planejamento", {
+          description: "Esse reel já foi enviado antes.",
+          action: { label: "Abrir no planejamento", onClick: goToPlanning },
+        });
+      } else {
+        toast.success("Aberto no Planejamento", {
+          description: "Card 'idea' criado pra esse reel.",
+          action: { label: "Ver", onClick: goToPlanning },
+        });
+      }
+    },
     onError: (err: any) => toast.error(err?.message ?? "Falha ao salvar"),
+  });
+
+  /**
+   * Salva o REEL ORIGINAL (o que foi colado pelo user) como referência em
+   * `client_reference_library`. Útil pra acumular acervo de inspirações
+   * com transcrição + cenas + métricas — formato consumível pelo
+   * ReferenceGalleryDialog. Best-effort + idempotente por source_url.
+   */
+  const saveOriginalAsRefMutation = useMutation({
+    mutationFn: async (reel: ReelRow) => {
+      // Idempotência por source_url + reel_id no metadata.
+      const { data: existingRef } = await supabase
+        .from("client_reference_library")
+        .select("id")
+        .eq("client_id", clientId)
+        .eq("source_url", reel.source_url)
+        .limit(1)
+        .maybeSingle();
+      if (existingRef?.id) {
+        return { existing: true as const, refId: existingRef.id };
+      }
+
+      const sm = reel.source_meta ?? {};
+      const captionLine = (sm.caption ?? "").split("\n")[0]?.trim() ?? "";
+      const baseTitle =
+        sm.ownerFullName ||
+        (sm.ownerUsername ? `@${sm.ownerUsername}` : reel.tema);
+      const title = captionLine
+        ? `${baseTitle} — ${captionLine.slice(0, 80)}`
+        : `${baseTitle} (Reel viral)`;
+
+      const content = [
+        `# Reel original — referência`,
+        ``,
+        `Fonte: ${reel.source_url}`,
+        `Autor: @${sm.ownerUsername ?? "—"}${sm.ownerFullName ? ` (${sm.ownerFullName})` : ""}`,
+        ``,
+        sm.caption ? `## Caption\n${sm.caption}` : "",
+        ``,
+        reel.script?.roteiroCompleto
+          ? `## Transcrição (referência)\n${reel.script?.roteiroCompleto}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const tags: string[] = ["reel", "engenharia-reversa", "instagram"];
+      if (reel.nicho) tags.push(reel.nicho);
+
+      // Constrói metadata canônica esperada pelo ReferenceGalleryDialog:
+      // { source_username, transcribed_text, scenes, metrics, source }
+      const refMeta = {
+        format: "reel",
+        platform: "instagram",
+        source: "reels-viral",
+        source_username: sm.ownerUsername ?? null,
+        source_handle: sm.ownerUsername ?? null,
+        transcribed_text: sm.originalTranscript ?? null,
+        // Cenas do reel ORIGINAL: usa `analysis.estrutura` (5 blocos
+        // canônicos hook/promessa/demonstracao/provaSocial/cta).
+        scenes: reel.analysis
+          ? [
+              {
+                papel: "hook",
+                tempo: reel.analysis.estrutura.hook.tempo,
+                copy: reel.analysis.estrutura.hook.texto,
+              },
+              {
+                papel: "promessa",
+                tempo: reel.analysis.estrutura.promessa.tempo,
+                copy: reel.analysis.estrutura.promessa.texto,
+              },
+              {
+                papel: "demo",
+                tempo: reel.analysis.estrutura.demonstracao.tempo,
+                copy: reel.analysis.estrutura.demonstracao.texto,
+              },
+              {
+                papel: "prova",
+                tempo: reel.analysis.estrutura.provaSocial.tempo,
+                copy: reel.analysis.estrutura.provaSocial.texto,
+              },
+              {
+                papel: "cta",
+                tempo: reel.analysis.estrutura.cta.tempo,
+                copy: reel.analysis.estrutura.cta.texto,
+              },
+            ]
+          : [],
+        metrics: {
+          likes: sm.likes ?? sm.likesCount ?? null,
+          comments: sm.comments ?? sm.commentsCount ?? null,
+          views: sm.views ?? null,
+          plays: sm.plays ?? sm.videoPlayCount ?? null,
+          duration: sm.videoDuration ?? null,
+        },
+        analysis: reel.analysis ?? null,
+        reelId: reel.id,
+        published_at: sm.publishedAt ?? sm.timestamp ?? null,
+        tags,
+      };
+
+      const { data: inserted, error } = await supabase
+        .from("client_reference_library")
+        .insert([
+          {
+            client_id: clientId,
+            title: title.slice(0, 200),
+            reference_type: "video_script",
+            content,
+            source_url: reel.source_url,
+            thumbnail_url: sm.displayUrl ?? null,
+            metadata: refMeta as never,
+          },
+        ])
+        .select("id")
+        .single();
+      if (error) throw error;
+      return { existing: false as const, refId: inserted!.id as string };
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["client-reference-library"] });
+      qc.invalidateQueries({ queryKey: ["reference-library"] });
+      if (res.existing) {
+        toast.info("Reel original já está nas referências");
+      } else {
+        toast.success("Reel original salvo nas referências", {
+          description: "Tá na biblioteca de inspirações desse cliente.",
+        });
+      }
+    },
+    onError: (err: any) =>
+      toast.error(err?.message ?? "Falha ao salvar referência"),
   });
 
   const saveToLibraryMutation = useMutation({
@@ -868,8 +1055,17 @@ export default function MainApp({ clientId, client }: Props) {
                     ? () => saveToLibraryMutation.mutate(selected)
                     : undefined
                 }
+                onSaveOriginalAsRef={
+                  selected
+                    ? () => saveOriginalAsRefMutation.mutate(selected)
+                    : undefined
+                }
                 isSavingIdea={saveAsIdeaMutation.isPending}
                 isSavingLibrary={saveToLibraryMutation.isPending}
+                isSavingOriginalRef={saveOriginalAsRefMutation.isPending}
+                alreadyPlanned={
+                  selected ? Boolean(plannedByReel[selected.id]) : false
+                }
                 crossActions={
                   <CrossAppActions
                     source="reels"

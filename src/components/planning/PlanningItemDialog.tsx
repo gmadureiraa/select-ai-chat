@@ -65,6 +65,8 @@ interface PlanningItemDialogProps {
   defaultColumnId?: string;
   defaultDate?: Date;
   defaultClientId?: string;
+  /** Pre-popula o campo Título (ex: vindo do Calendário Editorial com nome de data comemorativa) */
+  defaultTitle?: string;
   onSave: (data: CreatePlanningItemInput) => Promise<{ id: string } | void>;
   onUpdate?: (id: string, data: Partial<PlanningItem>) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
@@ -95,6 +97,7 @@ export function PlanningItemDialog({
   defaultColumnId,
   defaultDate,
   defaultClientId,
+  defaultTitle,
   onSave,
   onUpdate,
   onDelete,
@@ -294,7 +297,7 @@ export function PlanningItemDialog({
       setPlatformOptions((metadata.platform_options as PlatformOptionsState) || {});
     } else if (!item) {
       // Only reset when there's no item at all (new card)
-      setTitle('');
+      setTitle(defaultTitle || '');
       setContent('');
       setSelectedClientId(defaultClientId || '');
       setColumnId(defaultColumnId || columns[0]?.id || '');
@@ -311,7 +314,7 @@ export function PlanningItemDialog({
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
       setPlatformOptions({});
     }
-  }, [effectiveItem, item, defaultColumnId, defaultDate, defaultClientId, columns, open]);
+  }, [effectiveItem, item, defaultColumnId, defaultDate, defaultClientId, defaultTitle, columns, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

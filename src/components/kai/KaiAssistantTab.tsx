@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
 import { Trash2, Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -274,6 +274,8 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
 
   // Auto-send prompt from query param (ex: vindo do Viral Hunter com ?prompt=…)
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const autoPromptRef = useRef<string | null>(null);
   useEffect(() => {
     const prompt = searchParams.get("prompt");
@@ -288,6 +290,21 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     handleSend(prompt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams.get("prompt"), isLoading]);
+
+  // Auto-send pendingMessage from navigate(... { state }) — usado por
+  // PostContentDialog ("Discutir no kAI") e AIInsightsCard ("Abrir no kAI").
+  // Usa um ref pra deduplicar (state pode persistir após re-render).
+  const pendingMessageRef = useRef<string | null>(null);
+  useEffect(() => {
+    const pending = (location.state as { pendingMessage?: string } | null)?.pendingMessage;
+    if (!pending || isLoading) return;
+    if (pendingMessageRef.current === pending) return;
+    pendingMessageRef.current = pending;
+    // Limpa o state pra não re-disparar em refresh
+    navigate(location.pathname + location.search, { replace: true, state: null });
+    handleSend(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, isLoading]);
 
   return (
     <div className="flex h-[calc(100vh-140px)] relative">
@@ -364,11 +381,12 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                 <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
                   Converse sobre {client.name}, analise dados ou explore ideias. Use @ para selecionar formatos.
                 </p>
-                <QuickSuggestions 
+                <QuickSuggestions
                   onSelect={(suggestion) => handleSend(suggestion)}
                   clientId={clientId}
                   clientName={client.name}
                   isContentTemplate={false}
+                  context={(searchParams.get("from") as "performance" | "planning" | "library" | undefined) ?? "default"}
                 />
               </div>
             ) : (

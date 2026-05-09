@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   MoreHorizontal,
   Twitter, Linkedin, Instagram, Youtube, Mail, FileText, Video, Facebook, AtSign,
-  Calendar, MessageSquare, Image as ImageIcon, Flag, Layers, Heart, Eye
+  Calendar, MessageSquare, Image as ImageIcon, Flag, Layers, Heart, Eye, ExternalLink
 } from 'lucide-react';
 import { ImageLightbox } from './ImageLightbox';
 import { Button } from '@/components/ui/button';
@@ -125,6 +125,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   const dotColor = PLATFORM_COLOR_MAP[primaryPlatform] || '#888';
   const contentType = metadata.content_type || (item as any).content_type;
   const contentTypeLabel = contentType ? getContentTypeLabel(contentType) : null;
+  const publishedUrl: string | undefined = metadata.published_url;
   const viralCarouselId: string | undefined = metadata.viral_carousel_id;
   const viralSlides: Array<{ body: string; image?: { kind: string; url?: string }; editorial?: { headline?: string; kicker?: string; subtitle?: string } }> | undefined = metadata.viral_carousel_slides;
   const isViralCarousel = contentType === 'viral_carousel' || !!viralCarouselId;
@@ -416,6 +417,37 @@ export const PlanningItemCard = memo(function PlanningItemCard({
                 {postMetrics.eng_rate.toFixed(1)}%
               </Badge>
             )}
+            {publishedUrl && (
+              <a
+                href={publishedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className={cn(
+                  "inline-flex items-center gap-0.5 text-muted-foreground hover:text-primary transition-colors",
+                  postMetrics.eng_rate > 0 ? "" : "ml-auto",
+                )}
+                title="Abrir post original"
+              >
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+        )}
+        {/* Sem métricas mas tem URL? Mostra só "Ver post" */}
+        {!postMetrics && isPublished && publishedUrl && (
+          <div className="flex items-center justify-end mb-2">
+            <a
+              href={publishedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+              title="Abrir post original"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Ver post
+            </a>
           </div>
         )}
 

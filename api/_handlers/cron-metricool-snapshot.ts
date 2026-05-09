@@ -49,7 +49,11 @@ const FOLLOWER_TIMELINE: Record<string, { metric: string; subject?: string }> = 
   tiktok: { metric: 'followers_count', subject: 'account' },
 };
 
-const MAX_TASKS_PER_RUN = 50; // (client × network) — defensivo pro rate-limit
+// Cap defensivo pro rate-limit Metricool (~30 req/h por chave).
+// Cada task = até 4 calls (posts + reels + stories + timeline followers),
+// com delay 2s entre tasks = max ~30 tasks/min, dentro do orçamento horário.
+const MAX_TASKS_PER_RUN = 25; // (client × network)
+const TASK_DELAY_MS = 2000;
 
 function localDateKey(d: Date, tz = 'America/Sao_Paulo'): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(d);
@@ -170,6 +174,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         events.push({ stop: true, reason: `cap ${MAX_TASKS_PER_RUN} tasks/run`, remaining: clients.length });
         break outer;
       }
+      // Delay entre tasks (skip antes da primeira) pra respeitar rate-limit
+      if (tasksRun > 0) await new Promise((r) => setTimeout(r, TASK_DELAY_MS));
       tasksRun++;
 
       try {

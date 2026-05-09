@@ -12,6 +12,7 @@
 //
 // Retorno: { snapshots: [{date, followers, posts_count, total_likes, ...}], source }
 import { authedPost } from '../_lib/handler.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { query } from '../_lib/db.js';
 import {
   getMetricoolConfig,
@@ -95,7 +96,7 @@ function aggregateApiPostsByDay(posts: any[]): Record<string, Omit<SnapshotRow, 
   return out;
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, network, fromDate, toDate } = body as {
     clientId: string;
     network: MetricoolAnalyticsNetwork;
@@ -105,6 +106,7 @@ export default authedPost(async ({ body }) => {
 
   if (!clientId) throw new Error('clientId é obrigatório');
   if (!network) throw new Error('network é obrigatório');
+  await assertClientAccess(user.id, clientId);
 
   const now = new Date();
   const defaultFrom = new Date(now.getTime() - 30 * 86400_000);

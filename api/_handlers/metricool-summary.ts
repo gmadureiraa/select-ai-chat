@@ -1,6 +1,7 @@
 // Metricool summary handler — drop-in pro postiz-summary / late-analytics.
 // Retorna shape PlatformMetrics compatível com KaiAnalyticsTab.
 import { authedPost } from '../_lib/handler.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { getMetricoolConfig, resolveBlogId, getNetworkPosts, getInstagramReels, getInstagramStories, getTimeline } from '../_lib/integrations/metricool.js';
 
 interface PlatformMetrics {
@@ -122,8 +123,9 @@ function calcChange(history: Array<{ date: string; followers: number }>, days: n
   return last.followers - old.followers;
 }
 
-export default authedPost<SummaryResponse>(async ({ body }) => {
+export default authedPost<SummaryResponse>(async ({ body, user }) => {
   const { clientId, period = 30, blogId: directBlogId } = body;
+  if (clientId) await assertClientAccess(user.id, clientId);
 
   let cfg;
   try {

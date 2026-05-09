@@ -281,6 +281,26 @@ export function useAiWorkflows() {
     },
   });
 
+  // Trigger workflow agora (manual test, bypass cron schedule)
+  const triggerWorkflow = useMutation({
+    mutationFn: async (workflowId: string) => {
+      const { data, error } = await apiInvoke('ai-workflow-trigger', {
+        body: { workflow_id: workflowId },
+      });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-workflows', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['ai-workflow-runs-latest'] });
+      toast.success('Workflow disparado. Veja runs pra acompanhar.');
+    },
+    onError: (error: Error) => {
+      console.error('Error triggering workflow:', error);
+      toast.error(`Erro ao disparar workflow: ${error.message}`);
+    },
+  });
+
   // Update agent (admin / super_admin) — knowledge_base, sub_agents, model etc.
   const updateAgent = useMutation({
     mutationFn: async (payload: {
@@ -315,5 +335,6 @@ export function useAiWorkflows() {
     toggleWorkflow,
     updateWorkflow,
     updateAgent,
+    triggerWorkflow,
   };
 }

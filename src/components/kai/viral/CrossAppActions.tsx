@@ -26,6 +26,26 @@ import {
   type ViralBridgeSource,
 } from "@/store/viral-context";
 
+/**
+ * Resolve workspace_id de um client a partir do clientId. Lookup rápido (1 row,
+ * cacheável). Necessário porque planning_items + client_reference_library
+ * têm RLS que valida workspace membership do auth.uid() — sem workspace_id
+ * o INSERT silenciosamente falha em alguns ambientes (era bug 2026-05-09 no SV
+ * que precisou da migration 0028 trigger SECURITY DEFINER).
+ */
+async function resolveWorkspaceId(clientId: string): Promise<string | null> {
+  try {
+    const { data } = await supabase
+      .from("clients")
+      .select("workspace_id")
+      .eq("id", clientId)
+      .maybeSingle();
+    return (data as { workspace_id: string | null } | null)?.workspace_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 interface CrossAppActionsProps {
   source: ViralBridgeSource;
   topic?: string;
@@ -69,12 +89,20 @@ export function CrossAppActions({
       // Persiste como planning_item type='idea' no cliente atual (se houver)
       // OU como library_idea global (escopo workspace) se não tiver cliente.
       if (clientId) {
+        const workspaceId = await resolveWorkspaceId(clientId);
+        const { data: u } = await supabase.auth.getUser();
+        if (!u.user) {
+          toast.error("Sem usuário autenticado");
+          return;
+        }
         const { error } = await supabase.from("planning_items").insert({
           client_id: clientId,
+          workspace_id: workspaceId,
           title: (topic ?? "Ideia").slice(0, 200),
           content: briefing ?? "",
           status: "idea",
           content_type: "social_post" as never,
+          created_by: u.user.id,
           metadata: { source, source_url: url, ...(metadata ?? {}) } as never,
         } as never);
         if (error) {
@@ -108,6 +136,13 @@ export function CrossAppActions({
         toast.error("Selecione um cliente pra salvar na biblioteca dele");
         return;
       }
+      // Bloqueia inserts sem conteúdo útil pra evitar lixo na biblioteca
+      // (vinha acontecendo quando user clicava sem briefing/topic preenchidos
+      // num card de Radar com `signals` vazios).
+      if (!topic && !briefing && !url) {
+        toast.error("Sem conteúdo pra salvar (topic/briefing/url vazios)");
+        return;
+      }
       const meta = (metadata ?? {}) as Record<string, unknown>;
       const fmt = (meta.format as string | undefined) ?? "static";
       const platform = (meta.platform as string | undefined) ?? null;
@@ -121,6 +156,22 @@ export function CrossAppActions({
         article: "blog_post",
       };
       const ct = contentTypeMap[fmt] ?? "social_post";
+
+      // Idempotência por source_url (best-effort): se já existe ref desse cliente
+      // com a mesma URL, mostra toast info em vez de duplicar.
+      if (url) {
+        const { data: existing } = await supabase
+          .from("client_reference_library")
+          .select("id")
+          .eq("client_id", clientId)
+          .eq("source_url", url)
+          .limit(1)
+          .maybeSingle();
+        if (existing?.id) {
+          toast.info("Já tá na biblioteca de refs do cliente.");
+          return;
+        }
+      }
 
       const { error } = await supabase.from("client_reference_library").insert({
         client_id: clientId,
@@ -150,6 +201,27 @@ export function CrossAppActions({
     // <CarouselsPage> e o user não vê o briefing pendente. Forçamos o hash
     // direto pra abrir o flow de criação. Reels não tem hash router interno —
     // só `?tab=` basta.
+    //
+    // Anti-loop: se source === target já (ex: clicou "→ Carrossel" dentro do
+    // próprio SV), não bridgeia nem navega — só pula o briefing pra um novo
+    // create silencioso. Evita o useEffect do create-new processar o mesmo
+    // payload em loop.
+    if (
+      (target === "carrossel" && source === "sv") ||
+      (target === "reels" && source === "reels")
+    ) {
+      // Mesma tab, navegamos só pro flow de criação dentro dela.
+      const next = new URLSearchParams(searchParams);
+      if (target === "carrossel") {
+        next.set("tab", "viral-carrossel");
+        navigate({ search: next.toString(), hash: "#/create/new" });
+      } else {
+        next.set("tab", "viral-reels-page");
+        navigate({ search: next.toString() });
+      }
+      return;
+    }
+
     setPending({ source, topic, briefing, url, metadata });
     const tab =
       target === "carrossel" ? "viral-carrossel" : "viral-reels-page";
