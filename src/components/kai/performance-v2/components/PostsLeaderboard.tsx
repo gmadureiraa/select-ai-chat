@@ -1,8 +1,10 @@
 import * as React from "react";
-import { Eye, Heart, Image as ImageIcon, MessageCircle, Trophy } from "lucide-react";
+import { Eye, Heart, Image as ImageIcon, MessageCircle, Trophy, Filter, FileText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -13,6 +15,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { getNetworkBranding } from "@/lib/network-branding";
+import { PostTranscriptionDialog } from "./PostTranscriptionDialog";
+import type { TranscriptionSource } from "@/hooks/usePostTranscription";
 
 import {
   getPostCaption,
@@ -26,12 +30,33 @@ import {
 
 export type LeaderboardMetric = "engagement" | "reach" | "likes" | "comments";
 
+/**
+ * Tipo de post normalizado pra filtro. Metricool retorna `type` em formato
+ * variável (string `image` | `video` | `carousel` | `reel` | `story` etc).
+ * `all` desabilita o filtro.
+ */
+export type LeaderboardKind = "all" | "post" | "reel" | "story" | "carousel";
+
+function classifyKind(post: MetricoolPost): Exclude<LeaderboardKind, "all"> {
+  const raw = String(post.type ?? "").toLowerCase();
+  if (raw.includes("reel")) return "reel";
+  if (raw.includes("story") || raw.includes("storie")) return "story";
+  if (raw.includes("carousel") || raw.includes("album") || raw.includes("multi")) return "carousel";
+  return "post";
+}
+
 export interface PostsLeaderboardProps {
   posts: MetricoolPost[];
   network: SocialNetwork | string;
   loading?: boolean;
   metric?: LeaderboardMetric;
   className?: string;
+  /**
+   * Habilita botão "Transcrição" no item — abre PostTranscriptionDialog.
+   * Sem clientId não renderiza (consistente com PostsGrid).
+   */
+  clientId?: string;
+  transcriptionSource?: TranscriptionSource;
 }
 
 const ptBR = new Intl.NumberFormat("pt-BR");
@@ -88,13 +113,28 @@ export function PostsLeaderboard({
   loading,
   metric: initialMetric = "engagement",
   className,
+  clientId,
+  transcriptionSource = "metricool",
 }: PostsLeaderboardProps) {
   const [metric, setMetric] = React.useState<LeaderboardMetric>(initialMetric);
+  const [kindFilter, setKindFilter] = React.useState<LeaderboardKind>("all");
+  const [minEngStr, setMinEngStr] = React.useState<string>("");
   const branding = getNetworkBranding(network);
 
   React.useEffect(() => {
     setMetric(initialMetric);
   }, [initialMetric]);
+
+  // Detecta se algum post tem `type` informado — se NÃO, esconde filtro de tipo
+  // (tipos vazios ficam todos como "post", filtro vira ruído).
+  const hasTypeInfo = React.useMemo(
+    () => Array.isArray(posts) && posts.some((p) => p.type && String(p.type).length > 0),
+    [posts],
+  );
+
+  // Min eng filter: parse seguro, vazio = sem filtro
+  const minEng = minEngStr.trim() === "" ? null : Number(minEngStr.replace(",", "."));
+  const minEngValid = minEng !== null && Number.isFinite(minEng);
 
   if (loading) {
     return (
@@ -120,33 +160,111 @@ export function PostsLeaderboard({
   }
 
   const safe = Array.isArray(posts) ? posts : [];
-  const sorted = [...safe].sort((a, b) => metricValue(b, metric) - metricValue(a, metric));
+  // Aplica filtros antes de ordenar.
+  const filtered = safe.filter((p) => {
+    if (kindFilter !== "all") {
+      if (classifyKind(p) !== kindFilter) return false;
+    }
+    if (minEngValid && minEng !== null) {
+      // Filtro por engagement rate quando disponível, senão por score absoluto.
+      const eng = typeof p.engagementRate === "number" ? p.engagementRate : null;
+      if (eng !== null) {
+        if (eng < minEng) return false;
+      } else {
+        // Sem engagementRate → cai pra score absoluto (menos ideal mas evita esconder tudo)
+        if (getPostEngagementScore(p) < minEng) return false;
+      }
+    }
+    return true;
+  });
+  const sorted = [...filtered].sort((a, b) => metricValue(b, metric) - metricValue(a, metric));
   const top5 = sorted.slice(0, 5);
+  const filtersActive = kindFilter !== "all" || minEngValid;
+  const filteredOutCount = safe.length - filtered.length;
 
   return (
     <Card className={className}>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 p-4">
-        <CardTitle className="inline-flex items-center gap-2 text-base font-semibold">
-          <Trophy className="h-4 w-4" style={{ color: branding.primaryHex }} />
-          Top 5 posts
-        </CardTitle>
-        <Select value={metric} onValueChange={(v) => setMetric(v as LeaderboardMetric)}>
-          <SelectTrigger className="h-9 w-[150px] text-xs">
-            <SelectValue placeholder="Métrica" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="engagement">Engajamento</SelectItem>
-            <SelectItem value="reach">Alcance</SelectItem>
-            <SelectItem value="likes">Curtidas</SelectItem>
-            <SelectItem value="comments">Comentários</SelectItem>
-          </SelectContent>
-        </Select>
+      <CardHeader className="flex flex-col gap-2 p-4 space-y-0">
+        <div className="flex flex-row items-center justify-between gap-2">
+          <CardTitle className="inline-flex items-center gap-2 text-base font-semibold">
+            <Trophy className="h-4 w-4" style={{ color: branding.primaryHex }} />
+            Top 5 posts
+            {filtersActive && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+                {filtered.length} filtrados
+              </Badge>
+            )}
+          </CardTitle>
+          <Select value={metric} onValueChange={(v) => setMetric(v as LeaderboardMetric)}>
+            <SelectTrigger className="h-9 w-[150px] text-xs">
+              <SelectValue placeholder="Métrica" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="engagement">Engajamento</SelectItem>
+              <SelectItem value="reach">Alcance</SelectItem>
+              <SelectItem value="likes">Curtidas</SelectItem>
+              <SelectItem value="comments">Comentários</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Linha de filtros: tipo + engajamento mínimo */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <Filter className="h-3 w-3 text-muted-foreground" />
+          {hasTypeInfo && (
+            <Select value={kindFilter} onValueChange={(v) => setKindFilter(v as LeaderboardKind)}>
+              <SelectTrigger className="h-7 w-[120px] text-[11px]">
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                <SelectItem value="post">Posts</SelectItem>
+                <SelectItem value="reel">Reels</SelectItem>
+                <SelectItem value="story">Stories</SelectItem>
+                <SelectItem value="carousel">Carrosséis</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-muted-foreground">Eng% min</span>
+            <Input
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min="0"
+              placeholder="—"
+              value={minEngStr}
+              onChange={(e) => setMinEngStr(e.target.value)}
+              className="h-7 w-20 text-[11px] tabular-nums"
+            />
+          </div>
+          {filtersActive && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-[10px] text-muted-foreground"
+              onClick={() => {
+                setKindFilter("all");
+                setMinEngStr("");
+              }}
+            >
+              Limpar
+            </Button>
+          )}
+          {filtersActive && filteredOutCount > 0 && (
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              ({filteredOutCount} ocultos)
+            </span>
+          )}
+        </div>
       </CardHeader>
 
       <CardContent className="p-4 pt-0">
         {top5.length === 0 ? (
           <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-            Sem posts pra ranquear ainda.
+            {filtersActive
+              ? "Nenhum post bateu os filtros. Tenta afrouxar o engajamento mínimo ou trocar o tipo."
+              : "Sem posts pra ranquear ainda."}
           </div>
         ) : (
           <ol className="space-y-2">
@@ -239,6 +357,34 @@ export function PostsLeaderboard({
                   >
                     {metricBadge(metric, post)}
                   </Badge>
+
+                  {/* Botão transcrição inline — só renderiza se clientId presente.
+                      stopPropagation evita que clicar no botão dispare o
+                      handler do <li> que abre o post externo. */}
+                  {clientId && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <PostTranscriptionDialog
+                        clientId={clientId}
+                        post={post as any}
+                        source={transcriptionSource}
+                        network={String(network)}
+                        trigger={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-foreground"
+                            type="button"
+                            title="Transcrição"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                          </Button>
+                        }
+                      />
+                    </div>
+                  )}
                 </li>
               );
             })}

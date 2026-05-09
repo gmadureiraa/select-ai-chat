@@ -123,7 +123,12 @@ export function PlatformDashboard({ clientId, network, period }: Props) {
       {/* 6. Top 5 leaderboard + Posts grid lado-a-lado em desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-1">
-          <PostsLeaderboard posts={posts} network={network} loading={isLoading} />
+          <PostsLeaderboard
+            posts={posts}
+            network={network}
+            loading={isLoading}
+            clientId={clientId}
+          />
         </div>
         <div className="lg:col-span-2">
           <Card>

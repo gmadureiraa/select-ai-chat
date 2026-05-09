@@ -13,7 +13,7 @@ import {
   Linkedin, Youtube, Mail, Megaphone, Check,
   Building, MessageSquare, Users, Target, Plug, FileText, Brain,
   BarChart3, RefreshCw, Radar as RadarIcon,
-  LayoutGrid, Film, AlertCircle
+  LayoutGrid, Film, AlertCircle, Terminal, Bell
 } from "lucide-react";
 import { useImportClientSocialContent } from "@/hooks/useImportClientSocialContent";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
@@ -25,6 +25,8 @@ import { VisualReferencesManager } from "./VisualReferencesManager";
 import { AIContextTab } from "./AIContextTab";
 import { ClientAnalyticsTab } from "./ClientAnalyticsTab";
 import { ClientViralSettingsTab } from "./ClientViralSettingsTab";
+import { ClientMCPTab } from "./ClientMCPTab";
+import { ClientNotificationsTab } from "./ClientNotificationsTab";
 import { Client, useClients } from "@/hooks/useClients";
 import { useClientWebsites } from "@/hooks/useClientWebsites";
 import { useClientDocuments } from "@/hooks/useClientDocuments";
@@ -328,13 +330,15 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
         </TooltipProvider>
       </div>
 
-      {/* Simplified Tabs: 7 tabs (Viral adicionada 2026-05-09 — agrega
-          configs de Radar/Carrossel/Reels que antes viviam dentro dos
-          apps virais).
-          Mobile: scroll horizontal. Desktop: grid full-width. */}
+      {/* Simplified Tabs: 9 tabs.
+          - 2026-05-09 (1ª iter): Viral adicionada — agrega configs Radar/Carrossel/Reels.
+          - 2026-05-09 (2ª iter): MCP + Notificações adicionadas — antes viviam
+            como itens soltos no menu/footer da sidebar. Aqui ficam contextuais
+            ao cliente (exemplos prontos com client_id, prefs de notif do cliente).
+          Mobile: scroll horizontal. Desktop: grid full-width (9 colunas). */}
       <Tabs defaultValue="profile" className="w-full">
         <div className="overflow-x-auto -mx-2 sm:mx-0 px-2 sm:px-0 scrollbar-hide">
-          <TabsList className="inline-flex w-max min-w-full sm:grid sm:grid-cols-7">
+          <TabsList className="inline-flex w-max min-w-full sm:grid sm:grid-cols-9">
             <TabsTrigger value="profile" className="text-xs gap-1 whitespace-nowrap">
               <User className="h-3.5 w-3.5" aria-hidden="true" />
               Perfil
@@ -374,6 +378,14 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
                 done={tabCompletion.aiContext.done}
                 total={tabCompletion.aiContext.total}
               />
+            </TabsTrigger>
+            <TabsTrigger value="mcp" className="text-xs gap-1 whitespace-nowrap">
+              <Terminal className="h-3.5 w-3.5" aria-hidden="true" />
+              MCP
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="text-xs gap-1 whitespace-nowrap">
+              <Bell className="h-3.5 w-3.5" aria-hidden="true" />
+              Notif
             </TabsTrigger>
             <TabsTrigger value="analytics" className="text-xs gap-1 whitespace-nowrap">
               <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -545,6 +557,24 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
             clientUpdatedAt={client.updated_at}
             onContextUpdate={handleContextUpdate}
           />
+        </TabsContent>
+
+        {/* Tab: MCP — exemplos contextualizados pra esse cliente.
+            Movido aqui em 2026-05-09 — antes vivia como item solto no
+            footer da sidebar. As tools MCP em si são workspace-wide
+            (Settings → Sistema → MCP kAI), mas o user normalmente quer
+            saber "como uso isso pra ESSE cliente": id pronto, exemplos. */}
+        <TabsContent value="mcp" className="mt-4">
+          <ClientMCPTab clientId={client.id} clientName={name} />
+        </TabsContent>
+
+        {/* Tab: Notificações — preferências de notificação focadas neste
+            cliente. Permite o user/time decidir se quer receber alerts de
+            publicações/atribuições deste cliente. Por enquanto os toggles
+            são globais (refletem Settings → Notificações), mas a tab fica
+            pronta pra evoluir pra prefs per-client quando a feature existir. */}
+        <TabsContent value="notifications" className="mt-4">
+          <ClientNotificationsTab clientId={client.id} clientName={name} />
         </TabsContent>
 
         {/* Tab: Analytics — viral stats, top content, tokens, atividade */}

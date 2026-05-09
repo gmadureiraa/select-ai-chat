@@ -29,6 +29,7 @@ import { WorkspaceMembersTab } from "@/components/workspace/WorkspaceMembersTab"
 import { RadarSourcesManager } from "@/components/admin/RadarSourcesManager";
 import { IntegrationsSettings } from "@/components/settings/IntegrationsSettings";
 import { AuditLogSettings } from "@/components/settings/AuditLogSettings";
+import { MCPDocsTab } from "@/components/kai/MCPDocsTab";
 
 export function SettingsTab() {
   const { user, signOut } = useAuth();
@@ -63,6 +64,7 @@ export function SettingsTab() {
     "docs",
     "ai-usage",
     "webhooks",
+    "mcp",
   ];
   const initialSection = validSections.includes(sectionParam as SettingsSection)
     ? (sectionParam as SettingsSection)
@@ -369,6 +371,12 @@ export function SettingsTab() {
         return <AIUsageSettings />;
       case "webhooks":
         return <WebhookSettings />;
+      case "mcp":
+        // MCP é workspace-wide (token único compartilhado).
+        // Movido pra cá em 2026-05-09 — antes vivia como item solto no
+        // footer da sidebar principal. Faz mais sentido em Sistema porque
+        // configura como o Claude Code se conecta ao backend Kaleidos.
+        return <MCPDocsTab />;
       default:
         return renderProfileSection();
     }

@@ -16,7 +16,6 @@ import {
   Home,
   Twitter,
   Film,
-  Terminal,
   CheckSquare,
   Radar,
   MessagesSquare,
@@ -43,7 +42,9 @@ import { ClientDialog } from "@/components/clients/ClientDialog";
 import { useQuery } from "@tanstack/react-query";
 
 import { toast } from "sonner";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
+// 2026-05-09 — NotificationBell removida da sidebar desktop. Continua viva
+// no MobileHeader (mobile sempre mostra). Preferências de notificação foram
+// pra Settings → Notificações; histórico de notif fica no Bell mobile.
 
 /**
  * Cabeçalho de seção da sidebar — agrupador visual não-clicável.
@@ -475,20 +476,14 @@ export function KaiSidebar({
       </nav>
 
       {/* Footer — utilities globais.
-          Tema removido daqui (vivia duplicado): a aparência claro/escuro é
-          configurada em Configurações → Aparência. Notification bell continua
-          aqui pra ser quick-access independente de qual tab está ativa. */}
+          Reorg 2026-05-09:
+            - "MCP kAI" virou Settings → Sistema → MCP kAI (workspace-wide).
+            - NotificationBell saiu do desktop (preferências em Settings →
+              Notificações; histórico continua no Bell do MobileHeader).
+            - Tema removido (vivia duplicado: agora só Settings → Aparência).
+          Footer agora tem só Configurações + Collapse toggle. */}
       <div className={cn("p-2 space-y-0.5 border-t border-sidebar-border", collapsed && "p-1.5")}>
-        {/* MCP Docs */}
-        <NavItem
-          icon={<Terminal className="h-4 w-4" strokeWidth={1.5} />}
-          label="MCP kAI"
-          active={activeTab === "mcp"}
-          onClick={() => onTabChange("mcp")}
-          collapsed={collapsed}
-        />
-
-        {/* Configurações pessoais — perfil, tema, notificações, segurança, AI usage */}
+        {/* Configurações pessoais — perfil, tema, notificações, segurança, AI usage, MCP */}
         {canViewSettings && (
           <NavItem
             icon={<Settings className="h-4 w-4" strokeWidth={1.5} />}
@@ -498,9 +493,6 @@ export function KaiSidebar({
             collapsed={collapsed}
           />
         )}
-
-        {/* Sino de notificações — quick access em qualquer tab */}
-        <NotificationBell variant="sidebar" collapsed={collapsed} />
 
         {/* Collapse Toggle */}
         {!isMobile && (

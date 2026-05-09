@@ -55,7 +55,10 @@ function n(v: unknown, fallback = 0): number {
 }
 
 function pickPublishedAt(p: any): string | null {
-  const raw = p.date || p.publishedAt || p.publishDate || p.timestamp || p.createdAt;
+  // Metricool /v2/analytics/posts retorna `publishedAt` como OBJECT {dateTime, timezone}
+  // mas alguns endpoints (legacy) usam string em outros campos. Cobre ambos.
+  let raw: any = p.publishedAt ?? p.date ?? p.publishDate ?? p.timestamp ?? p.createdAt;
+  if (raw && typeof raw === 'object' && 'dateTime' in raw) raw = raw.dateTime;
   if (!raw) return null;
   const d = new Date(raw as string);
   if (Number.isNaN(d.getTime())) return null;
@@ -63,7 +66,8 @@ function pickPublishedAt(p: any): string | null {
 }
 
 function pickPostId(p: any, network: string): string | null {
-  const id = p.id ?? p.postId ?? p.postid ?? p.uuid ?? p.url ?? p.permalink;
+  // postId é o canônico (Metricool v2). id como fallback pra endpoints legacy.
+  const id = p.postId ?? p.id ?? p.postid ?? p.uuid ?? p.url ?? p.permalink;
   if (!id) return null;
   return `${network}:${String(id)}`;
 }
@@ -108,24 +112,26 @@ function pickCaption(p: any): string | null {
 }
 
 function metric(p: any, key: 'likes' | 'comments' | 'shares' | 'reach' | 'impressions' | 'views' | 'saves' | 'videoViews'): number {
+  // Shape Metricool v2: usa impressionsTotal, saved (não saves), interactions
   if (key === 'likes') return n(p.likes ?? p.reactions);
   if (key === 'comments') return n(p.comments);
   if (key === 'shares') return n(p.shares ?? p.reposts ?? p.retweets);
   if (key === 'reach') return n(p.reach);
-  if (key === 'impressions') return n(p.impressions);
-  if (key === 'views') return n(p.views ?? (p as any).plays);
-  if (key === 'videoViews') return n(p.videoViews);
-  if (key === 'saves') return n(p.saves ?? p.saved ?? (p as any).savedCount);
+  if (key === 'impressions') return n(p.impressionsTotal ?? p.impressions);
+  if (key === 'views') return n(p.views ?? p.plays);
+  if (key === 'videoViews') return n(p.videoViews ?? p.views);
+  if (key === 'saves') return n(p.saved ?? p.saves ?? p.savedCount);
   return 0;
 }
 
 function engagementRate(p: any): number | null {
+  // Metricool v2 retorna `engagement` (já em %) — usa direto se vier
+  if (typeof p.engagement === 'number') return Number(p.engagement.toFixed(3));
   if (typeof p.engagementRate === 'number') return Number(p.engagementRate.toFixed(3));
   const eng = metric(p, 'likes') + metric(p, 'comments') + metric(p, 'shares');
   const reach = metric(p, 'reach');
   const imp = metric(p, 'impressions');
-  // Mesma fórmula do snapshot: prefere reach > impressions, NUNCA usa views como denom
-  // (reels têm views inflados → eng_rate fica artificialmente baixa).
+  // Prefere reach > impressions, NUNCA usa views como denom (reels infla).
   const denom = Math.max(reach, imp);
   if (denom <= 0) return null;
   return Number(((eng / denom) * 100).toFixed(3));

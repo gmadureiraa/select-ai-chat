@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Eye, FileText, Heart, Image as ImageIcon, MessageCircle, Repeat2 } from "lucide-react";
+import { Eye, FileText, Heart, Image as ImageIcon, LayoutGrid, List, MessageCircle, Repeat2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Toggle } from "@/components/ui/toggle";
 import { cn } from "@/lib/utils";
 import { PostTranscriptionDialog } from "./PostTranscriptionDialog";
 import type { TranscriptionSource } from "@/hooks/usePostTranscription";
 import { getNetworkBranding } from "@/lib/network-branding";
+
+const INITIAL_PAGE_SIZE = 50;
+const PAGE_SIZE_INCREMENT = 50;
 
 export interface MetricoolPost {
   id: string | number;
@@ -130,6 +134,8 @@ const SHARES_LABEL: Record<string, string> = {
   bluesky: "Reposts",
 };
 
+export type PostsGridViewMode = "grid" | "list";
+
 export function PostsGrid({
   posts,
   network,
@@ -141,10 +147,17 @@ export function PostsGrid({
   transcriptionSource = "metricool",
 }: PostsGridProps) {
   const [sortBy, setSortBy] = React.useState<PostsGridSort>(initialSort);
+  const [viewMode, setViewMode] = React.useState<PostsGridViewMode>("grid");
+  const [visibleCount, setVisibleCount] = React.useState(INITIAL_PAGE_SIZE);
 
   React.useEffect(() => {
     setSortBy(initialSort);
   }, [initialSort]);
+
+  // Reset paginação quando ordem mudar — top-N depende da sort
+  React.useEffect(() => {
+    setVisibleCount(INITIAL_PAGE_SIZE);
+  }, [sortBy]);
 
   if (loading) {
     return (
@@ -189,26 +202,75 @@ export function PostsGrid({
   const branding = getNetworkBranding(network);
   const NetworkIcon = branding.icon;
 
+  // Slice client-side. Pagina só quando passa de INITIAL_PAGE_SIZE.
+  const needsPaging = sorted.length > INITIAL_PAGE_SIZE;
+  const visible = needsPaging ? sorted.slice(0, visibleCount) : sorted;
+  const remaining = sorted.length - visible.length;
+
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <span className="text-xs text-muted-foreground tabular-nums">
           {ptBR.format(safe.length)} {safe.length === 1 ? "post" : "posts"}
+          {needsPaging && (
+            <span className="ml-1 text-[10px] opacity-70">
+              · mostrando {visible.length}
+            </span>
+          )}
         </span>
-        <Select value={sortBy} onValueChange={(v) => setSortBy(v as PostsGridSort)}>
-          <SelectTrigger className="h-9 w-[160px] text-xs">
-            <SelectValue placeholder="Ordenar por" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="recent">Mais recentes</SelectItem>
-            <SelectItem value="engagement">Engajamento</SelectItem>
-            <SelectItem value="reach">Alcance</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          {/* View mode toggle: grid (default) ou lista compacta */}
+          <div className="flex rounded-md border bg-muted/30 overflow-hidden h-9">
+            <Toggle
+              size="sm"
+              variant="default"
+              pressed={viewMode === "grid"}
+              onPressedChange={() => setViewMode("grid")}
+              className="h-9 px-2 rounded-none data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              title="Modo grade"
+              aria-label="Modo grade"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              variant="default"
+              pressed={viewMode === "list"}
+              onPressedChange={() => setViewMode("list")}
+              className="h-9 px-2 rounded-none data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              title="Modo lista"
+              aria-label="Modo lista"
+            >
+              <List className="h-3.5 w-3.5" />
+            </Toggle>
+          </div>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as PostsGridSort)}>
+            <SelectTrigger className="h-9 w-[160px] text-xs">
+              <SelectValue placeholder="Ordenar por" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Mais recentes</SelectItem>
+              <SelectItem value="engagement">Engajamento</SelectItem>
+              <SelectItem value="reach">Alcance</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
+      {viewMode === "list" ? (
+        <ListView
+          posts={visible}
+          network={network}
+          branding={branding}
+          NetworkIcon={NetworkIcon}
+          sharesLabel={sharesLabel}
+          onClick={onClick}
+          clientId={clientId}
+          transcriptionSource={transcriptionSource}
+        />
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {sorted.map((post) => {
+        {visible.map((post) => {
           const caption = getPostCaption(post);
           const thumb = getPostThumbnail(post);
           const url = getPostUrl(post);

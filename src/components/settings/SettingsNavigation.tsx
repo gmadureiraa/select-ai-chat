@@ -12,6 +12,7 @@ import {
   Radar,
   Plug,
   ScrollText,
+  Terminal,
 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
@@ -27,7 +28,8 @@ export type SettingsSection =
   | "audit-log"
   | "docs"
   | "ai-usage"
-  | "webhooks";
+  | "webhooks"
+  | "mcp";
 
 interface SettingsNavigationProps {
   activeSection: SettingsSection;
@@ -64,6 +66,7 @@ const sections: Section[] = [
   { id: "audit-log", label: "Auditoria", icon: ScrollText, requiresPermission: "audit-log", group: "workspace" },
   // Sistema — integrações, observabilidade, dev
   { id: "integrations", label: "Integrações", icon: Plug, group: "system" },
+  { id: "mcp", label: "MCP kAI", icon: Terminal, group: "system" },
   { id: "radar-sources", label: "Fontes do Radar", icon: Radar, requiresPermission: "radar-sources", group: "system" },
   { id: "ai-usage", label: "Uso de IA", icon: Activity, group: "system" },
   { id: "webhooks", label: "Webhooks", icon: Webhook, group: "system" },

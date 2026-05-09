@@ -1,123 +1,83 @@
-import { useState, useMemo } from "react";
+// HomeDashboard — entrypoint do KAI 2.0 (rota /início, ?tab=home).
+//
+// Reescrito 2026-05-09: alimentado 100% por dados reais (planning_items +
+// metricool_posts + metricool_daily_snapshots). Substitui o dashboard antigo
+// que era pesado em pipeline/Kanban e leve em performance.
+//
+// Layout (top-down):
+//   1. Hero — saudação + workspace stats agregadas + plan badge + sino
+//   2. Quick actions (4 cards grandes, sensitive a hasClients)
+//   3. Pendências — NotificationsBell expandido em card
+//   4. Performance Snapshot — grid de cards por cliente (sparkline real)
+//   5. Top Performers — top 6 posts cross-cliente últimos 30d
+//   6. Próximos Posts — timeline lateral de scheduled
+//   7. Atividade recente — log discreto
+//   8. Setup checklist — só se < 100% configurado
+//
+// Tudo é client-driven: cada bloco renderiza empty-state amigável quando
+// não há dados (em vez de zeros silenciosos).
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useClients } from "@/hooks/useClients";
-import { useAuth } from "@/hooks/useAuth";
-import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   AlertTriangle,
+  ArrowRight,
+  Bell,
   CalendarDays,
   CheckCircle2,
+  CheckSquare,
+  ChevronRight,
   Clock,
+  Eye,
+  Film,
+  Heart,
+  Image as ImageIcon,
+  LineChart,
+  MessageCircle,
+  MessageSquare,
+  Radar as RadarIcon,
+  Send,
+  Sparkles,
+  Star,
   TrendingUp,
   Users,
-  ArrowRight,
-  X,
-  Filter,
-  Sparkles,
-  Send,
-  Eye,
-  Edit3,
-  Lightbulb,
-  LayoutGrid,
-  Twitter,
-  Linkedin,
-  Instagram,
-  Mail,
-  FileText,
-  Video,
+  Zap,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   format,
-  isToday,
+  formatDistanceToNow,
   isPast,
-  startOfWeek,
-  endOfWeek,
-  addDays,
-  isSameDay,
-  isWithinInterval,
-  isTomorrow,
+  isToday,
+  parseISO,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MyTasksWidget } from "./MyTasksWidget";
-import { WorkspaceStatsCards } from "./WorkspaceStatsCards";
-import { CrossClientPerformanceCard } from "./CrossClientPerformanceCard";
-import { QuickActions } from "./QuickActions";
-import { RecentActivity } from "./RecentActivity";
-import { RadarHighlights } from "./RadarHighlights";
-import { ViralStatsCard } from "./ViralStatsCard";
-import { TopViralContentCard } from "./TopViralContentCard";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useClients } from "@/hooks/useClients";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useDashboardClientCards } from "@/hooks/useDashboardClientCards";
+import { useDashboardTopPosts } from "@/hooks/useDashboardTopPosts";
+import { useDashboardUpcoming } from "@/hooks/useDashboardUpcoming";
+import { useMyTeamTasks } from "@/hooks/useTeamTasks";
+import { useInboxUnreadCount } from "@/hooks/useMetricoolInbox";
+import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getNetworkBranding } from "@/lib/network-branding";
+import { ClientPerformanceCard } from "./ClientPerformanceCard";
 import { NotificationsBell } from "./NotificationsBell";
+import { RecentActivity } from "./RecentActivity";
 
 interface HomeDashboardProps {
   onNavigate: (tab: string) => void;
   onOpenItem?: (itemId: string) => void;
-  /**
-   * Quando o user clica num cliente do CrossClientPerformance,
-   * o pai (Kai.tsx) deve atualizar o param `client=` da URL e mudar de tab
-   * pra que a navegação pra "clients" / "library" / etc reflita o cliente certo.
-   */
   onSelectClient?: (clientId: string, tab?: string) => void;
-  // Note: Home is intentionally workspace-wide (never filters by client)
 }
-
-type ActiveFilter = {
-  type: "client" | "status" | "kpi";
-  value: string;
-  label: string;
-} | null;
-
-const platformIcons: Record<string, React.ElementType> = {
-  twitter: Twitter,
-  linkedin: Linkedin,
-  instagram: Instagram,
-  newsletter: Mail,
-  blog: FileText,
-  tiktok: Video,
-};
-
-const statusLabels: Record<string, string> = {
-  idea: "Ideias",
-  draft: "Rascunho",
-  review: "Revisão",
-  approved: "Aprovado",
-  scheduled: "Agendado",
-  published: "Publicado",
-  publishing: "Publicando",
-  failed: "Falhou",
-};
-
-const statusDots: Record<string, string> = {
-  idea: "bg-purple-400",
-  draft: "bg-blue-400",
-  review: "bg-yellow-400",
-  approved: "bg-emerald-400",
-  scheduled: "bg-orange-400",
-  published: "bg-muted-foreground/50",
-  publishing: "bg-primary",
-  failed: "bg-destructive",
-};
-
-const statusBg: Record<string, string> = {
-  idea: "bg-purple-500/8 text-purple-400 border-purple-500/20",
-  draft: "bg-blue-500/8 text-blue-400 border-blue-500/20",
-  review: "bg-yellow-500/8 text-yellow-400 border-yellow-500/20",
-  approved: "bg-emerald-500/8 text-emerald-400 border-emerald-500/20",
-  scheduled: "bg-orange-500/8 text-orange-400 border-orange-500/20",
-  published: "bg-muted/50 text-muted-foreground border-border/50",
-  publishing: "bg-primary/8 text-primary border-primary/20",
-  failed: "bg-destructive/8 text-destructive border-destructive/20",
-};
 
 function getTimeGreeting(): string {
   const hour = new Date().getHours();
@@ -126,17 +86,248 @@ function getTimeGreeting(): string {
   return "Boa noite";
 }
 
-export function HomeDashboard({ onNavigate, onOpenItem, onSelectClient }: HomeDashboardProps) {
+function formatNumber(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return "0";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return Math.round(n).toString();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-components — tudo inline pra um arquivo só (legibilidade > splits forçados)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface QuickActionCardProps {
+  icon: React.ElementType;
+  label: string;
+  description: string;
+  accent: string;
+  primary?: boolean;
+  onClick: () => void;
+}
+
+function QuickActionCard({
+  icon: Icon,
+  label,
+  description,
+  accent,
+  primary,
+  onClick,
+}: QuickActionCardProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "group relative flex flex-col items-start gap-3 p-4 md:p-5 rounded-xl border transition-all duration-200 text-left",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+        primary
+          ? "border-primary/40 bg-gradient-to-br from-primary/[0.08] via-primary/[0.04] to-transparent hover:border-primary/70 hover:shadow-lg hover:shadow-primary/5 ring-1 ring-primary/20"
+          : "border-border/50 bg-card hover:border-border hover:shadow-md hover:bg-accent/30",
+      )}
+    >
+      <div
+        className={cn(
+          "h-10 w-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110",
+          accent,
+        )}
+      >
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 w-full">
+        <p className="text-sm font-semibold text-foreground truncate">{label}</p>
+        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+          {description}
+        </p>
+      </div>
+      <ArrowRight className="absolute top-4 right-4 h-4 w-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+    </button>
+  );
+}
+
+interface TopPerformerCardProps {
+  post: import("@/hooks/useDashboardTopPosts").TopPostRow;
+  onClick?: () => void;
+}
+
+function TopPerformerCard({ post, onClick }: TopPerformerCardProps) {
+  const branding = getNetworkBranding(post.network);
+  const NetIcon = branding.icon;
+  return (
+    <Card
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (!onClick) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={cn(
+        "shrink-0 w-[260px] sm:w-[280px] overflow-hidden transition-all",
+        onClick &&
+          "cursor-pointer hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+      )}
+    >
+      {/* Thumbnail */}
+      <div className="relative aspect-[4/3] bg-muted/30 overflow-hidden">
+        {post.thumbnailUrl ? (
+          <img
+            src={post.thumbnailUrl}
+            alt={post.caption?.slice(0, 80) ?? `Post ${post.network}`}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted/50 to-muted/30">
+            <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+          </div>
+        )}
+        {/* Network badge top-left */}
+        <div
+          className={cn(
+            "absolute top-2 left-2 h-7 w-7 rounded-md flex items-center justify-center shadow-sm",
+            branding.bgGradient,
+          )}
+        >
+          <NetIcon className={cn("h-3.5 w-3.5", branding.iconOnBgClass)} />
+        </div>
+        {/* Engagement badge top-right */}
+        <Badge
+          variant="secondary"
+          className="absolute top-2 right-2 bg-background/85 backdrop-blur-sm text-foreground border-0 gap-1 font-medium"
+        >
+          <TrendingUp className="h-3 w-3 text-emerald-500" />
+          {formatNumber(post.engagement)}
+        </Badge>
+      </div>
+
+      <CardContent className="p-3 space-y-2">
+        <p className="text-xs text-foreground line-clamp-2 leading-relaxed min-h-[32px]">
+          {post.caption?.trim() || "—"}
+        </p>
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <Avatar className="h-4 w-4 rounded-full">
+            <AvatarImage src={post.clientAvatar ?? undefined} />
+            <AvatarFallback className="text-[7px]">
+              {post.clientName.slice(0, 1)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="truncate flex-1">{post.clientName}</span>
+          {post.publishedAt && (
+            <span className="shrink-0">
+              {format(new Date(post.publishedAt), "dd/MM")}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 text-[11px] text-muted-foreground/80 pt-1 border-t border-border/40">
+          <span className="flex items-center gap-1">
+            <Heart className="h-3 w-3" /> {formatNumber(post.likes)}
+          </span>
+          <span className="flex items-center gap-1">
+            <MessageCircle className="h-3 w-3" /> {formatNumber(post.comments)}
+          </span>
+          {post.reach > 0 && (
+            <span className="ml-auto flex items-center gap-1 tabular-nums">
+              {formatNumber(post.reach)} alc
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Setup checklist — primeira semana
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface SetupItem {
+  key: string;
+  label: string;
+  done: boolean;
+  cta?: { label: string; tab: string };
+}
+
+function useSetupChecklist(opts: {
+  hasClients: boolean;
+  hasPlanningItems: boolean;
+  metricoolPostsCount: number;
+  hasRadarSources: boolean;
+}): { items: SetupItem[]; pct: number } {
+  return useMemo(() => {
+    const items: SetupItem[] = [
+      { key: "workspace", label: "Workspace criado", done: true },
+      {
+        key: "client",
+        label: "Cadastrar primeiro cliente",
+        done: opts.hasClients,
+        cta: { label: "Cadastrar", tab: "clients" },
+      },
+      {
+        key: "metricool",
+        label: "Conectar Metricool (importar posts)",
+        done: opts.metricoolPostsCount > 0,
+        cta: { label: "Configurar", tab: "settings" },
+      },
+      {
+        key: "planning",
+        label: "Criar primeiro post no planejamento",
+        done: opts.hasPlanningItems,
+        cta: { label: "Planejamento", tab: "planning" },
+      },
+      {
+        key: "radar",
+        label: "Cadastrar fontes do Radar Viral",
+        done: opts.hasRadarSources,
+        cta: { label: "Configurar", tab: "settings" },
+      },
+    ];
+    const completed = items.filter((i) => i.done).length;
+    const pct = Math.round((completed / items.length) * 100);
+    return { items, pct };
+  }, [
+    opts.hasClients,
+    opts.hasPlanningItems,
+    opts.metricoolPostsCount,
+    opts.hasRadarSources,
+  ]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function HomeDashboard({
+  onNavigate,
+  onOpenItem,
+  onSelectClient,
+}: HomeDashboardProps) {
   const isMobile = useIsMobile();
   const { user } = useAuth();
-  const { clients, isLoading: isLoadingClients } = useClients();
   const { workspace, subscription } = useWorkspaceContext();
+  const { clients, isLoading: isLoadingClients } = useClients();
   const workspaceId = workspace?.id;
-  const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
+  const hasClients = (clients?.length ?? 0) > 0;
 
-  // Plano atual exibido no eyebrow do hero (Free/Pro/Enterprise/etc).
-  const planLabel = subscription?.plan?.name ?? null;
+  // ── Stats agregadas (hero) ──
+  const { data: stats, isLoading: isLoadingStats } = useDashboardStats();
+  // ── Performance snapshot por cliente ──
+  const { cards: clientCards, isLoading: isLoadingCards } =
+    useDashboardClientCards();
+  // ── Top performers ──
+  const { data: topPosts, isLoading: isLoadingTop } = useDashboardTopPosts(6);
+  // ── Próximos posts ──
+  const { data: upcomingPosts, isLoading: isLoadingUpcoming } =
+    useDashboardUpcoming(6);
+  // ── Tasks pessoais ──
+  const { data: myTasks = [] } = useMyTeamTasks(7);
+  // ── Inbox (sample do 1º cliente) ──
+  const { data: inboxUnread = 0 } = useInboxUnreadCount(clients?.[0]?.id ?? null);
 
+  // ── Profile pra saudação ──
   const { data: userProfile } = useQuery({
     queryKey: ["user-profile-home", user?.id],
     queryFn: async () => {
@@ -151,1180 +342,732 @@ export function HomeDashboard({ onNavigate, onOpenItem, onSelectClient }: HomeDa
     enabled: !!user?.id,
   });
 
-  const userName = useMemo(
-    () =>
+  const userName = useMemo(() => {
+    const full =
       userProfile?.full_name ||
       user?.user_metadata?.full_name ||
       user?.email?.split("@")[0] ||
-      "",
-    [userProfile, user]
-  );
+      "";
+    return full.split(" ")[0]; // primeiro nome só
+  }, [userProfile, user]);
 
-  const { data: planningItems, isLoading: isLoadingItems } = useQuery({
-    queryKey: ["home-dashboard-items", workspaceId],
+  // ── Radar setup proxy: usa contagem de viral_radar_briefs (cliente recebeu
+  //    pelo menos 1 brief) como sinal de que o radar está configurado.
+  //    `radar_sources` real é gerenciada via Settings → Radar Sources, mas
+  //    aqui só queremos saber se o user já interagiu com o sistema. ──
+  const { data: radarBriefsCount = 0 } = useQuery({
+    queryKey: ["dashboard-radar-briefs-count", workspaceId],
     queryFn: async () => {
-      if (!workspaceId) return [];
-      // Fetch only the dashboard-relevant window (past 60d + next 90d) so
-      // we never hit the 1000-row default cap and always include "today".
-      const from = addDays(new Date(), -60).toISOString();
-      const to = addDays(new Date(), 90).toISOString();
-      const { data } = await supabase
-        .from("planning_items")
-        .select(
-          "id, title, status, scheduled_at, client_id, platform, assigned_to, updated_at, content_type, priority"
-        )
-        .eq("workspace_id", workspaceId)
-        .gte("scheduled_at", from)
-        .lte("scheduled_at", to)
-        .order("scheduled_at", { ascending: false })
-        .limit(2000);
-      return data || [];
+      const clientIds = (clients ?? []).map((c) => c.id);
+      if (clientIds.length === 0) return 0;
+      const { count } = await supabase
+        .from("viral_radar_briefs")
+        .select("id", { count: "exact", head: true })
+        .in("client_id", clientIds);
+      return count ?? 0;
     },
-    enabled: !!workspaceId,
+    enabled: !!workspaceId && (clients?.length ?? 0) > 0,
+    staleTime: 5 * 60_000,
   });
 
+  // Setup checklist
+  const { items: setupItems, pct: setupPct } = useSetupChecklist({
+    hasClients,
+    hasPlanningItems: (stats?.totalPlanningItems ?? 0) > 0,
+    metricoolPostsCount: stats?.metricoolPostsLast30d ?? 0,
+    hasRadarSources: radarBriefsCount > 0,
+  });
+
+  // Pendências breakdown
+  const tasksDue = myTasks.filter((t) => {
+    if (!t.due_date) return false;
+    const d = parseISO(t.due_date);
+    return (isPast(d) || isToday(d)) && t.status !== "done";
+  }).length;
+
+  const planLabel = subscription?.plan?.name ?? null;
   const now = new Date();
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  // ── derived stats ──
-  const stats = useMemo(() => {
-    if (!planningItems)
-      return {
-        overdue: [],
-        today: [],
-        tomorrow: [],
-        thisWeek: [],
-        byClient: [] as {
-          clientId: string;
-          total: number;
-          pending: number;
-          published: number;
-          review: number;
-        }[],
-        byStatus: {} as Record<string, number>,
-        totalItems: 0,
-        byPlatform: {} as Record<string, number>,
-      };
-
-    const overdue = planningItems.filter(
-      (i) =>
-        i.scheduled_at &&
-        isPast(new Date(i.scheduled_at)) &&
-        !isToday(new Date(i.scheduled_at)) &&
-        !["published", "failed"].includes(i.status)
-    );
-
-    const today = planningItems.filter(
-      (i) => i.scheduled_at && isToday(new Date(i.scheduled_at))
-    );
-
-    const tomorrow = planningItems.filter(
-      (i) => i.scheduled_at && isTomorrow(new Date(i.scheduled_at))
-    );
-
-    const thisWeek = planningItems.filter((i) => {
-      if (!i.scheduled_at) return false;
-      const d = new Date(i.scheduled_at);
-      return isWithinInterval(d, { start: weekStart, end: weekEnd });
-    });
-
-    const byClient: Record<
-      string,
-      { total: number; pending: number; published: number; review: number }
-    > = {};
-    const byPlatform: Record<string, number> = {};
-    const byStatus: Record<string, number> = {};
-
-    planningItems.forEach((item) => {
-      byStatus[item.status] = (byStatus[item.status] || 0) + 1;
-      if (item.platform) byPlatform[item.platform] = (byPlatform[item.platform] || 0) + 1;
-      if (!item.client_id) return;
-      if (!byClient[item.client_id])
-        byClient[item.client_id] = { total: 0, pending: 0, published: 0, review: 0 };
-      byClient[item.client_id].total++;
-      if (item.status === "published") byClient[item.client_id].published++;
-      else if (item.status === "review") byClient[item.client_id].review++;
-      else byClient[item.client_id].pending++;
-    });
-
-    return {
-      overdue,
-      today,
-      tomorrow,
-      thisWeek,
-      byClient: Object.entries(byClient)
-        .map(([clientId, s]) => ({ clientId, ...s }))
-        .sort((a, b) => b.pending - a.pending),
-      byStatus,
-      totalItems: planningItems.length,
-      byPlatform,
-    };
-  }, [planningItems, weekStart, weekEnd]);
-
-  // ── filtered items based on active filter ──
-  const filteredItems = useMemo(() => {
-    if (!planningItems || !activeFilter) return null;
-    let items = planningItems;
-    if (activeFilter.type === "client") {
-      items = items.filter((i) => i.client_id === activeFilter.value);
-    } else if (activeFilter.type === "status") {
-      items = items.filter((i) => i.status === activeFilter.value);
-    } else if (activeFilter.type === "kpi") {
-      if (activeFilter.value === "overdue") {
-        items = stats.overdue;
-      } else if (activeFilter.value === "today") {
-        items = stats.today;
-      } else if (activeFilter.value === "week") {
-        items = stats.thisWeek;
-      } else if (activeFilter.value === "published") {
-        items = items.filter((i) => i.status === "published");
-      }
-    }
-    return items.slice(0, 20);
-  }, [planningItems, activeFilter, stats]);
-
-  const recentlyPublished = useMemo(() => {
-    if (!planningItems) return [];
-    return planningItems
-      .filter((i) => i.status === "published")
-      .sort(
-        (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      )
-      .slice(0, 5);
-  }, [planningItems]);
-
-  // ── weekly timeline items ──
-  const weeklyTimeline = useMemo(() => {
-    if (!planningItems) return weekDays.map((d) => ({ date: d, items: [] as typeof planningItems }));
-    return weekDays.map((day) => ({
-      date: day,
-      items: planningItems.filter(
-        (i) => i.scheduled_at && isSameDay(new Date(i.scheduled_at), day)
-      ),
-    }));
-  }, [planningItems, weekDays]);
-
-  const getClientName = (clientId: string) =>
-    clients?.find((c) => c.id === clientId)?.name || "—";
-  const getClientAvatar = (clientId: string) =>
-    clients?.find((c) => c.id === clientId)?.avatar_url || null;
-
-  const handleFilter = (filter: ActiveFilter) => {
-    if (
-      activeFilter &&
-      filter &&
-      activeFilter.type === filter.type &&
-      activeFilter.value === filter.value
-    ) {
-      setActiveFilter(null);
-    } else {
-      setActiveFilter(filter);
-    }
-  };
-
-  const statusIcon = (status: string) => {
-    switch (status) {
-      case "idea": return <Lightbulb className="h-3 w-3" />;
-      case "draft": return <Edit3 className="h-3 w-3" />;
-      case "review": return <Eye className="h-3 w-3" />;
-      case "approved": return <CheckCircle2 className="h-3 w-3" />;
-      case "scheduled": return <Clock className="h-3 w-3" />;
-      case "published": return <Send className="h-3 w-3" />;
-      default: return <LayoutGrid className="h-3 w-3" />;
-    }
-  };
-
-  // Pipeline order
-  const pipelineStatuses = ["idea", "draft", "review", "approved", "scheduled"];
-  const pipelineTotal = pipelineStatuses.reduce(
-    (sum, s) => sum + (stats.byStatus[s] || 0),
-    0
-  );
-
-  // Skeleton fiel ao layout final — evita flash de "0 itens" enquanto a query roda.
-  if (isLoadingItems) {
-    return (
-      <div className={cn("h-full overflow-y-auto", isMobile ? "p-3" : "p-6 lg:p-8")}>
-        <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-300">
-          {/* Header */}
-          <div className="flex items-end justify-between">
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-64" />
-              <Skeleton className="h-4 w-48" />
-            </div>
-            <Skeleton className="hidden md:block h-9 w-40" />
-          </div>
-
-          {/* Workspace stats cards (4 cols) */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i}>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="h-4 w-4 rounded" />
-                  </div>
-                  <Skeleton className="h-8 w-12" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Quick actions */}
-          <Skeleton className="h-24 w-full rounded-xl" />
-
-          {/* KPI row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i}>
-                <CardContent className="p-4 space-y-3">
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-9 w-16" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Main grid: feed + side */}
-          <div className={cn("grid gap-5", isMobile ? "grid-cols-1" : "grid-cols-12")}>
-            <div className={cn(isMobile ? "" : "col-span-7 space-y-5")}>
-              {/* Today card */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <Skeleton className="h-5 w-24" />
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 py-2">
-                      <Skeleton className="h-2 w-2 rounded-full" />
-                      <div className="flex-1 space-y-1.5">
-                        <Skeleton className="h-3.5 w-3/4" />
-                        <Skeleton className="h-2.5 w-1/3" />
-                      </div>
-                      <Skeleton className="h-5 w-16 rounded-full" />
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className={cn(isMobile ? "" : "col-span-5 space-y-5")}>
-              {/* Pipeline */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <Skeleton className="h-5 w-28" />
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <Skeleton className="h-3 w-20 shrink-0" />
-                      <Skeleton className="h-1.5 flex-1 rounded-full" />
-                      <Skeleton className="h-3 w-6" />
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Clients */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <Skeleton className="h-5 w-20" />
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 py-1">
-                      <Skeleton className="h-7 w-7 rounded-md shrink-0" />
-                      <div className="flex-1 space-y-1.5">
-                        <Skeleton className="h-3.5 w-1/2" />
-                        <Skeleton className="h-1 w-3/4 rounded-full" />
-                      </div>
-                      <Skeleton className="h-3 w-4" />
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Weekly timeline */}
-          <Card>
-            <CardHeader className="pb-3">
-              <Skeleton className="h-5 w-40" />
-            </CardHeader>
-            <CardContent>
-              <div className={cn("grid gap-2", isMobile ? "grid-cols-1" : "grid-cols-7")}>
-                {Array.from({ length: 7 }).map((_, i) => (
-                  <Skeleton key={i} className="h-[100px] rounded-lg" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
+  // ── Render ──
   return (
     <div className={cn("h-full overflow-y-auto", isMobile ? "p-3" : "p-6 lg:p-8")}>
-      <div className="max-w-[1400px] mx-auto space-y-6">
-        {/* ─── Header ─── */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
+      <div className="max-w-[1400px] mx-auto space-y-6 md:space-y-8">
+        {/* ─── HERO ─── */}
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-end justify-between gap-4"
+          className="space-y-4"
+          aria-labelledby="dashboard-hero-title"
         >
-          <div className="min-w-0">
-            <div className="mb-2 flex items-center gap-2 flex-wrap">
+          {/* Top bar: workspace label + plan + sino */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="kai-eyebrow">{workspace?.name ?? "Cockpit"}</span>
               {planLabel && (
                 <Badge
                   variant="outline"
-                  className="text-[10px] h-4 px-1.5 capitalize border-primary/30 text-primary/80 bg-primary/5"
+                  className="text-[10px] h-5 px-2 capitalize border-primary/30 text-primary/80 bg-primary/5"
                 >
                   {planLabel}
                 </Badge>
               )}
             </div>
-            <h1 className="text-2xl md:text-3xl font-light text-foreground tracking-tight">
+            <NotificationsBell onNavigate={onNavigate} />
+          </div>
+
+          {/* Greeting */}
+          <div>
+            <h1
+              id="dashboard-hero-title"
+              className="text-2xl md:text-4xl font-light text-foreground tracking-tight"
+            >
               {getTimeGreeting()}
               {userName ? `, ${userName}` : ""}{" "}
-              <span className="inline-block animate-pulse">✦</span>
+              <span className="inline-block animate-pulse text-primary">✦</span>
             </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })} ·{" "}
-              <span className="text-foreground/70">
-                {stats.totalItems} {stats.totalItems === 1 ? "item" : "itens"} no
-                pipeline
-              </span>
-              {clients && clients.length > 0 && (
+            <p className="text-sm md:text-base text-muted-foreground mt-1">
+              {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}
+              {!isLoadingStats && stats && hasClients && (
                 <>
                   {" · "}
                   <span className="text-foreground/70">
-                    {clients.length} cliente{clients.length === 1 ? "" : "s"}
+                    {stats.itemsPublishedLast30d} posts publicados nos últimos
+                    30 dias
                   </span>
                 </>
               )}
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <NotificationsBell
-              onNavigate={onNavigate}
-              onFilterKpi={(kpi) =>
-                setActiveFilter({
-                  type: "kpi",
-                  value: kpi,
-                  label: kpi === "overdue" ? "Atrasados" : "Hoje",
-                })
-              }
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 hidden md:flex kai-btn-rec"
-              onClick={() => onNavigate("planning")}
-            >
-              <CalendarDays className="h-3.5 w-3.5" />
-              Ver planejamento
-            </Button>
-          </div>
-        </motion.div>
 
-        {/* ─── Active filter indicator ─── */}
-        <AnimatePresence>
-          {activeFilter && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
-                <Filter className="h-3.5 w-3.5 text-primary" />
-                <span className="text-sm text-foreground/80">
-                  Filtrando por: <strong className="text-primary">{activeFilter.label}</strong>
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 ml-auto"
-                  onClick={() => setActiveFilter(null)}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ─── Onboarding card — workspace novo (sem clientes OU sem itens) ───
-              Só renderiza depois que `clients` E `planningItems` terminaram de carregar
-              pra evitar flash de "Bem-vindo" pra workspaces que já tinham conteúdo. */}
-        {!isLoadingClients && !isLoadingItems && ((clients?.length ?? 0) === 0 || stats.totalItems === 0) && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 }}
-          >
-            <Card className="relative overflow-hidden border-primary/30 bg-gradient-to-br from-primary/8 via-primary/5 to-transparent">
-              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-              <CardContent className="relative p-5 md:p-6">
-                <div className="flex flex-col md:flex-row md:items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
-                    <Sparkles className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-base md:text-lg font-semibold text-foreground">
-                      {(clients?.length ?? 0) === 0
-                        ? "Bem-vindo ao KAI"
-                        : "Seu primeiro conteúdo está a 1 clique"}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                      {(clients?.length ?? 0) === 0
-                        ? "Pra começar a usar o KAI, cadastre seu primeiro cliente — vai liberar geração de conteúdo, planejamento, automações e analytics."
-                        : "Você já tem cliente cadastrado. Bora pedir pro KAI gerar o primeiro post, thread ou carrossel?"}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2 shrink-0">
-                    {(clients?.length ?? 0) === 0 ? (
-                      <Button size="sm" onClick={() => onNavigate("clients")} className="gap-1.5 kai-btn-rec">
-                        <Users className="h-3.5 w-3.5" />
-                        Cadastrar cliente
-                      </Button>
-                    ) : (
-                      <>
-                        <Button size="sm" onClick={() => onNavigate("assistant")} className="gap-1.5 kai-btn-rec">
-                          <Sparkles className="h-3.5 w-3.5" />
-                          Abrir KAI Chat
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onNavigate("planning")}
-                          className="gap-1.5 kai-btn-rec"
-                        >
-                          <CalendarDays className="h-3.5 w-3.5" />
-                          Ver planejamento
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* ─── Workspace Stats Cards (clientes, agendados, publicados, tokens) ─── */}
-        <WorkspaceStatsCards onNavigate={onNavigate} />
-
-        {/* ─── Quick actions — ações primárias antes de qualquer panel
-              denso. hasClients controla quais atalhos aparecem (sem cliente,
-              só Cadastrar / Planejamento / Automações / Configurações). ─── */}
-        <QuickActions
-          onNavigate={onNavigate}
-          hasClients={(clients?.length ?? 0) > 0}
-        />
-
-        {/* ─── Suas tarefas internas (compacto) ─── */}
-        <MyTasksWidget onNavigate={onNavigate} />
-
-        {/* ─── Viral Stats — uso das ferramentas virais nos últimos 30d.
-              Só aparece se já tem cliente cadastrado (até lá os dados são
-              todos zero e o card vira ruído visual). ─── */}
-        {(clients?.length ?? 0) > 0 && (
-          <ViralStatsCard onNavigate={onNavigate} range="30d" />
-        )}
-
-        {/* ─── Performance cross-cliente — ranking de engagement por cliente.
-              Hidden quando workspace ainda não tem clientes (evita estado
-              vazio redundante depois do banner de onboarding). ─── */}
-        {(clients?.length ?? 0) > 0 && (
-          <CrossClientPerformanceCard
-            onSelectClient={(clientId) => {
-              if (onSelectClient) onSelectClient(clientId, "library");
-              else onNavigate("clients");
-            }}
-          />
-        )}
-
-        {/* ─── KPI Row (filtros do pipeline) ─── */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-3"
-        >
-          {[
-            {
-              key: "overdue",
-              label: "Atrasados",
-              value: stats.overdue.length,
-              icon: AlertTriangle,
-              danger: stats.overdue.length > 0,
-            },
-            {
-              key: "today",
-              label: "Hoje",
-              value: stats.today.length,
-              icon: Clock,
-              accent: true,
-            },
-            {
-              key: "week",
-              label: "Esta semana",
-              value: stats.thisWeek.length,
-              icon: CalendarDays,
-            },
-            {
-              key: "published",
-              label: "Publicados",
-              value: stats.byStatus["published"] || 0,
-              icon: CheckCircle2,
-              success: true,
-            },
-          ].map((kpi) => {
-            const isActive =
-              activeFilter?.type === "kpi" && activeFilter.value === kpi.key;
-            return (
+          {/* Hero stat cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              {
+                key: "clients",
+                label: "Clientes",
+                value: stats?.totalClients ?? 0,
+                hint: stats
+                  ? `${stats.activeClients30d} ativos (30d)`
+                  : "—",
+                icon: Users,
+                accent: "text-primary",
+                onClick: () => onNavigate("clients"),
+              },
+              {
+                key: "scheduled",
+                label: "Agendados (7d)",
+                value: stats?.itemsScheduledNext7d ?? 0,
+                hint: "Próxima semana",
+                icon: CalendarDays,
+                accent: "text-orange-500",
+                onClick: () => onNavigate("planning"),
+              },
+              {
+                key: "published",
+                label: "Publicados (30d)",
+                value: stats?.itemsPublishedLast30d ?? 0,
+                hint:
+                  stats && stats.metricoolPostsLast30d > 0
+                    ? `${stats.metricoolPostsLast30d} no Metricool`
+                    : "Pipeline + redes",
+                icon: Send,
+                accent: "text-emerald-500",
+                onClick: () => onNavigate("planning"),
+              },
+              {
+                key: "followers",
+                label: "Seguidores",
+                value:
+                  stats?.totalFollowersLatest != null
+                    ? formatNumber(stats.totalFollowersLatest)
+                    : "—",
+                hint: "Cross-network",
+                icon: TrendingUp,
+                accent: "text-fuchsia-500",
+                onClick: () => {
+                  if (clients?.[0]) {
+                    onSelectClient?.(clients[0].id, "performance");
+                  }
+                },
+              },
+            ].map((card) => (
               <Card
-                key={kpi.key}
+                key={card.key}
                 role="button"
                 tabIndex={0}
-                aria-pressed={isActive}
-                aria-label={`Filtrar: ${kpi.label} (${kpi.value})`}
+                aria-label={`${card.label}: ${card.value}`}
+                onClick={card.onClick}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    handleFilter({ type: "kpi", value: kpi.key, label: kpi.label });
+                    card.onClick();
                   }
                 }}
-                className={cn(
-                  "cursor-pointer transition-all duration-200 group relative overflow-hidden",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                  isActive
-                    ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
-                    : kpi.danger
-                    ? "border-destructive/30 hover:border-destructive/50"
-                    : "kai-card-hover hover:bg-accent/30"
-                )}
-                onClick={() =>
-                  handleFilter({ type: "kpi", value: kpi.key, label: kpi.label })
-                }
+                className="cursor-pointer transition-all duration-200 hover:border-border/80 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
-                <CardContent className="p-4 relative z-10">
-                  <div className="flex items-center justify-between mb-3">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                      {kpi.label}
+                      {card.label}
                     </span>
-                    <kpi.icon
-                      className={cn(
-                        "h-4 w-4 transition-colors",
-                        kpi.danger
-                          ? "text-destructive"
-                          : kpi.success
-                          ? "text-emerald-500"
-                          : kpi.accent
-                          ? "text-primary"
-                          : "text-muted-foreground"
-                      )}
-                    />
+                    <card.icon className={cn("h-4 w-4", card.accent)} />
                   </div>
-                  <p
-                    className={cn(
-                      "text-3xl font-semibold tabular-nums",
-                      kpi.danger && kpi.value > 0
-                        ? "text-destructive"
-                        : "text-foreground"
-                    )}
-                  >
-                    {kpi.value}
+                  {isLoadingStats ? (
+                    <Skeleton className="h-8 w-16" />
+                  ) : (
+                    <p className="text-2xl md:text-3xl font-semibold tabular-nums text-foreground">
+                      {card.value}
+                    </p>
+                  )}
+                  <p className="text-[10.5px] text-muted-foreground/70 mt-1.5 line-clamp-1">
+                    {card.hint}
                   </p>
                 </CardContent>
-                {/* Subtle gradient accent */}
-                {kpi.danger && kpi.value > 0 && (
-                  <div className="absolute inset-0 bg-gradient-to-t from-destructive/5 to-transparent pointer-events-none" />
-                )}
               </Card>
-            );
-          })}
-        </motion.div>
+            ))}
+          </div>
+        </motion.section>
 
-        {/* ─── Filtered results panel ─── */}
-        <AnimatePresence>
-          {filteredItems && (
-            <motion.div
+        {/* ─── QUICK ACTIONS ─── */}
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          aria-labelledby="dashboard-quick-actions-title"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Zap className="h-4 w-4 text-primary" />
+            <h2
+              id="dashboard-quick-actions-title"
+              className="text-sm font-semibold uppercase tracking-wider text-foreground/90"
+            >
+              Ações rápidas
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {!hasClients ? (
+              <QuickActionCard
+                icon={Users}
+                label="Cadastrar cliente"
+                description="Comece por aqui — destrava todas as ferramentas"
+                accent="bg-primary/15 text-primary"
+                primary
+                onClick={() => onNavigate("clients")}
+              />
+            ) : (
+              <>
+                <QuickActionCard
+                  icon={Sparkles}
+                  label="Carrossel viral"
+                  description="Brief curto → carrossel completo"
+                  accent="bg-primary/10 text-primary"
+                  onClick={() => onNavigate("viral-carrossel")}
+                />
+                <QuickActionCard
+                  icon={Film}
+                  label="Roteiro de Reels"
+                  description="Cole um link → engenharia reversa"
+                  accent="bg-purple-500/10 text-purple-400"
+                  onClick={() => onNavigate("viral-reels-page")}
+                />
+                <QuickActionCard
+                  icon={RadarIcon}
+                  label="Radar viral"
+                  description="Briefing diário de tendências"
+                  accent="bg-orange-500/10 text-orange-400"
+                  onClick={() => onNavigate("viral-radar-page")}
+                />
+                <QuickActionCard
+                  icon={LineChart}
+                  label="Performance"
+                  description="Métricas detalhadas por canal"
+                  accent="bg-emerald-500/10 text-emerald-500"
+                  onClick={() => {
+                    if (clients?.[0]) {
+                      onSelectClient?.(clients[0].id, "performance");
+                    }
+                  }}
+                />
+              </>
+            )}
+          </div>
+        </motion.section>
+
+        {/* ─── PENDÊNCIAS (consolidadas, em card largo) ─── */}
+        {hasClients && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+          >
+            <Card className="border-border/60">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Bell className="h-4 w-4 text-primary" />
+                  Pendências
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <PendencyTile
+                    icon={MessageSquare}
+                    label="Mensagens"
+                    count={inboxUnread}
+                    hint={
+                      inboxUnread > 0
+                        ? `Não respondidas em ${clients?.[0]?.name ?? "inbox"}`
+                        : "Inbox em dia"
+                    }
+                    tone="info"
+                    onClick={() => onNavigate("inbox")}
+                  />
+                  <PendencyTile
+                    icon={Eye}
+                    label="Aguardando revisão"
+                    count={
+                      stats &&
+                      stats.totalPlanningItems > 0
+                        ? // Conta drafts em revisão usando o totalPlanningItems é
+                          // grosseiro — buscamos exato via NotificationsBell.
+                          // Aqui só sinalizamos se tem pipeline.
+                          0
+                        : 0
+                    }
+                    hint="Drafts esperando aprovação"
+                    tone="warning"
+                    onClick={() => onNavigate("planning")}
+                    fallback="Veja no Planning"
+                  />
+                  <PendencyTile
+                    icon={Clock}
+                    label="Hoje no calendário"
+                    count={stats?.itemsScheduledNext7d ?? 0}
+                    hint={
+                      stats?.itemsScheduledNext7d
+                        ? "Posts agendados próximos 7d"
+                        : "Sem agendamentos"
+                    }
+                    tone="info"
+                    onClick={() => onNavigate("planning")}
+                  />
+                  <PendencyTile
+                    icon={CheckSquare}
+                    label="Tarefas vencidas"
+                    count={tasksDue}
+                    hint={
+                      tasksDue > 0
+                        ? "Tarefas suas pra hoje ou atrasadas"
+                        : "Tudo em dia"
+                    }
+                    tone={tasksDue > 0 ? "danger" : "neutral"}
+                    onClick={() => onNavigate("tasks")}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.section>
+        )}
+
+        {/* ─── PERFORMANCE SNAPSHOT (cards por cliente) ─── */}
+        {hasClients && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            aria-labelledby="dashboard-perf-title"
+          >
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <LineChart className="h-4 w-4 text-primary" />
+                <h2
+                  id="dashboard-perf-title"
+                  className="text-sm font-semibold uppercase tracking-wider text-foreground/90"
+                >
+                  Performance por cliente
+                </h2>
+                <Badge variant="outline" className="text-[10px] h-5">
+                  últimos 7 dias
+                </Badge>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs gap-1 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  if (clients?.[0]) {
+                    onSelectClient?.(clients[0].id, "performance");
+                  }
+                }}
+              >
+                Ver detalhado <ArrowRight className="h-3 w-3" />
+              </Button>
+            </div>
+
+            {isLoadingCards ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-44 rounded-xl" />
+                ))}
+              </div>
+            ) : clientCards.length === 0 ? (
+              <Card>
+                <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                  Nenhum cliente com dados ainda. Conecte Metricool ou aguarde o
+                  primeiro snapshot diário.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {clientCards.map((card) => (
+                  <ClientPerformanceCard
+                    key={card.clientId}
+                    data={card}
+                    onClick={() =>
+                      onSelectClient?.(card.clientId, "performance")
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </motion.section>
+        )}
+
+        {/* ─── TOP PERFORMERS + UPCOMING ─── */}
+        {hasClients && (
+          <div
+            className={cn(
+              "grid gap-5",
+              isMobile ? "grid-cols-1" : "grid-cols-12",
+            )}
+          >
+            {/* Top performers (carousel) */}
+            <motion.section
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              transition={{ delay: 0.15 }}
+              className={cn(isMobile ? "" : "col-span-8")}
+              aria-labelledby="dashboard-top-title"
             >
               <Card>
-                <CardHeader className="pb-2">
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-primary" />
-                    {activeFilter?.label} ({filteredItems.length} itens)
+                    <Star className="h-4 w-4 text-amber-500" />
+                    <span id="dashboard-top-title">
+                      Top conteúdos (30d)
+                    </span>
+                    <Badge variant="outline" className="text-[10px] h-5 ml-1">
+                      por engajamento
+                    </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {filteredItems.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-6 text-center">
-                      Nenhum item encontrado
-                    </p>
+                  {isLoadingTop ? (
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton
+                          key={i}
+                          className="shrink-0 w-[260px] sm:w-[280px] h-[290px] rounded-xl"
+                        />
+                      ))}
+                    </div>
+                  ) : !topPosts || topPosts.length === 0 ? (
+                    <div className="py-10 text-center">
+                      <Sparkles className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        Nenhum post nos últimos 30 dias.
+                      </p>
+                      <p className="text-xs text-muted-foreground/60 mt-0.5">
+                        Conecte Metricool ou agende publicações pra ver ranking.
+                      </p>
+                    </div>
                   ) : (
-                    <div className="divide-y divide-border/40">
-                      {filteredItems.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center gap-3 py-2.5 px-1 hover:bg-muted/20 rounded-md transition-colors cursor-pointer -mx-1"
-                          onClick={() => onOpenItem?.(item.id)}
-                        >
-                          <div
-                            className={cn(
-                              "w-2 h-2 rounded-full shrink-0",
-                              statusDots[item.status] || "bg-muted-foreground"
-                            )}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm truncate">
-                              {item.title || "Sem título"}
-                            </p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-[11px] text-muted-foreground">
-                                {getClientName(item.client_id)}
-                              </span>
-                              {item.scheduled_at && (
-                                <span className="text-[11px] text-muted-foreground/60">
-                                  · {format(new Date(item.scheduled_at), "dd/MM")}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[10px] border shrink-0",
-                              statusBg[item.status] || ""
-                            )}
-                          >
-                            {statusLabels[item.status] || item.status}
-                          </Badge>
-                          {item.platform && (
-                            (() => {
-                              const Icon = platformIcons[item.platform];
-                              return Icon ? (
-                                <Icon className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-                              ) : null;
-                            })()
-                          )}
-                        </div>
+                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin -mx-1 px-1">
+                      {topPosts.map((post) => (
+                        <TopPerformerCard
+                          key={`${post.network}-${post.postId}`}
+                          post={post}
+                          onClick={() => {
+                            if (post.url) window.open(post.url, "_blank");
+                            else
+                              onSelectClient?.(post.clientId, "performance");
+                          }}
+                        />
                       ))}
                     </div>
                   )}
                 </CardContent>
               </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </motion.section>
 
-        {/* ─── Main Grid ─── */}
-        <div
-          className={cn(
-            "grid gap-5",
-            isMobile ? "grid-cols-1" : "grid-cols-12"
-          )}
-        >
-          {/* Left column — content feed */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className={cn(isMobile ? "" : "col-span-7 space-y-5")}
-          >
-            {/* Overdue */}
-            {stats.overdue.length > 0 && (
-              <Card className="border-destructive/15 bg-destructive/[0.02]">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2 text-destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    Atrasados
-                    <Badge variant="destructive" className="ml-auto text-[10px] h-5">
-                      {stats.overdue.length}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  {stats.overdue.slice(0, 4).map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-3 p-2 rounded-md hover:bg-destructive/5 transition-colors cursor-pointer"
-                      onClick={() => onOpenItem?.(item.id)}
-                    >
-                      <div className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{item.title || "Sem título"}</p>
-                        <span className="text-[11px] text-muted-foreground">
-                          {getClientName(item.client_id)}
-                          {item.scheduled_at && (
-                            <> · {format(new Date(item.scheduled_at), "dd/MM")}</>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {stats.overdue.length > 4 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full text-xs text-destructive/70 hover:text-destructive"
-                      onClick={() =>
-                        handleFilter({
-                          type: "kpi",
-                          value: "overdue",
-                          label: "Atrasados",
-                        })
-                      }
-                    >
-                      Ver todos ({stats.overdue.length}){" "}
-                      <ArrowRight className="h-3 w-3 ml-1" />
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Today */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-primary" />
-                  Hoje
-                  <span className="text-muted-foreground font-normal ml-1">
-                    ({stats.today.length})
-                  </span>
-                  {stats.tomorrow.length > 0 && (
-                    <span className="ml-auto text-[11px] text-muted-foreground/60 font-normal">
-                      Amanhã: {stats.tomorrow.length}
-                    </span>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {stats.today.length === 0 ? (
-                  <div className="py-8 text-center">
-                    <Sparkles className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">
-                      Agenda livre hoje
-                    </p>
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      {stats.tomorrow.length > 0
-                        ? `${stats.tomorrow.length} item${stats.tomorrow.length > 1 ? "s" : ""} amanhã`
-                        : "Nenhum item agendado para os próximos dias"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {stats.today.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/30 transition-colors cursor-pointer group"
-                        onClick={() => onOpenItem?.(item.id)}
-                      >
-                        <div
-                          className={cn(
-                            "w-2 h-2 rounded-full shrink-0",
-                            statusDots[item.status]
-                          )}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm truncate group-hover:text-foreground transition-colors">
-                            {item.title || "Sem título"}
-                          </p>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] text-muted-foreground">
-                              {getClientName(item.client_id)}
-                            </span>
-                          </div>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[10px] border shrink-0",
-                            statusBg[item.status]
-                          )}
-                        >
-                          {statusLabels[item.status] || item.status}
-                        </Badge>
-                        {item.platform &&
-                          (() => {
-                            const Icon = platformIcons[item.platform];
-                            return Icon ? (
-                              <Icon className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-                            ) : null;
-                          })()}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Recently Published */}
-            {recentlyPublished.length > 0 && (
-              <Card>
-                <CardHeader className="pb-2">
+            {/* Upcoming posts */}
+            <motion.section
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.18 }}
+              className={cn(isMobile ? "" : "col-span-4")}
+              aria-labelledby="dashboard-upcoming-title"
+            >
+              <Card className="h-full">
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500/70" />
-                    Publicados recentemente
+                    <CalendarDays className="h-4 w-4 text-primary" />
+                    <span id="dashboard-upcoming-title">Próximos posts</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
-                  {recentlyPublished.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/20 transition-colors cursor-pointer"
-                      onClick={() => onOpenItem?.(item.id)}
-                    >
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/50 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate text-muted-foreground">
-                          {item.title || "Sem título"}
-                        </p>
-                      </div>
-                      <span className="text-[11px] text-muted-foreground/60 shrink-0">
-                        {getClientName(item.client_id)}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground/40 shrink-0">
-                        {format(new Date(item.updated_at), "dd/MM")}
-                      </span>
+                  {isLoadingUpcoming ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={i} className="h-12 rounded-md" />
+                      ))}
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-          </motion.div>
-
-          {/* Right column — Pipeline + Clients */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className={cn(isMobile ? "" : "col-span-5 space-y-5")}
-          >
-            {/* Pipeline */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Pipeline
-                  <span className="ml-auto text-xs font-normal text-muted-foreground tabular-nums">
-                    {pipelineTotal} ativos
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2.5">
-                {pipelineStatuses.map((status) => {
-                  const count = stats.byStatus[status] || 0;
-                  const pct = pipelineTotal > 0 ? (count / pipelineTotal) * 100 : 0;
-                  const isActive =
-                    activeFilter?.type === "status" &&
-                    activeFilter.value === status;
-                  return (
-                    <div
-                      key={status}
-                      className={cn(
-                        "flex items-center gap-3 p-2 rounded-md cursor-pointer transition-all",
-                        isActive
-                          ? "bg-primary/5 ring-1 ring-primary/20"
-                          : "hover:bg-muted/30"
-                      )}
-                      onClick={() =>
-                        handleFilter({
-                          type: "status",
-                          value: status,
-                          label: statusLabels[status] || status,
-                        })
-                      }
-                    >
-                      <div className="flex items-center gap-2 w-24 shrink-0">
-                        {statusIcon(status)}
-                        <span className="text-xs text-muted-foreground">
-                          {statusLabels[status]}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            transition={{ delay: 0.3, duration: 0.6 }}
+                  ) : !upcomingPosts || upcomingPosts.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <Clock className="h-7 w-7 text-muted-foreground/20 mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground">
+                        Nenhum post agendado próximos 14 dias.
+                      </p>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="text-xs mt-1 h-auto p-0"
+                        onClick={() => onNavigate("planning")}
+                      >
+                        Agendar agora →
+                      </Button>
+                    </div>
+                  ) : (
+                    upcomingPosts.map((p) => {
+                      const branding = getNetworkBranding(p.platform);
+                      const NetIcon = branding.icon;
+                      const clientName =
+                        clients?.find((c) => c.id === p.clientId)?.name ??
+                        "—";
+                      const date = p.scheduledAt
+                        ? new Date(p.scheduledAt)
+                        : null;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => onOpenItem?.(p.id)}
+                          className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent/40 transition-colors text-left"
+                        >
+                          <div
                             className={cn(
-                              "h-full rounded-full",
-                              statusDots[status]
+                              "h-8 w-8 rounded-md flex items-center justify-center shrink-0",
+                              branding.bgGradient,
                             )}
-                          />
-                        </div>
-                      </div>
-                      <span className="text-sm font-medium tabular-nums w-8 text-right">
-                        {count}
-                      </span>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-
-            {/* Clients */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Clientes
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1">
-                {stats.byClient.slice(0, 10).map(({ clientId, total, pending, published, review }) => {
-                  const avatarUrl = getClientAvatar(clientId);
-                  const isActive =
-                    activeFilter?.type === "client" &&
-                    activeFilter.value === clientId;
-                  const pubPct = total > 0 ? (published / total) * 100 : 0;
-                  return (
-                    <div
-                      key={clientId}
-                      className={cn(
-                        "flex items-center gap-3 p-2 rounded-md cursor-pointer transition-all",
-                        isActive
-                          ? "bg-primary/5 ring-1 ring-primary/20"
-                          : "hover:bg-muted/30"
-                      )}
-                      onClick={() =>
-                        handleFilter({
-                          type: "client",
-                          value: clientId,
-                          label: getClientName(clientId),
-                        })
-                      }
-                    >
-                      <Avatar className="h-7 w-7 rounded-md shrink-0">
-                        {avatarUrl && <AvatarImage src={avatarUrl} />}
-                        <AvatarFallback className="rounded-md bg-primary/10 text-primary text-[10px] font-medium">
-                          {getClientName(clientId).charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {getClientName(clientId)}
-                        </p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <div className="flex-1 h-1 rounded-full bg-muted/50 overflow-hidden max-w-[80px]">
-                            <div
-                              className="h-full rounded-full bg-emerald-500/60"
-                              style={{ width: `${pubPct}%` }}
+                          >
+                            <NetIcon
+                              className={cn(
+                                "h-3.5 w-3.5",
+                                branding.iconOnBgClass,
+                              )}
                             />
                           </div>
-                          <span className="text-[10px] text-muted-foreground/60">
-                            {published}/{total}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {review > 0 && (
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Badge
-                                variant="outline"
-                                className="text-[9px] h-4 px-1 border-yellow-500/30 text-yellow-400"
-                              >
-                                {review}
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent side="left">
-                              {review} em revisão
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {pending}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-
-            {/* Platform distribution */}
-            {Object.keys(stats.byPlatform).length > 0 && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Plataformas</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(stats.byPlatform)
-                      .sort(([, a], [, b]) => b - a)
-                      .map(([platform, count]) => {
-                        const Icon = platformIcons[platform];
-                        return (
-                          <div
-                            key={platform}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-muted/30 border border-border/30"
-                          >
-                            {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground/70" />}
-                            <span className="text-xs text-muted-foreground capitalize">
-                              {platform}
-                            </span>
-                            <span className="text-xs font-medium tabular-nums">
-                              {count}
-                            </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {p.title || "Sem título"}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {clientName}
+                              {date && (
+                                <>
+                                  {" · "}
+                                  {format(date, "EEE, dd/MM HH:mm", {
+                                    locale: ptBR,
+                                  })}
+                                </>
+                              )}
+                            </p>
                           </div>
-                        );
-                      })}
-                  </div>
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
+                        </button>
+                      );
+                    })
+                  )}
                 </CardContent>
               </Card>
-            )}
-          </motion.div>
-        </div>
-
-        {/* ─── Atividade recente + Radar viral ─── */}
-        <div className={cn("grid gap-5", isMobile ? "grid-cols-1" : "grid-cols-2")}>
-          <RecentActivity />
-          <RadarHighlights onNavigate={onNavigate} />
-        </div>
-
-        {/* ─── Top conteúdo do cliente com mais atividade no pipeline ─── */}
-        {stats.byClient[0]?.clientId && (
-          <TopViralContentCard
-            clientId={stats.byClient[0].clientId}
-            limit={5}
-            onNavigate={onNavigate}
-            onItemClick={() => {
-              // Top items são da client_content_library — abrir biblioteca
-              // do cliente em foco. URL `client=` já tá setada (auto-select).
-              if (onSelectClient) onSelectClient(stats.byClient[0].clientId, "library");
-              else onNavigate("library");
-            }}
-          />
+            </motion.section>
+          </div>
         )}
 
-        {/* ─── Weekly Timeline ─── */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <CalendarDays className="h-4 w-4" />
-                Semana
-                <span className="font-normal text-muted-foreground">
-                  {format(weekStart, "d MMM", { locale: ptBR })} –{" "}
-                  {format(weekEnd, "d MMM", { locale: ptBR })}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className={cn(
-                  "grid gap-2",
-                  isMobile ? "grid-cols-1" : "grid-cols-7"
-                )}
-              >
-                {weeklyTimeline.map(({ date, items }) => {
-                  const isCurrentDay = isToday(date);
-                  const isPastDay = isPast(date) && !isToday(date);
-                  return (
+        {/* ─── ATIVIDADE RECENTE ─── */}
+        {hasClients && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22 }}
+          >
+            <RecentActivity />
+          </motion.section>
+        )}
+
+        {/* ─── SETUP CHECKLIST (só se incompleto) ─── */}
+        {setupPct < 100 && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+          >
+            <Card className="relative overflow-hidden border-primary/30 bg-gradient-to-br from-primary/[0.05] via-background to-transparent">
+              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+              <CardHeader className="pb-3 relative">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  Configure o KAI
+                  <Badge
+                    variant="outline"
+                    className="ml-auto text-[10px] h-5 border-primary/30 text-primary bg-primary/5"
+                  >
+                    {setupPct}% completo
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 relative">
+                {setupItems.map((item) => (
+                  <div
+                    key={item.key}
+                    className="flex items-center gap-3 py-1.5"
+                  >
                     <div
-                      key={date.toISOString()}
                       className={cn(
-                        "rounded-lg border p-2.5 min-h-[100px] transition-colors",
-                        isCurrentDay
-                          ? "border-primary/40 bg-primary/[0.03]"
-                          : isPastDay
-                          ? "border-border/30 bg-muted/10 opacity-60"
-                          : "border-border/30 hover:border-border/60"
+                        "h-5 w-5 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                        item.done
+                          ? "bg-emerald-500/15 text-emerald-500"
+                          : "bg-muted/50 text-muted-foreground/50",
                       )}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <span
-                          className={cn(
-                            "text-[11px] font-medium uppercase tracking-wider",
-                            isCurrentDay
-                              ? "text-primary"
-                              : "text-muted-foreground/70"
-                          )}
-                        >
-                          {format(date, "EEE", { locale: ptBR })}
-                        </span>
-                        <span
-                          className={cn(
-                            "text-xs tabular-nums",
-                            isCurrentDay
-                              ? "text-primary font-semibold bg-primary/10 w-6 h-6 rounded-full flex items-center justify-center"
-                              : "text-muted-foreground/60"
-                          )}
-                        >
-                          {format(date, "d")}
-                        </span>
-                      </div>
-                      {items.length === 0 ? (
-                        <div className="flex items-center justify-center h-12">
-                          <span className="text-[10px] text-muted-foreground/30">
-                            —
-                          </span>
-                        </div>
+                      {item.done ? (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
                       ) : (
-                        <div className="space-y-1">
-                          {items.slice(0, 3).map((item) => (
-                            <Tooltip key={item.id}>
-                              <TooltipTrigger asChild>
-                                <div
-                                  className={cn(
-                                    "flex items-center gap-1.5 px-1.5 py-1 rounded text-[11px] cursor-pointer transition-colors",
-                                    "hover:bg-muted/30"
-                                  )}
-                                  onClick={() => onOpenItem?.(item.id)}
-                                >
-                                  <div
-                                    className={cn(
-                                      "w-1.5 h-1.5 rounded-full shrink-0",
-                                      statusDots[item.status]
-                                    )}
-                                  />
-                                  <span className="truncate flex-1">
-                                    {item.title || "—"}
-                                  </span>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-[200px]">
-                                <p className="font-medium text-xs">
-                                  {item.title || "Sem título"}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  {getClientName(item.client_id)} ·{" "}
-                                  {statusLabels[item.status]}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ))}
-                          {items.length > 3 && (
-                            <span className="text-[10px] text-muted-foreground/50 pl-1.5">
-                              +{items.length - 3} mais
-                            </span>
-                          )}
-                        </div>
+                        <span className="h-2 w-2 rounded-full bg-current" />
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+                    <span
+                      className={cn(
+                        "text-sm flex-1",
+                        item.done
+                          ? "text-muted-foreground line-through"
+                          : "text-foreground",
+                      )}
+                    >
+                      {item.label}
+                    </span>
+                    {!item.done && item.cta && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs gap-1 text-primary hover:bg-primary/10"
+                        onClick={() => onNavigate(item.cta!.tab)}
+                      >
+                        {item.cta.label}
+                        <ArrowRight className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </motion.section>
+        )}
+
+        {/* ─── EMPTY STATE GLOBAL — sem clientes ─── */}
+        {!isLoadingClients && !hasClients && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="border-dashed">
+              <CardContent className="py-10 text-center">
+                <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                <h3 className="text-base font-semibold mb-1">
+                  Nenhum cliente cadastrado ainda
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+                  Comece criando seu primeiro cliente — assim destrava todas
+                  as ferramentas (carrossel, reels, radar, performance).
+                </p>
+                <Button onClick={() => onNavigate("clients")} className="gap-2">
+                  <Users className="h-4 w-4" />
+                  Cadastrar primeiro cliente
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.section>
+        )}
       </div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pendency Tile (helper)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface PendencyTileProps {
+  icon: React.ElementType;
+  label: string;
+  count: number;
+  hint: string;
+  tone: "danger" | "warning" | "info" | "neutral";
+  onClick: () => void;
+  fallback?: string;
+}
+
+function PendencyTile({
+  icon: Icon,
+  label,
+  count,
+  hint,
+  tone,
+  onClick,
+  fallback,
+}: PendencyTileProps) {
+  const toneClasses: Record<PendencyTileProps["tone"], string> = {
+    danger: "bg-destructive/10 text-destructive",
+    warning: "bg-amber-500/10 text-amber-500",
+    info: "bg-primary/10 text-primary",
+    neutral: "bg-muted/40 text-muted-foreground",
+  };
+  const showCount = count > 0;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-start gap-3 p-3 rounded-lg border border-border/40 bg-card/40 hover:bg-accent/40 hover:border-border/80 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    >
+      <div
+        className={cn(
+          "h-9 w-9 rounded-md flex items-center justify-center shrink-0",
+          toneClasses[tone],
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2">
+          {showCount ? (
+            <>
+              <span className="text-2xl font-semibold tabular-nums leading-none text-foreground">
+                {count}
+              </span>
+              <span className="text-xs text-muted-foreground truncate">
+                {label}
+              </span>
+            </>
+          ) : (
+            <span className="text-sm font-medium text-foreground/80 truncate">
+              {fallback ?? label}
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">
+          {hint}
+        </p>
+      </div>
+    </button>
   );
 }

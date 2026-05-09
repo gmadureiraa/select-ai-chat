@@ -5,10 +5,19 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Line, LineChart, ResponsiveContainer } from 'recharts';
+import {
   TrendingUp,
   Heart,
   Eye,
   AlertTriangle,
+  Flame,
+  Info,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -17,6 +26,7 @@ import {
   type MetricoolNetwork,
   aggregatePostsMetrics,
 } from '@/hooks/useMetricoolPerformance';
+import { useHistoricalSnapshots } from '@/hooks/useHistoricalSnapshots';
 import {
   CORE_NETWORKS,
   getNetworkBranding,
@@ -53,9 +63,21 @@ interface PlatformRow {
   posts: number;
   engagement: number;
   reach: number;
+  /**
+   * Quando true, o `reach` mostrado é fallback de impressions/views porque
+   * a Metricool API não retornou `reach` real (típico de Twitter/Threads/LinkedIn).
+   * Usado pra exibir tooltip explicando a métrica.
+   */
+  reachIsFallback: boolean;
   followers: number;
   followersChange: number;
+  /** % de crescimento de followers no período (vs primeiro snapshot disponível). */
+  growthPct: number;
+  /** Série de followers nos últimos N dias pra sparkline inline. */
+  followersSeries: Array<{ value: number }>;
   loading: boolean;
+  /** Marcação visual: rede com maior crescimento % do período. */
+  isHotLeader: boolean;
 }
 
 function ComparisonRow({ row, maxPosts, maxReach, maxEng }: {
@@ -80,8 +102,29 @@ function ComparisonRow({ row, maxPosts, maxReach, maxEng }: {
         >
           <Icon className="h-4 w-4" />
         </div>
-        <div className="min-w-0">
-          <div className="text-sm font-semibold truncate">{row.label}</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold truncate flex items-center gap-1">
+            {row.label}
+            {row.isHotLeader && (
+              <TooltipProvider delayDuration={150}>
+                <UITooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="inline-flex items-center gap-0.5 rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 text-[9px] font-bold"
+                      aria-label="Maior crescimento da semana"
+                    >
+                      <Flame className="h-2.5 w-2.5" />
+                      HOT
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    Maior crescimento de seguidores no período ({row.growthPct >= 0 ? '+' : ''}
+                    {row.growthPct.toFixed(2)}%)
+                  </TooltipContent>
+                </UITooltip>
+              </TooltipProvider>
+            )}
+          </div>
           <div className="text-[10px] text-muted-foreground tabular-nums">
             {fmt(row.followers)} seguidores
             {row.followersChange !== 0 && (
@@ -90,6 +133,26 @@ function ComparisonRow({ row, maxPosts, maxReach, maxEng }: {
               </span>
             )}
           </div>
+          {/* Mini sparkline 30d de followers (snapshots locais) */}
+          {row.followersSeries.length >= 2 && (
+            <div className="h-5 mt-0.5 max-w-[140px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={row.followersSeries}
+                  margin={{ top: 1, right: 0, left: 0, bottom: 1 }}
+                >
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke={branding.primaryHex}
+                    strokeWidth={1.4}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
 
@@ -110,7 +173,22 @@ function ComparisonRow({ row, maxPosts, maxReach, maxEng }: {
       </div>
 
       <div className="col-span-3">
-        <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Alcance</div>
+        <div className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+          Alcance
+          {row.reachIsFallback && (
+            <TooltipProvider delayDuration={150}>
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-2.5 w-2.5 text-muted-foreground/70 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[220px]">
+                  {row.label} não retorna alcance — usando impressões como
+                  proxy. Eng% recalculado sobre impressões.
+                </TooltipContent>
+              </UITooltip>
+            </TooltipProvider>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <div className="text-sm font-bold tabular-nums w-12">{fmt(row.reach)}</div>
           <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -154,7 +232,7 @@ export function CrossPlatformComparison({ clientId, period, archivedChannels = [
     [archivedChannels],
   );
 
-  // Hooks paralelos por plataforma
+  // Hooks paralelos por plataforma (posts)
   const igQ = useMetricoolPosts(clientId, 'instagram', period);
   const twQ = useMetricoolPosts(clientId, 'twitter', period);
   const thQ = useMetricoolPosts(clientId, 'threads', period);
@@ -162,6 +240,18 @@ export function CrossPlatformComparison({ clientId, period, archivedChannels = [
   const ttQ = useMetricoolPosts(clientId, 'tiktok', period);
   const ytQ = useMetricoolPosts(clientId, 'youtube', period);
   const fbQ = useMetricoolPosts(clientId, 'facebook', period);
+
+  // Snapshots históricos (followers) por plataforma — pra sparkline + growth%.
+  // Período usado pra sparkline = max(period, 30) pra evitar linha plana
+  // quando user seleciona "7d" (3-4 pontos não dão visual).
+  const snapPeriod = Math.max(period, 30);
+  const igSnap = useHistoricalSnapshots(clientId, 'instagram', snapPeriod);
+  const twSnap = useHistoricalSnapshots(clientId, 'twitter', snapPeriod);
+  const thSnap = useHistoricalSnapshots(clientId, 'threads', snapPeriod);
+  const liSnap = useHistoricalSnapshots(clientId, 'linkedin', snapPeriod);
+  const ttSnap = useHistoricalSnapshots(clientId, 'tiktok', snapPeriod);
+  const ytSnap = useHistoricalSnapshots(clientId, 'youtube', snapPeriod);
+  const fbSnap = useHistoricalSnapshots(clientId, 'facebook', snapPeriod);
 
   const queries: Record<MetricoolNetwork, ReturnType<typeof useMetricoolPosts>> = {
     instagram: igQ,
@@ -175,12 +265,45 @@ export function CrossPlatformComparison({ clientId, period, archivedChannels = [
     bluesky: igQ,
   };
 
+  const snapsByNet: Record<MetricoolNetwork, ReturnType<typeof useHistoricalSnapshots>> = {
+    instagram: igSnap,
+    twitter: twSnap,
+    threads: thSnap,
+    linkedin: liSnap,
+    tiktok: ttSnap,
+    youtube: ytSnap,
+    facebook: fbSnap,
+    pinterest: igSnap,
+    bluesky: igSnap,
+  };
+
   const rows: PlatformRow[] = useMemo(() => {
     return visiblePlatforms.map((p) => {
       const q = queries[p.id];
       const posts = q.data || [];
       const agg = aggregatePostsMetrics(posts);
       const ps = summary?.platforms?.[p.id];
+      const snaps = snapsByNet[p.id]?.data?.snapshots || [];
+
+      // Reach fallback: redes sem reach real (Twitter/Threads/LinkedIn)
+      // recebem impressions como denom. Se totalReach=0 mas há impressions,
+      // usamos impressions como proxy de "alcance" pra UI ficar útil.
+      const reachIsFallback = agg.totalReach === 0 && agg.totalImpressions > 0;
+      const displayReach = reachIsFallback ? agg.totalImpressions : agg.totalReach;
+
+      // Series pra sparkline (followers > 0 only, ordenado ASC por data)
+      const followersSeries = snaps
+        .filter((s) => s.followers != null && s.followers > 0)
+        .map((s) => ({ value: s.followers as number }));
+
+      // Growth % = baseline (1º não-zero) → último
+      let growthPct = 0;
+      if (followersSeries.length >= 2) {
+        const baseline = followersSeries[0].value;
+        const latest = followersSeries[followersSeries.length - 1].value;
+        growthPct = baseline > 0 ? ((latest - baseline) / baseline) * 100 : 0;
+      }
+
       return {
         id: p.id,
         label: p.label,
@@ -188,17 +311,40 @@ export function CrossPlatformComparison({ clientId, period, archivedChannels = [
         branding: p.branding,
         posts: posts.length,
         engagement: agg.avgEngagementRate,
-        reach: agg.totalReach,
+        reach: displayReach,
+        reachIsFallback,
         followers: ps?.followerStats?.current ?? 0,
         followersChange: ps?.followerStats?.change7d ?? 0,
+        growthPct,
+        followersSeries,
         loading: q.isLoading,
+        isHotLeader: false, // resolvido no segundo pass abaixo
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visiblePlatforms, igQ.data, twQ.data, thQ.data, liQ.data, ttQ.data, ytQ.data, fbQ.data, summary, igQ.isLoading, twQ.isLoading, thQ.isLoading, liQ.isLoading, ttQ.isLoading, ytQ.isLoading, fbQ.isLoading]);
+  }, [
+    visiblePlatforms,
+    igQ.data, twQ.data, thQ.data, liQ.data, ttQ.data, ytQ.data, fbQ.data,
+    summary,
+    igQ.isLoading, twQ.isLoading, thQ.isLoading, liQ.isLoading, ttQ.isLoading, ytQ.isLoading, fbQ.isLoading,
+    igSnap.data, twSnap.data, thSnap.data, liSnap.data, ttSnap.data, ytSnap.data, fbSnap.data,
+  ]);
 
-  const isLoading = rows.some((r) => r.loading);
-  const activePlatforms = rows.filter((r) => r.posts > 0 || r.followers > 0);
+  // Marca a rede com maior growth% (entre as que têm > 0 — só conta crescimento positivo).
+  // Empate: pega a primeira da lista visível (estável visualmente).
+  const hotLeaderId = useMemo(() => {
+    const positives = rows.filter((r) => r.growthPct > 0);
+    if (positives.length === 0) return null;
+    return positives.reduce((a, b) => (b.growthPct > a.growthPct ? b : a)).id;
+  }, [rows]);
+
+  const decoratedRows = useMemo(
+    () => rows.map((r) => ({ ...r, isHotLeader: r.id === hotLeaderId })),
+    [rows, hotLeaderId],
+  );
+
+  const isLoading = decoratedRows.some((r) => r.loading);
+  const activePlatforms = decoratedRows.filter((r) => r.posts > 0 || r.followers > 0);
   const sorted = (metric: 'posts' | 'reach' | 'engagement') =>
     [...activePlatforms].sort((a, b) => (b as any)[metric] - (a as any)[metric]);
 

@@ -99,9 +99,10 @@ const ViralFeatureGate = lazy(() =>
 // Placeholders foram substituídos pelas tabs reais (ViralSequenceTab, ViralReelsTab,
 // ViralRadarTab) — os arquivos *.deprecated.tsx ficam no repo só como referência
 // histórica e não são mais importados em lugar nenhum.
-const MCPDocsTab = lazy(() =>
-  import("@/components/kai/MCPDocsTab").then((m) => ({ default: m.MCPDocsTab })),
-);
+//
+// 2026-05-09 — MCPDocsTab removido como rota top-level (?tab=mcp). Continua
+// importado eagerly dentro de SettingsTab (section "mcp"). Bookmark antigo
+// `?tab=mcp` redireciona pra `?tab=settings&section=mcp` no useEffect acima.
 const ClientsManagementTool = lazy(() =>
   import("@/components/kai/tools/ClientsManagementTool").then((m) => ({
     default: m.ClientsManagementTool,
@@ -222,12 +223,13 @@ export default function Kai() {
 
     // Tabs reorganizadas 2026-05-09 — viraram sections em Settings ou
     // sub-tabs no Perfil do Cliente. Redirect inline preserva bookmarks.
-    // workspace-settings/workspace-members/radar-sources-admin → Settings
+    // workspace-settings/workspace-members/radar-sources-admin/mcp → Settings
     // hashtags/competitors/reports → Perfil do Cliente (tab Viral)
     const redirectToSettings: Record<string, string> = {
       "workspace-settings": "workspace",
       "workspace-members": "members",
       "radar-sources-admin": "radar-sources",
+      "mcp": "mcp",
     };
     if (tab in redirectToSettings) {
       const params = new URLSearchParams(searchParams);
@@ -347,14 +349,14 @@ export default function Kai() {
     // do cliente (client_reference_library) com scenes/slides/format.
     const toolTabs = [
       "clients", "settings", "automations", "assistant", "home",
-      "mcp",
       // Grupo "Viral" único (globais, não precisam de cliente):
       "viral-carrossel", "viral-reels-page", "viral-radar-page",
       // Metricool: só inbox unificado fica global (push notifications de DMs).
       "inbox",
       // 2026-05-09: removidos workspace-settings, workspace-members,
       // radar-sources-admin (viraram sections em Settings); hashtags,
-      // competitors, reports (viraram per-client no Perfil → Viral).
+      // competitors, reports (viraram per-client no Perfil → Viral);
+      // mcp (virou section em Settings → Sistema → MCP kAI).
       // Esses tabs agora redirecionam via useEffect logo no topo.
     ];
 
@@ -402,8 +404,8 @@ export default function Kai() {
           ) : (
             <ClientRequiredEmpty message="Escolha um cliente para ver o radar de tendências e oportunidades virais." />
           );
-        case "mcp":
-          return <MCPDocsTab />;
+        // case "mcp" removido 2026-05-09 — agora é section dentro de Settings
+        // (Settings → Sistema → MCP kAI). Tab antigo redireciona via useEffect.
         case "inbox":
           return selectedClient ? (
             <MetricoolInboxPanel clientId={selectedClient.id} />
