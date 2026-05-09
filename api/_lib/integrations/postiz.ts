@@ -88,8 +88,11 @@ export const POSTIZ_PLATFORM_MAP: Record<string, { identifier: string; type: str
   twitter:   { identifier: 'x',         type: 'x' },
   x:         { identifier: 'x',         type: 'x' },
   linkedin:  { identifier: 'linkedin',  type: 'linkedin' },
+  'linkedin-page': { identifier: 'linkedin-page', type: 'linkedin-page' },
   instagram: { identifier: 'instagram', type: 'instagram' },
+  'instagram-standalone': { identifier: 'instagram-standalone', type: 'instagram-standalone' },
   facebook:  { identifier: 'facebook',  type: 'facebook' },
+  'facebook-page': { identifier: 'facebook-page', type: 'facebook-page' },
   threads:   { identifier: 'threads',   type: 'threads' },
   tiktok:    { identifier: 'tiktok',    type: 'tiktok' },
   youtube:   { identifier: 'youtube',   type: 'youtube' },
@@ -227,7 +230,7 @@ export async function uploadFromUrl(cfg: PostizConfig, fileUrl: string): Promise
 export function buildPlatformSettings(
   platform: string,
   opts: {
-    contentType?: string; // 'reel' | 'post' | 'story' | 'feed' (instagram)
+    contentType?: string; // 'reel' | 'post' | 'story' | 'carousel' | 'feed' (instagram)
     firstComment?: string;
     title?: string;
     privacyLevel?: string; // tiktok
@@ -236,7 +239,14 @@ export function buildPlatformSettings(
   } = {},
 ): PostizPlatformSettings {
   const map = POSTIZ_PLATFORM_MAP[platform] || POSTIZ_PLATFORM_MAP[platform.toLowerCase()];
-  const __type = map?.type || platform;
+  let __type = map?.type || platform;
+
+  // Instagram STORY exige __type='instagram-standalone' (Postiz spec).
+  // Reel e Carousel usam o mesmo __type='instagram' — Postiz detecta automaticamente
+  // por mídia (vídeo MP4 = Reel; >=2 imagens = Carousel).
+  if (__type === 'instagram' && (opts.contentType === 'story' || opts.extra?.post_type === 'story')) {
+    __type = 'instagram-standalone';
+  }
 
   const settings: PostizPlatformSettings = { __type };
 
@@ -244,16 +254,29 @@ export function buildPlatformSettings(
     case 'x':
       // Doc exige who_can_reply_post.
       settings.who_can_reply_post = opts.extra?.who_can_reply_post || 'everyone';
+      settings.community = (opts.extra?.community as string) ?? '';
       break;
     case 'instagram':
-      // Doc exige post_type.
-      settings.post_type = opts.contentType || opts.extra?.post_type || 'post';
+      // Doc exige post_type ('post' | 'story') — Reel/Carousel = post_type='post' com mídia diferente.
+      // Se contentType for 'reel' ou 'carousel', mapeia pra 'post' (correto pelo spec Postiz).
+      const ct = opts.contentType || (opts.extra?.post_type as string) || 'post';
+      settings.post_type = (ct === 'reel' || ct === 'carousel' || ct === 'feed') ? 'post' : ct;
+      settings.is_trial_reel = (opts.extra?.is_trial_reel as boolean) ?? false;
+      settings.collaborators = (opts.extra?.collaborators as unknown[]) ?? [];
       if (opts.firstComment) settings.firstComment = opts.firstComment;
       break;
+    case 'instagram-standalone':
+      // Story-only — só __type + post_type='story' + collaborators[].
+      settings.post_type = 'story';
+      settings.is_trial_reel = false;
+      settings.collaborators = (opts.extra?.collaborators as unknown[]) ?? [];
+      break;
     case 'youtube':
-      // Doc exige title, type.
+      // Doc exige title, type, selfDeclaredMadeForKids, tags.
       settings.title = opts.title || (opts.extra?.title as string) || 'Untitled';
       settings.type = (opts.extra?.type as string) || 'public';
+      settings.selfDeclaredMadeForKids = (opts.extra?.selfDeclaredMadeForKids as string) || 'no';
+      settings.tags = (opts.extra?.tags as Array<{ value: string; label: string }>) ?? [];
       break;
     case 'tiktok':
       // Doc exige privacy_level, duet, stitch, comment, autoAddMusic, brand_content_toggle, brand_organic_toggle, content_posting_method.
@@ -338,7 +361,8 @@ export async function buildPostValue(
   if (args.threadItems && args.threadItems.length > 0) {
     const out: PostizPostItemValue[] = [];
     for (const item of args.threadItems) {
-      const value: PostizPostItemValue = { content: item.text };
+      // Postiz exige `image` sempre como array (mesmo vazio).
+      const value: PostizPostItemValue = { content: item.text, image: [] };
       if (item.media_urls?.length) {
         value.image = await ensureMediaItems(cfg, item.media_urls.map((u) => ({ url: u })));
       }
@@ -347,7 +371,8 @@ export async function buildPostValue(
     return out;
   }
 
-  const value: PostizPostItemValue = { content: args.content || '' };
+  // Postiz exige `image` sempre como array (mesmo vazio) — caso contrário 400.
+  const value: PostizPostItemValue = { content: args.content || '', image: [] };
   if (args.mediaUrls?.length) {
     value.image = await ensureMediaItems(cfg, args.mediaUrls.map((u) => ({ url: u })));
   }

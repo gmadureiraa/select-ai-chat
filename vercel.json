@@ -41,6 +41,10 @@
     {
       "path": "/api/cron-generate-daily-brief",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron-postiz-poll",
+      "schedule": "*/15 * * * *"
     }
   ],
   "headers": [

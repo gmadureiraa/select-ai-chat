@@ -11,6 +11,7 @@ export const handlerLoaders: Record<string, () => Promise<any>> = {
   'client-add-source': () => import('./_handlers/client-add-source.js'),
   'client-context': () => import('./_handlers/client-context.js'),
   'cron-generate-daily-brief': () => import('./_handlers/cron-generate-daily-brief.js'),
+  'cron-postiz-poll': () => import('./_handlers/cron-postiz-poll.js'),
   'cron-radar-master': () => import('./_handlers/cron-radar-master.js'),
   'cron-scrape-instagram': () => import('./_handlers/cron-scrape-instagram.js'),
   'cron-scrape-linkedin': () => import('./_handlers/cron-scrape-linkedin.js'),
