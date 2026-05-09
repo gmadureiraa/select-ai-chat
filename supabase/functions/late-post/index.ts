@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const LATE_API_BASE = "https://getlate.dev/api";
+const LATE_API_BASE = "https://zernio.com/api";
 
 interface ThreadItem {
   id?: string;
@@ -258,7 +258,7 @@ serve(async (req: Request) => {
       }
     }
 
-    const LATE_API_KEY = Deno.env.get("LATE_API_KEY");
+    const LATE_API_KEY = (Deno.env.get("ZERNIO_API_KEY") ?? Deno.env.get("LATE_API_KEY"));
     if (!LATE_API_KEY) {
       return new Response(JSON.stringify({ error: "LATE_API_KEY não configurada" }), {
         status: 500,

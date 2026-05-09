@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const LATE_API_BASE = "https://getlate.dev/api/v1";
+const LATE_API_BASE = "https://zernio.com/api/v1";
 
 interface VerifyResult {
   platform: string;
@@ -31,7 +31,7 @@ serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lateApiKey = Deno.env.get("LATE_API_KEY");
+    const lateApiKey = (Deno.env.get("ZERNIO_API_KEY") ?? Deno.env.get("LATE_API_KEY"));
 
     if (!lateApiKey) {
       return new Response(JSON.stringify({ error: "LATE_API_KEY não configurada" }), {
