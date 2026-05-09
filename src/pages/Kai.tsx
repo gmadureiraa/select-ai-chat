@@ -42,8 +42,13 @@ function ClientRequiredEmpty({ message }: { message: string }) {
 const HomeDashboard = lazy(() =>
   import("@/components/kai/home/HomeDashboard").then((m) => ({ default: m.HomeDashboard })),
 );
+// Performance refeito 2026-05-09: alimentado 100% por Metricool API.
+// Antigo KaiPerformanceTab.tsx (CSV + Apify scrape) preservado em legacy
+// caso precise rollback.
 const KaiPerformanceTab = lazy(() =>
-  import("@/components/kai/KaiPerformanceTab").then((m) => ({ default: m.KaiPerformanceTab })),
+  import("@/components/kai/performance-v2/MetricoolPerformance").then((m) => ({
+    default: m.MetricoolPerformance,
+  })),
 );
 const KaiLibraryTab = lazy(() =>
   import("@/components/kai/KaiLibraryTab").then((m) => ({ default: m.KaiLibraryTab })),
