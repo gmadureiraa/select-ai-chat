@@ -15,6 +15,10 @@ import { KPICard } from './components/KPICard';
 import { FollowersSparkline } from './components/FollowersSparkline';
 import { PostsGrid } from './components/PostsGrid';
 import { PostsLeaderboard } from './components/PostsLeaderboard';
+import { BestPostHighlight } from './components/BestPostHighlight';
+import { EngagementHeatmap } from './components/EngagementHeatmap';
+import { GrowthDelta } from './components/GrowthDelta';
+import { FormatBreakdown } from './components/FormatBreakdown';
 
 interface Props {
   clientId: string;
@@ -94,7 +98,7 @@ export function InstagramDashboardV2({ clientId, period }: Props) {
         <CardContent className="pt-6">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <span className="kai-eyebrow text-xs">Evolução @ogmadureira</span>
+              <span className="kai-eyebrow text-xs">Evolução de seguidores</span>
               <h3 className="text-sm font-semibold mt-1">Últimos {period} dias</h3>
             </div>
           </div>
@@ -105,6 +109,16 @@ export function InstagramDashboardV2({ clientId, period }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {/* Best post + Growth delta */}
+      <BestPostHighlight posts={[...posts, ...reels, ...stories]} loading={isLoading} network="instagram" />
+      <GrowthDelta clientId={clientId} network="instagram" period={period} />
+
+      {/* Format Breakdown — IG-specific (Posts/Carousel/Reels/Stories) */}
+      <FormatBreakdown posts={posts} reels={reels} stories={stories} loading={isLoading} />
+
+      {/* Engagement Heatmap — combina todos formats */}
+      <EngagementHeatmap posts={[...posts, ...reels]} loading={isLoading} metric="engagement" />
 
       {/* Sub-tabs: Posts | Reels | Stories */}
       <Tabs value={subTab} onValueChange={(v) => setSubTab(v as 'posts' | 'reels' | 'stories')}>

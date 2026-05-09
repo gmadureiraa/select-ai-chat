@@ -139,6 +139,11 @@ const WorkspaceMembersTab = lazy(() =>
 import { MetricoolInboxPanel } from "@/components/metricool/MetricoolInboxPanel";
 import { MetricoolHashtagsTracker } from "@/components/metricool/MetricoolHashtagsTracker";
 import { MetricoolCompetitorsPanel } from "@/components/metricool/MetricoolCompetitorsPanel";
+import { MetricoolReportsManager } from "@/components/metricool/MetricoolReportsManager";
+import { MetricoolCalendarView } from "@/components/metricool/MetricoolCalendarView";
+import { MetricoolSmartLinksManager } from "@/components/metricool/MetricoolSmartLinksManager";
+// MetricoolLinkinBioEditor foi removido do menu (decisão usuário). Código permanece
+// em src/components/metricool/MetricoolLinkinBioEditor.tsx caso seja reativado.
 
 export default function Kai() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -333,8 +338,11 @@ export default function Kai() {
       "radar-sources-admin",
       // Workspace management (owner / admin):
       "workspace-settings", "workspace-members",
-      // Metricool: inbox unificado, hashtags tracker, competitors analysis
-      "inbox", "hashtags", "competitors",
+      // Metricool: inbox unificado, hashtags tracker, competitors analysis,
+      // smart links (encurtador URL), linkin bio (página IG)
+      "inbox", "hashtags", "competitors", "smart-links",
+      // Metricool reports + editorial calendar:
+      "reports", "editorial-calendar",
     ];
 
     if (toolTabs.includes(tab)) {
@@ -419,6 +427,15 @@ export default function Kai() {
           ) : (
             <ClientRequiredEmpty message="Selecione um cliente pra acompanhar concorrentes." />
           );
+        case "smart-links":
+          return selectedClient ? (
+            <div className={cn("overflow-auto h-full", isMobile ? "p-3" : "p-6")}>
+              <MetricoolSmartLinksManager clientId={selectedClient.id} />
+            </div>
+          ) : (
+            <ClientRequiredEmpty message="Selecione um cliente pra gerenciar smart links." />
+          );
+        // 'linkinbio' case removido (feature dispensada pelo usuário)
         case "home":
           return (
             <HomeDashboard

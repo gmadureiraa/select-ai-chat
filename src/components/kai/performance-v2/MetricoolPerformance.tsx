@@ -23,8 +23,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { MetricoolBestTimesCard } from '@/components/metricool/MetricoolBestTimesCard';
 import { PlatformDashboard } from './PlatformDashboard';
 import { InstagramDashboardV2 } from './InstagramDashboard';
+import { CrossPlatformComparison } from './CrossPlatformComparison';
 import type { Client } from '@/hooks/useClients';
 import type { MetricoolNetwork } from '@/hooks/useMetricoolPerformance';
+import { BarChart3 } from 'lucide-react';
 
 interface Props {
   clientId: string;
@@ -49,8 +51,10 @@ const ALL_PLATFORMS: Array<{ id: MetricoolNetwork; label: string; icon: any }> =
   { id: 'facebook', label: 'Facebook', icon: Share2 },
 ];
 
+type ActiveTab = MetricoolNetwork | 'comparison';
+
 export function MetricoolPerformance({ clientId, client }: Props) {
-  const [activeTab, setActiveTab] = useState<MetricoolNetwork>('instagram');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('comparison');
   const [period, setPeriod] = useState<number>(30);
   const qc = useQueryClient();
 
@@ -100,10 +104,17 @@ export function MetricoolPerformance({ clientId, client }: Props) {
       {/* Best Times card — sempre visível acima das tabs */}
       <MetricoolBestTimesCard clientId={clientId} />
 
-      {/* Platform tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as MetricoolNetwork)}>
+      {/* Platform tabs (com Comparativo no início) */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ActiveTab)}>
         <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
           <TabsList className="bg-muted/50 inline-flex min-w-max">
+            <TabsTrigger
+              value="comparison"
+              className="gap-1.5 sm:gap-2 px-2.5 sm:px-4 text-xs sm:text-sm"
+            >
+              <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span>Comparativo</span>
+            </TabsTrigger>
             {platforms.map((p) => (
               <TabsTrigger
                 key={p.id}
@@ -116,6 +127,10 @@ export function MetricoolPerformance({ clientId, client }: Props) {
             ))}
           </TabsList>
         </div>
+
+        <TabsContent value="comparison" className="mt-4">
+          <CrossPlatformComparison clientId={clientId} period={period} />
+        </TabsContent>
 
         {platforms.map((p) => (
           <TabsContent key={p.id} value={p.id} className="mt-4">

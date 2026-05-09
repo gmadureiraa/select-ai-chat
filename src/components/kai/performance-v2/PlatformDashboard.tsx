@@ -14,6 +14,9 @@ import { KPICard } from './components/KPICard';
 import { FollowersSparkline } from './components/FollowersSparkline';
 import { PostsGrid } from './components/PostsGrid';
 import { PostsLeaderboard } from './components/PostsLeaderboard';
+import { BestPostHighlight } from './components/BestPostHighlight';
+import { EngagementHeatmap } from './components/EngagementHeatmap';
+import { GrowthDelta } from './components/GrowthDelta';
 
 interface Props {
   clientId: string;
@@ -85,6 +88,13 @@ export function PlatformDashboard({ clientId, network, period }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {/* Best Post Highlight + Growth Delta */}
+      <BestPostHighlight posts={posts} loading={isLoadingPosts} network={network} />
+      <GrowthDelta clientId={clientId} network={network} period={period} />
+
+      {/* Engagement Heatmap (real, baseado nos posts do cliente) */}
+      <EngagementHeatmap posts={posts} loading={isLoadingPosts} metric="engagement" />
 
       {/* Top 5 leaderboard + Posts grid lado-a-lado em desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

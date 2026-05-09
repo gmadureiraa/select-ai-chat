@@ -757,6 +757,407 @@ export async function getCompetitorPosts(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Reports — Performance Dashboards (`/v2/reporting/campaigns-dashboard`) +
+// Brand reports history (`/v2/brands/{blogId}/reports`) + custom report
+// templates (`/stats/report/*`).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface MetricoolPerformanceDashboard {
+  id: number | string;
+  title?: string;
+  description?: string;
+  from?: string;
+  to?: string;
+  networks?: string[];
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  [key: string]: unknown;
+}
+
+export interface MetricoolDashboardCreationInput {
+  title: string;
+  description: string;
+  from: string; // ISO YYYY-MM-DDTHH:mm:ss
+  to: string;   // ISO YYYY-MM-DDTHH:mm:ss
+  networks: string[]; // ['instagram','facebook','tiktok',...]
+  timezone?: string;
+  autoCategorize?: boolean;
+}
+
+export interface MetricoolReportHistoryItem {
+  creationDate?: string;
+  from?: string;
+  to?: string;
+  rss?: boolean;
+  twitter?: boolean;
+  facebook?: boolean;
+  facebookAds?: boolean;
+  instagram?: boolean;
+  threads?: boolean;
+  bluesky?: boolean;
+  linkedin?: boolean;
+  pinterest?: boolean;
+  tiktok?: boolean;
+  adwords?: boolean;
+  gmb?: boolean;
+  youtube?: boolean;
+  twitch?: boolean;
+  tiktokAds?: boolean;
+  brandSummary?: boolean;
+  reportType?: string;
+  reportFile?: string;
+  status?: 'PENDING' | 'RUNNING' | 'RETRYING' | 'FINISHED' | 'FAILED';
+  engineVersion?: string;
+  jobId?: string;
+  [key: string]: unknown;
+}
+
+export interface MetricoolReportStatusInfo {
+  status?: string;
+  reportPath?: string;
+  [key: string]: unknown;
+}
+
+export interface MetricoolReportTemplate {
+  id: number | string;
+  name?: string;
+  userId?: number;
+  blogId?: number;
+  deleted?: number;
+  [key: string]: unknown;
+}
+
+/** Lista todos os Performance Dashboards ativos da brand. */
+export async function listPerformanceDashboards(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+): Promise<MetricoolPerformanceDashboard[]> {
+  const data = await metricoolFetch<any>(cfg, '/v2/reporting/campaigns-dashboard', { blogId });
+  if (Array.isArray(data)) return data;
+  return data?.data || data?.dashboards || [];
+}
+
+/** Cria novo Performance Dashboard. */
+export async function createPerformanceDashboard(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  input: MetricoolDashboardCreationInput,
+): Promise<MetricoolPerformanceDashboard> {
+  const tz = input.timezone || 'America/Sao_Paulo';
+  const body = {
+    title: input.title,
+    description: input.description,
+    from: { dateTime: input.from, timezone: tz },
+    to: { dateTime: input.to, timezone: tz },
+    networks: input.networks,
+    autoCategorize: input.autoCategorize !== false,
+  };
+  const data = await metricoolFetch<any>(cfg, '/v2/reporting/campaigns-dashboard', {
+    blogId,
+    method: 'POST',
+    body,
+  });
+  return data?.data || data;
+}
+
+export async function getPerformanceDashboard(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  dashboardId: string | number,
+): Promise<MetricoolPerformanceDashboard | null> {
+  const data = await metricoolFetch<any>(
+    cfg,
+    `/v2/reporting/campaigns-dashboard/${dashboardId}`,
+    { blogId },
+  );
+  return data?.data || data || null;
+}
+
+export async function deletePerformanceDashboard(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  dashboardId: string | number,
+): Promise<void> {
+  await metricoolFetch(cfg, `/v2/reporting/campaigns-dashboard/${dashboardId}`, {
+    blogId,
+    method: 'DELETE',
+  });
+}
+
+export async function syncPerformanceDashboard(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  dashboardId: string | number,
+): Promise<any> {
+  return metricoolFetch(cfg, `/v2/reporting/campaigns-dashboard/${dashboardId}/sync`, {
+    blogId,
+    method: 'POST',
+    body: {},
+  });
+}
+
+export async function getPerformanceDashboardAnalytics(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  dashboardId: string | number,
+  networks?: string[],
+): Promise<any> {
+  const search: Record<string, string> = {};
+  if (networks?.length) search.networks = networks.join(',');
+  return metricoolFetch(cfg, `/v2/reporting/campaigns-dashboard/${dashboardId}/analytics`, {
+    blogId,
+    search,
+  });
+}
+
+export async function getPerformanceDashboardInsights(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  dashboardId: string | number,
+): Promise<any> {
+  return metricoolFetch(cfg, `/v2/reporting/campaigns-dashboard/${dashboardId}/insights`, {
+    blogId,
+  });
+}
+
+export async function getPerformanceDashboardBestPosts(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  dashboardId: string | number,
+  metric?: string,
+): Promise<any> {
+  return metricoolFetch(cfg, `/v2/reporting/campaigns-dashboard/${dashboardId}/best-posts`, {
+    blogId,
+    search: metric ? { metric } : undefined,
+  });
+}
+
+/** Histórico de reports (PDFs gerados) da brand. */
+export async function listBrandReports(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+): Promise<MetricoolReportHistoryItem[]> {
+  const data = await metricoolFetch<any>(cfg, `/v2/brands/${blogId}/reports`, { blogId });
+  if (Array.isArray(data)) return data;
+  return data?.data || data?.reports || [];
+}
+
+/** Status de geração de um report (job assíncrono). */
+export async function getBrandReportStatus(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  jobId: string,
+): Promise<MetricoolReportStatusInfo> {
+  const data = await metricoolFetch<any>(cfg, `/v2/brands/${blogId}/reports/${jobId}`, { blogId });
+  return data?.data || data || {};
+}
+
+/** Lista templates de report customizados do usuário. */
+export async function listReportTemplates(
+  cfg: MetricoolConfig,
+): Promise<MetricoolReportTemplate[]> {
+  const data = await metricoolFetch<any>(cfg, '/stats/report/reporttemplateName');
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+export async function getReportTemplateParams(
+  cfg: MetricoolConfig,
+  templateId: string | number,
+): Promise<Record<string, string>> {
+  const data = await metricoolFetch<any>(cfg, '/stats/report/reporttemplateparam', {
+    search: { templateId },
+  });
+  return (data?.data || data || {}) as Record<string, string>;
+}
+
+/** Configuração de reports automáticos (recorrência + emails). */
+export async function getReportConfiguration(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  reportType: string,
+): Promise<any> {
+  return metricoolFetch(cfg, '/v2/analytics/reports/configuration', {
+    blogId,
+    search: { reportType },
+  });
+}
+
+export async function updateReportConfiguration(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  body: {
+    reportType: string;
+    emails?: string[];
+    automaticReportDate?: number;
+    text?: string;
+    subscribe?: boolean;
+    replyTo?: string;
+    saveMonthlySetup?: boolean;
+    reportLogo?: string;
+  },
+): Promise<any> {
+  return metricoolFetch(cfg, '/v2/analytics/reports/configuration', {
+    blogId,
+    method: 'PUT',
+    body: { ...body, blogId: Number(blogId), userId: Number(cfg.userId) },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Calendar — `/v2/scheduler/calendars/*` (system + user calendars).
+// System: datas comemorativas/holidays públicas mantidas pela Metricool.
+// User: ICS calendars adicionados pelo cliente via URL pública.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface MetricoolCalendar {
+  id: number;
+  url?: string;
+  name?: string;
+  description?: string;
+  publicCalendar?: boolean;
+  timeZone?: string;
+  language?: string;
+  type?: 'SYSTEM' | 'USER';
+  events?: MetricoolCalendarEvent[];
+  [key: string]: unknown;
+}
+
+export interface MetricoolCalendarEvent {
+  name?: string;
+  description?: string;
+  eventInit?: string; // ISO date-time
+  eventEnd?: string;
+  repeatEvent?: boolean;
+  repeat?: { frequency?: string; interval?: number };
+  dailyEvent?: boolean;
+  uid?: string;
+  calendarId?: number | string;
+  calendarName?: string;
+  [key: string]: unknown;
+}
+
+/** Lista todos os calendários "system" públicos (datas comemorativas, holidays). */
+export async function listSystemCalendars(
+  cfg: MetricoolConfig,
+  language?: string,
+): Promise<MetricoolCalendar[]> {
+  const data = await metricoolFetch<any>(cfg, '/v2/scheduler/calendars', {
+    search: language ? { language } : undefined,
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Lista calendários assinados (system + user) por usuário/brand. */
+export async function listAssignedCalendars(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  language?: string,
+): Promise<MetricoolCalendar[]> {
+  const data = await metricoolFetch<any>(cfg, '/v2/scheduler/calendars/assigned', {
+    blogId,
+    search: language ? { language } : undefined,
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Eventos de um calendário num período. */
+export async function getCalendarEvents(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  calendarId: string | number,
+  initDate: string, // YYYY-MM-DDTHH:mm:ss
+  endDate: string,
+  timeZone = 'America/Sao_Paulo',
+): Promise<MetricoolCalendarEvent[]> {
+  const data = await metricoolFetch<any>(
+    cfg,
+    `/v2/scheduler/calendars/${calendarId}/events`,
+    {
+      blogId,
+      search: { initDate, endDate, timeZone },
+    },
+  );
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.events)) return data.events;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.data?.events)) return data.data.events;
+  return [];
+}
+
+/** Adiciona um system calendar à brand (datas comemorativas BR, etc). */
+export async function assignCalendarToBlog(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  calendarId: string | number,
+  aggregationFrom: 'user' | 'blog' | 'both' = 'blog',
+): Promise<any> {
+  return metricoolFetch(cfg, `/v2/scheduler/calendars/${calendarId}/assignation`, {
+    blogId,
+    method: 'POST',
+    body: { aggregationFrom },
+  });
+}
+
+export async function unassignCalendarFromBlog(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  calendarId: string | number,
+  aggregationFrom: 'user' | 'blog' | 'both' = 'blog',
+): Promise<any> {
+  return metricoolFetch(cfg, `/v2/scheduler/calendars/${calendarId}/assignation`, {
+    blogId,
+    method: 'DELETE',
+    body: { aggregationFrom },
+  });
+}
+
+/** Cria calendar "user" (ICS URL público) e atribui ao blog. */
+export async function createUserCalendar(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  body: {
+    name: string;
+    url: string;
+    description?: string;
+    language?: string;
+    publicCalendar?: boolean;
+    aggregationFrom?: 'user' | 'blog' | 'both';
+  },
+): Promise<MetricoolCalendar> {
+  const payload = {
+    name: body.name,
+    url: body.url,
+    description: body.description,
+    language: body.language || 'pt',
+    publicCalendar: body.publicCalendar ?? false,
+    aggregationFrom: body.aggregationFrom || 'blog',
+  };
+  const data = await metricoolFetch<any>(cfg, '/v2/scheduler/calendars/user', {
+    blogId,
+    method: 'POST',
+    body: payload,
+  });
+  return data?.data || data;
+}
+
+/** Refresh cache de um user calendar (re-fetch ICS). */
+export async function refreshCalendarCache(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  calendarId: string | number,
+): Promise<any> {
+  return metricoolFetch(cfg, `/v2/scheduler/calendars/${calendarId}/cache`, {
+    blogId,
+    method: 'POST',
+    body: {},
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Realtime stats
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -772,6 +1173,348 @@ export async function getRealtimeSessions(
   blogId: string | number,
 ): Promise<any> {
   return metricoolFetch(cfg, '/stats/rt/sessions', { blogId });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Smart Links — encurtador URL com tracking, UTMs, analytics
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface MetricoolSmartLink {
+  id?: number;
+  slug?: string;
+  name?: string;
+  appearance?: Record<string, unknown>;
+  content?: {
+    icons?: any[];
+    buttons?: any[];
+    images?: any[];
+    header?: Record<string, unknown>;
+  };
+  version?: number;
+  free?: boolean;
+  createDate?: { dateTime: string; timezone: string };
+  youtubeFeed?: string;
+  // Campos derivados/adicionais via API:
+  shortUrl?: string;
+  originalUrl?: string;
+  clicks?: number;
+  [key: string]: unknown;
+}
+
+export interface MetricoolSmartLinkLite {
+  id: number;
+  slug?: string;
+  name?: string;
+  imageUrl?: string;
+  createDate?: { dateTime: string; timezone: string };
+}
+
+export interface MetricoolSmartLinkTimelinePoint {
+  date?: string;
+  value?: number;
+  [key: string]: unknown;
+}
+
+/** Lista smart links (full payload). Filter opcional por slug. */
+export async function getSmartLinks(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  slug?: string,
+): Promise<MetricoolSmartLink[]> {
+  const data = await metricoolFetch<any>(cfg, '/v2/smart-links/links', {
+    blogId,
+    search: slug ? { slug } : undefined,
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Lista smart links em formato "lite" (id, slug, name, imageUrl) — leve pra grids. */
+export async function getSmartLinksLite(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+): Promise<MetricoolSmartLinkLite[]> {
+  const data = await metricoolFetch<any>(cfg, '/v2/smart-links/links/lite', { blogId });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Detalhe de um smart link. */
+export async function getSmartLink(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  id: number | string,
+): Promise<MetricoolSmartLink | null> {
+  const data = await metricoolFetch<any>(cfg, `/v2/smart-links/links/${id}`, { blogId });
+  return data?.data || data || null;
+}
+
+/** Cria smart link novo. */
+export async function createSmartLink(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  body: Partial<MetricoolSmartLink>,
+): Promise<MetricoolSmartLink> {
+  const data = await metricoolFetch<any>(cfg, '/v2/smart-links/links', {
+    blogId,
+    method: 'POST',
+    body,
+  });
+  return data?.data || data;
+}
+
+/** Atualiza smart link. */
+export async function updateSmartLink(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  id: number | string,
+  body: Partial<MetricoolSmartLink>,
+): Promise<MetricoolSmartLink> {
+  const data = await metricoolFetch<any>(cfg, `/v2/smart-links/links/${id}`, {
+    blogId,
+    method: 'PUT',
+    body,
+  });
+  return data?.data || data;
+}
+
+/** Deleta smart link. */
+export async function deleteSmartLink(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  id: number | string,
+): Promise<void> {
+  await metricoolFetch(cfg, `/v2/smart-links/links/${id}`, {
+    blogId,
+    method: 'DELETE',
+  });
+}
+
+/** Verifica disponibilidade de slug. */
+export async function isSmartLinkSlugAvailable(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  value: string,
+): Promise<boolean> {
+  const data = await metricoolFetch<any>(cfg, '/v2/smart-links/links/slugs', {
+    blogId,
+    search: { value },
+  });
+  // API retorna JsonOkResponseString — heurística:
+  if (typeof data === 'boolean') return data;
+  if (typeof data?.data === 'boolean') return data.data;
+  if (typeof data?.data === 'string') return data.data.toLowerCase() === 'true';
+  return !!data?.data;
+}
+
+/** Timeline de uma métrica do smart link (ex: 'clicks'). */
+export async function getSmartLinkTimeline(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  id: number | string,
+  metric: string,
+  from: string,
+  to: string,
+  itemId?: number | string,
+): Promise<MetricoolSmartLinkTimelinePoint[]> {
+  const data = await metricoolFetch<any>(cfg, `/v2/smart-links/links/${id}/analytics/timeline`, {
+    blogId,
+    search: { metric, from, to, ...(itemId !== undefined ? { itemId } : {}) },
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || data?.values || [];
+}
+
+/** Analytics por botão de smart link. */
+export async function getSmartLinkButtonAnalytics(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  id: number | string,
+  from: string,
+  to: string,
+): Promise<any[]> {
+  const data = await metricoolFetch<any>(cfg, `/v2/smart-links/links/${id}/analytics/buttons`, {
+    blogId,
+    search: { from, to },
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Analytics por imagem de smart link. */
+export async function getSmartLinkImageAnalytics(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  id: number | string,
+  from: string,
+  to: string,
+): Promise<any[]> {
+  const data = await metricoolFetch<any>(cfg, `/v2/smart-links/links/${id}/analytics/images`, {
+    blogId,
+    search: { from, to },
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Linkin Bio — Instagram bio link page (catalog images + buttons)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface MetricoolBioCatalogItem {
+  id: number;
+  blogId?: number;
+  postId?: string;
+  timestamp?: number;
+  url?: string;
+  imageUrl?: string;
+  linkId?: number;
+  shortUrl?: string;
+  type?: string;
+  [key: string]: unknown;
+}
+
+export interface MetricoolBioButton {
+  id: number;
+  blogId?: number;
+  link?: string;
+  text?: string;
+  position?: number;
+  color?: string;
+  linkId?: number;
+  shortUrl?: string;
+  [key: string]: unknown;
+}
+
+/** Catálogo de imagens (posts) na Linkin Bio. */
+export async function getInstagramBioCatalog(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+): Promise<MetricoolBioCatalogItem[]> {
+  const data = await metricoolFetch<any>(cfg, '/linkinbio/instagram/getbiocatalog', { blogId });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Botões da Linkin Bio (links com texto). */
+export async function getInstagramBioButtons(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+): Promise<MetricoolBioButton[]> {
+  const data = await metricoolFetch<any>(cfg, '/linkinbio/instagram/getbioButtons', { blogId });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Adiciona imagem (post) ao catálogo Linkin Bio. */
+export async function addInstagramBioCatalogItem(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  params: { picture?: string; igid?: string; timestamp?: number },
+): Promise<MetricoolBioCatalogItem[]> {
+  const data = await metricoolFetch<any>(cfg, '/linkinbio/instagram/addcatalogitems', {
+    blogId,
+    method: 'POST',
+    search: {
+      ...(params.picture ? { picture: params.picture } : {}),
+      ...(params.igid ? { igid: params.igid } : {}),
+      ...(params.timestamp !== undefined ? { timestamp: params.timestamp } : {}),
+    },
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Adiciona botão (texto + link) à Linkin Bio. */
+export async function addInstagramBioButton(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  params: { textButton: string; link: string },
+): Promise<MetricoolBioButton[]> {
+  const data = await metricoolFetch<any>(cfg, '/linkinbio/instagram/addcatalogButton', {
+    blogId,
+    search: { textButton: params.textButton, link: params.link },
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Edita link de uma imagem do catálogo. */
+export async function editInstagramBioCatalogItem(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  itemid: number | string,
+  link: string,
+): Promise<MetricoolBioCatalogItem[]> {
+  const data = await metricoolFetch<any>(cfg, '/linkinbio/instagram/editcatalogitem', {
+    blogId,
+    search: { itemid, link },
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Edita texto e link de um botão. */
+export async function editInstagramBioButton(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  itemid: number | string,
+  patch: { link?: string; text?: string },
+): Promise<MetricoolBioButton[]> {
+  const data = await metricoolFetch<any>(cfg, '/linkinbio/instagram/editcatalogbutton', {
+    blogId,
+    search: {
+      itemid,
+      ...(patch.link !== undefined ? { link: patch.link } : {}),
+      ...(patch.text !== undefined ? { text: patch.text } : {}),
+    },
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Atualiza posição/ordem de um botão. */
+export async function updateInstagramBioButtonPosition(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  itemid: number | string,
+): Promise<MetricoolBioButton[]> {
+  const data = await metricoolFetch<any>(cfg, '/linkinbio/instagram/updateButtonPosition', {
+    blogId,
+    search: { itemid },
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Deleta imagem do catálogo. */
+export async function deleteInstagramBioCatalogImage(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  itemid: number | string,
+): Promise<MetricoolBioCatalogItem[]> {
+  const data = await metricoolFetch<any>(cfg, '/linkinbio/instagram/deletecatalogimage', {
+    blogId,
+    method: 'DELETE',
+    search: { itemid },
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
+}
+
+/** Deleta botão. */
+export async function deleteInstagramBioButton(
+  cfg: MetricoolConfig,
+  blogId: string | number,
+  itemid: number | string,
+): Promise<MetricoolBioButton[]> {
+  const data = await metricoolFetch<any>(cfg, '/linkinbio/instagram/deletecatalogitem', {
+    blogId,
+    method: 'DELETE',
+    search: { itemid },
+  });
+  if (Array.isArray(data)) return data;
+  return data?.data || [];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

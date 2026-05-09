@@ -23,6 +23,7 @@ import {
   MessagesSquare,
   Hash,
   Target,
+  Link2,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
@@ -30,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAuth } from "@/hooks/useAuth";
+import { useInboxUnreadCount } from "@/hooks/useMetricoolInbox";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 import {
@@ -57,16 +59,25 @@ interface NavItemProps {
   collapsed?: boolean;
   disabled?: boolean;
   showLock?: boolean;
+  /** Badge numérico (ex: não-lidas no Inbox). Mostra "9+" se > 9. */
+  badge?: number;
 }
 
-function NavItem({ icon, label, active, onClick, collapsed, disabled, showLock }: NavItemProps) {
+function NavItem({ icon, label, active, onClick, collapsed, disabled, showLock, badge }: NavItemProps) {
+  const badgeText =
+    typeof badge === "number" && badge > 0
+      ? badge > 9
+        ? "9+"
+        : String(badge)
+      : null;
+
   const content = (
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "w-full flex items-center gap-3 px-3 h-9 rounded-md text-sm transition-colors",
+        "w-full flex items-center gap-3 px-3 h-9 rounded-md text-sm transition-colors relative",
         active
           ? "bg-accent text-foreground font-medium"
           : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -74,13 +85,29 @@ function NavItem({ icon, label, active, onClick, collapsed, disabled, showLock }
         disabled && "opacity-40 cursor-not-allowed hover:bg-transparent",
       )}
     >
-      <span className="flex-shrink-0">
+      <span className="flex-shrink-0 relative">
         {icon}
+        {badgeText && collapsed && (
+          <span
+            aria-label={`${badge} não lidas`}
+            className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none"
+          >
+            {badgeText}
+          </span>
+        )}
       </span>
       {!collapsed && (
         <span className="flex-1 text-left truncate flex items-center gap-2">
           {label}
           {showLock && <Lock className="h-3 w-3 text-muted-foreground/60 shrink-0" />}
+          {badgeText && (
+            <span
+              aria-label={`${badge} não lidas`}
+              className="ml-auto min-w-[18px] h-4 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none"
+            >
+              {badgeText}
+            </span>
+          )}
         </span>
       )}
     </button>
@@ -164,6 +191,10 @@ export function KaiSidebar({
 
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || "U";
   const userName = userProfile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Usuário";
+
+  // Contagem de não-lidas no Inbox — usado como badge no NavItem.
+  // Hook com polling 60s próprio. Só roda quando tem cliente selecionado.
+  const { data: inboxUnread = 0 } = useInboxUnreadCount(selectedClientId);
 
   // Handler para mostrar mensagem de permissão
   const showPermissionMessage = () => {
@@ -462,6 +493,7 @@ export function KaiSidebar({
               active={activeTab === "inbox"}
               onClick={() => onTabChange("inbox")}
               collapsed={collapsed}
+              badge={inboxUnread}
             />
             {/* Hashtags Tracker Metricool */}
             <NavItem
@@ -479,6 +511,16 @@ export function KaiSidebar({
               onClick={() => onTabChange("competitors")}
               collapsed={collapsed}
             />
+            {/* Smart Links Metricool — encurtador URL com tracking */}
+            <NavItem
+              icon={<Link2 className="h-4 w-4" strokeWidth={1.5} />}
+              label="Smart Links"
+              active={activeTab === "smart-links"}
+              onClick={() => onTabChange("smart-links")}
+              collapsed={collapsed}
+            />
+            {/* Linkin Bio NÃO plugado — código existe em MetricoolLinkinBioEditor.tsx
+                mas decisão do usuário foi não usar essa feature. */}
             {/* Plano/cobrança removido — KAI 2.0 é uso interno Kaleidos. */}
           </>
         )}
