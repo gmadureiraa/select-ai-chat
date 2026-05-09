@@ -44,11 +44,11 @@
     },
     {
       "path": "/api/cron-postiz-poll",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/cron-metricool-poll",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 10 * * *"
     }
   ],
   "headers": [
