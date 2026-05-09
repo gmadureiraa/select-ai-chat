@@ -55,9 +55,14 @@ function n(v: unknown, fallback = 0): number {
 }
 
 function pickPublishedAt(p: any): string | null {
-  // Metricool /v2/analytics/posts retorna `publishedAt` como OBJECT {dateTime, timezone}
-  // mas alguns endpoints (legacy) usam string em outros campos. Cobre ambos.
-  let raw: any = p.publishedAt ?? p.date ?? p.publishDate ?? p.timestamp ?? p.createdAt;
+  // Metricool retorna shapes DIFERENTES por rede:
+  //   - Instagram /v2: publishedAt = {dateTime, timezone}
+  //   - Threads /v2:   publishedDate = {dateTime, timezone}
+  //   - TikTok /v2:    publishedAt (provavelmente object)
+  //   - LinkedIn /v2:  publishedAt (não verificado)
+  //   - Twitter:       date (string ISO) — legacy
+  let raw: any =
+    p.publishedAt ?? p.publishedDate ?? p.date ?? p.publishDate ?? p.timestamp ?? p.createdAt;
   if (raw && typeof raw === 'object' && 'dateTime' in raw) raw = raw.dateTime;
   if (!raw) return null;
   const d = new Date(raw as string);
@@ -108,14 +113,24 @@ function pickMediaUrls(p: any): string[] {
 }
 
 function pickCaption(p: any): string | null {
-  return (p.text as string) || (p.caption as string) || (p.content as string) || (p.title as string) || null;
+  // Shapes: IG=content, Threads=text, TikTok=description?, LinkedIn=text
+  return (p.content as string) || (p.text as string) || (p.caption as string) || (p.description as string) || (p.title as string) || null;
 }
 
 function metric(p: any, key: 'likes' | 'comments' | 'shares' | 'reach' | 'impressions' | 'views' | 'saves' | 'videoViews'): number {
-  // Shape Metricool v2: usa impressionsTotal, saved (não saves), interactions
+  // Shapes Metricool v2 por rede:
+  //   - Instagram: likes, comments, impressionsTotal, saved, shares, reach
+  //   - Threads:   likes, replies (=comments), reposts+quotes+shares (=shares), views
+  //   - TikTok:    likes, comments, plays/views, shares
+  //   - LinkedIn:  likes/reactions, comments, impressions, shares
+  //   - YouTube:   likes, comments, views, shares
   if (key === 'likes') return n(p.likes ?? p.reactions);
-  if (key === 'comments') return n(p.comments);
-  if (key === 'shares') return n(p.shares ?? p.reposts ?? p.retweets);
+  if (key === 'comments') return n(p.comments ?? p.replies);
+  if (key === 'shares') {
+    const base = p.shares ?? p.retweets ?? 0;
+    // Threads soma reposts + quotes em "shares"
+    return n(base) + n(p.reposts ?? 0) + n(p.quotes ?? 0);
+  }
   if (key === 'reach') return n(p.reach);
   if (key === 'impressions') return n(p.impressionsTotal ?? p.impressions);
   if (key === 'views') return n(p.views ?? p.plays);

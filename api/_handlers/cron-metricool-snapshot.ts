@@ -66,10 +66,13 @@ function n(v: unknown, fallback = 0): number {
 }
 
 function getMetric(p: any, key: 'likes' | 'comments' | 'shares' | 'reach' | 'impressions' | 'views' | 'saves'): number {
-  // Shape Metricool v2: impressionsTotal, saved (não saves)
+  // Shape Metricool v2 — Threads usa replies/reposts/quotes; IG usa impressionsTotal/saved
   if (key === 'likes') return n(p.likes ?? p.reactions);
-  if (key === 'comments') return n(p.comments);
-  if (key === 'shares') return n(p.shares ?? p.reposts ?? p.retweets);
+  if (key === 'comments') return n(p.comments ?? p.replies);
+  if (key === 'shares') {
+    const base = p.shares ?? p.retweets ?? 0;
+    return n(base) + n(p.reposts ?? 0) + n(p.quotes ?? 0);
+  }
   if (key === 'reach') return n(p.reach);
   if (key === 'impressions') return n(p.impressionsTotal ?? p.impressions ?? p.views ?? p.videoViews);
   if (key === 'views') return n(p.videoViews ?? p.views ?? p.plays ?? p.impressionsTotal ?? p.impressions);
@@ -104,8 +107,9 @@ function emptyAgg(): DayAgg {
 function bucketByDay(posts: any[]): Map<string, DayAgg> {
   const buckets = new Map<string, DayAgg>();
   for (const p of posts) {
-    // Metricool v2: publishedAt é objeto {dateTime, timezone}; legacy: string
-    let raw: any = p.publishedAt ?? p.date ?? p.publishDate ?? p.timestamp;
+    // Metricool v2 shapes diferentes por rede:
+    //   IG=publishedAt{dateTime}, Threads=publishedDate{dateTime}, legacy=string
+    let raw: any = p.publishedAt ?? p.publishedDate ?? p.date ?? p.publishDate ?? p.timestamp;
     if (raw && typeof raw === 'object' && 'dateTime' in raw) raw = raw.dateTime;
     if (!raw) continue;
     const d = new Date(raw as string);
