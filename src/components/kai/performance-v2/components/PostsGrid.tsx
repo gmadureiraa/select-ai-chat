@@ -401,6 +401,182 @@ export function PostsGrid({
           );
         })}
       </div>
+      )}
+
+      {needsPaging && remaining > 0 && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setVisibleCount((c) => c + PAGE_SIZE_INCREMENT)}
+            className="text-xs"
+          >
+            Carregar mais ({remaining} restantes)
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// List view (modo compacto) — alternativa ao grid pra escanear muitos posts.
+// ─────────────────────────────────────────────────────────────────────────────
+interface ListViewProps {
+  posts: MetricoolPost[];
+  network: string;
+  branding: ReturnType<typeof getNetworkBranding>;
+  NetworkIcon: React.ComponentType<{ className?: string }>;
+  sharesLabel: string;
+  onClick?: (post: MetricoolPost) => void;
+  clientId?: string;
+  transcriptionSource?: TranscriptionSource;
+}
+
+function ListView({
+  posts,
+  network,
+  branding,
+  NetworkIcon,
+  sharesLabel,
+  onClick,
+  clientId,
+  transcriptionSource = "metricool",
+}: ListViewProps) {
+  return (
+    <div className="rounded-md border divide-y overflow-hidden">
+      {posts.map((post) => {
+        const caption = getPostCaption(post);
+        const thumb = getPostThumbnail(post);
+        const url = getPostUrl(post);
+        const interactive = Boolean(onClick) || Boolean(url);
+        const date = post.publishedAt || post.date;
+        const eng = post.engagementRate ?? null;
+
+        const handleClick = () => {
+          if (onClick) {
+            onClick(post);
+            return;
+          }
+          if (url) window.open(url, "_blank", "noopener,noreferrer");
+        };
+
+        return (
+          <div
+            key={String(post.id)}
+            role={interactive ? "button" : undefined}
+            tabIndex={interactive ? 0 : undefined}
+            onClick={interactive ? handleClick : undefined}
+            onKeyDown={
+              interactive
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleClick();
+                    }
+                  }
+                : undefined
+            }
+            className={cn(
+              "flex items-center gap-3 p-2.5 transition-colors",
+              interactive && "cursor-pointer hover:bg-muted/40",
+            )}
+          >
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted">
+              {thumb ? (
+                <img
+                  src={thumb}
+                  alt=""
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                  <ImageIcon className="h-4 w-4" />
+                </div>
+              )}
+              <div
+                className={cn(
+                  "absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-tl-md rounded-br-md",
+                  branding.bgGradient,
+                )}
+                title={branding.label}
+              >
+                <NetworkIcon className={cn("h-2 w-2", branding.iconOnBgClass)} />
+              </div>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm">
+                {caption || (
+                  <span className="text-muted-foreground italic">Sem legenda</span>
+                )}
+              </p>
+              <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground tabular-nums">
+                <span className="inline-flex items-center gap-1" title="Curtidas">
+                  <Heart className="h-3 w-3" />
+                  {fmtNum(post.likes)}
+                </span>
+                <span className="inline-flex items-center gap-1" title="Comentários">
+                  <MessageCircle className="h-3 w-3" />
+                  {fmtNum(post.comments)}
+                </span>
+                <span className="inline-flex items-center gap-1" title={sharesLabel}>
+                  <Repeat2 className="h-3 w-3" />
+                  {fmtNum(post.shares)}
+                </span>
+                <span className="inline-flex items-center gap-1" title="Visualizações">
+                  <Eye className="h-3 w-3" />
+                  {fmtNum(getPostViews(post))}
+                </span>
+                {date && (
+                  <span className="hidden sm:inline">
+                    · {new Date(date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {typeof eng === "number" && (
+              <Badge
+                variant={eng > 5 ? "approved" : "secondary"}
+                className="shrink-0 tabular-nums"
+              >
+                {eng.toFixed(1)}%
+              </Badge>
+            )}
+
+            {clientId && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+                className="shrink-0"
+              >
+                <PostTranscriptionDialog
+                  clientId={clientId}
+                  post={post as any}
+                  source={transcriptionSource}
+                  network={String(network)}
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                      type="button"
+                      title="Transcrição"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                    </Button>
+                  }
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
