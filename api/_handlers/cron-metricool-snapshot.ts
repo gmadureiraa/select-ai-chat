@@ -203,6 +203,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               tlCfg.metric,
               from,
               to,
+              undefined,            // timezone
+              tlCfg.subject,        // 'account' — obrigatório pra Metricool aceitar
             )) as any[];
             if (Array.isArray(tl) && tl.length > 0) {
               const last = tl[tl.length - 1];
