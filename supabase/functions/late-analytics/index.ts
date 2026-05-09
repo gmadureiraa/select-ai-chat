@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const LATE_API_BASE = "https://getlate.dev/api/v1";
+const LATE_API_BASE = "https://zernio.com/api/v1";
 
 async function fetchAnalytics(profileId: string, apiKey: string, platform: string, fromDate: string, toDate: string) {
   const params = new URLSearchParams({ profileId, platform, fromDate, toDate, limit: '50' });
@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lateApiKey = Deno.env.get("LATE_API_KEY");
+    const lateApiKey = (Deno.env.get("ZERNIO_API_KEY") ?? Deno.env.get("LATE_API_KEY"));
 
     if (!lateApiKey) {
       return new Response(JSON.stringify({ error: "LATE_API_KEY not configured" }), {
