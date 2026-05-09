@@ -350,6 +350,40 @@ async function runWorkflow(workflow: WorkflowRow, agent: AgentRow): Promise<{
     };
   }
 
+  // Resolve target column_id ONCE (per workflow run) so cards land on the Kanban.
+  // Sem column_id, planning_items existe no DB mas some do PlanningBoard
+  // (KanbanView filtra por column_id). Mapping: workflow status_after_generation
+  // → column_type → column_id do workspace.
+  const desiredStatus = workflow.config?.status_after_generation ?? 'idea';
+  const desiredColumnType =
+    desiredStatus === 'approved'
+      ? 'approved'
+      : desiredStatus === 'draft'
+        ? 'draft'
+        : 'idea';
+
+  let resolvedColumnId: string | null = null;
+  try {
+    const colTyped = await queryOne<{ id: string }>(
+      `SELECT id FROM public.kanban_columns
+         WHERE workspace_id = $1 AND column_type = $2
+         ORDER BY position ASC LIMIT 1`,
+      [workflow.workspace_id, desiredColumnType],
+    );
+    resolvedColumnId = colTyped?.id ?? null;
+    if (!resolvedColumnId) {
+      const colFallback = await queryOne<{ id: string }>(
+        `SELECT id FROM public.kanban_columns
+           WHERE workspace_id = $1
+           ORDER BY position ASC LIMIT 1`,
+        [workflow.workspace_id],
+      );
+      resolvedColumnId = colFallback?.id ?? null;
+    }
+  } catch (colErr: any) {
+    console.warn(`[madureira] kanban_columns lookup failed:`, colErr?.message);
+  }
+
   for (const item of items) {
     // Per-item validation — each post in a batch evaluated independently.
     const itemText = item?.caption ?? item?.content?.body ?? JSON.stringify(item ?? {});
@@ -358,19 +392,20 @@ async function runWorkflow(workflow: WorkflowRow, agent: AgentRow): Promise<{
     const itemStatus =
       itemViolations.length > 0
         ? 'pending-validation'
-        : (workflow.config?.status_after_generation ?? 'idea');
+        : desiredStatus;
 
     try {
       const r = await query<{ id: string }>(
         `INSERT INTO public.planning_items
-           (workspace_id, client_id, platform, content_type, status,
+           (workspace_id, client_id, column_id, platform, content_type, status,
             title, content, due_date, metadata, created_by)
-         VALUES ($1, $2, $3, $4::content_type, $5,
-                 $6, $7, $8::date, $9::jsonb, $10)
+         VALUES ($1, $2, $3, $4, $5::content_type, $6,
+                 $7, $8, $9::date, $10::jsonb, $11)
          RETURNING id`,
         [
           workflow.workspace_id,
           workflow.config?.client_id,
+          resolvedColumnId,
           workflow.config?.platform,
           normalizeContentType(workflow.config?.content_type),
           itemStatus,

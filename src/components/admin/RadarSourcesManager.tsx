@@ -58,6 +58,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { TabHeader } from "@/components/kai/TabHeader";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 const SOURCE_TYPES = [
@@ -251,33 +252,32 @@ export function RadarSourcesManager() {
   return (
     <div className="h-full flex flex-col p-6 overflow-auto">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <RadarIcon className="h-6 w-6" />
-            Radar — Fontes Monitoradas
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Fontes que os crons do Radar Viral usam pra popular news, IG, TikTok e briefs.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`}
-            />
-            Atualizar
-          </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova fonte
-          </Button>
-        </div>
+      <div className="mb-6">
+        <TabHeader
+          icon={RadarIcon}
+          eyebrow="ADMIN · FONTES DO RADAR"
+          title="Radar — Fontes Monitoradas"
+          description="Fontes que os crons do Radar Viral usam pra popular news, IG, TikTok e briefs."
+          actions={
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refetch()}
+                disabled={isFetching}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`}
+                />
+                Atualizar
+              </Button>
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova fonte
+              </Button>
+            </>
+          }
+        />
       </div>
 
       {/* Stats */}

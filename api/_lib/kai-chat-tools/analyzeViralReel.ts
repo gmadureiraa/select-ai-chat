@@ -155,7 +155,7 @@ export const analyzeViralReelTool: RegisteredTool<
           body: script?.roteiroCompleto ?? hookText ?? '',
           briefing: tema,
           viralReelId: reelId,
-        } as Record<string, unknown>,
+        },
         requires_approval: false,
         available_actions: [
           {

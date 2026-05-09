@@ -134,54 +134,66 @@ export const KaiPerformanceTab = ({ clientId, client }: KaiPerformanceTabProps) 
         </div>
 
         <TabsContent value="instagram" className="mt-4">
-          <InstagramDashboard
-            clientId={clientId}
-            posts={instagramPosts || []}
-            metrics={instagramMetrics || []}
-            isLoadingPosts={isLoadingInstagramPosts}
-            isLoadingMetrics={isLoadingInstagram}
-          />
+          <Suspense fallback={<ChannelLoader />}>
+            <InstagramDashboard
+              clientId={clientId}
+              posts={instagramPosts || []}
+              metrics={instagramMetrics || []}
+              isLoadingPosts={isLoadingInstagramPosts}
+              isLoadingMetrics={isLoadingInstagram}
+            />
+          </Suspense>
         </TabsContent>
 
         {/* YouTube - Full Dashboard */}
         <TabsContent value="youtube" className="mt-4">
-          <YouTubeDashboard
-            clientId={clientId}
-            videos={videos || []}
-            isLoading={isLoadingVideos}
-          />
+          <Suspense fallback={<ChannelLoader />}>
+            <YouTubeDashboard
+              clientId={clientId}
+              videos={videos || []}
+              isLoading={isLoadingVideos}
+            />
+          </Suspense>
         </TabsContent>
 
         {/* Twitter/X - Full Dashboard */}
         <TabsContent value="twitter" className="mt-4">
-          <TwitterDashboard
-            clientId={clientId}
-            posts={twitterPosts || []}
-            isLoading={isLoadingTwitter}
-          />
+          <Suspense fallback={<ChannelLoader />}>
+            <TwitterDashboard
+              clientId={clientId}
+              posts={twitterPosts || []}
+              isLoading={isLoadingTwitter}
+            />
+          </Suspense>
         </TabsContent>
 
         {/* LinkedIn - Full Dashboard */}
         <TabsContent value="linkedin" className="mt-4">
-          <LinkedInDashboard
-            clientId={clientId}
-            posts={linkedInPosts || []}
-            isLoading={isLoadingLinkedIn}
-          />
+          <Suspense fallback={<ChannelLoader />}>
+            <LinkedInDashboard
+              clientId={clientId}
+              posts={linkedInPosts || []}
+              isLoading={isLoadingLinkedIn}
+            />
+          </Suspense>
         </TabsContent>
 
         {/* Newsletter - Full Dashboard */}
         <TabsContent value="newsletter" className="mt-4">
-          <NewsletterDashboard
-            clientId={clientId}
-            metrics={newsletterMetrics || []}
-            isLoading={isLoadingNewsletter}
-          />
+          <Suspense fallback={<ChannelLoader />}>
+            <NewsletterDashboard
+              clientId={clientId}
+              metrics={newsletterMetrics || []}
+              isLoading={isLoadingNewsletter}
+            />
+          </Suspense>
         </TabsContent>
 
         {/* Meta Ads - Full Dashboard */}
         <TabsContent value="meta_ads" className="mt-4">
-          <MetaAdsDashboard clientId={clientId} />
+          <Suspense fallback={<ChannelLoader />}>
+            <MetaAdsDashboard clientId={clientId} />
+          </Suspense>
         </TabsContent>
       </Tabs>
     </div>

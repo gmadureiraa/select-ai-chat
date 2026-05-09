@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Code2,
 } from "lucide-react";
+import { TabHeader } from "@/components/kai/TabHeader";
 import {
   Card,
   CardContent,
@@ -274,13 +275,12 @@ export function WorkspaceSettingsTab() {
       )}
     >
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold flex items-center gap-2">
-          <Building2 className="h-6 w-6 text-muted-foreground" />
-          Workspace
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Configurações gerais do workspace
-        </p>
+        <TabHeader
+          icon={Building2}
+          eyebrow="WORKSPACE · CONFIGURAÇÕES"
+          title="Workspace"
+          description="Identidade, plano e configurações gerais do workspace."
+        />
       </div>
 
       {readOnly && (

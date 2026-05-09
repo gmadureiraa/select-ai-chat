@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,35 +61,54 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
   const { documents } = useClientDocuments(client.id);
   const { toast } = useToast();
 
-  // Form data for debounce
-  const formData = { name, description, avatarUrl, socialMedia, tags };
-  const debouncedFormData = useDebounce(formData, 2000);
+  // Serializa o form como string estável pra debounce — evita loop de
+  // re-render por nova ref de objeto a cada render.
+  const formSignature = useMemo(
+    () =>
+      JSON.stringify({
+        name,
+        description,
+        avatarUrl,
+        socialMedia,
+        tags,
+      }),
+    [name, description, avatarUrl, socialMedia, tags],
+  );
+  const debouncedSignature = useDebounce(formSignature, 2000);
 
-  // Auto-save effect
+  // Auto-save effect — dispara apenas quando a assinatura debounced muda
+  // E há alterações pendentes.
   useEffect(() => {
-    if (hasChanges && client) {
-      const autoSave = async () => {
-        setAutoSaveStatus("saving");
-        try {
-          await updateClient.mutateAsync({
-            id: client.id,
-            name: debouncedFormData.name,
-            description: debouncedFormData.description || null,
-            avatar_url: debouncedFormData.avatarUrl,
-            social_media: debouncedFormData.socialMedia,
-            tags: debouncedFormData.tags,
-          });
-          setAutoSaveStatus("saved");
-          setHasChanges(false);
-          setTimeout(() => setAutoSaveStatus("idle"), 2000);
-        } catch (error) {
-          console.error("Auto-save failed:", error);
-          setAutoSaveStatus("idle");
-        }
-      };
-      autoSave();
-    }
-  }, [debouncedFormData]);
+    if (!hasChanges || !client) return;
+    let cancelled = false;
+    const autoSave = async () => {
+      setAutoSaveStatus("saving");
+      try {
+        await updateClient.mutateAsync({
+          id: client.id,
+          name,
+          description: description || null,
+          avatar_url: avatarUrl,
+          social_media: socialMedia,
+          tags,
+        });
+        if (cancelled) return;
+        setAutoSaveStatus("saved");
+        setHasChanges(false);
+        setTimeout(() => {
+          if (!cancelled) setAutoSaveStatus("idle");
+        }, 2000);
+      } catch (error) {
+        console.error("Auto-save failed:", error);
+        if (!cancelled) setAutoSaveStatus("idle");
+      }
+    };
+    autoSave();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSignature]);
 
   const markChanged = () => setHasChanges(true);
 

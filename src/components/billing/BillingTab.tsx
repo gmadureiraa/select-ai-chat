@@ -40,6 +40,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { TabHeader } from "@/components/kai/TabHeader";
 import {
   useSubscription,
   useSubscriptionPlans,
@@ -255,12 +256,12 @@ export function BillingTab() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Plano e cobrança</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Gerencie a assinatura do workspace, tokens e histórico de transações.
-        </p>
-      </div>
+      <TabHeader
+        icon={Crown}
+        eyebrow="WORKSPACE · PLANO E COBRANÇA"
+        title="Plano e cobrança"
+        description="Gerencie a assinatura do workspace, tokens e histórico de transações."
+      />
 
       {/* Card 1 — Subscription atual */}
       <Card>

@@ -60,6 +60,7 @@ export function ClientsListPage({
     <div className="p-4 md:p-6 space-y-4">
       <TabHeader
         icon={Building2}
+        eyebrow="CLIENTES DO WORKSPACE"
         title="Clientes"
         description="Cadastre e gerencie os perfis dos clientes da agência."
         actions={

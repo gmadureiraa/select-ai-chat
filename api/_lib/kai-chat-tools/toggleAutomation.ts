@@ -76,7 +76,7 @@ export const toggleAutomationTool: RegisteredTool<ToggleAutomationArgs, ToggleAu
           ? 'Trigger volta a rodar no próximo ciclo.'
           : 'Trigger desativado — não vai gerar mais itens até reativar.',
         briefing: automationId,
-      } as Record<string, unknown>,
+      },
       requires_approval: false,
       available_actions: [
         {

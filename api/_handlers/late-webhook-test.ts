@@ -42,7 +42,7 @@ export default authedPost(async ({ user, body }) => {
       message = `🧪 <b>[TESTE] Publicação parcial</b>\n\n<b>Cliente:</b> ${clientName}\n<b>Falhou em:</b>\n<pre>• tiktok — token expirado\n• threads — rate limit</pre>`;
       break;
     case 'post.cancelled':
-      message = `🧪 <b>[TESTE] Post cancelado na Late</b>\n\n<b>Cliente:</b> ${clientName}\n<b>Plataforma:</b> instagram`;
+      message = `🧪 <b>[TESTE] Post cancelado na Postiz</b>\n\n<b>Cliente:</b> ${clientName}\n<b>Plataforma:</b> instagram`;
       break;
     case 'account.disconnected':
       message = `🧪 <b>[TESTE] Conta DESCONECTOU</b>\n\n<b>Cliente:</b> ${clientName}\n<b>Plataforma:</b> instagram\n\n⚠️ Reconecte em <i>Cliente → Integrações</i>.`;

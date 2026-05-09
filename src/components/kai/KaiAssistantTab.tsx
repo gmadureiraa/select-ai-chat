@@ -111,10 +111,10 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
   } = useKAISimpleChat({
     clientId,
     conversationId: latestConversationId ?? null,
-    // F0.3b — feature flag ativada via URL `?tools=1`. Quando true, o edge
-    // usa Gemini function calling nativo com o ToolRegistry em vez do
-    // intent detection por regex. Seguro pra rollout gradual.
-    useTools: new URLSearchParams(window.location.search).get("tools") === "1",
+    // F0.3b — tool-calling mode ON por padrão (Gemini function calling com
+    // ToolRegistry de 23 tools). Pode ser desligado via `?tools=0` pra cair
+    // no fluxo legado de intent detection por regex (debug).
+    useTools: new URLSearchParams(window.location.search).get("tools") !== "0",
     onConversationCreated: (id) => {
       queryClient.invalidateQueries({
         queryKey: ["kai-latest-conversation", clientId],

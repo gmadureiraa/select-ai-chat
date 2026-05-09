@@ -1,8 +1,10 @@
 
 import { useCallback, useRef, useState } from "react";
-import { toPng } from "html-to-image";
 import { toast } from "sonner";
 import { isVideoUrl } from "@sv/components/app/templates/utils";
+
+// `html-to-image` é dynamic-import dentro dos handlers pra que o chunk
+// pesado (export-vendor) só baixe quando o usuário realmente exporta.
 
 /**
  * Hook de export (PNG e PDF) — extraído da página legada. A página que usa
@@ -351,6 +353,7 @@ export function useExport(
       const isLastSlide = index === totalSlides - 1;
       const cleanupWatermark = injectWatermark(el, isLastSlide);
       try {
+        const { toPng } = await import("html-to-image");
         return await toPng(el, {
           width: 1080,
           height: 1350,

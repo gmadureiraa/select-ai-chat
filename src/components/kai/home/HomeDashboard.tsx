@@ -61,6 +61,12 @@ import { TopViralContentCard } from "./TopViralContentCard";
 interface HomeDashboardProps {
   onNavigate: (tab: string) => void;
   onOpenItem?: (itemId: string) => void;
+  /**
+   * Quando o user clica num cliente do CrossClientPerformance,
+   * o pai (Kai.tsx) deve atualizar o param `client=` da URL e mudar de tab
+   * pra que a navegação pra "clients" / "library" / etc reflita o cliente certo.
+   */
+  onSelectClient?: (clientId: string, tab?: string) => void;
   // Note: Home is intentionally workspace-wide (never filters by client)
 }
 
@@ -119,10 +125,10 @@ function getTimeGreeting(): string {
   return "Boa noite";
 }
 
-export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
+export function HomeDashboard({ onNavigate, onOpenItem, onSelectClient }: HomeDashboardProps) {
   const isMobile = useIsMobile();
   const { user } = useAuth();
-  const { clients } = useClients();
+  const { clients, isLoading: isLoadingClients } = useClients();
   const { workspace } = useWorkspaceContext();
   const workspaceId = workspace?.id;
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
@@ -517,8 +523,10 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
           )}
         </AnimatePresence>
 
-        {/* ─── Onboarding card — workspace novo (sem clientes OU sem itens) ─── */}
-        {((clients?.length ?? 0) === 0 || stats.totalItems === 0) && (
+        {/* ─── Onboarding card — workspace novo (sem clientes OU sem itens) ───
+              Só renderiza depois que `clients` E `planningItems` terminaram de carregar
+              pra evitar flash de "Bem-vindo" pra workspaces que já tinham conteúdo. */}
+        {!isLoadingClients && !isLoadingItems && ((clients?.length ?? 0) === 0 || stats.totalItems === 0) && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -581,7 +589,10 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
 
         {/* ─── Performance cross-cliente — ranking de engagement por cliente ─── */}
         <CrossClientPerformanceCard
-          onSelectClient={(_clientId) => onNavigate?.("clients")}
+          onSelectClient={(clientId) => {
+            if (onSelectClient) onSelectClient(clientId, "library");
+            else onNavigate("clients");
+          }}
         />
 
         {/* ─── Quick actions ─── */}
@@ -631,8 +642,19 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
             return (
               <Card
                 key={kpi.key}
+                role="button"
+                tabIndex={0}
+                aria-pressed={isActive}
+                aria-label={`Filtrar: ${kpi.label} (${kpi.value})`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleFilter({ type: "kpi", value: kpi.key, label: kpi.label });
+                  }
+                }}
                 className={cn(
                   "cursor-pointer transition-all duration-200 group relative overflow-hidden",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                   isActive
                     ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
                     : kpi.danger
@@ -1130,6 +1152,12 @@ export function HomeDashboard({ onNavigate, onOpenItem }: HomeDashboardProps) {
             clientId={stats.byClient[0].clientId}
             limit={5}
             onNavigate={onNavigate}
+            onItemClick={() => {
+              // Top items são da client_content_library — abrir biblioteca
+              // do cliente em foco. URL `client=` já tá setada (auto-select).
+              if (onSelectClient) onSelectClient(stats.byClient[0].clientId, "library");
+              else onNavigate("library");
+            }}
           />
         )}
 

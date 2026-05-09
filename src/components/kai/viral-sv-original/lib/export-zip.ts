@@ -1,6 +1,9 @@
 
-import JSZip from "jszip";
-import { toPng } from "html-to-image";
+// 2026-05-08 — `jszip` e `html-to-image` agora são dynamic imports dentro de
+// `buildSlidesZip` pra que o chunk `export-zip-vendor` (jszip ~150kB) e
+// `export-html-vendor` (html-to-image ~200kB) só baixem quando alguém chamar
+// essa função. Como hoje nenhum call-site importa esse arquivo, na prática
+// ele vive como helper pronto-pra-uso sem custo no bundle initial.
 
 /**
  * Monta um arquivo ZIP client-side contendo os PNGs dos slides e, se disponível,
@@ -34,6 +37,10 @@ export async function buildSlidesZip(
   slideRefs: Array<HTMLDivElement | null>,
   opts: BuildZipOptions = {}
 ): Promise<Blob> {
+  const [{ default: JSZip }, { toPng }] = await Promise.all([
+    import("jszip"),
+    import("html-to-image"),
+  ]);
   const zip = new JSZip();
   const base = (opts.filename || "sequencia-viral-carrossel")
     .toLowerCase()

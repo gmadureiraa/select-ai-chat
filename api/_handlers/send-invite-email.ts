@@ -9,8 +9,10 @@ const roleLabels: Record<string, string> = {
   viewer: 'Visualizador',
 };
 
-function formatExpirationDate(expiresAt: string): string {
+function formatExpirationDate(expiresAt: string | null | undefined): string | null {
+  if (!expiresAt) return null;
   const d = new Date(expiresAt);
+  if (Number.isNaN(d.getTime())) return null;
   const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   return `${d.getDate()} de ${months[d.getMonth()]} de ${d.getFullYear()}`;
 }
@@ -38,6 +40,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       clientAccessHtml = `<div style="background-color:#f8f9fa;border-radius:8px;padding:16px;margin:20px 0;"><p style="margin:0 0 8px 0;font-weight:600;color:#374151;">Acesso aos clientes:</p><ul style="margin:0;padding-left:20px;color:#6b7280;">${clientNames.map((n: string) => `<li>${n}</li>`).join('')}</ul></div>`;
     }
     const formattedExpiration = formatExpirationDate(expiresAt);
+    const expirationHtml = formattedExpiration
+      ? `<div style="margin-top:24px;padding:12px;background-color:#fef3c7;border-radius:8px;text-align:center;"><p style="margin:0;color:#92400e;font-size:12px;">Este convite expira em <strong>${formattedExpiration}</strong></p></div>`
+      : '';
     const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f3f4f6;">
 <div style="max-width:600px;margin:0 auto;padding:40px 20px;">
@@ -51,7 +56,7 @@ ${clientAccessHtml}
 <p style="margin:0 0 24px 0;color:#4b5563;font-size:15px;line-height:1.6;">Clique no botão abaixo para acessar:</p>
 <div style="text-align:center;margin:32px 0;"><a href="${inviteUrl}" target="_blank" style="display:inline-block;padding:16px 40px;font-size:16px;font-weight:600;color:#fff;text-decoration:none;border-radius:8px;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);">Acessar Workspace</a></div>
 <p style="margin:16px 0 0 0;color:#6b7280;font-size:13px;text-align:center;">Não tem conta? <a href="${createAccountUrl}" style="color:#7c3aed;text-decoration:underline;font-weight:500;">Crie uma gratuitamente</a></p>
-<div style="margin-top:24px;padding:12px;background-color:#fef3c7;border-radius:8px;text-align:center;"><p style="margin:0;color:#92400e;font-size:12px;">Este convite expira em <strong>${formattedExpiration}</strong></p></div></div>
+${expirationHtml}</div>
 <div style="background-color:#f9fafb;padding:24px;text-align:center;border-top:1px solid #e5e7eb;">
 <p style="margin:0;color:#9ca3af;font-size:12px;">Se você não esperava este convite, pode ignorar este email com segurança.</p>
 <p style="margin:8px 0 0 0;color:#d1d5db;font-size:11px;">kAI - Kaleidos</p></div></div></div></body></html>`;

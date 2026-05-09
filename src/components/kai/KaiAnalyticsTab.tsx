@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useLateAnalytics, PlatformMetrics } from "@/hooks/useLateAnalytics";
 import { cn } from "@/lib/utils";
-import { 
-  RefreshCw, TrendingUp, TrendingDown, Eye, Heart, MessageCircle, 
-  Share2, Users, ExternalLink, BarChart3, Minus, Clock
+import {
+  RefreshCw, TrendingUp, TrendingDown, Eye, Heart, MessageCircle,
+  Share2, Users, ExternalLink, BarChart3, Minus, Clock, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -25,15 +24,6 @@ const PLATFORM_LABELS: Record<string, string> = {
   threads: "Threads",
 };
 
-const PLATFORM_COLORS: Record<string, string> = {
-  instagram: "from-pink-500 to-purple-500",
-  twitter: "from-sky-400 to-blue-500",
-  linkedin: "from-blue-600 to-blue-800",
-  tiktok: "from-pink-500 to-cyan-400",
-  youtube: "from-red-500 to-red-700",
-  threads: "from-gray-700 to-gray-900",
-};
-
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
@@ -48,7 +38,7 @@ function MiniSparkline({ data }: { data: Array<{ followers: number }> }) {
   const range = max - min || 1;
   const w = 80;
   const h = 24;
-  
+
   const points = values.map((v, i) => {
     const x = (i / (values.length - 1)) * w;
     const y = h - ((v - min) / range) * h;
@@ -56,7 +46,13 @@ function MiniSparkline({ data }: { data: Array<{ followers: number }> }) {
   }).join(" ");
 
   return (
-    <svg width={w} height={h} className="text-primary">
+    <svg
+      width={w}
+      height={h}
+      className="text-primary"
+      role="img"
+      aria-label={`Variação de seguidores: mínimo ${min}, máximo ${max}`}
+    >
       <polyline
         points={points}
         fill="none"
@@ -77,12 +73,12 @@ function MetricCard({ icon: Icon, label, value, subValue, trend }: {
   trend?: "up" | "down" | "neutral";
 }) {
   return (
-    <div className="bg-card border rounded-lg p-4 space-y-1">
+    <div className="bg-card border rounded-lg p-4 space-y-1 kai-card-hover transition-colors">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="h-4 w-4" />
         <span className="text-xs font-medium">{label}</span>
       </div>
-      <p className="text-2xl font-bold tracking-tight">{value}</p>
+      <p className="text-2xl font-bold tracking-tight tabular-nums">{value}</p>
       {subValue && (
         <div className="flex items-center gap-1 text-xs">
           {trend === "up" && <TrendingUp className="h-3 w-3 text-green-500" />}
@@ -211,23 +207,31 @@ export function KaiAnalyticsTab({ clientId, client }: KaiAnalyticsTabProps) {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
+          <div className="mb-2">
+            <span className="kai-eyebrow">Analytics do cliente</span>
+          </div>
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
+            <h2 className="text-2xl font-bold tracking-tight">Performance</h2>
             <Badge variant="secondary" className="text-[10px] font-semibold tracking-wider uppercase">
               Beta
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Métricas em tempo real via Postiz — {client?.name}
+            Métricas em tempo real via Late.dev{client?.name ? ` — ${client.name}` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {/* Period Toggle */}
-          <div className="flex border rounded-md overflow-hidden">
+          <div
+            className="flex border rounded-md overflow-hidden"
+            role="group"
+            aria-label="Período de análise"
+          >
             {[7, 30].map(p => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
+                aria-pressed={period === p}
                 className={cn(
                   "px-3 py-1.5 text-xs font-medium transition-colors",
                   period === p ? "bg-primary text-primary-foreground" : "hover:bg-accent"
@@ -242,7 +246,8 @@ export function KaiAnalyticsTab({ clientId, client }: KaiAnalyticsTabProps) {
             size="sm"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="gap-2"
+            className="gap-2 kai-btn-rec"
+            aria-label="Atualizar métricas"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
             Atualizar
@@ -292,13 +297,19 @@ export function KaiAnalyticsTab({ clientId, client }: KaiAnalyticsTabProps) {
       {/* Platform Tabs */}
       {platformKeys.length > 0 && (
         <>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <div
+            className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
+            role="tablist"
+            aria-label="Plataforma"
+          >
             {platformKeys.map(key => (
               <button
                 key={key}
                 onClick={() => setActivePlatform(key)}
+                role="tab"
+                aria-selected={selectedPlatform === key}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap border",
+                  "px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                   selectedPlatform === key
                     ? "bg-primary text-primary-foreground border-primary shadow-sm"
                     : "bg-card hover:bg-accent border-border"

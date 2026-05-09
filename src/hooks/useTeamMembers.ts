@@ -122,6 +122,20 @@ export const useTeamMembers = () => {
       // User doesn't exist yet - send invite email
       if (status === "invite_created") {
         try {
+          // Fetch the freshly-created invite so we can pass expires_at to the
+          // email template — RPC only returns invite_id, but the email needs
+          // the expiration date to render the "expira em…" badge.
+          let expiresAt: string | null = null;
+          const inviteId = (result as any)?.invite_id;
+          if (inviteId) {
+            const { data: inviteRow } = await supabase
+              .from("workspace_invites")
+              .select("expires_at")
+              .eq("id", inviteId)
+              .maybeSingle();
+            expiresAt = inviteRow?.expires_at ?? null;
+          }
+
           await apiInvoke("send-invite-email", {
             body: {
               email: email.toLowerCase(),
@@ -129,6 +143,7 @@ export const useTeamMembers = () => {
               workspaceSlug: workspace.slug,
               inviterName: inviterProfile?.full_name || inviterProfile?.email || "Um administrador",
               role,
+              expiresAt,
               clientNames: clientNames || [],
             },
           });

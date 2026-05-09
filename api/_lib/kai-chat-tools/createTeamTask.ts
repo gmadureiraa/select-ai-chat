@@ -71,7 +71,7 @@ export const createTeamTaskTool: RegisteredTool<
     const title = String(args.title ?? '').trim();
     if (!title) return { ok: false, error: 'title obrigatório' };
 
-    const res = await fetch(`${ctx.internalBaseUrl}/api/router?slug=team-tasks-create`, {
+    const res = await fetch(`${ctx.internalBaseUrl}/api/team-tasks-create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -109,7 +109,7 @@ export const createTeamTaskTool: RegisteredTool<
           title,
           body: args.description ?? '',
           briefing: title,
-        } as Record<string, unknown>,
+        },
         requires_approval: false,
         available_actions: [
           {
@@ -143,7 +143,7 @@ export const createTeamTaskTool: RegisteredTool<
         title,
         body: args.description ?? '',
         briefing: title,
-      } as Record<string, unknown>,
+      },
       requires_approval: false,
       available_actions: [
         {

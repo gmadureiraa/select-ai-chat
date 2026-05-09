@@ -525,8 +525,18 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
   });
 
   // Helper functions
-  const getItemsByColumn = (columnId: string) => 
-    items.filter(item => item.column_id === columnId).sort((a, b) => a.position - b.position);
+  // Note: itens com column_id=NULL (ex: criados por automações antigas que
+  // esqueceram de resolver column_id) caem na coluna 'idea' como fallback
+  // visual — assim não somem do board enquanto não rola backfill no DB.
+  const ideaColumnId = columns.find(c => c.column_type === 'idea')?.id ?? columns[0]?.id ?? null;
+  const getItemsByColumn = (columnId: string) =>
+    items
+      .filter(item => {
+        if (item.column_id) return item.column_id === columnId;
+        // Fallback: NULL column_id → mostra na coluna 'idea'
+        return columnId === ideaColumnId;
+      })
+      .sort((a, b) => a.position - b.position);
 
   const getItemsByDate = (date: Date) => 
     items.filter(item => {

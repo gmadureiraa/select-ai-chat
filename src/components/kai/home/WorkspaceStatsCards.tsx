@@ -245,8 +245,22 @@ export function WorkspaceStatsCards({ onNavigate }: WorkspaceStatsCardsProps) {
           <Card
             key={card.key}
             onClick={card.onClick}
+            role={card.onClick ? "button" : undefined}
+            tabIndex={card.onClick ? 0 : undefined}
+            aria-label={card.onClick ? `${card.label}: ${card.value}` : undefined}
+            onKeyDown={
+              card.onClick
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      card.onClick?.();
+                    }
+                  }
+                : undefined
+            }
             className={cn(
-              "cursor-pointer transition-all duration-200 group relative overflow-hidden",
+              "transition-all duration-200 group relative overflow-hidden",
+              card.onClick && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
               "hover:border-border/80 hover:bg-accent/30"
             )}
           >

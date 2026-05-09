@@ -362,7 +362,7 @@ export function WebhookSettings() {
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground uppercase">Secret Key (HMAC)</div>
                 <p className="text-sm text-muted-foreground">
-                  Está armazenado como <code className="text-xs bg-muted/50 px-1.5 py-0.5 rounded">LATE_WEBHOOK_SECRET</code>.
+                  Está armazenado como <code className="text-xs bg-muted/50 px-1.5 py-0.5 rounded">POSTIZ_WEBHOOK_SECRET</code>.
                   Cole o mesmo valor no campo <em>Secret Key</em> da Postiz para validarmos a assinatura
                   <code className="text-xs bg-muted/50 px-1.5 py-0.5 rounded ml-1">X-Postiz-Signature</code>.
                 </p>

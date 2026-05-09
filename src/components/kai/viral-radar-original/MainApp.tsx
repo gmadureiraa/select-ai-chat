@@ -108,7 +108,7 @@ function RadarShell({
   const renderView = () => {
     switch (view) {
       case "dashboard":
-        return <DashboardPage />;
+        return <DashboardPage clientId={clientId} />;
       case "saved":
         return <SavedPage />;
       case "newsletters":

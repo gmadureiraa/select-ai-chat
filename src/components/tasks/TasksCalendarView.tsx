@@ -13,8 +13,6 @@ import {
   endOfWeek,
   eachDayOfInterval,
   isSameMonth,
-  isSameDay,
-  parseISO,
   isToday as isDateToday,
   addMonths,
   subMonths,

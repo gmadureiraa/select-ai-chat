@@ -19,8 +19,6 @@ import {
   Loader2,
   Lightbulb,
   ExternalLink,
-  Layers,
-  Film,
   TrendingUp,
   Zap,
 } from "lucide-react";
@@ -32,6 +30,10 @@ import { TopInstagramSection } from "../components/top-instagram-section";
 import { TopYouTubeSection } from "../components/top-youtube-section";
 import { LoopClosureSection } from "../components/loop-closure-section";
 import { NichePillBar } from "../components/niche-pill-bar";
+
+// KAI cross-app actions: substitui os `<a>` externos pra viral.kaleidos.com.br /
+// reels-viral.vercel.app por bridge interno (Zustand pendingBriefing + tab swap).
+import { CrossAppActions } from "@/components/kai/viral/CrossAppActions";
 
 interface BriefHotTopic {
   topic: string;
@@ -71,7 +73,14 @@ interface SubInfo {
   isPaid: boolean;
 }
 
-export default function DashboardPage() {
+interface DashboardPageProps {
+  /** ID do cliente Kaleidos (vindo do shell do KAI) — usado nas ações cross-app
+   * pra salvar refs/ideias na library do cliente. Pode ser null no modo
+   * standalone (sem cliente selecionado). */
+  clientId?: string | null;
+}
+
+export default function DashboardPage({ clientId = null }: DashboardPageProps = {}) {
   const session = useNeonSession();
   const { active: niche } = useActiveNiche();
   const [brief, setBrief] = useState<DailyBrief | null>(null);
@@ -366,6 +375,7 @@ export default function DashboardPage() {
               <DayResumeCard
                 brief={brief}
                 previous={previousBrief}
+                clientId={clientId}
               />
             </div>
 
@@ -388,6 +398,7 @@ export default function DashboardPage() {
                       saved={savedTopics.has(topicRefId(t.topic))}
                       onToggleSave={() => void handleSaveTopic(t)}
                       velocity={computeVelocity(t, previousBrief)}
+                      clientId={clientId}
                     />
                   ))}
                 </div>
@@ -403,12 +414,14 @@ export default function DashboardPage() {
                 isPaid={Boolean(sub?.isPaid)}
                 mediaType="video"
                 limit={4}
+                clientId={clientId}
               />
               <TopInstagramSection
                 nicheId={niche.id}
                 isPaid={Boolean(sub?.isPaid)}
                 mediaType="carousel"
                 limit={4}
+                clientId={clientId}
               />
             </div>
           )}
@@ -419,6 +432,7 @@ export default function DashboardPage() {
               nicheId={niche.id}
               isPaid={Boolean(sub?.isPaid)}
               limit={10}
+              clientId={clientId}
             />
           )}
 
@@ -431,7 +445,7 @@ export default function DashboardPage() {
             >
               <div style={{ display: "grid", gap: 12 }}>
                 {(brief.cross_pollination ?? []).slice(0, 4).map((c, i) => (
-                  <CrossCard key={i} cross={c} />
+                  <CrossCard key={i} cross={c} clientId={clientId} />
                 ))}
               </div>
             </Section>
@@ -448,7 +462,7 @@ export default function DashboardPage() {
             ) : (
               <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
                 {(brief.narratives ?? []).slice(0, 4).map((n, i) => (
-                  <NarrativeCard key={i} narrative={n} />
+                  <NarrativeCard key={i} narrative={n} clientId={clientId} />
                 ))}
               </div>
             )}
@@ -468,6 +482,7 @@ export default function DashboardPage() {
                     idea={idea}
                     saved={savedIdeas.has(topicRefId(idea.hook))}
                     onToggleSave={() => void handleSaveIdea(idea)}
+                    clientId={clientId}
                   />
                 ))}
               </div>
@@ -503,7 +518,7 @@ export default function DashboardPage() {
       )}
 
       {session.data?.user && (
-        <TopNewsSection nicheId={niche.id} isPaid={Boolean(sub?.isPaid)} />
+        <TopNewsSection nicheId={niche.id} isPaid={Boolean(sub?.isPaid)} clientId={clientId} />
       )}
 
       {/* ─── ÚLTIMO ITEM DO DASHBOARD: "ontem virou" ─────────────────── */}
@@ -551,12 +566,14 @@ function TopicCard({
   saved,
   onToggleSave,
   velocity,
+  clientId,
 }: {
   topic: BriefHotTopic;
   rank: number;
   saved: boolean;
   onToggleSave: () => void;
   velocity: VelocityKind;
+  clientId: string | null;
 }) {
   const filled = topic.signal_count >= 6 ? 3 : topic.signal_count >= 3 ? 2 : 1;
   const intensity = filled === 3 ? "forte" : filled === 2 ? "médio" : "fraco";
@@ -623,24 +640,6 @@ function TopicCard({
             >
               <ExternalLink size={10} /> Ver notícias
             </Link>
-            <a
-              href={svBridgeUrl(topic.topic, topic.source_summary)}
-              target="_blank"
-              rel="noreferrer"
-              className="rdv-btn rdv-btn-ghost"
-              style={{ padding: "5px 10px", fontSize: 9 }}
-            >
-              <Layers size={10} /> Carrossel SV
-            </a>
-            <a
-              href={rvBridgeUrl(topic.topic)}
-              target="_blank"
-              rel="noreferrer"
-              className="rdv-btn rdv-btn-ghost"
-              style={{ padding: "5px 10px", fontSize: 9 }}
-            >
-              <Film size={10} /> Reel RV
-            </a>
             <button
               type="button"
               onClick={onToggleSave}
@@ -655,6 +654,17 @@ function TopicCard({
               {saved ? <BookmarkCheck size={10} /> : <Bookmark size={10} />}{" "}
               {saved ? "Salvo" : "Salvar"}
             </button>
+            {/* KAI: bridge inter-tab — antes ia pra viral.kaleidos.com.br/reels-viral.vercel.app */}
+            <CrossAppActions
+              source="radar"
+              topic={topic.topic}
+              briefing={topic.source_summary}
+              clientId={clientId}
+              metadata={{ type: "topic", signalCount: topic.signal_count }}
+              showIdea={false}
+              showLibrary={false}
+              size="sm"
+            />
           </div>
         </div>
       </div>
@@ -662,7 +672,13 @@ function TopicCard({
   );
 }
 
-function CrossCard({ cross }: { cross: BriefCrossPollination }) {
+function CrossCard({
+  cross,
+  clientId,
+}: {
+  cross: BriefCrossPollination;
+  clientId: string | null;
+}) {
   return (
     <div
       className="rdv-card"
@@ -701,27 +717,17 @@ function CrossCard({ cross }: { cross: BriefCrossPollination }) {
           ))}
         </div>
         <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <a
-            href={svBridgeUrl(
-              cross.topic,
-              `Cruzamento de fontes: ${(cross.sources ?? []).join(", ")}`,
-            )}
-            target="_blank"
-            rel="noreferrer"
-            className="rdv-btn rdv-btn-ghost"
-            style={{ padding: "5px 10px", fontSize: 9 }}
-          >
-            <Layers size={10} /> Conteúdo cruzado
-          </a>
-          <a
-            href={rvBridgeUrl(cross.topic)}
-            target="_blank"
-            rel="noreferrer"
-            className="rdv-btn rdv-btn-ghost"
-            style={{ padding: "5px 10px", fontSize: 9 }}
-          >
-            <Film size={10} /> Reel RV
-          </a>
+          {/* KAI: bridge inter-tab */}
+          <CrossAppActions
+            source="radar"
+            topic={cross.topic}
+            briefing={`Cruzamento de fontes: ${(cross.sources ?? []).join(", ")}`}
+            clientId={clientId}
+            metadata={{ type: "cross_pollination", sources: cross.sources }}
+            showIdea={false}
+            showLibrary={false}
+            size="sm"
+          />
         </div>
       </div>
     </div>
@@ -761,32 +767,11 @@ function PlanPill({ plan }: { plan: "free" | "pro" | "max" }) {
   );
 }
 
-/**
- * Helpers de bridge Radar → Sequência Viral / Reels Viral.
- *
- * SV (`/app/create/new?idea=...`) consome `?idea=` e abre o editor com brief
- * preenchido. Concatenamos title + context num único campo textual pra IA
- * ter material rico de partida.
- *
- * RV (`https://reels-viral.vercel.app/?topic=...`) consome `?topic=` na
- * landing (app/page.tsx:76), salva em sessionStorage e redireciona pra /app
- * — onde o form completo abre com tema pre-preenchido.
- */
-function svBridgeUrl(title: string, context?: string): string {
-  const parts = [`Tema: ${title}`];
-  if (context && context.trim().length > 0) {
-    parts.push(`Contexto: ${context.trim()}`);
-  }
-  parts.push(
-    "Crie um carrossel de 6-8 slides explorando esse ângulo, em PT-BR, linguagem simples e direta.",
-  );
-  const idea = parts.join("\n");
-  return `https://viral.kaleidos.com.br/app/create/new?idea=${encodeURIComponent(idea)}`;
-}
-
-function rvBridgeUrl(topic: string): string {
-  return `https://reels-viral.vercel.app/?topic=${encodeURIComponent(topic)}`;
-}
+// 2026-05-08 — `svBridgeUrl` / `rvBridgeUrl` removidos. Os botões "Carrossel" /
+// "Reel" agora usam <CrossAppActions /> que faz bridge interno via Zustand
+// pendingBriefing + setSearchParams (em vez de abrir tab nova nos apps
+// standalone externos). Isso mantém o user dentro do KAI shell e propaga o
+// clientId atual pra que "Salvar na biblioteca" funcione corretamente.
 
 type VelocityKind = "novo" | "subindo" | "explosao" | "neutral";
 
@@ -884,7 +869,13 @@ function topicRefId(topic: string): string {
     .slice(0, 80);
 }
 
-function NarrativeCard({ narrative }: { narrative: BriefNarrative }) {
+function NarrativeCard({
+  narrative,
+  clientId,
+}: {
+  narrative: BriefNarrative;
+  clientId: string | null;
+}) {
   // Schema do DB grava `explanation` + `sources`, mas a interface `BriefNarrative`
   // anterior tipava como `why` + `signals`. Suporta ambos pra retrocompat.
   const description =
@@ -909,24 +900,17 @@ function NarrativeCard({ narrative }: { narrative: BriefNarrative }) {
         </ul>
       ) : null}
       <div style={{ marginTop: 12, display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <a
-          href={svBridgeUrl(narrative.title, description)}
-          target="_blank"
-          rel="noreferrer"
-          className="rdv-btn rdv-btn-ghost"
-          style={{ padding: "5px 10px", fontSize: 9 }}
-        >
-          <Layers size={10} /> Carrossel desse ângulo
-        </a>
-        <a
-          href={rvBridgeUrl(narrative.title)}
-          target="_blank"
-          rel="noreferrer"
-          className="rdv-btn rdv-btn-ghost"
-          style={{ padding: "5px 10px", fontSize: 9 }}
-        >
-          <Film size={10} /> Reel RV
-        </a>
+        {/* KAI: bridge inter-tab */}
+        <CrossAppActions
+          source="radar"
+          topic={narrative.title}
+          briefing={description}
+          clientId={clientId}
+          metadata={{ type: "narrative" }}
+          showIdea={false}
+          showLibrary={false}
+          size="sm"
+        />
       </div>
     </div>
   );
@@ -936,10 +920,12 @@ function IdeaCard({
   idea,
   saved,
   onToggleSave,
+  clientId,
 }: {
   idea: BriefCarouselIdea;
   saved: boolean;
   onToggleSave: () => void;
+  clientId: string | null;
 }) {
   return (
     <div className="rdv-card" style={{ padding: "16px 18px" }}>
@@ -953,24 +939,6 @@ function IdeaCard({
         {idea.angle}
       </p>
       <div style={{ marginTop: 12, display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <a
-          href={svBridgeUrl(idea.hook, idea.angle)}
-          target="_blank"
-          rel="noreferrer"
-          className="rdv-btn rdv-btn-ghost"
-          style={{ padding: "5px 10px", fontSize: 9 }}
-        >
-          <Layers size={10} /> Carrossel SV
-        </a>
-        <a
-          href={rvBridgeUrl(idea.hook)}
-          target="_blank"
-          rel="noreferrer"
-          className="rdv-btn rdv-btn-ghost"
-          style={{ padding: "5px 10px", fontSize: 9 }}
-        >
-          <Film size={10} /> Reel RV
-        </a>
         <button
           type="button"
           onClick={onToggleSave}
@@ -985,6 +953,17 @@ function IdeaCard({
           {saved ? <BookmarkCheck size={10} /> : <Bookmark size={10} />}{" "}
           {saved ? "Salva" : "Salvar"}
         </button>
+        {/* KAI: bridge inter-tab */}
+        <CrossAppActions
+          source="radar"
+          topic={idea.hook}
+          briefing={idea.angle}
+          clientId={clientId}
+          metadata={{ type: "carousel_idea" }}
+          showIdea={false}
+          showLibrary={false}
+          size="sm"
+        />
       </div>
     </div>
   );
@@ -1073,9 +1052,11 @@ function SectionHeader({
 function DayResumeCard({
   brief,
   previous,
+  clientId,
 }: {
   brief: DailyBrief;
   previous: DailyBrief | null;
+  clientId: string | null;
 }) {
   const totalSignals = (brief.hot_topics ?? []).reduce(
     (acc, t) => acc + (t.signal_count ?? 0),
@@ -1362,26 +1343,17 @@ function DayResumeCard({
           <ExternalLink size={10} /> Ver fontes
         </Link>
         {topNarrative && (
-          <a
-            href={svBridgeUrl(topNarrative.title, topNarrativeText)}
-            target="_blank"
-            rel="noreferrer"
-            className="rdv-btn rdv-btn-ghost"
-            style={{ padding: "5px 10px", fontSize: 9 }}
-          >
-            <Layers size={10} /> Carrossel
-          </a>
-        )}
-        {topNarrative && (
-          <a
-            href={rvBridgeUrl(topNarrative.title)}
-            target="_blank"
-            rel="noreferrer"
-            className="rdv-btn rdv-btn-ghost"
-            style={{ padding: "5px 10px", fontSize: 9 }}
-          >
-            <Film size={10} /> Reel
-          </a>
+          /* KAI: bridge inter-tab pra story principal */
+          <CrossAppActions
+            source="radar"
+            topic={topNarrative.title}
+            briefing={topNarrativeText}
+            clientId={clientId}
+            metadata={{ type: "day_resume" }}
+            showIdea={false}
+            showLibrary={false}
+            size="sm"
+          />
         )}
       </div>
     </div>

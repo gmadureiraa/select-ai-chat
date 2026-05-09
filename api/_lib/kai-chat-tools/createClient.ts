@@ -66,7 +66,7 @@ export const createClientTool: RegisteredTool<CreateClientArgs, CreateClientData
     const name = String(args.name ?? '').trim();
     if (!name) return { ok: false, error: 'name é obrigatório' };
 
-    const res = await fetch(`${ctx.internalBaseUrl}/api/router?slug=client-create`, {
+    const res = await fetch(`${ctx.internalBaseUrl}/api/client-create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -108,7 +108,7 @@ export const createClientTool: RegisteredTool<CreateClientArgs, CreateClientData
         body: args.description ?? '',
         briefing: name,
         avatarUrl: args.avatar_url,
-      } as Record<string, unknown>,
+      },
       requires_approval: false,
       available_actions: [
         {

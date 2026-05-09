@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useWorkspace } from '@/hooks/useWorkspace';
+import { apiInvoke } from '@/lib/apiInvoke';
 import { toast } from 'sonner';
 
 export interface AiWorkflowConfig {
@@ -256,11 +257,63 @@ export function useAiWorkflows() {
     },
   });
 
+  // Update workflow (admin / super_admin) — name, description, schedule_cron, config, is_active
+  const updateWorkflow = useMutation({
+    mutationFn: async (payload: {
+      id: string;
+      name?: string;
+      description?: string | null;
+      schedule_cron?: string;
+      is_active?: boolean;
+      config?: Record<string, unknown>;
+    }) => {
+      const { data, error } = await apiInvoke('ai-workflow-update', { body: payload });
+      if (error) throw new Error(error.message);
+      return data?.workflow as AiWorkflow;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-workflows', workspaceId] });
+      toast.success('Workflow atualizado');
+    },
+    onError: (error: Error) => {
+      console.error('Error updating workflow:', error);
+      toast.error(`Erro ao atualizar workflow: ${error.message}`);
+    },
+  });
+
+  // Update agent (admin / super_admin) — knowledge_base, sub_agents, model etc.
+  const updateAgent = useMutation({
+    mutationFn: async (payload: {
+      id: string;
+      name?: string;
+      description?: string | null;
+      skill_id?: string | null;
+      knowledge_base?: Record<string, unknown>;
+      sub_agents?: Record<string, unknown>;
+      model?: string | null;
+      is_active?: boolean;
+    }) => {
+      const { data, error } = await apiInvoke('ai-agent-update', { body: payload });
+      if (error) throw new Error(error.message);
+      return data?.agent as AiAgent;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-agents', workspaceId] });
+      toast.success('Agent atualizado');
+    },
+    onError: (error: Error) => {
+      console.error('Error updating agent:', error);
+      toast.error(`Erro ao atualizar agent: ${error.message}`);
+    },
+  });
+
   return {
     workflows: workflows || [],
     agents: agents || [],
     isLoading,
     refetch,
     toggleWorkflow,
+    updateWorkflow,
+    updateAgent,
   };
 }

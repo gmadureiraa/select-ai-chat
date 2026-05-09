@@ -14,6 +14,7 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { ReferenceCard } from "@/components/references/ReferenceCard";
 import { ReferenceDialog } from "@/components/references/ReferenceDialog";
 import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog";
+import { ClientReferencesManager } from "@/components/clients/ClientReferencesManager";
 import { UnifiedContentGrid } from "@/components/kai/library/UnifiedContentGrid";
 import { CaseStudyGrid } from "@/components/kai/library/CaseStudyGrid";
 import { AddContentDialog } from "@/components/kai/library/AddContentDialog";
@@ -271,35 +272,13 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
           />
         </TabsContent>
 
-        {/* Reference Library */}
+        {/* Reference Library — usa ClientReferencesManager (rico) */}
+        {/* Esse componente tem: format chip colorido, source handle, tags reais, */}
+        {/* CrossAppActions, edit/delete on hover, abre ReferenceGalleryDialog com */}
+        {/* cenas-chave (RefSceneStrip) + KPI cards (likes/comments/views/shares/saves) */}
+        {/* + slides_text por slide pra carrosseis */}
         <TabsContent value="references" className="mt-4 flex-1 overflow-y-auto">
-          {filteredReferences.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center py-8 text-muted-foreground">
-                  <Link2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>{searchQuery ? "Nenhum resultado encontrado" : "Nenhuma referência na biblioteca"}</p>
-                  {!searchQuery && (
-                    <Button
-                      variant="outline"
-                      className="mt-4"
-                      onClick={() => {
-                        setSelectedReference(null);
-                        setReferenceDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Referência
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {filteredReferences.map(renderReferenceItem)}
-            </div>
-          )}
+          <ClientReferencesManager clientId={clientId} />
         </TabsContent>
 
         {/* Case Studies */}

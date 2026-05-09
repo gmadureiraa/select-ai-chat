@@ -54,10 +54,12 @@ export function QuickActions({ onNavigate, onCreateClient }: QuickActionsProps) 
     },
     {
       key: "library",
-      label: "Biblioteca viral",
-      description: "Posts salvos",
+      // viral-library foi unificada com KaiLibraryTab (per cliente) em 2026-05-08.
+      // Mantemos o atalho mas aponta pra biblioteca do cliente selecionado.
+      label: "Biblioteca",
+      description: "Refs e posts salvos",
       icon: ImageIcon,
-      onClick: () => onNavigate("viral-library"),
+      onClick: () => onNavigate("library"),
       accent: "bg-cyan-500/10 text-cyan-400",
     },
     {

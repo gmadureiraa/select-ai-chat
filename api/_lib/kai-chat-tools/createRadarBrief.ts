@@ -122,7 +122,7 @@ export const createRadarBriefTool: RegisteredTool<
           body: summary || 'Briefing pronto. Abra no Radar pra ver narratives + hot topics + ideias.',
           briefing: niche ?? 'briefing diário',
           viralRadarBriefId: briefId,
-        } as Record<string, unknown>,
+        },
         requires_approval: false,
         available_actions: [
           {

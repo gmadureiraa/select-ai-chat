@@ -36,9 +36,12 @@ interface Props {
   isPaid: boolean;
   /** Quantos vídeos mostrar (default 3) */
   limit?: number;
+  /** ID do cliente Kaleidos atual — propagado pro CrossAppActions de cada
+   * card pra que "Salvar na Biblioteca" persista em client_reference_library. */
+  clientId?: string | null;
 }
 
-export function TopYouTubeSection({ nicheId, isPaid, limit = 3 }: Props) {
+export function TopYouTubeSection({ nicheId, isPaid, limit = 3, clientId = null }: Props) {
   const [items, setItems] = useState<VideoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -152,6 +155,7 @@ export function TopYouTubeSection({ nicheId, isPaid, limit = 3 }: Props) {
               video={v}
               saved={saved.has(v.video_id)}
               onToggleSave={() => void handleSave(v)}
+              clientId={clientId}
             />
           ))}
         </YouTubeCarousel>
@@ -480,10 +484,12 @@ function YouTubeCard({
   video,
   saved,
   onToggleSave,
+  clientId,
 }: {
   video: VideoRow;
   saved: boolean;
   onToggleSave: () => void;
+  clientId?: string | null;
 }) {
   const ago = relativeTime(video.published_at);
   return (
@@ -603,10 +609,14 @@ function YouTubeCard({
             topic={video.title}
             briefing={video.title}
             url={video.link}
+            clientId={clientId}
             metadata={{
               videoId: (video as { video_id?: string }).video_id,
               channelName: video.channel_name,
               type: "youtube",
+              format: "article",
+              platform: "youtube",
+              thumbnail_url: (video as { thumbnail_url?: string }).thumbnail_url ?? null,
             }}
             showReel={false}
             size="sm"

@@ -25,9 +25,12 @@ import { CrossAppActions } from "@/components/kai/viral/CrossAppActions";
 interface Props {
   nicheId: string;
   isPaid: boolean;
+  /** ID do cliente Kaleidos atual — propagado pro CrossAppActions de cada
+   * card pra que "Salvar na Biblioteca" persista em client_reference_library. */
+  clientId?: string | null;
 }
 
-export function TopNewsSection({ nicheId, isPaid }: Props) {
+export function TopNewsSection({ nicheId, isPaid, clientId = null }: Props) {
   const [items, setItems] = useState<NewsArticleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -178,6 +181,7 @@ export function TopNewsSection({ nicheId, isPaid }: Props) {
               article={a}
               saved={saved.has(a.link)}
               onToggleSave={() => void handleSave(a)}
+              clientId={clientId}
             />
           ))}
         </div>
@@ -190,10 +194,12 @@ function NewsCard({
   article,
   saved,
   onToggleSave,
+  clientId,
 }: {
   article: NewsArticleRow;
   saved: boolean;
   onToggleSave: () => void;
+  clientId?: string | null;
 }) {
   const ago = relativeTime(article.pub_date);
   return (
@@ -324,10 +330,13 @@ function NewsCard({
           topic={article.title}
           briefing={article.title}
           url={article.link}
+          clientId={clientId}
           metadata={{
             sourceName: article.source_name,
             type: "news",
             kind: article.kind,
+            format: "article",
+            platform: "web",
           }}
           showReel={false}
           size="sm"

@@ -108,6 +108,8 @@ export const handlerLoaders: Record<string, () => Promise<any>> = {
   'automations-create': () => import('./_handlers/automations-create.js'),
   'automations-list': () => import('./_handlers/automations-list.js'),
   'automations-toggle': () => import('./_handlers/automations-toggle.js'),
+  'ai-workflow-update': () => import('./_handlers/ai-workflow-update.js'),
+  'ai-agent-update': () => import('./_handlers/ai-agent-update.js'),
   'client-update': () => import('./_handlers/client-update.js'),
   'client-create': () => import('./_handlers/client-create.js'),
   'upload': () => import('./_handlers/upload.js'),

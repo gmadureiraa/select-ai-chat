@@ -36,6 +36,10 @@ import { useAiWorkflowRuns, useLatestRunsByWorkflow, AiWorkflowRun } from '@/hoo
 import { useClients } from '@/hooks/useClients';
 import { AutomationDialog } from '@/components/planning/AutomationDialog';
 import { AutomationHistoryDialog } from './AutomationHistoryDialog';
+import { AiWorkflowEditor } from '@/components/admin/AiWorkflowEditor';
+import { AiAgentEditor } from '@/components/admin/AiAgentEditor';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { AiAgent } from '@/hooks/useAiWorkflows';
 import {
   Dialog,
   DialogContent,
@@ -111,6 +115,9 @@ export function AutomationsTab() {
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [triggerFilter, setTriggerFilter] = useState<string>('all');
   const [workflowRunsId, setWorkflowRunsId] = useState<string | null>(null);
+  const [editingWorkflow, setEditingWorkflow] = useState<AiWorkflow | null>(null);
+  const [editingAgent, setEditingAgent] = useState<AiAgent | null>(null);
+  const [activeMainTab, setActiveMainTab] = useState<'planning' | 'workflows'>('planning');
 
   const handleEdit = (automation: PlanningAutomation) => {
     setEditingAutomation(automation);
@@ -302,20 +309,40 @@ export function AutomationsTab() {
               <History className="h-4 w-4 mr-2" />
               Histórico
             </Button>
-            <Button size="sm" onClick={handleCreate} className="h-9 kai-btn-rec">
-              <Plus className="h-4 w-4 mr-2" />
-              Nova automação
-            </Button>
+            {activeMainTab === 'planning' && (
+              <Button size="sm" onClick={handleCreate} className="h-9 kai-btn-rec">
+                <Plus className="h-4 w-4 mr-2" />
+                Nova automação
+              </Button>
+            )}
           </>
         }
       />
 
+      <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as 'planning' | 'workflows')}>
+        <TabsList className="grid w-full sm:w-auto grid-cols-2 sm:inline-grid">
+          <TabsTrigger value="planning" className="flex items-center gap-2">
+            <Zap className="h-4 w-4" />
+            <span className="hidden sm:inline">Automações Planning</span>
+            <span className="sm:hidden">Planning</span>
+            <Badge variant="secondary" className="text-[10px] ml-1">{automations.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="workflows" className="flex items-center gap-2">
+            <Brain className="h-4 w-4" />
+            <span className="hidden sm:inline">Workflows AI</span>
+            <span className="sm:hidden">Workflows</span>
+            <Badge variant="secondary" className="text-[10px] ml-1">{workflows.length}</Badge>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="planning" className="mt-4 space-y-4">
+
       {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-1 min-w-[200px] sm:flex-initial">
+          <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
           <Select value={clientFilter} onValueChange={setClientFilter}>
-            <SelectTrigger className="w-[200px] h-9">
+            <SelectTrigger className="flex-1 sm:w-[200px] h-9">
               <SelectValue placeholder="Filtrar por cliente" />
             </SelectTrigger>
             <SelectContent>
@@ -329,7 +356,7 @@ export function AutomationsTab() {
           </Select>
         </div>
         <Select value={triggerFilter} onValueChange={setTriggerFilter}>
-          <SelectTrigger className="w-[180px] h-9">
+          <SelectTrigger className="flex-1 sm:w-[180px] h-9 min-w-[140px]">
             <SelectValue placeholder="Tipo de trigger" />
           </SelectTrigger>
           <SelectContent>
@@ -347,7 +374,7 @@ export function AutomationsTab() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">{filteredAutomations.length}</div>
@@ -455,15 +482,22 @@ export function AutomationsTab() {
         </Card>
       )}
 
-      {/* ─── Workflows AI (read-only por enquanto: madureira-redes etc) ─── */}
-      <AiWorkflowsSection
-        workflows={workflows}
-        agents={agents}
-        isLoading={workflowsLoading}
-        latestRunsByWorkflow={latestRunsByWorkflow}
-        onToggle={(id, is_active) => toggleWorkflow.mutate({ id, is_active })}
-        onViewRuns={(id) => setWorkflowRunsId(id)}
-      />
+        </TabsContent>
+
+        <TabsContent value="workflows" className="mt-4 space-y-4">
+          {/* ─── Workflows AI (Madureira-style cron próprio) ─── */}
+          <AiWorkflowsSection
+            workflows={workflows}
+            agents={agents}
+            isLoading={workflowsLoading}
+            latestRunsByWorkflow={latestRunsByWorkflow}
+            onToggle={(id, is_active) => toggleWorkflow.mutate({ id, is_active })}
+            onViewRuns={(id) => setWorkflowRunsId(id)}
+            onEditWorkflow={(w) => setEditingWorkflow(w)}
+            onEditAgent={(a) => setEditingAgent(a)}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Modal de runs de um workflow */}
       <AiWorkflowRunsDialog
@@ -471,6 +505,18 @@ export function AutomationsTab() {
         workflow={workflows.find(w => w.id === workflowRunsId) ?? null}
         open={!!workflowRunsId}
         onOpenChange={(open) => { if (!open) setWorkflowRunsId(null); }}
+      />
+
+      {/* Editores admin (workflow + agent) */}
+      <AiWorkflowEditor
+        workflow={editingWorkflow}
+        open={!!editingWorkflow}
+        onOpenChange={(open) => { if (!open) setEditingWorkflow(null); }}
+      />
+      <AiAgentEditor
+        agent={editingAgent}
+        open={!!editingAgent}
+        onOpenChange={(open) => { if (!open) setEditingAgent(null); }}
       />
 
       {/* Dialogs */}
@@ -727,11 +773,13 @@ const HEALTH_STYLES: Record<WorkflowHealth, { dot: string; bg: string; text: str
 
 interface AiWorkflowsSectionProps {
   workflows: AiWorkflow[];
-  agents: Array<{ id: string; name: string; model: string | null }>;
+  agents: AiAgent[];
   isLoading: boolean;
   latestRunsByWorkflow: Record<string, AiWorkflowRun>;
   onToggle: (id: string, is_active: boolean) => void;
   onViewRuns: (id: string) => void;
+  onEditWorkflow?: (workflow: AiWorkflow) => void;
+  onEditAgent?: (agent: AiAgent) => void;
 }
 
 function AiWorkflowsSection({
@@ -741,6 +789,8 @@ function AiWorkflowsSection({
   latestRunsByWorkflow,
   onToggle,
   onViewRuns,
+  onEditWorkflow,
+  onEditAgent,
 }: AiWorkflowsSectionProps) {
   // Hooks ANTES de qualquer return condicional (regra de hooks).
   const grouped = useMemo(() => {
@@ -776,7 +826,7 @@ function AiWorkflowsSection({
             Workflows AI
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Agentes de conteúdo rodando em cron próprio (Madureira, etc). Read-only por enquanto, edição via SQL.
+            Agentes de conteúdo rodando em cron próprio (Madureira-style). Editáveis via dialog admin.
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -819,6 +869,17 @@ function AiWorkflowsSection({
                     </Badge>
                   )}
                 </CardTitle>
+                {agent && onEditAgent && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onEditAgent(agent)}
+                    className="h-8"
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                    Editar agent
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -829,6 +890,7 @@ function AiWorkflowsSection({
                   lastRun={latestRunsByWorkflow[workflow.id]}
                   onToggle={onToggle}
                   onViewRuns={onViewRuns}
+                  onEdit={onEditWorkflow}
                 />
               ))}
             </CardContent>
@@ -844,9 +906,10 @@ interface AiWorkflowCardProps {
   lastRun: AiWorkflowRun | undefined;
   onToggle: (id: string, is_active: boolean) => void;
   onViewRuns: (id: string) => void;
+  onEdit?: (workflow: AiWorkflow) => void;
 }
 
-function AiWorkflowCard({ workflow, lastRun, onToggle, onViewRuns }: AiWorkflowCardProps) {
+function AiWorkflowCard({ workflow, lastRun, onToggle, onViewRuns, onEdit }: AiWorkflowCardProps) {
   const health = getWorkflowHealth(workflow, lastRun);
   const styles = HEALTH_STYLES[health.state];
   const cron = describeCron(workflow.schedule_cron);
@@ -930,6 +993,18 @@ function AiWorkflowCard({ workflow, lastRun, onToggle, onViewRuns }: AiWorkflowC
           <History className="h-4 w-4 mr-1" />
           <span className="hidden sm:inline">Runs</span>
         </Button>
+        {onEdit && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEdit(workflow)}
+            className="h-8"
+            title="Editar workflow"
+          >
+            <Pencil className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">Editar</span>
+          </Button>
+        )}
         <Switch
           checked={workflow.is_active}
           onCheckedChange={(checked) => onToggle(workflow.id, checked)}

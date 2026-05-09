@@ -17,6 +17,7 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { PlanningItemCard } from './PlanningItemCard';
+import { EmptyState } from './EmptyState';
 import type { PlanningItem, KanbanColumn, PlanningStatus } from '@/hooks/usePlanningItems';
 import type { ViewSettings } from './ViewSettingsPopover';
 
@@ -225,6 +226,18 @@ export function KanbanView({
     setActiveItem(null);
     setLocalColumnsMap(null);
   }, []);
+
+  if (columns.length === 0) {
+    return (
+      <div ref={containerRef} className="h-full w-full flex items-center justify-center">
+        <EmptyState
+          type="kanban"
+          title="Nenhuma coluna configurada"
+          description="As colunas padrão (Ideias, Rascunho, Revisão, Aprovado, Agendado, Publicado) ainda não foram criadas para este workspace."
+        />
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} className="h-full w-full">

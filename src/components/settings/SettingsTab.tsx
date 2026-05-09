@@ -347,6 +347,7 @@ export function SettingsTab() {
   return (
     <div className={cn("max-w-6xl mx-auto h-full overflow-y-auto", isMobile ? "px-4 py-4" : "px-6 py-8")}>
       <div className="mb-6">
+        <span className="kai-eyebrow mb-1.5 inline-block">CONTA · CONFIGURAÇÕES</span>
         <h1 className="text-2xl font-semibold">Configurações</h1>
         <p className="text-muted-foreground text-sm mt-1">Gerencie sua conta e preferências</p>
       </div>

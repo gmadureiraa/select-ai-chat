@@ -114,7 +114,7 @@ export const updateClientTool: RegisteredTool<UpdateClientArgs, UpdateClientData
         title: `Cliente atualizado: ${name}`,
         body: `Campos atualizados: ${fieldsUpdated.join(', ')}`,
         briefing: clientId,
-      } as Record<string, unknown>,
+      },
       requires_approval: false,
       available_actions: [
         {

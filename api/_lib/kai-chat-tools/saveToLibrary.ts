@@ -108,6 +108,7 @@ export const saveToLibraryTool: RegisteredTool<
     const json: any = await res.json();
     const itemId: string | null = json?.id ?? json?.item?.id ?? null;
 
+    const snippet = (args.content ?? '').slice(0, 240);
     const card: KAIActionCard = {
       id: newActionCardId(),
       planning_item_id: null,
@@ -116,12 +117,15 @@ export const saveToLibraryTool: RegisteredTool<
       data: {
         kind: 'library_match',
         clientId: ctx.clientId,
-        title,
-        format,
-        destination,
-        url: args.url,
-        thumbnailUrl: args.thumbnailUrl,
-      } as Record<string, unknown>,
+        matches: [
+          {
+            id: itemId ?? `local_${Date.now()}`,
+            title,
+            snippet: snippet || `Salvo em ${destination} · ${format}`,
+            url: args.url,
+          },
+        ],
+      },
       requires_approval: false,
       available_actions: [
         {

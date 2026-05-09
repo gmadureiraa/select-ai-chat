@@ -172,7 +172,7 @@ export const createAutomationTool: RegisteredTool<CreateAutomationArgs, CreateAu
         body: `${summary}\nContent type: ${args.content_type ?? 'social_post'}\nAuto publish: ${args.auto_publish ? 'sim' : 'não'}`,
         briefing: name,
         automationId: automationId ?? undefined,
-      } as Record<string, unknown>,
+      },
       requires_approval: false,
       available_actions: [
         {

@@ -394,12 +394,18 @@ export default function Kai() {
           );
         case "home":
           return (
-            <HomeDashboard 
+            <HomeDashboard
               onNavigate={handleTabChange}
               onOpenItem={(itemId) => {
                 const params = new URLSearchParams(searchParams);
                 params.set("tab", "planning");
                 params.set("openItem", itemId);
+                setSearchParams(params);
+              }}
+              onSelectClient={(clientId, nextTab) => {
+                const params = new URLSearchParams(searchParams);
+                params.set("client", clientId);
+                if (nextTab) params.set("tab", nextTab);
                 setSearchParams(params);
               }}
             />
@@ -482,12 +488,18 @@ export default function Kai() {
       
       default:
         return (
-          <HomeDashboard 
+          <HomeDashboard
             onNavigate={handleTabChange}
             onOpenItem={(itemId) => {
               const params = new URLSearchParams(searchParams);
               params.set("tab", "planning");
               params.set("openItem", itemId);
+              setSearchParams(params);
+            }}
+            onSelectClient={(clientId, nextTab) => {
+              const params = new URLSearchParams(searchParams);
+              params.set("client", clientId);
+              if (nextTab) params.set("tab", nextTab);
               setSearchParams(params);
             }}
           />

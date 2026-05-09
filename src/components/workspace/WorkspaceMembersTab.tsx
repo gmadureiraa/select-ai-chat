@@ -56,6 +56,7 @@ import {
 import { useWorkspace, type WorkspaceRole } from "@/hooks/useWorkspace";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useAuth } from "@/hooks/useAuth";
+import { TabHeader } from "@/components/kai/TabHeader";
 import { useClients } from "@/hooks/useClients";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -231,31 +232,30 @@ export function WorkspaceMembersTab() {
         isMobile ? "px-4 py-4" : "px-6 py-8",
       )}
     >
-      <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <Users className="h-6 w-6 text-muted-foreground" />
-            Membros
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Convide e gerencie quem tem acesso ao workspace
-          </p>
+      <Dialog
+        open={inviteOpen}
+        onOpenChange={(o) => {
+          setInviteOpen(o);
+          if (!o) resetInviteForm();
+        }}
+      >
+        <div className="mb-6">
+          <TabHeader
+            icon={Users}
+            eyebrow="WORKSPACE · MEMBROS"
+            title="Membros"
+            description="Convide e gerencie quem tem acesso ao workspace."
+            actions={
+              <DialogTrigger asChild>
+                <Button>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Convidar membro
+                </Button>
+              </DialogTrigger>
+            }
+          />
         </div>
-
-        <Dialog
-          open={inviteOpen}
-          onOpenChange={(o) => {
-            setInviteOpen(o);
-            if (!o) resetInviteForm();
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Convidar membro
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Convidar membro</DialogTitle>
               <DialogDescription>
@@ -383,7 +383,6 @@ export function WorkspaceMembersTab() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
 
       {/* Pending Invites */}
       {invites.length > 0 && (

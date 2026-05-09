@@ -42,6 +42,9 @@ interface Props {
   /** Override de title/eyebrow pra customizar a seção */
   title?: string;
   eyebrow?: string;
+  /** ID do cliente Kaleidos atual — propagado pro CrossAppActions de cada
+   * card pra que "Salvar na Biblioteca" persista em client_reference_library. */
+  clientId?: string | null;
 }
 
 function isReel(p: InstagramPostRow): boolean {
@@ -58,6 +61,7 @@ export function TopInstagramSection({
   limit = 3,
   title,
   eyebrow,
+  clientId = null,
 }: Props) {
   const [items, setItems] = useState<InstagramPostRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,6 +216,7 @@ export function TopInstagramSection({
               post={p}
               saved={saved.has(p.shortcode)}
               onToggleSave={() => void handleSave(p)}
+              clientId={clientId}
             />
           ))}
         </div>
@@ -224,10 +229,12 @@ function InstagramCard({
   post,
   saved,
   onToggleSave,
+  clientId,
 }: {
   post: InstagramPostRow;
   saved: boolean;
   onToggleSave: () => void;
+  clientId?: string | null;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
   const caption = (post.caption ?? "").trim();
@@ -348,10 +355,14 @@ function InstagramCard({
             topic={post.caption?.slice(0, 200) ?? `Post de @${post.account_handle}`}
             briefing={post.caption ?? undefined}
             url={igUrl}
+            clientId={clientId}
             metadata={{
               shortcode: post.shortcode,
               accountHandle: post.account_handle,
               type: isVideo ? "instagram_reel" : "instagram_post",
+              format: isVideo ? "reel" : "carousel",
+              platform: "instagram",
+              thumbnail_url: post.display_url ?? null,
             }}
             showIdea={false}
             size="sm"
@@ -362,22 +373,9 @@ function InstagramCard({
   );
 }
 
-function svBridgeFromIg(post: InstagramPostRow): string {
-  const idea = [
-    `Tema: post viral de @${post.account_handle}`,
-    post.caption ? `Caption original: ${post.caption.slice(0, 240)}` : "",
-    "Crie um carrossel de 6-8 slides em PT-BR explorando esse ângulo, linguagem simples e direta.",
-  ]
-    .filter(Boolean)
-    .join("\n");
-  return `https://viral.kaleidos.com.br/app/create/new?idea=${encodeURIComponent(idea)}`;
-}
-
-function rvBridgeFromIg(post: InstagramPostRow): string {
-  return `https://reels-viral.vercel.app/?url=${encodeURIComponent(
-    `https://www.instagram.com/p/${post.shortcode}/`,
-  )}`;
-}
+// svBridgeFromIg / rvBridgeFromIg removidos 2026-05-08 — substituídos pelo
+// <CrossAppActions /> inline (linha ~352) que opera via Zustand pendingBriefing
+// + tab swap dentro do shell do KAI.
 
 /**
  * Placeholder compacto pra grid do dashboard quando preview do IG falha.

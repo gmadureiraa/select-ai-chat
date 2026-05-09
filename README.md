@@ -1,10 +1,24 @@
 # KAI 2.0 — Kaleidos AI Platform
 
-Plataforma multi-tenant da Kaleidos pra criação de conteúdo, planejamento, métricas e automação social. Single-page app que roda em Vercel.
+Plataforma multi-tenant da Kaleidos pra criação de conteúdo, planejamento, métricas, performance e automação social — incluindo 3 apps virais integrados (Sequência Viral, Radar Viral, Reels Viral). Single-page React app que roda em Vercel.
 
 > **Live:** https://kai-2-topaz.vercel.app
 > **Repo:** `gmadureiraa/kai-app`
 > **Branch ativa desta migração:** `combo-viral-integration`
+
+## Features principais
+
+- **KAI Chat** — assistente IA com 23 tools tool-calling (criação de conteúdo, scheduling, planning, métricas, OAuth, billing). Streaming SSE, persistência de histórico, exports MD/PDF.
+- **Planejamento** — kanban editorial multi-cliente com drag-and-drop, mentions (`@cliente`), filtros avançados, view list/calendar/board.
+- **Tarefas do time** — board interno com prioridade, atribuição, calendário; separado do conteúdo.
+- **Library** — bancos de conteúdo, refs visuais, case studies, relatórios e visuais (5 tabs).
+- **Performance** — dashboards Instagram, Twitter, LinkedIn, YouTube, Newsletter e Meta Ads. CSV upload, sync automático, métricas, learnings via Gemini.
+- **Automations** — RSS → IA → Publicação. Workflows com triggers de schedule/RSS/webhook + AI Agents.
+- **Viral apps** — 3 apps full integrados:
+  - **Sequência Viral** — gera carrossel completo (texto + imagem + voz) single-shot via Gemini 2.5 Pro/Flash + Imagen 4.
+  - **Radar Viral** — alerta de conteúdo viral (IG, YouTube, News, Newsletters) + briefs de remix.
+  - **Reels Viral** — engenharia reversa de reels: análise multimodal (Gemini Flash) + script + storyboard cena por cena.
+- **Postiz** — agendamento e publicação social (Instagram, Twitter, LinkedIn, YouTube, TikTok, Meta Ads).
 
 ## Screenshots
 
@@ -22,15 +36,19 @@ Plataforma multi-tenant da Kaleidos pra criação de conteúdo, planejamento, m�
 
 ## Stack
 
-- **Frontend:** React 18 + Vite 5 + TypeScript + Tailwind CSS + Shadcn/ui
-- **Database:** Neon Postgres (88 tabelas, 291 RLS policies, 47 triggers)
-- **Auth:** Neon Auth (Better Auth) via `@neondatabase/auth` com `SupabaseAuthAdapter`
-- **Data API:** Neon Data API (PostgREST). JWT do Neon Auth injetado em cada request.
+- **Frontend:** React 18 + Vite 5 + TypeScript + Tailwind CSS + Shadcn/ui (Radix UI primitives)
+- **Database:** Neon Postgres (88 tabelas, 291 RLS policies, 263 indexes, 47 triggers)
+- **Auth:** Neon Auth (Better Auth) via `@neondatabase/auth` com `SupabaseAuthAdapter` pra retro-compat
+- **Data API:** Neon Data API (PostgREST-compatible). JWT do Neon Auth injetado em cada request.
 - **Backend:** Vercel Functions (Node 20) — 1 catch-all router que carrega 97 handlers sob demanda
 - **Storage:** Vercel Blob (buckets simulados como prefixos de path)
 - **Realtime:** TanStack Query polling — não há WebSocket
 - **Cron:** Vercel Cron (`vercel.json`)
+- **Social:** Postiz (agendamento e publicação) — auth-bridge JWT pelo backend
 - **LLMs:** Gemini 2.5 Flash/Pro (default), OpenAI, Anthropic, Grok (web search)
+- **Forms/State:** React Hook Form + Zod, Zustand (state global), TanStack Query
+- **Charts:** Recharts (lazy)
+- **Drag-and-drop:** dnd-kit (Kanban + Tasks board)
 - **Package manager:** Bun
 
 A migração de Supabase (Lovable) → Neon foi feita em 2026-05-07. Toda a história está em [`MIGRATION-NEON-STATUS.md`](./MIGRATION-NEON-STATUS.md).
@@ -43,25 +61,50 @@ A migração de Supabase (Lovable) → Neon foi feita em 2026-05-07. Toda a hist
 # 1. Clone + dependências
 git clone git@github.com:gmadureiraa/kai-app.git
 cd kai-app
+git checkout combo-viral-integration  # branch ativa
 bun install
 
-# 2. Env vars (mínimo pra subir)
-cp .env.example .env  # se não existir, ver SETUP.md
-# preencher:
-#   DATABASE_URL          (Neon connection string com pooler)
-#   VITE_SUPABASE_URL     (Neon Data API URL)
-#   VITE_NEON_AUTH_URL    (Neon Auth base URL)
-#   VITE_NEON_JWKS_URL    (JWKS pra verificação de JWT no backend)
-#   BLOB_READ_WRITE_TOKEN (Vercel Blob)
-#   GEMINI_API_KEY ou GOOGLE_AI_STUDIO_API_KEY (LLM principal)
+# 2. Env vars (puxar tudo da Vercel)
+vercel link            # uma vez por máquina, escolhe o projeto kai-2
+vercel env pull .env.local --environment=development
 
-# 3. Dev server (front + API local via vercel dev)
-bun run dev          # vite dev, só front
-# OU
-vercel dev           # front + Vercel Functions juntos (recomendado pra testar /api)
+# 3. Dev server
+bun run dev            # Vite só (localhost:5173) — usa /api da prod via rewrite
+# OU pra testar /api local:
+vercel dev             # Front + Vercel Functions juntos
 ```
 
-Detalhes completos em [`SETUP.md`](./SETUP.md).
+### Env vars obrigatórias
+
+| Var | Pra quê |
+|---|---|
+| `DATABASE_URL` | Neon connection string com pooler |
+| `VITE_SUPABASE_URL` | Neon Data API URL (PostgREST) |
+| `VITE_SUPABASE_ANON_KEY` | Token público pra Data API |
+| `VITE_NEON_AUTH_URL` | Neon Auth base URL |
+| `VITE_NEON_JWKS_URL` | JWKS pra verificação de JWT no backend |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token |
+| `GEMINI_API_KEY` | LLM principal (Gemini 2.5 Flash/Pro) |
+| `CRON_SECRET` | Token Bearer pros Vercel Crons |
+
+### Env vars opcionais (features específicas)
+
+| Var | Feature |
+|---|---|
+| `OPENAI_API_KEY` | Provider alternativo no chat |
+| `ANTHROPIC_API_KEY` | Provider alternativo no chat |
+| `XAI_API_KEY` | Grok (web search) |
+| `APIFY_API_KEY` + `APIFY_API_KEY_FALLBACK` | Scraping IG/Twitter (Sequência + Reels + Radar) |
+| `SUPADATA_API_KEY` | Transcrição de áudio (reels) |
+| `SERPER_API_KEY` | Search agent (newsletters / temas) |
+| `RESEND_API_KEY` | Envio de email transacional |
+| `STRIPE_SECRET_KEY` | Billing (signature `STRIPE_WEBHOOK_SECRET`) |
+| `POSTIZ_*` | Agendamento social (auth bridge) |
+| `META_ACCESS_TOKEN` + `META_AD_ACCOUNT_ID` + `META_PAGE_ID` | Meta Ads single-tenant (sem App Review) |
+| `LATE_API_KEY` | OAuth bridge antigo (legacy fallback) |
+| `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` | Daily report |
+
+Detalhes completos em [`ENV-VARS.md`](./ENV-VARS.md) e setup do zero em [`SETUP.md`](./SETUP.md).
 
 ---
 
@@ -77,6 +120,11 @@ Detalhes completos em [`SETUP.md`](./SETUP.md).
 | `bun run lint` | ESLint em todo o repo |
 | `bunx tsc --noEmit -p tsconfig.app.json` | Type-check sem emitir (CI) |
 | `bunx playwright test` | Testes E2E (config em `playwright.config.ts`) |
+| `bun run test:e2e:prod` | E2E contra a URL de produção |
+| `vercel deploy` | Deploy preview no Vercel |
+| `vercel deploy --prod --yes` | Deploy de produção |
+| `vercel env pull .env.local` | Sincronizar vars locais com a Vercel |
+| `bunx tsx scripts/<script>.ts` | Rodar scripts TS soltos (seed, migration tooling, etc.) |
 
 ---
 
@@ -85,20 +133,38 @@ Detalhes completos em [`SETUP.md`](./SETUP.md).
 ```
 kai-app-combo/
 ├── api/                          # Vercel Functions
-│   ├── router.ts                 # catch-all que despacha pra _handlers/<slug>
+│   ├── router.ts                 # catch-all /api/* — despacha pra _handlers/<slug>
 │   ├── handler-manifest.ts       # mapa { slug → import lazy do handler }
 │   ├── _handlers/                # 97 handlers (1 arquivo por endpoint)
 │   ├── _lib/                     # db, auth, cors, handler wrapper, llm, stub
 │   └── blob/                     # 5 endpoints diretos pro Vercel Blob
-├── migrations/                   # SQL aplicadas no Neon (numeradas)
+├── migrations/                   # SQL aplicadas no Neon (numeradas, ordem cresc.)
 │   ├── 0002_library_global.sql
 │   ├── 0003_radar_full.sql
 │   └── 0004_seed_rss_sources.sql
+├── scripts/                      # scripts TS rodáveis com `bunx tsx <script>`
 ├── src/
 │   ├── App.tsx                   # rotas + providers + ErrorBoundary
 │   ├── main.tsx
 │   ├── pages/                    # 9 páginas top-level (Login, Kai, etc.)
-│   ├── components/               # ~25 áreas (kai, planning, posts, viral, ...)
+│   ├── components/               # áreas:
+│   │   ├── admin/                # painel admin (workspace, billing global)
+│   │   ├── automations/          # AutomationsTab, AutomationDialog
+│   │   ├── billing/              # BillingTab, planos, tokens
+│   │   ├── chat/                 # FloatingInput, EnhancedMessageBubble, KaiToolsTray
+│   │   ├── clients/              # CRUD cliente, brand assets, refs
+│   │   ├── content/              # geração de conteúdo single-shot
+│   │   ├── kai/                  # Kai shell + tabs + viral-* (3 apps virais)
+│   │   ├── library/              # bancos de conteúdo / refs / case studies
+│   │   ├── notifications/
+│   │   ├── onboarding/
+│   │   ├── performance/          # dashboards Instagram / Twitter / LI / YT / Newsletter / Meta
+│   │   ├── planning/             # PlanningBoard + KanbanView + dialogs
+│   │   ├── posts/                # PostPreviewCard, CarouselEditor
+│   │   ├── settings/             # workspace settings + members
+│   │   ├── tasks/                # TeamTasksBoard
+│   │   ├── ui/                   # shadcn primitives
+│   │   └── workspace/            # WorkspaceGuard, WorkspaceRouter
 │   ├── hooks/                    # ~80 hooks (data + UI state)
 │   ├── lib/                      # apiInvoke, validation, exports, utils
 │   ├── integrations/
@@ -107,10 +173,13 @@ kai-app-combo/
 │   │   ├── storage/blob-client   # wrapper Vercel Blob com API tipo Supabase
 │   │   └── neon/                 # legacy compat shim
 │   ├── contexts/                 # WorkspaceContext, GlobalKAIContext
+│   ├── store/                    # Zustand stores
 │   └── types/
-├── docs/                         # docs antigas (referência)
 ├── public/                       # assets estáticos
+├── docs/                         # docs antigas (referência)
 ├── supabase/                     # legacy edge functions (referência apenas)
+├── _legacy/                      # cópias arquivadas pré-migração viral
+├── vite.config.ts                # bundling + manualChunks (split de export-vendor)
 ├── vercel.json                   # framework + crons + rewrites + headers
 ├── package.json
 └── tsconfig*.json
@@ -141,13 +210,29 @@ Schedules adicionais (Pro plan) listados em [`RADAR-CRON-DONE.md`](./RADAR-CRON-
 
 ---
 
+## Bundle / Performance
+
+Pós Audit B (2026-05-08), o `export-vendor` consolidado (~960kB raw / 314kB gzip) foi quebrado em chunks por feature pra reduzir o initial download:
+
+| Chunk | Raw | Gzip | Carrega quando |
+|---|---|---|---|
+| `export-html-vendor` (html-to-image) | 13kB | 5kB | Export PNG |
+| `html2canvas.esm` (sub-dep) | 201kB | 48kB | Export PNG |
+| `export-zip-vendor` (jszip) | 97kB | 30kB | Export ZIP |
+| `export-pdf-vendor` (jspdf) | 415kB | 136kB | Export PDF |
+| `export-xlsx-vendor` (xlsx) | 429kB | 143kB | CSV/XLSX upload |
+
+Outros chunks pesados — `chart-vendor` (recharts, 433kB / 114kB gzip), `auth-vendor` (323kB / 84kB gzip) — só carregam dentro das tabs lazy-loaded.
+
+Todo call-site de export usa `await import(...)` dentro do handler. As tabs principais (`Kai`, `KaiAssistantTab`, `PlanningBoard`, viral apps) são `lazy()` no router.
+
 ## Próximos passos
 
 - [ ] Cron `cron-scrape-news` rodando manualmente — automatizar quando upgrade Pro
 - [ ] Ativar OAuth real (LinkedIn + Twitter + Late) preenchendo env vars — ver [`STUBS-MIGRATED-FINAL.md`](./STUBS-MIGRATED-FINAL.md)
 - [ ] Sunset do Lovable Supabase — só após paridade end-to-end testada
 - [ ] Regenerar `src/integrations/supabase/types.ts` a partir do Neon (atualmente é o gerado pelo Lovable; tabelas novas dos 0003/0004 estão acessadas via `(supabase as any).from(...)`)
-- [ ] Code splitting agressivo — bundle atual tem chunk de ~4MB
+- [ ] Code splitting de pages do app standalone (viral-sv-original/pages-app/onboarding.tsx tem 2700+ linhas)
 
 ---
 

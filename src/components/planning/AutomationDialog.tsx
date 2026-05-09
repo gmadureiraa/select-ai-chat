@@ -128,6 +128,101 @@ const STATUS_AFTER_GENERATION_OPTIONS: {
   },
 ];
 
+// ─── Presets Madureira-style ──────────────────────────────────────────────
+// Templates rápidos pra criar automações comuns. Cada preset preenche
+// schedule + content_type + platforms + um prompt template default.
+// Trigger sempre 'schedule'.
+interface AutomationPreset {
+  id: string;
+  label: string;
+  emoji: string;
+  description: string;
+  scheduleType: 'daily' | 'weekly';
+  scheduleDays: number[]; // 0=dom, 1=seg, ..., 6=sab
+  scheduleTime: string;
+  contentType: string;
+  platforms: string[];
+  primaryPlatform: string;
+  promptTemplate: string;
+  autoGenerate: boolean;
+  statusAfterGeneration: StatusAfterGeneration;
+}
+
+const AUTOMATION_PRESETS: AutomationPreset[] = [
+  {
+    id: 'carousel-daily-9',
+    label: 'Carrossel diário 9h',
+    emoji: '🎠',
+    description: 'Carrossel Instagram todo dia às 9h. IA gera + cai como Idea pra você aprovar.',
+    scheduleType: 'daily',
+    scheduleDays: [],
+    scheduleTime: '09:00',
+    contentType: 'carousel',
+    platforms: ['instagram'],
+    primaryPlatform: 'instagram',
+    promptTemplate:
+      'Crie um carrossel de 8 a 10 slides sobre marketing/IA, em primeira pessoa, ' +
+      'com gancho forte no slide 02, dado concreto até o slide 04 e CTA no último. ' +
+      'Use a voz do cliente. Tema do dia: livre, escolha algo que esteja em alta no nicho.',
+    autoGenerate: true,
+    statusAfterGeneration: 'idea',
+  },
+  {
+    id: 'tweets-5x',
+    label: 'Tweets 5x/dia',
+    emoji: '🐦',
+    description: 'Tweet a cada bloco do dia (8h/11h/14h/17h/20h). IA gera + cai como Idea.',
+    scheduleType: 'daily',
+    scheduleDays: [],
+    scheduleTime: '08:00',
+    contentType: 'tweet',
+    platforms: ['twitter'],
+    primaryPlatform: 'twitter',
+    promptTemplate:
+      'Crie um tweet em português, máximo 280 caracteres, sem hashtags, em primeira pessoa, ' +
+      'estilo {{time_of_day}}. Pode ser provocação, observação afiada, dado concreto, ' +
+      'micro-storytelling ou pergunta poderosa. Sem emoji excessivo.',
+    autoGenerate: true,
+    statusAfterGeneration: 'idea',
+  },
+  {
+    id: 'newsletter-weekly-fri',
+    label: 'Newsletter semanal sexta 14h',
+    emoji: '📧',
+    description: 'Resumo semanal toda sexta às 14h, formato newsletter com 5-7 histórias.',
+    scheduleType: 'weekly',
+    scheduleDays: [5],
+    scheduleTime: '14:00',
+    contentType: 'newsletter',
+    platforms: ['newsletter'],
+    primaryPlatform: 'newsletter',
+    promptTemplate:
+      'Crie uma newsletter semanal com 5 a 7 histórias relevantes para a audiência. ' +
+      'Cada história deve ter título forte, 1-2 parágrafos com dado concreto e fonte. ' +
+      'Tom direto, analítico. Encerre com 1-2 linhas de takeaway, NUNCA "Simples assim.".',
+    autoGenerate: true,
+    statusAfterGeneration: 'draft',
+  },
+  {
+    id: 'reel-thursday-18',
+    label: 'Reel toda quinta 18h',
+    emoji: '🎬',
+    description: 'Roteiro de Reels toda quinta às 18h, formato cena por cena.',
+    scheduleType: 'weekly',
+    scheduleDays: [4],
+    scheduleTime: '18:00',
+    contentType: 'short_video',
+    platforms: ['instagram'],
+    primaryPlatform: 'instagram',
+    promptTemplate:
+      'Crie roteiro de Reels Instagram (45 a 60 segundos), em primeira pessoa, ' +
+      'estrutura: gancho 3s, problema, virada com dado concreto, CTA. ' +
+      'Liste cena por cena com VOICEOVER + INDICAÇÃO VISUAL.',
+    autoGenerate: true,
+    statusAfterGeneration: 'idea',
+  },
+];
+
 interface RSSItemPreview {
   title: string;
   description?: string;
@@ -294,11 +389,31 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
   }, [open, automation]);
 
   const handleDayToggle = (day: number) => {
-    setScheduleDays(prev => 
-      prev.includes(day) 
+    setScheduleDays(prev =>
+      prev.includes(day)
         ? prev.filter(d => d !== day)
         : [...prev, day].sort()
     );
+  };
+
+  /** Aplica um preset Madureira-style. Sobrescreve só os campos relevantes
+   *  (schedule + content_type + platforms + prompt + status). Mantém nome
+   *  vazio se ainda estiver vazio (user precisa nomear). */
+  const applyPreset = (preset: AutomationPreset) => {
+    setTriggerType('schedule');
+    setScheduleType(preset.scheduleType);
+    setScheduleDays(preset.scheduleDays);
+    setScheduleTime(preset.scheduleTime);
+    setContentType(preset.contentType);
+    setPlatform(preset.primaryPlatform);
+    setSelectedPlatforms(preset.platforms);
+    setAutoGenerate(preset.autoGenerate);
+    setPromptTemplate(preset.promptTemplate);
+    setStatusAfterGeneration(preset.statusAfterGeneration);
+    if (!name.trim()) {
+      setName(preset.label);
+    }
+    toast.success(`Preset aplicado: ${preset.label}`, { duration: 2500 });
   };
 
   const handleTestFeed = async () => {
@@ -471,6 +586,39 @@ export function AutomationDialog({ open, onOpenChange, automation }: AutomationD
               placeholder="Ex: Thread semanal sobre newsletters"
             />
           </div>
+
+          {/* Presets — apenas no modo criar */}
+          {!isEditing && (
+            <div className="space-y-2 p-3 border border-dashed rounded-lg bg-muted/20">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple-500" />
+                <Label className="text-sm">Presets rápidos</Label>
+                <span className="text-xs text-muted-foreground">— preenche o formulário inteiro</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {AUTOMATION_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => applyPreset(preset)}
+                    className={cn(
+                      'flex items-start gap-2 p-2.5 rounded-md border text-left transition-all',
+                      'hover:border-primary hover:bg-primary/5',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    )}
+                  >
+                    <span className="text-lg shrink-0" aria-hidden>{preset.emoji}</span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{preset.label}</div>
+                      <div className="text-[11px] text-muted-foreground line-clamp-2">
+                        {preset.description}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Tipo de gatilho */}
           <div className="space-y-2">
