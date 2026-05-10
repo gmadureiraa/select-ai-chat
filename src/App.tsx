@@ -36,15 +36,17 @@ const ClientsListPage = lazy(() =>
 );
 
 // QueryClient com defaults sãos pra Neon serverless (cold start ~1-2s).
-// Sem isso: cada Cmd+Tab refaz N queries (workspace, members, planning, clients...)
-// e o app fica visivelmente travado por 3-5s ao voltar pra aba.
+// - refetchOnWindowFocus: false → evita cascade ao Cmd+Tab (era o gargalo real).
+// - staleTime: 30s → se acessada recentemente, usa cache sem bater no DB.
+// - refetchOnMount: true (default) → ao navegar pra rota, busca dados frescos
+//   se stale. SEM ISSO, voltar pro Planning depois de visitar outra aba mostrava
+//   cache incompleto (só conserta com Ctrl+F5).
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
       gcTime: 5 * 60_000,
       refetchOnWindowFocus: false,
-      refetchOnMount: false,
       retry: 1,
     },
   },
