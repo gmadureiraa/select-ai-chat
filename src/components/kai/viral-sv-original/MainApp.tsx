@@ -241,32 +241,48 @@ export default function MainApp({ clientId = null, client = null }: MainAppProps
         <div
           className="sv-root"
           style={{
-            // Garante que tokens default do SV se aplicam — `--sv-paper`,
-            // `--sv-ink`, etc estão em `:root` no globals.css mas sob
-            // `sv-root` re-aplicamos algumas defaults pra contornar
-            // overrides do KAI (background, color).
+            // Container do SV — flex column com scroll interno.
+            // Pais (KAI shell) são overflow:hidden, então o scroll precisa
+            // morar AQUI dentro. Arquitetura clássica flex-column:
+            //   - sv-root: overflow:hidden (não scroll própria)
+            //   - ClientContextHeader + SubNav: flex-shrink:0 (altura fixa)
+            //   - sv-scroll: flex:1 min-h:0 overflow-y:auto → SCROLL AQUI
             //
-            // height + overflow auto: pais do KAI shell (main + tab wrapper)
-            // são `overflow:hidden`. Sem scroll próprio aqui, qualquer page
-            // SV mais alta que viewport ficava cortada (sintoma "página de
-            // carrossel não carrega inteira"). Comparar com viral-radar que
-            // já tinha `overflow:auto` no rdv-shell.
+            // Tentativa anterior (overflow:auto no sv-root direto) NÃO
+            // funcionava porque flex items têm min-height:auto por default,
+            // forçando o container a expandir além do height:100% e anulando
+            // o overflow:auto. min-height:0 no filho scrollable é o
+            // workaround canônico do flexbox.
             background: "var(--sv-paper, #F7F5EF)",
             color: "var(--sv-ink, #0A0A0A)",
             height: "100%",
-            overflowY: "auto",
+            overflow: "hidden",
             fontFamily: "var(--sv-sans)",
             display: "flex",
             flexDirection: "column",
           }}
         >
-          <ClientContextHeader context={clientCtx ?? null} variant="light" />
-          <SubNav route={route} />
-          <Suspense fallback={<CenteredLoader />}>
-            <AuthGate>
-              <ActivePage route={route} />
-            </AuthGate>
-          </Suspense>
+          <div style={{ flexShrink: 0 }}>
+            <ClientContextHeader context={clientCtx ?? null} variant="light" />
+            <SubNav route={route} />
+          </div>
+          <div
+            className="sv-scroll"
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: "auto",
+              overflowX: "hidden",
+              // WebKit smooth scroll em mobile.
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+            <Suspense fallback={<CenteredLoader />}>
+              <AuthGate>
+                <ActivePage route={route} />
+              </AuthGate>
+            </Suspense>
+          </div>
           <SonnerToaster position="top-center" richColors closeButton />
         </div>
       </AuthProvider>
