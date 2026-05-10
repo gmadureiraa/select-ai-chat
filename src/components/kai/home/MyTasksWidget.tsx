@@ -1,7 +1,7 @@
 import { format, isPast, isToday, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CheckCircle2, CheckSquare, ArrowRight, Calendar, Plus } from "lucide-react";
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ const priorityDot: Record<string, string> = {
   low: "bg-muted-foreground/40",
 };
 
-export function MyTasksWidget({ onNavigate }: MyTasksWidgetProps) {
+export const MyTasksWidget = memo(function MyTasksWidget({ onNavigate }: MyTasksWidgetProps) {
   const { data: tasks = [], isLoading } = useMyTeamTasks(7);
   const { updateTask } = useTeamTasks();
   const [editing, setEditing] = useState<TeamTask | null>(null);
@@ -126,4 +126,4 @@ export function MyTasksWidget({ onNavigate }: MyTasksWidgetProps) {
       <TaskDialog open={open} onOpenChange={setOpen} task={creating ? null : editing} />
     </>
   );
-}
+});

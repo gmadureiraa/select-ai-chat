@@ -24,6 +24,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 const Kai = lazy(() => import("./pages/Kai"));
 const Login = lazy(() => import("./pages/Login"));
 const SimpleSignup = lazy(() => import("./pages/SimpleSignup"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ExportMadureira = lazy(() => import("./pages/ExportMadureira"));
 const NoWorkspacePage = lazy(() => import("./pages/NoWorkspacePage"));
@@ -53,6 +54,7 @@ const App = () => (
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<SimpleSignup />} />
                     <Route path="/signup" element={<SimpleSignup />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
                     {/* Root redirects to Kaleidos */}
                     <Route path="/" element={<Navigate to="/kaleidos" replace />} />
 

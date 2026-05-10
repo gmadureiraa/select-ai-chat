@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { memo, useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,43 @@ const formatNumber = (num: number) => {
   if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
   return num.toLocaleString('pt-BR');
 };
+
+interface KPICardProps {
+  label: string;
+  platform: string;
+  value: number;
+  icon: React.ComponentType<{ className?: string }>;
+  index: number;
+}
+
+const KPICard = memo(function KPICard({ label, platform, value, icon: Icon, index }: KPICardProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+    >
+      <Card className="border-border/60 bg-card shadow-sm hover:border-border transition-colors">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                {label}
+                <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">
+                  {platform}
+                </Badge>
+              </span>
+              <p className="text-2xl font-bold mt-1">{formatNumber(value)}</p>
+            </div>
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Icon className="h-5 w-5 text-primary" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+});
 
 export function PerformanceOverview({ clientId, clientName }: PerformanceOverviewProps) {
   const [insights, setInsights] = useState<string | null>(null);
@@ -244,31 +281,14 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiCards.map((kpi, index) => (
-          <motion.div
+          <KPICard
             key={kpi.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
-          >
-            <Card className="border-border/60 bg-card shadow-sm hover:border-border transition-colors">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      {kpi.label}
-                      <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">
-                        {kpi.platform}
-                      </Badge>
-                    </span>
-                    <p className="text-2xl font-bold mt-1">{formatNumber(kpi.value)}</p>
-                  </div>
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <kpi.icon className="h-5 w-5 text-primary" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+            label={kpi.label}
+            platform={kpi.platform}
+            value={kpi.value}
+            icon={kpi.icon}
+            index={index}
+          />
         ))}
       </div>
 
