@@ -69,7 +69,7 @@ const getCitationIcon = (citation: Citation) => {
 const getCitationColorClass = (citation: Citation) => {
   if (citation.category === "ideias") return "bg-amber-500/10 text-amber-600 border-amber-500/20";
   if (citation.type === "format") return "bg-primary/10 text-primary border-primary/20";
-  if (citation.type === "reference_library") return "bg-slate-500/10 text-slate-600 border-slate-500/20";
+  if (citation.type === "reference_library") return "bg-muted text-muted-foreground border-border";
   return "bg-blue-500/10 text-blue-600 border-blue-500/20";
 };
 

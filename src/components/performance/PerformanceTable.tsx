@@ -92,7 +92,7 @@ export function PerformanceTable({
 
   if (data.length === 0) {
     return (
-      <Card className="border-border/50 bg-card/50">
+      <Card className="border-border/60 bg-card shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg font-semibold">{title}</CardTitle>
           {description && <CardDescription>{description}</CardDescription>}
@@ -107,7 +107,7 @@ export function PerformanceTable({
   }
 
   return (
-    <Card className="border-border/50 bg-card/50">
+    <Card className="border-border/60 bg-card shadow-sm">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>

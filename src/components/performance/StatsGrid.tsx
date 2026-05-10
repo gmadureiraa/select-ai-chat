@@ -64,7 +64,7 @@ export function StatsGrid({ stats }: StatsGridProps) {
             transition={{ duration: 0.3, delay: index * 0.08 }}
           >
             <Card className={cn(
-              "border-border/50 bg-card/50 overflow-hidden transition-all duration-200",
+              "border-border/60 bg-card shadow-sm overflow-hidden transition-all duration-200",
               "hover:border-border hover:shadow-md hover:scale-[1.01]"
             )}>
               <CardContent className="p-5">

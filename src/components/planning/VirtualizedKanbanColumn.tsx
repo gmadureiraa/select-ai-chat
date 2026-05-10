@@ -13,15 +13,17 @@ import { useDroppable } from '@dnd-kit/core';
 import type { PlanningItem, KanbanColumn } from '@/hooks/usePlanningItems';
 import type { ViewSettings } from './ViewSettingsPopover';
 
+// Usa CSS vars --status-* declaradas em index.css (light/dark separados).
+// Substitui hardcoded bg-purple/blue/amber/etc que não respeitavam dark mode.
 const columnConfig: Record<string, { dotColor: string }> = {
-  idea: { dotColor: 'bg-purple-500' },
-  draft: { dotColor: 'bg-blue-500' },
-  review: { dotColor: 'bg-amber-500' },
-  approved: { dotColor: 'bg-emerald-500' },
-  scheduled: { dotColor: 'bg-orange-500' },
-  publishing: { dotColor: 'bg-orange-400' },
-  published: { dotColor: 'bg-slate-400' },
-  failed: { dotColor: 'bg-red-500' },
+  idea: { dotColor: 'bg-[hsl(var(--status-idea))]' },
+  draft: { dotColor: 'bg-[hsl(var(--status-draft))]' },
+  review: { dotColor: 'bg-[hsl(var(--status-review))]' },
+  approved: { dotColor: 'bg-[hsl(var(--status-approved))]' },
+  scheduled: { dotColor: 'bg-[hsl(var(--status-scheduled))]' },
+  publishing: { dotColor: 'bg-[hsl(var(--status-publishing))]' },
+  published: { dotColor: 'bg-[hsl(var(--status-published))]' },
+  failed: { dotColor: 'bg-[hsl(var(--status-failed))]' },
 };
 
 interface VirtualizedKanbanColumnProps {
@@ -157,10 +159,10 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
     <div
       data-column-id={column.id}
       className={cn(
-        'flex-shrink-0 bg-transparent rounded-lg flex flex-col transition-all duration-150',
+        'flex-shrink-0 bg-muted/40 dark:bg-muted/20 border border-border/40 rounded-lg flex flex-col transition-all duration-150',
         !className && 'w-80',
         className,
-        isOver && 'bg-primary/5',
+        isOver && 'bg-primary/10 border-primary/40',
       )}
       style={{ maxHeight: height }}
     >

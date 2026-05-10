@@ -64,7 +64,7 @@ export const GoalGauge = memo(function GoalGauge({
 
   if (targetValue === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-border/50 bg-card/50 h-full min-h-[240px]">
+      <div className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-border/60 bg-card shadow-sm h-full min-h-[240px]">
         <div className="p-3 rounded-full bg-muted mb-3">
           <Target className="h-6 w-6 text-muted-foreground" />
         </div>
@@ -82,7 +82,7 @@ export const GoalGauge = memo(function GoalGauge({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 rounded-xl border border-border/50 bg-card/50 h-full min-h-[240px]">
+    <div className="flex flex-col items-center justify-center p-4 rounded-xl border border-border/60 bg-card shadow-sm h-full min-h-[240px]">
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-4">
         {label}
       </p>

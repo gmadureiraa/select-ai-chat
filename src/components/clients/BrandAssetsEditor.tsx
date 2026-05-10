@@ -640,7 +640,7 @@ interface LogoUploadCardProps {
 }
 
 const LogoUploadCard = ({ label, description, url, onUpload, onRemove, fallback }: LogoUploadCardProps) => (
-  <div className="p-4 rounded-lg border border-border/50 bg-card/30 space-y-3">
+  <div className="p-4 rounded-lg border border-border/50 bg-muted/40 space-y-3">
     <div>
       <p className="text-sm font-medium">{label}</p>
       <p className="text-xs text-muted-foreground">{description}</p>

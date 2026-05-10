@@ -451,7 +451,7 @@ export function CalendarView({
       </div>
 
       {/* Calendar Grid */}
-      <div className="flex-1 border border-border/50 rounded-xl overflow-auto bg-card/50 backdrop-blur-sm min-h-0">
+      <div className="flex-1 border border-border/60 rounded-xl overflow-auto bg-card shadow-sm min-h-0">
         {/* Week Header */}
         <div className="grid grid-cols-7 border-b border-border/50 bg-muted/30">
           {weekDays.map((day, i) => (

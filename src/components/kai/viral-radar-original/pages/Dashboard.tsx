@@ -7,13 +7,11 @@
  * Neon serverless. Pra MVP, lib próprio + queries diretas.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "../lib/next-shims";
 import {
   Activity,
   Sparkles,
-  Bookmark,
-  BookmarkCheck,
   Flame,
   ArrowRight,
   Loader2,
@@ -22,7 +20,6 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import { toast } from "sonner";
 import { useNeonSession, getJwtToken } from "../lib/auth-client";
 import { useActiveNiche } from "../lib/niche-context";
 import { TopNewsSection } from "../components/top-news-section";
@@ -88,10 +85,13 @@ export default function DashboardPage({ clientId = null }: DashboardPageProps = 
   const [sub, setSub] = useState<SubInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [savedTopics, setSavedTopics] = useState<Set<string>>(new Set());
-  const [savedIdeas, setSavedIdeas] = useState<Set<string>>(new Set());
   const [lastSync, setLastSync] = useState<string | null>(null);
 
+  // 2026-05-09 — savedTopics/savedIdeas + handleSaveIdea/handleSaveTopic
+  // foram REMOVIDOS. Cards agora usam só <CrossAppActions /> com showLibrary
+  // (persiste em client_reference_library) + showIdea (cria planning_item
+  // status='idea'). O endpoint /api/data/saved continua existindo pra compat
+  // mas não é mais consumido pelo dashboard.
   useEffect(() => {
     if (!session.data?.user) return;
     let cancel = false;
@@ -103,14 +103,11 @@ export default function DashboardPage({ clientId = null }: DashboardPageProps = 
         const briefUrl = clientId
           ? `/api/radar-brief?niche=${niche.id}&clientId=${encodeURIComponent(clientId)}`
           : `/api/radar-brief?niche=${niche.id}`;
-        const [briefRes, subRes, savedTopicRes, savedIdeaRes, syncRes] =
-          await Promise.all([
-            fetch(briefUrl, { headers }),
-            fetch("/api/radar-subscription", { headers }),
-            fetch("/api/data/saved?platform=topic", { headers }),
-            fetch("/api/data/saved?platform=idea", { headers }),
-            fetch("/api/radar-last-sync"),
-          ]);
+        const [briefRes, subRes, syncRes] = await Promise.all([
+          fetch(briefUrl, { headers }),
+          fetch("/api/radar-subscription", { headers }),
+          fetch("/api/radar-last-sync"),
+        ]);
         if (!briefRes.ok) {
           setError(`HTTP ${briefRes.status}`);
           return;
@@ -129,20 +126,6 @@ export default function DashboardPage({ clientId = null }: DashboardPageProps = 
           if (!cancel) setSub(subData);
         }
 
-        if (savedTopicRes.ok) {
-          const savedData = (await savedTopicRes.json()) as {
-            items: Array<{ ref_id: string }>;
-          };
-          if (!cancel) setSavedTopics(new Set((savedData.items ?? []).map((i) => i.ref_id)));
-        }
-
-        if (savedIdeaRes.ok) {
-          const savedData = (await savedIdeaRes.json()) as {
-            items: Array<{ ref_id: string }>;
-          };
-          if (!cancel) setSavedIdeas(new Set((savedData.items ?? []).map((i) => i.ref_id)));
-        }
-
         if (syncRes.ok) {
           const syncData = (await syncRes.json()) as { latest: string | null };
           if (!cancel) setLastSync(syncData.latest);
@@ -157,98 +140,6 @@ export default function DashboardPage({ clientId = null }: DashboardPageProps = 
       cancel = true;
     };
   }, [session.data?.user?.id, niche.id, clientId]);
-
-  const handleSaveIdea = useCallback(
-    async (idea: BriefCarouselIdea) => {
-      const refId = topicRefId(idea.hook);
-      const isSaved = savedIdeas.has(refId);
-      try {
-        const jwt = await getJwtToken();
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        if (jwt) headers["Authorization"] = `Bearer ${jwt}`;
-
-        if (isSaved) {
-          const res = await fetch(
-            `/api/data/saved?platform=idea&refId=${encodeURIComponent(refId)}`,
-            { method: "DELETE", headers },
-          );
-          if (!res.ok) throw new Error("Falha ao remover");
-          setSavedIdeas((prev) => {
-            const next = new Set(prev);
-            next.delete(refId);
-            return next;
-          });
-          toast.success("Ideia removida dos salvos");
-        } else {
-          const res = await fetch("/api/data/saved", {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              platform: "idea",
-              refId,
-              nicheSlug: niche.id,
-              title: idea.hook,
-              note: idea.angle,
-            }),
-          });
-          if (!res.ok) throw new Error("Falha ao salvar");
-          setSavedIdeas((prev) => new Set(prev).add(refId));
-          toast.success("Ideia salva");
-        }
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Erro");
-      }
-    },
-    [savedIdeas, niche.id],
-  );
-
-  const handleSaveTopic = useCallback(
-    async (topic: BriefHotTopic) => {
-      const refId = topicRefId(topic.topic);
-      const isSaved = savedTopics.has(refId);
-      try {
-        const jwt = await getJwtToken();
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        if (jwt) headers["Authorization"] = `Bearer ${jwt}`;
-
-        if (isSaved) {
-          const res = await fetch(
-            `/api/data/saved?platform=topic&refId=${encodeURIComponent(refId)}`,
-            { method: "DELETE", headers },
-          );
-          if (!res.ok) throw new Error("Falha ao remover");
-          setSavedTopics((prev) => {
-            const next = new Set(prev);
-            next.delete(refId);
-            return next;
-          });
-          toast.success("Tema removido dos salvos");
-        } else {
-          const res = await fetch("/api/data/saved", {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              platform: "topic",
-              refId,
-              nicheSlug: niche.id,
-              title: topic.topic,
-              note: topic.source_summary,
-            }),
-          });
-          if (!res.ok) throw new Error("Falha ao salvar");
-          setSavedTopics((prev) => new Set(prev).add(refId));
-          toast.success("Tema salvo");
-        }
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Erro");
-      }
-    },
-    [savedTopics, niche.id],
-  );
 
   const userFirstName = useMemo(() => {
     const u = session.data?.user;
@@ -398,8 +289,6 @@ export default function DashboardPage({ clientId = null }: DashboardPageProps = 
                       key={i}
                       topic={t}
                       rank={i + 1}
-                      saved={savedTopics.has(topicRefId(t.topic))}
-                      onToggleSave={() => void handleSaveTopic(t)}
                       velocity={computeVelocity(t, previousBrief)}
                       clientId={clientId}
                     />
@@ -483,8 +372,6 @@ export default function DashboardPage({ clientId = null }: DashboardPageProps = 
                   <IdeaCard
                     key={i}
                     idea={idea}
-                    saved={savedIdeas.has(topicRefId(idea.hook))}
-                    onToggleSave={() => void handleSaveIdea(idea)}
                     clientId={clientId}
                   />
                 ))}
@@ -566,15 +453,11 @@ function Section({
 function TopicCard({
   topic,
   rank,
-  saved,
-  onToggleSave,
   velocity,
   clientId,
 }: {
   topic: BriefHotTopic;
   rank: number;
-  saved: boolean;
-  onToggleSave: () => void;
   velocity: VelocityKind;
   clientId: string | null;
 }) {
@@ -643,29 +526,15 @@ function TopicCard({
             >
               <ExternalLink size={10} /> Ver notícias
             </Link>
-            <button
-              type="button"
-              onClick={onToggleSave}
-              className="rdv-btn rdv-btn-ghost"
-              style={{
-                padding: "5px 10px",
-                fontSize: 9,
-                color: saved ? "var(--color-rdv-rec)" : undefined,
-                borderColor: saved ? "var(--color-rdv-rec)" : undefined,
-              }}
-            >
-              {saved ? <BookmarkCheck size={10} /> : <Bookmark size={10} />}{" "}
-              {saved ? "Salvo" : "Salvar"}
-            </button>
-            {/* KAI: bridge inter-tab — antes ia pra viral.kaleidos.com.br/reels-viral.vercel.app */}
+            {/* KAI bridge — Carrossel/Reel + Ideia (planning_items) +
+                Biblioteca (client_reference_library). Substitui o bookmark
+                local que ia pra /api/data/saved (deprecated 2026-05-09). */}
             <CrossAppActions
               source="radar"
               topic={topic.topic}
               briefing={topic.source_summary}
               clientId={clientId}
               metadata={{ type: "topic", signalCount: topic.signal_count }}
-              showIdea={false}
-              showLibrary={false}
               size="sm"
             />
           </div>
@@ -720,15 +589,13 @@ function CrossCard({
           ))}
         </div>
         <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {/* KAI: bridge inter-tab */}
+          {/* KAI bridge — Carrossel / Reel / Ideia / Biblioteca */}
           <CrossAppActions
             source="radar"
             topic={cross.topic}
             briefing={`Cruzamento de fontes: ${(cross.sources ?? []).join(", ")}`}
             clientId={clientId}
             metadata={{ type: "cross_pollination", sources: cross.sources }}
-            showIdea={false}
-            showLibrary={false}
             size="sm"
           />
         </div>
@@ -862,15 +729,8 @@ function formatRelativeTime(iso: string): string {
   return `HÁ ${days}D`;
 }
 
-function topicRefId(topic: string): string {
-  return topic
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 80);
-}
+// 2026-05-09 — `topicRefId` removido junto com handleSaveTopic/handleSaveIdea.
+// Era usado pra gerar chaves estáveis pro endpoint /api/data/saved (deprecado).
 
 function NarrativeCard({
   narrative,
@@ -903,15 +763,13 @@ function NarrativeCard({
         </ul>
       ) : null}
       <div style={{ marginTop: 12, display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {/* KAI: bridge inter-tab */}
+        {/* KAI bridge — Carrossel / Reel / Ideia / Biblioteca */}
         <CrossAppActions
           source="radar"
           topic={narrative.title}
           briefing={description}
           clientId={clientId}
           metadata={{ type: "narrative" }}
-          showIdea={false}
-          showLibrary={false}
           size="sm"
         />
       </div>
@@ -921,13 +779,9 @@ function NarrativeCard({
 
 function IdeaCard({
   idea,
-  saved,
-  onToggleSave,
   clientId,
 }: {
   idea: BriefCarouselIdea;
-  saved: boolean;
-  onToggleSave: () => void;
   clientId: string | null;
 }) {
   return (
@@ -942,29 +796,14 @@ function IdeaCard({
         {idea.angle}
       </p>
       <div style={{ marginTop: 12, display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <button
-          type="button"
-          onClick={onToggleSave}
-          className="rdv-btn rdv-btn-ghost"
-          style={{
-            padding: "5px 10px",
-            fontSize: 9,
-            color: saved ? "var(--color-rdv-rec)" : undefined,
-            borderColor: saved ? "var(--color-rdv-rec)" : undefined,
-          }}
-        >
-          {saved ? <BookmarkCheck size={10} /> : <Bookmark size={10} />}{" "}
-          {saved ? "Salva" : "Salvar"}
-        </button>
-        {/* KAI: bridge inter-tab */}
+        {/* KAI bridge — manda direto pra Carrossel/Reel ou empurra pro
+            Planejamento como ideia (status='idea') / Biblioteca de refs. */}
         <CrossAppActions
           source="radar"
           topic={idea.hook}
           briefing={idea.angle}
           clientId={clientId}
           metadata={{ type: "carousel_idea" }}
-          showIdea={false}
-          showLibrary={false}
           size="sm"
         />
       </div>
@@ -1346,15 +1185,13 @@ function DayResumeCard({
           <ExternalLink size={10} /> Ver fontes
         </Link>
         {topNarrative && (
-          /* KAI: bridge inter-tab pra story principal */
+          /* KAI bridge — Carrossel / Reel / Ideia / Biblioteca */
           <CrossAppActions
             source="radar"
             topic={topNarrative.title}
             briefing={topNarrativeText}
             clientId={clientId}
             metadata={{ type: "day_resume" }}
-            showIdea={false}
-            showLibrary={false}
             size="sm"
           />
         )}

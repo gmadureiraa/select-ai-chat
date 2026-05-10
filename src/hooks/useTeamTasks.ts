@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
@@ -78,11 +78,13 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
       return ((data || []) as unknown) as TeamTask[];
     },
     enabled: !!workspaceId,
-    // Substitui Supabase Realtime: poll a cada 15s para refletir
+    // Substitui Supabase Realtime: poll a cada 30s para refletir
     // alterações em tasks vindas de outros membros do workspace
     // (kanban colaborativo). Mutations locais já invalidam imediato.
-    refetchInterval: 15000,
+    refetchInterval: 30_000,
     refetchIntervalInBackground: false,
+    placeholderData: keepPreviousData,
+    staleTime: 10_000,
   });
 
   const createTask = useMutation({

@@ -33,7 +33,7 @@ export function MyTasksWidget({ onNavigate }: MyTasksWidgetProps) {
 
   return (
     <>
-      <Card className="bg-card/50 border-border/40">
+      <Card className="bg-card border-border/60 shadow-sm">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckSquare className="h-4 w-4 text-primary" />
@@ -85,8 +85,17 @@ export function MyTasksWidget({ onNavigate }: MyTasksWidgetProps) {
                 return (
                   <div
                     key={t.id}
-                    className="flex items-center gap-2 p-2 rounded hover:bg-muted/40 cursor-pointer group"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Abrir tarefa: ${t.title}`}
+                    className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                     onClick={() => { setEditing(t); setCreating(false); setOpen(true); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setEditing(t); setCreating(false); setOpen(true);
+                      }
+                    }}
                   >
                     <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", priorityDot[t.priority])} />
                     <button

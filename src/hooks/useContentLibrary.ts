@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -45,6 +45,8 @@ export const useContentLibrary = (clientId: string) => {
       return data as ContentItem[];
     },
     enabled: !!clientId,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   const createContent = useMutation({

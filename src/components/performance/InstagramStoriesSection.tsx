@@ -119,7 +119,7 @@ export function InstagramStoriesSection({
           {filteredStories.slice(0, 12).map((story) => (
             <div 
               key={story.id}
-              className="rounded-xl border border-border/50 overflow-hidden bg-card/50 hover:bg-card/80 transition-colors"
+              className="rounded-xl border border-border/50 overflow-hidden bg-card hover:bg-accent/40 shadow-sm transition-colors"
             >
               {/* Thumbnail */}
               <div className="relative aspect-[9/16] max-h-[180px] bg-gradient-to-br from-pink-500/20 via-purple-500/20 to-orange-500/20">

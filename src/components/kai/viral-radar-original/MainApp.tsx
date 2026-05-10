@@ -20,7 +20,6 @@
 import { lazy, Suspense, useState } from "react";
 import {
   LayoutDashboard,
-  BookmarkCheck,
   Mail,
   Shield,
   Menu,
@@ -35,12 +34,17 @@ import { NicheProvider, useActiveNiche } from "./lib/niche-context";
 import { useNeonSession, signOutAndReset } from "./lib/auth-client";
 import { isAdminEmail } from "./lib/admin-emails";
 
-// Dashboard é eager (default landing); Saved/Newsletters/Admin lazy pra
-// reduzir o initial chunk. Admin tem 1162 linhas de tabelas/forms que
-// só super-admin precisa carregar. Newsletter é só lista linkada — peso
-// pequeno mas não justifica pagar no first paint do Radar.
+// Dashboard é eager (default landing); Newsletters/Admin lazy pra reduzir o
+// initial chunk. Admin tem 1162 linhas de tabelas/forms que só super-admin
+// precisa carregar. Newsletter é só lista linkada — peso pequeno mas não
+// justifica pagar no first paint do Radar.
+//
+// 2026-05-09: Tab "Salvos" REMOVIDA. Substituida pela Biblioteca do KAI
+// (`KaiLibraryTab`) — ações "Salvar na biblioteca" e "Ideia em planejamento"
+// agora vivem nos cards do dashboard via <CrossAppActions />, eliminando
+// duplicação. Bookmarks legados continuam acessíveis via /api/data/saved
+// pra compat, mas não há mais UI de listagem.
 import DashboardPage from "./pages/Dashboard";
-const SavedPage = lazy(() => import("./pages/Saved"));
 const NewslettersPage = lazy(() => import("./pages/Newsletters"));
 const AdminPage = lazy(() => import("./pages/Admin"));
 
@@ -53,12 +57,14 @@ import { ClientContextHeader } from "@/components/kai/viral/ClientContextHeader"
 /**
  * ViewId — tabs internas do Radar.
  *
- * 2026-05-09: tab "sources" removida daqui. Configuração de fontes
- * per-client agora vive na tab "Viral" do Perfil do Cliente
- * (`ClientViralSettingsTab`). O Radar fica focado só no dashboard +
- * salvos + newsletters + admin.
+ * 2026-05-09:
+ *   - tab "sources" removida (config per-client mudou pra tab "Viral" do
+ *     Perfil do Cliente — ClientViralSettingsTab).
+ *   - tab "salvos" removida — substituida pela Biblioteca do KAI. Ações
+ *     "Salvar na biblioteca" e "Criar ideia" agora ficam direto no dash
+ *     via <CrossAppActions />.
  */
-type ViewId = "dashboard" | "saved" | "newsletters" | "admin";
+type ViewId = "dashboard" | "newsletters" | "admin";
 
 interface NavItem {
   id: ViewId;
@@ -76,7 +82,6 @@ interface NavItem {
  */
 const NAV: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "saved", label: "Salvos", icon: BookmarkCheck },
   { id: "newsletters", label: "Newsletters", icon: Mail },
   { id: "admin", label: "Admin", icon: Shield, badge: "DEV", adminOnly: true },
 ];
@@ -119,12 +124,6 @@ function RadarShell({
     switch (view) {
       case "dashboard":
         return <DashboardPage clientId={clientId} />;
-      case "saved":
-        return (
-          <Suspense fallback={<RadarLazyFallback />}>
-            <SavedPage />
-          </Suspense>
-        );
       case "newsletters":
         return (
           <Suspense fallback={<RadarLazyFallback />}>

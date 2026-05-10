@@ -6,22 +6,21 @@
  * `published_at DESC` numa janela de 48h — proxy de "vídeo novo no
  * radar" = "em alta agora".
  *
- * Bookmark + link → YouTube.
+ * Cada card expõe link direto + <CrossAppActions /> (Carrossel + Ideia
+ * + Biblioteca; Reel desligado pq long-form). 2026-05-09: bookmark local
+ * removido em favor da Biblioteca KAI.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "../lib/next-shims";
 import {
   ArrowRight,
-  Bookmark,
-  BookmarkCheck,
   ExternalLink,
   Loader2,
   Play,
   Youtube,
   Plus,
 } from "lucide-react";
-import { toast } from "sonner";
 import { getJwtToken } from "../lib/auth-client";
 import { getCuratedSources } from "../lib/sources-curated";
 import type { VideoRow } from "../types";
@@ -45,8 +44,9 @@ export function TopYouTubeSection({ nicheId, isPaid, limit = 3, clientId = null 
   const [items, setItems] = useState<VideoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<Set<string>>(new Set());
 
+  // 2026-05-09 — bookmark local + /api/data/saved removidos.
+  // <CrossAppActions /> cobre Salvar→Biblioteca + Criar ideia→Planejamento.
   useEffect(() => {
     let cancel = false;
     (async () => {
@@ -54,23 +54,16 @@ export function TopYouTubeSection({ nicheId, isPaid, limit = 3, clientId = null 
       try {
         const jwt = await getJwtToken();
         const headers = jwt ? { Authorization: `Bearer ${jwt}` } : undefined;
-        const [vidsRes, savedRes] = await Promise.all([
-          fetch(
-            `/api/radar-data-youtube?niche=${encodeURIComponent(nicheId)}&hours=48&limit=${limit}`,
-            { headers },
-          ),
-          fetch("/api/data/saved?platform=youtube", { headers }),
-        ]);
+        const vidsRes = await fetch(
+          `/api/radar-data-youtube?niche=${encodeURIComponent(nicheId)}&hours=48&limit=${limit}`,
+          { headers },
+        );
         if (!vidsRes.ok) {
           if (!cancel) setError(`HTTP ${vidsRes.status}`);
           return;
         }
         const data = (await vidsRes.json()) as { videos: VideoRow[] };
         if (!cancel) setItems(data.videos ?? []);
-        if (savedRes.ok) {
-          const sd = (await savedRes.json()) as { items: Array<{ ref_id: string }> };
-          if (!cancel) setSaved(new Set((sd.items ?? []).map((i) => i.ref_id)));
-        }
       } catch (err) {
         if (!cancel) setError(err instanceof Error ? err.message : "Erro");
       } finally {
@@ -81,51 +74,6 @@ export function TopYouTubeSection({ nicheId, isPaid, limit = 3, clientId = null 
       cancel = true;
     };
   }, [nicheId, limit]);
-
-  const handleSave = useCallback(
-    async (video: VideoRow) => {
-      const refId = video.video_id;
-      const isSaved = saved.has(refId);
-      try {
-        const jwt = await getJwtToken();
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (jwt) headers["Authorization"] = `Bearer ${jwt}`;
-        if (isSaved) {
-          const res = await fetch(
-            `/api/data/saved?platform=youtube&refId=${encodeURIComponent(refId)}`,
-            { method: "DELETE", headers },
-          );
-          if (!res.ok) throw new Error("Falha ao remover");
-          setSaved((prev) => {
-            const next = new Set(prev);
-            next.delete(refId);
-            return next;
-          });
-          toast.success("Removido dos salvos");
-        } else {
-          const res = await fetch("/api/data/saved", {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              platform: "youtube",
-              refId,
-              nicheSlug: nicheId,
-              title: video.title,
-              note: video.channel_name,
-              sourceUrl: video.link,
-              thumbnail: video.thumbnail_url,
-            }),
-          });
-          if (!res.ok) throw new Error("Falha ao salvar");
-          setSaved((prev) => new Set(prev).add(refId));
-          toast.success("Vídeo salvo");
-        }
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Erro");
-      }
-    },
-    [saved, nicheId],
-  );
 
   return (
     <section style={{ marginBottom: 36 }}>
@@ -153,8 +101,6 @@ export function TopYouTubeSection({ nicheId, isPaid, limit = 3, clientId = null 
             <YouTubeCard
               key={v.video_id}
               video={v}
-              saved={saved.has(v.video_id)}
-              onToggleSave={() => void handleSave(v)}
               clientId={clientId}
             />
           ))}
@@ -482,13 +428,9 @@ function RichEmptyYT({
 
 function YouTubeCard({
   video,
-  saved,
-  onToggleSave,
   clientId,
 }: {
   video: VideoRow;
-  saved: boolean;
-  onToggleSave: () => void;
   clientId?: string | null;
 }) {
   const ago = relativeTime(video.published_at);
@@ -589,20 +531,8 @@ function YouTubeCard({
           >
             <ExternalLink size={10} /> YouTube
           </a>
-          <button
-            type="button"
-            onClick={onToggleSave}
-            className="rdv-btn rdv-btn-ghost"
-            style={{
-              padding: "5px 10px",
-              fontSize: 9,
-              color: saved ? "var(--color-rdv-rec)" : undefined,
-              borderColor: saved ? "var(--color-rdv-rec)" : undefined,
-            }}
-          >
-            {saved ? <BookmarkCheck size={10} /> : <Bookmark size={10} />}{" "}
-            {saved ? "Salvo" : "Salvar"}
-          </button>
+          {/* Bookmark local removido (deprecated 2026-05-09) — agora cobre
+              <CrossAppActions /> abaixo via showLibrary + showIdea. */}
           {/* KAI bridge: vídeo vira briefing para carrossel SV */}
           <CrossAppActions
             source="radar"

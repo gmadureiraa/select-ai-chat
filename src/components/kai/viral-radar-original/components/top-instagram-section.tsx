@@ -2,26 +2,24 @@
  * Seção do dashboard: Top 3 Instagram do dia.
  *
  * Lê /api/data/instagram/posts?sort=top&hours=48&limit=3.
- * Bookmark + bridges Carrossel SV / Reel RV.
+ * Cada card expõe ações via <CrossAppActions />: Carrossel/Reel (bridge
+ * inter-tab) + Ideia (cria planning_item) + Biblioteca (persiste em
+ * client_reference_library). 2026-05-09: bookmark local removido —
+ * Biblioteca substitui.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "../lib/next-shims";
 import {
-  Bookmark,
-  BookmarkCheck,
   ExternalLink,
   Heart,
   Instagram,
   Loader2,
   MessageSquare,
-  Layers,
-  Film,
   ArrowRight,
   Video,
   Plus,
 } from "lucide-react";
-import { toast } from "sonner";
 import { getJwtToken } from "../lib/auth-client";
 import { imgProxy } from "../lib/img-proxy";
 import { getCuratedSources } from "../lib/sources-curated";
@@ -66,8 +64,9 @@ export function TopInstagramSection({
   const [items, setItems] = useState<InstagramPostRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<Set<string>>(new Set());
 
+  // 2026-05-09 — bookmark local + /api/data/saved removidos. <CrossAppActions />
+  // agora cobre Salvar→Biblioteca + Criar ideia→Planejamento.
   useEffect(() => {
     let cancel = false;
     (async () => {
@@ -78,15 +77,12 @@ export function TopInstagramSection({
         // Quando filtramos por tipo, pegamos um pool maior pra ter chance
         // de encontrar `limit` itens do tipo desejado depois do filtro.
         const fetchLimit = mediaType ? Math.max(40, limit * 5) : limit;
-        const [postsRes, savedRes] = await Promise.all([
-          fetch(
-            `/api/radar-data-instagram?niche=${encodeURIComponent(
-              nicheId,
-            )}&sort=top&hours=48&limit=${fetchLimit}`,
-            { headers },
-          ),
-          fetch("/api/data/saved?platform=instagram", { headers }),
-        ]);
+        const postsRes = await fetch(
+          `/api/radar-data-instagram?niche=${encodeURIComponent(
+            nicheId,
+          )}&sort=top&hours=48&limit=${fetchLimit}`,
+          { headers },
+        );
         if (!postsRes.ok) {
           if (!cancel) setError(`HTTP ${postsRes.status}`);
           return;
@@ -100,10 +96,6 @@ export function TopInstagramSection({
         }
         posts = posts.slice(0, limit);
         if (!cancel) setItems(posts);
-        if (savedRes.ok) {
-          const sd = (await savedRes.json()) as { items: Array<{ ref_id: string }> };
-          if (!cancel) setSaved(new Set((sd.items ?? []).map((i) => i.ref_id)));
-        }
       } catch (err) {
         if (!cancel) setError(err instanceof Error ? err.message : "Erro");
       } finally {
@@ -114,51 +106,6 @@ export function TopInstagramSection({
       cancel = true;
     };
   }, [nicheId, mediaType, limit]);
-
-  const handleSave = useCallback(
-    async (post: InstagramPostRow) => {
-      const refId = post.shortcode;
-      const isSaved = saved.has(refId);
-      try {
-        const jwt = await getJwtToken();
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (jwt) headers["Authorization"] = `Bearer ${jwt}`;
-        if (isSaved) {
-          const res = await fetch(
-            `/api/data/saved?platform=instagram&refId=${encodeURIComponent(refId)}`,
-            { method: "DELETE", headers },
-          );
-          if (!res.ok) throw new Error("Falha ao remover");
-          setSaved((prev) => {
-            const next = new Set(prev);
-            next.delete(refId);
-            return next;
-          });
-          toast.success("Removido dos salvos");
-        } else {
-          const res = await fetch("/api/data/saved", {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              platform: "instagram",
-              refId,
-              nicheSlug: nicheId,
-              title: post.caption?.slice(0, 120) ?? `@${post.account_handle}`,
-              note: `@${post.account_handle}`,
-              sourceUrl: `https://www.instagram.com/p/${post.shortcode}/`,
-              thumbnail: post.display_url ?? undefined,
-            }),
-          });
-          if (!res.ok) throw new Error("Falha ao salvar");
-          setSaved((prev) => new Set(prev).add(refId));
-          toast.success("Post salvo");
-        }
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Erro");
-      }
-    },
-    [saved, nicheId],
-  );
 
   // Título/eyebrow dinâmico baseado em mediaType (com override via props).
   const computedTitle =
@@ -214,8 +161,6 @@ export function TopInstagramSection({
             <InstagramCard
               key={p.shortcode}
               post={p}
-              saved={saved.has(p.shortcode)}
-              onToggleSave={() => void handleSave(p)}
               clientId={clientId}
             />
           ))}
@@ -227,13 +172,9 @@ export function TopInstagramSection({
 
 function InstagramCard({
   post,
-  saved,
-  onToggleSave,
   clientId,
 }: {
   post: InstagramPostRow;
-  saved: boolean;
-  onToggleSave: () => void;
   clientId?: string | null;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
@@ -336,20 +277,9 @@ function InstagramCard({
           >
             <ExternalLink size={10} /> Abrir
           </a>
-          <button
-            type="button"
-            onClick={onToggleSave}
-            className="rdv-btn rdv-btn-ghost"
-            style={{
-              padding: "5px 10px",
-              fontSize: 9,
-              color: saved ? "var(--color-rdv-rec)" : undefined,
-              borderColor: saved ? "var(--color-rdv-rec)" : undefined,
-            }}
-          >
-            {saved ? <BookmarkCheck size={10} /> : <Bookmark size={10} />}
-          </button>
-          {/* KAI bridge inter-tab — substitui legacy svBridgeFromIg/rvBridgeFromIg */}
+          {/* KAI bridge — Carrossel/Reel + Ideia (planning_items) +
+              Biblioteca (client_reference_library). Substitui o bookmark
+              local + svBridgeFromIg/rvBridgeFromIg legados. */}
           <CrossAppActions
             source="radar"
             topic={post.caption?.slice(0, 200) ?? `Post de @${post.account_handle}`}
@@ -364,7 +294,6 @@ function InstagramCard({
               platform: "instagram",
               thumbnail_url: post.display_url ?? null,
             }}
-            showIdea={false}
             size="sm"
           />
         </div>

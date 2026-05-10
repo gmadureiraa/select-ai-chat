@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -203,8 +204,12 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
     // Substitui Supabase Realtime do planning: poll a cada 15s para
     // refletir mudanças vindas de outros usuários/automações no
     // workspace. Mutations locais já invalidam imediatamente.
-    refetchInterval: 15000,
+    refetchInterval: 30000,
     refetchIntervalInBackground: false,
+    // Evita flash de skeleton quando filtros mudam — mantém dados anteriores
+    // visíveis enquanto refetch acontece em background.
+    placeholderData: keepPreviousData,
+    staleTime: 10_000,
   });
 
   // Create item
@@ -550,33 +555,46 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
     }
   });
 
-  // Helper functions
-  // Note: itens com column_id=NULL (ex: criados por automações antigas que
-  // esqueceram de resolver column_id) caem na coluna 'idea' como fallback
-  // visual — assim não somem do board enquanto não rola backfill no DB.
-  const ideaColumnId = columns.find(c => c.column_type === 'idea')?.id ?? columns[0]?.id ?? null;
-  const getItemsByColumn = (columnId: string) =>
-    items
-      .filter(item => {
-        if (item.column_id) return item.column_id === columnId;
-        // Fallback: NULL column_id → mostra na coluna 'idea'
-        return columnId === ideaColumnId;
-      })
-      .sort((a, b) => a.position - b.position);
+  // Helper functions — useCallback pra estabilizar refs entre re-renders.
+  // Sem isso, KanbanView.baseColumnsMap (useMemo([columns, getItemsByColumn]))
+  // recalculava a cada poll de 15s mesmo quando items não mudaram, causando
+  // re-render visível ("piscar") da board.
+  const ideaColumnId = useMemo(
+    () => columns.find(c => c.column_type === 'idea')?.id ?? columns[0]?.id ?? null,
+    [columns],
+  );
 
-  const getItemsByDate = (date: Date) => 
-    items.filter(item => {
-      const itemDate = item.due_date || item.scheduled_at || item.published_at;
-      if (!itemDate) return false;
-      const d = new Date(itemDate);
-      return d.toDateString() === date.toDateString();
-    });
+  const getItemsByColumn = useCallback(
+    (columnId: string) =>
+      items
+        .filter(item => {
+          if (item.column_id) return item.column_id === columnId;
+          return columnId === ideaColumnId;
+        })
+        .sort((a, b) => a.position - b.position),
+    [items, ideaColumnId],
+  );
 
-  const getItemsForCalendar = () => 
-    items.filter(item => item.due_date || item.scheduled_at || item.published_at);
+  const getItemsByDate = useCallback(
+    (date: Date) =>
+      items.filter(item => {
+        const itemDate = item.due_date || item.scheduled_at || item.published_at;
+        if (!itemDate) return false;
+        const d = new Date(itemDate);
+        return d.toDateString() === date.toDateString();
+      }),
+    [items],
+  );
 
-  const getFailedItems = () => 
-    items.filter(item => item.status === 'failed');
+  const getItemsForCalendar = useCallback(
+    () => items.filter(item => item.due_date || item.scheduled_at || item.published_at),
+    [items],
+  );
+
+  const getFailedItems = useCallback(
+    () => items.filter(item => item.status === 'failed'),
+    [items],
+  );
 
   return {
     items,

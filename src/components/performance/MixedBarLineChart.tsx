@@ -53,7 +53,7 @@ export function MixedBarLineChart({
   };
 
   return (
-    <Card className="border-border/50 bg-card/50">
+    <Card className="border-border/60 bg-card shadow-sm">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <CardTitle className="text-lg font-semibold">{title || "Performance"}</CardTitle>

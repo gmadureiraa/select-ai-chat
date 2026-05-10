@@ -9,11 +9,14 @@
 
 @layer base {
   :root {
-    /* kAI Light Theme - White + Pink */
-    --background: 0 0% 100%;
+    /* kAI Light Theme - White + Pink
+       Background é levemente off-white (Linear/Notion style) pra dar
+       contraste com cards puro-branco. Sem isso `bg-card` == `bg-background`
+       e cards somem visualmente. */
+    --background: 320 15% 98%;
     --foreground: 0 0% 9%;
 
-    /* Cards */
+    /* Cards — branco puro pra elevar visualmente sobre o background. */
     --card: 0 0% 100%;
     --card-foreground: 0 0% 9%;
 
@@ -95,11 +98,13 @@
   }
 
   .dark {
-    /* kAI Dark Theme - Black + Green */
-    --background: 0 0% 4%;
+    /* kAI Dark Theme - Black + Green
+       Diferença de 4% entre background e card pra dar elevação visível
+       (antes era 2% — invisível, fazia cards parecerem transparentes). */
+    --background: 0 0% 3%;
     --foreground: 0 0% 95%;
 
-    --card: 0 0% 6%;
+    --card: 0 0% 7%;
     --card-foreground: 0 0% 95%;
 
     --popover: 0 0% 6%;

@@ -62,7 +62,7 @@ export function AudienceSentimentGauge({
   const largeArcFlag = angle > 90 ? 1 : 0;
 
   return (
-    <Card className="border-border/50 bg-card/50">
+    <Card className="border-border/60 bg-card shadow-sm">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

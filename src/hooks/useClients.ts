@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -87,6 +87,8 @@ export const useClients = () => {
       return data as Client[];
     },
     enabled: !!workspace?.id,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   // Filter clients based on member access

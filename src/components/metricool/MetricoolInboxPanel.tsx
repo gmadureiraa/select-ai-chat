@@ -543,127 +543,168 @@ export function MetricoolInboxPanel({ clientId }: Props) {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <Card className="overflow-hidden">
-        {/* Header compacto */}
-        <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2 bg-muted/30">
-          <div className="flex items-center gap-1 mr-1">
-            <MessagesSquare className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-semibold">Inbox</span>
-          </div>
+      <Card className="overflow-hidden bg-card shadow-sm">
+        {/* ─── Header em 2 linhas ────────────────────────────────────────
+            2026-05-09: era 1 linha só com tudo flex-wrap caótico em ~lg.
+            Linha 1 = identidade + tipo (DMs/Comments/Reviews) — primário.
+            Linha 2 = filtro de plataforma + busca + filtros — secundário.
+            Mais respiro, hierarquia clara. */}
+        <div className="border-b">
+          {/* Linha 1 — título + counts + mode */}
+          <div className="flex items-center gap-3 px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <MessagesSquare className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-semibold">Inbox</span>
+              {(openCount > 0 || totalUnread > 0) && (
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  {openCount} abertas
+                  {totalUnread > 0 && (
+                    <>
+                      {' · '}
+                      <span className="text-foreground font-medium">
+                        {totalUnread} não lidas
+                      </span>
+                    </>
+                  )}
+                </span>
+              )}
+            </div>
 
-          {/* Provider segmented control compacto.
-              Quando ativa, ganha tint sutil com a textColor da rede (single
-              source of truth via getNetworkBranding). */}
-          <Tabs value={provider} onValueChange={handleProviderChange}>
-            <TabsList className="h-8 p-0.5">
-              {PROVIDERS.map((p) => {
-                const branding = getNetworkBranding(p.value);
-                const isActive = provider === p.value;
-                return (
-                  <Tooltip key={p.value}>
-                    <TooltipTrigger asChild>
-                      <TabsTrigger
-                        value={p.value}
-                        className={cn(
-                          'h-7 px-2 text-[11px] font-medium gap-1 data-[state=active]:bg-background',
-                          isActive && branding.textColor,
-                        )}
-                      >
-                        <p.Icon className="h-3 w-3" />
-                        <span className="hidden sm:inline">{p.short}</span>
-                      </TabsTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>{p.label}</TooltipContent>
-                  </Tooltip>
-                );
-              })}
-            </TabsList>
-          </Tabs>
-
-          {/* Mode (DMs / Comments / Reviews) */}
-          <Tabs value={mode} onValueChange={handleModeChange} className="ml-auto md:ml-0">
-            <TabsList className="h-8">
-              <TabsTrigger value="list-conversations" className="h-7 px-2 text-xs gap-1">
-                <MessageCircle className="h-3 w-3" />
-                <span className="hidden sm:inline">DMs</span>
-              </TabsTrigger>
-              <TabsTrigger value="list-comments" className="h-7 px-2 text-xs gap-1">
-                <MessagesSquare className="h-3 w-3" />
-                <span className="hidden sm:inline">Comentários</span>
-              </TabsTrigger>
-              <TabsTrigger value="list-reviews" className="h-7 px-2 text-xs gap-1">
-                <Star className="h-3 w-3" />
-                <span className="hidden sm:inline">Reviews</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {/* Search */}
-          <div className="relative ml-auto w-full md:w-56">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar..."
-              className="pl-7 h-8 text-xs"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Limpar busca"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Filter unread + bulk */}
-          <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant={unreadOnly ? 'default' : 'outline'}
-                  onClick={() => setUnreadOnly((v) => !v)}
-                  className="h-8 px-2 text-xs gap-1"
+            {/* Mode (DMs / Comments / Reviews) — primário */}
+            <Tabs
+              value={mode}
+              onValueChange={handleModeChange}
+              className="ml-auto"
+            >
+              <TabsList className="h-8">
+                <TabsTrigger
+                  value="list-conversations"
+                  className="h-7 px-2.5 text-xs gap-1.5"
                 >
-                  <Filter className="h-3 w-3" />
-                  <span className="hidden lg:inline">Não lidas</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {unreadOnly ? 'Mostrando só não lidas' : 'Filtrar não lidas'}
-              </TooltipContent>
-            </Tooltip>
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">DMs</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="list-comments"
+                  className="h-7 px-2.5 text-xs gap-1.5"
+                >
+                  <MessagesSquare className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Comentários</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="list-reviews"
+                  className="h-7 px-2.5 text-xs gap-1.5"
+                >
+                  <Star className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Reviews</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
 
-            {supportsBulk && totalUnread > 0 && (
+          {/* Linha 2 — provider + busca + filtro */}
+          <div className="flex flex-wrap items-center gap-2 px-4 pb-2.5 border-t pt-2.5 bg-muted/20">
+            {/* Provider segmented control compacto.
+                Quando ativa, ganha tint sutil com a textColor da rede (single
+                source of truth via getNetworkBranding). */}
+            <Tabs value={provider} onValueChange={handleProviderChange}>
+              <TabsList className="h-8 p-0.5">
+                {PROVIDERS.map((p) => {
+                  const branding = getNetworkBranding(p.value);
+                  const isActive = provider === p.value;
+                  return (
+                    <Tooltip key={p.value}>
+                      <TooltipTrigger asChild>
+                        <TabsTrigger
+                          value={p.value}
+                          className={cn(
+                            'h-7 px-2 text-[11px] font-medium gap-1 data-[state=active]:bg-background data-[state=active]:shadow-sm',
+                            isActive && branding.textColor,
+                          )}
+                        >
+                          <p.Icon className="h-3 w-3" />
+                          <span className="hidden md:inline">{p.short}</span>
+                        </TabsTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>{p.label}</TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </TabsList>
+            </Tabs>
+
+            {/* Search */}
+            <div className="relative ml-auto w-full md:w-64">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar autor ou texto..."
+                className="pl-8 h-8 text-xs bg-background"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
+                  aria-label="Limpar busca"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Filter unread + bulk */}
+            <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     size="sm"
-                    variant="outline"
-                    onClick={handleMarkAllRead}
-                    disabled={bulkBusy}
-                    className="h-8 px-2 text-xs gap-1"
+                    variant={unreadOnly ? 'default' : 'outline'}
+                    onClick={() => setUnreadOnly((v) => !v)}
+                    className="h-8 px-2.5 text-xs gap-1.5"
                   >
-                    {bulkBusy ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <CheckCheck className="h-3 w-3" />
-                    )}
-                    <span className="hidden lg:inline">Marcar lidos</span>
+                    <Filter className="h-3 w-3" />
+                    <span className="hidden lg:inline">Não lidas</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Marcar todos como lidos</TooltipContent>
+                <TooltipContent>
+                  {unreadOnly ? 'Mostrando só não lidas' : 'Filtrar não lidas'}
+                </TooltipContent>
               </Tooltip>
-            )}
+
+              {supportsBulk && totalUnread > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleMarkAllRead}
+                      disabled={bulkBusy}
+                      className="h-8 px-2.5 text-xs gap-1.5"
+                    >
+                      {bulkBusy ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <CheckCheck className="h-3 w-3" />
+                      )}
+                      <span className="hidden lg:inline">Marcar lidos</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Marcar todos como lidos</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Body — master/detail */}
-        <div className="flex h-[640px]">
+        {/* Body — master/detail.
+            2026-05-09: altura era hardcoded h-[640px]. Agora calcula a partir
+            do viewport (descontando shell + cliente header) com floor de 640
+            e ceiling de ~880, pra que o Inbox use o real estate disponível
+            sem virar uma faixa estreita em telas grandes nem espremer em
+            laptop pequeno. */}
+        <div className="flex h-[min(880px,max(640px,calc(100vh-13rem)))]">
           {/* LEFT — lista */}
           <div
             className={cn(
@@ -671,15 +712,30 @@ export function MetricoolInboxPanel({ clientId }: Props) {
               'w-full md:w-[360px] md:shrink-0',
             )}
           >
-            {/* Stats minimalistas inline */}
-            <div className="px-3 py-1.5 border-b text-[11px] text-muted-foreground flex items-center justify-between">
-              <span>
-                {openCount} abertas · {totalUnread} não lidas
-              </span>
-              {filteredItems.length !== items.length && (
-                <span>{filteredItems.length} filtradas</span>
-              )}
-            </div>
+            {/* Stats agora vivem no header (linha 1). Aqui só o aviso de
+                filtro ativo se aplicável, pra deixar claro qd o usuário tá
+                vendo um subset. */}
+            {filteredItems.length !== items.length && (
+              <div className="px-4 py-1.5 border-b text-[11px] text-muted-foreground flex items-center justify-between bg-muted/10">
+                <span>
+                  Mostrando{' '}
+                  <span className="font-medium text-foreground">
+                    {filteredItems.length}
+                  </span>{' '}
+                  de {items.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch('');
+                    setUnreadOnly(false);
+                  }}
+                  className="text-muted-foreground hover:text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:underline"
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            )}
 
             <ScrollArea className="flex-1">
               {isLoading && (
@@ -728,9 +784,10 @@ export function MetricoolInboxPanel({ clientId }: Props) {
                       type="button"
                       onClick={() => handleSelectItem(item)}
                       className={cn(
-                        'group relative w-full text-left px-3 py-2.5 border-b transition-colors',
-                        'hover:bg-accent/60 focus:bg-accent focus:outline-none',
-                        isSelected && 'bg-accent',
+                        'group relative w-full text-left px-3.5 py-3 border-b transition-colors',
+                        'hover:bg-accent/60 focus-visible:bg-accent focus-visible:outline-none',
+                        'border-l-2 border-l-transparent',
+                        isSelected && 'bg-accent border-l-primary',
                       )}
                     >
                       {/* Dot azul não-lido */}
@@ -990,6 +1047,9 @@ function ConversationDetail({
         <div className="flex items-center gap-1 shrink-0">
           {supportsBulk && (
             <>
+              {/* 2026-05-09: removido o botão duplicado de Archive (chamava
+                  onClose igual o "Fechar conversa" ao lado). Agora só 2
+                  ações: marcar lido (status=OPEN) + fechar (status=CLOSED). */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -1011,23 +1071,10 @@ function ConversationDetail({
                     onClick={onClose}
                     className="h-8 w-8 p-0"
                   >
-                    <CheckCheck className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Fechar conversa</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={onClose}
-                    className="h-8 w-8 p-0"
-                  >
                     <Archive className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Arquivar</TooltipContent>
+                <TooltipContent>Arquivar (fechar conversa)</TooltipContent>
               </Tooltip>
             </>
           )}

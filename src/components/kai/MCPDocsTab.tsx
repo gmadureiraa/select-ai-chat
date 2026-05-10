@@ -74,7 +74,7 @@ const TOOLS: Tool[] = [
 ];
 
 const CATEGORY_META: Record<Tool["category"], { label: string; color: string; icon: React.ReactNode }> = {
-  system: { label: "Sistema", color: "bg-zinc-700/40 text-zinc-300 border-zinc-600/50", icon: <Terminal className="h-3 w-3" /> },
+  system: { label: "Sistema", color: "bg-muted text-muted-foreground border-border", icon: <Terminal className="h-3 w-3" /> },
   read: { label: "Leitura", color: "bg-blue-500/10 text-blue-300 border-blue-500/30", icon: <Database className="h-3 w-3" /> },
   write: { label: "Escrita", color: "bg-amber-500/10 text-amber-300 border-amber-500/30", icon: <Wrench className="h-3 w-3" /> },
   files: { label: "Arquivos", color: "bg-purple-500/10 text-purple-300 border-purple-500/30", icon: <Image className="h-3 w-3" /> },
@@ -226,7 +226,7 @@ export function MCPDocsTab() {
   );
 
   const CodeBlock = ({ code, k }: { code: string; k: string }) => (
-    <Card className="p-4 bg-zinc-950/60 border-border/50 relative group">
+    <Card className="p-4 bg-muted/60 dark:bg-card border-border/50 relative group">
       <CopyBtn value={code} k={k} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition" />
       <pre className="text-xs text-foreground/90 font-mono overflow-x-auto whitespace-pre">{code}</pre>
     </Card>
@@ -262,7 +262,7 @@ export function MCPDocsTab() {
             <Globe className="h-4 w-4 text-primary" />
             Endpoint
           </h2>
-          <Card className="p-4 bg-card/50 border-border/50">
+          <Card className="p-4 bg-muted/50 border-border/50">
             <div className="flex items-center justify-between gap-3">
               <code className="text-xs text-foreground/90 font-mono break-all">{MCP_URL}</code>
               <CopyBtn value={MCP_URL} k="url" />
@@ -281,12 +281,12 @@ export function MCPDocsTab() {
             <KeyRound className="h-4 w-4 text-primary" />
             Autenticação
           </h2>
-          <Card className="p-4 bg-card/50 border-border/50 space-y-2">
+          <Card className="p-4 bg-muted/50 border-border/50 space-y-2">
             <p className="text-sm">
               A auth é por <strong>token estático compartilhado</strong> — não usa JWT do usuário.
               Todo request precisa do header:
             </p>
-            <div className="flex items-center justify-between gap-3 bg-zinc-950/60 rounded p-2">
+            <div className="flex items-center justify-between gap-3 bg-muted/60 dark:bg-card rounded p-2">
               <code className="text-xs font-mono">Authorization: Bearer &lt;MCP_ACCESS_TOKEN&gt;</code>
               <CopyBtn value="Authorization: Bearer <MCP_ACCESS_TOKEN>" k="auth-header" />
             </div>
@@ -341,7 +341,7 @@ export function MCPDocsTab() {
           </div>
 
           {/* Other clients */}
-          <Card className="p-3 bg-card/30 border-border/40 text-xs text-muted-foreground space-y-1">
+          <Card className="p-3 bg-muted/40 border-border/50 text-xs text-muted-foreground space-y-1">
             <div className="flex items-center gap-2 text-foreground">
               <Server className="h-3.5 w-3.5" />
               <span className="font-medium">Outros clientes MCP</span>
@@ -384,15 +384,15 @@ export function MCPDocsTab() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-            <Card className="p-3 bg-card/30 border-border/40">
+            <Card className="p-3 bg-muted/40 border-border/50">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Suporta</div>
               <div className="text-sm">Reels, Stories, Feed, Carrossel, Threads</div>
             </Card>
-            <Card className="p-3 bg-card/30 border-border/40">
+            <Card className="p-3 bg-muted/40 border-border/50">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Plataformas</div>
               <div className="text-sm">IG · TikTok · X · LinkedIn · YT · Threads · FB</div>
             </Card>
-            <Card className="p-3 bg-card/30 border-border/40">
+            <Card className="p-3 bg-muted/40 border-border/50">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Modos</div>
               <div className="text-sm">Publicar agora · agendar · salvar como draft</div>
             </Card>
@@ -420,7 +420,7 @@ export function MCPDocsTab() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {items.map((t) => (
-                    <Card key={t.name} className="p-3 bg-card/30 border-border/40 hover:border-border transition group">
+                    <Card key={t.name} className="p-3 bg-muted/40 border-border/50 hover:border-border transition group">
                       <div className="flex items-start justify-between gap-2">
                         <code className="text-xs font-mono text-foreground font-medium">{t.name}</code>
                         <Button
@@ -458,7 +458,7 @@ export function MCPDocsTab() {
               { t: "Triagem de biblioteca", d: "Buscar conteúdo passado, referências e knowledge base." },
               { t: "Escape hatch", d: "invoke_function permite chamar qualquer edge function direta." },
             ].map((c) => (
-              <Card key={c.t} className="p-3 bg-card/30 border-border/40">
+              <Card key={c.t} className="p-3 bg-muted/40 border-border/50">
                 <div className="text-sm font-medium">{c.t}</div>
                 <div className="text-xs text-muted-foreground mt-1">{c.d}</div>
               </Card>
@@ -472,7 +472,7 @@ export function MCPDocsTab() {
             <ShieldCheck className="h-4 w-4 text-primary" />
             Regras de conteúdo (válidas pro MCP também)
           </h2>
-          <Card className="p-4 bg-card/30 border-border/40 text-xs text-muted-foreground space-y-1.5">
+          <Card className="p-4 bg-muted/40 border-border/50 text-xs text-muted-foreground space-y-1.5">
             <div>• <strong className="text-foreground">Sem hashtags e sem emojis</strong> em X, Threads e LinkedIn (máx 1 emoji em CTA).</div>
             <div>• <strong className="text-foreground">Threads</strong>: máx 497 chars por post; X: máx 280. Se publicar em ambos, mantém ≤280.</div>
             <div>• <strong className="text-foreground">Carrossel/Threads</strong>: usar arrays JSON estruturados (<code>thread_items</code>), não texto único concatenado.</div>
@@ -514,7 +514,7 @@ export function MCPDocsTab() {
                 fix: "Use o campo 'content' (nunca 'body' — coluna legada). Pra threads, use 'thread_items[]', não concatenar tudo em content.",
               },
             ].map((row) => (
-              <Card key={row.code} className="p-3 bg-card/30 border-border/40">
+              <Card key={row.code} className="p-3 bg-muted/40 border-border/50">
                 <div className="flex items-start gap-3">
                   <code className="text-xs font-mono text-amber-300 whitespace-nowrap pt-0.5">{row.code}</code>
                   <span className="text-xs text-muted-foreground">{row.fix}</span>

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { blobStorage } from "@/integrations/storage/blob-client";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +32,8 @@ export const useClientDocuments = (clientId: string) => {
       return data as ClientDocument[];
     },
     enabled: !!clientId,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   const uploadDocument = useMutation({

@@ -52,7 +52,7 @@ export function GoalProgressCard({ goal, currentValue, onDelete }: GoalProgressC
     : formatNumber(goal.target_value - currentValue);
   
   return (
-    <Card className="border-border/50 bg-card/50">
+    <Card className="border-border/60 bg-card shadow-sm">
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">

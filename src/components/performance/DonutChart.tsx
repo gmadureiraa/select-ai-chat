@@ -34,7 +34,7 @@ export function DonutChart({ data, title, centerLabel, centerValue }: DonutChart
   };
 
   return (
-    <Card className="border-border/50 bg-card/50">
+    <Card className="border-border/60 bg-card shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg font-semibold">{title || "Distribuição"}</CardTitle>
       </CardHeader>

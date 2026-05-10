@@ -175,7 +175,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   return (
     <div
       className={cn(
-        "group bg-card border border-border/50 rounded-lg overflow-hidden cursor-pointer",
+        "group bg-card border border-border/60 rounded-lg overflow-hidden cursor-pointer shadow-sm",
         "transition-all duration-150 ease-out",
         "hover:border-border hover:shadow-md hover:ring-1 hover:ring-primary/10",
         isDragging && "opacity-50 shadow-lg rotate-1",

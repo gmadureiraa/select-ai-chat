@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Client } from "@/hooks/useClients";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ClientEditDialog } from "./ClientEditDialog";
 import { DeleteClientDialog } from "./DeleteClientDialog";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -16,7 +16,7 @@ interface ClientListProps {
   isLoading: boolean;
 }
 
-export const ClientList = ({ clients, isLoading }: ClientListProps) => {
+export const ClientList = memo(function ClientList({ clients, isLoading }: ClientListProps) {
   const navigate = useNavigate();
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
@@ -81,7 +81,7 @@ export const ClientList = ({ clients, isLoading }: ClientListProps) => {
           const stats = clientStats?.[client.id];
           
           return (
-            <Card key={client.id} className="p-6 border-border/50 bg-card/50 hover:border-border transition-all">
+            <Card key={client.id} className="p-6 border-border/60 bg-card hover:border-border hover:shadow-md shadow-sm transition-all">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-lg">{client.name}</h3>
                 <div className="flex gap-1">
@@ -182,4 +182,4 @@ export const ClientList = ({ clients, isLoading }: ClientListProps) => {
       />
     </>
   );
-};
+});

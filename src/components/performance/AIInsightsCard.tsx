@@ -148,7 +148,7 @@ export function AIInsightsCard({
   };
 
   return (
-    <div className="rounded-xl border border-border/50 bg-card/50 overflow-hidden">
+    <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
       <div className="p-4 border-b border-border/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

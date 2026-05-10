@@ -250,7 +250,7 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.1 }}
           >
-            <Card className="border-border/50 bg-card/50 hover:border-border transition-colors">
+            <Card className="border-border/60 bg-card shadow-sm hover:border-border transition-colors">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div>
@@ -276,7 +276,7 @@ export function PerformanceOverview({ clientId, clientName }: PerformanceOvervie
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart */}
         <div className="lg:col-span-2">
-          <Card className="border-border/50 bg-card/50">
+          <Card className="border-border/60 bg-card shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Evolução (30 dias)</CardTitle>
             </CardHeader>

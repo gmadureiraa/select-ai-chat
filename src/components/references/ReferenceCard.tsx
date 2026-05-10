@@ -53,8 +53,8 @@ export const ReferenceCard = memo(function ReferenceCard({ reference, onEdit, on
   }, [reference, onView]);
   
   return (
-    <Card 
-      className="bg-card/50 border-border/50 hover:border-border transition-all h-[280px] flex flex-col group cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" 
+    <Card
+      className="bg-card border-border/60 hover:border-border hover:shadow-md transition-all h-[280px] flex flex-col group cursor-pointer overflow-hidden shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       onClick={() => onView(reference)}
       onKeyDown={handleKeyDown}
       tabIndex={0}

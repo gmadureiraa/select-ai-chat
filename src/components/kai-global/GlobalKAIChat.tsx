@@ -259,7 +259,7 @@ function PromptSuggestion({ text, onClick }: { text: string; onClick?: () => voi
       onClick={onClick}
       disabled={!onClick}
       className={cn(
-        "w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border/50 bg-card/50 text-sm text-muted-foreground transition-all duration-200 text-left",
+        "w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border/50 bg-muted/40 text-sm text-muted-foreground transition-all duration-200 text-left",
         onClick 
           ? "hover:bg-accent hover:text-foreground hover:border-primary/30 hover:shadow-sm cursor-pointer" 
           : "cursor-default hover:bg-muted/50 hover:text-foreground"

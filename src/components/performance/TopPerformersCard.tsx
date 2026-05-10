@@ -30,7 +30,7 @@ export function TopPerformersCard({ title, performers, formatValue }: TopPerform
   const format = formatValue || ((v) => v.toLocaleString("pt-BR"));
 
   return (
-    <Card className="border-border/50 bg-card/50">
+    <Card className="border-border/60 bg-card shadow-sm">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Trophy className="h-5 w-5 text-amber-500" />

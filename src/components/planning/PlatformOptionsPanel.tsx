@@ -123,7 +123,7 @@ export function PlatformOptionsPanel({ selectedPlatforms, value, onChange, hasMu
   if (!showIG && !showFB) return null;
 
   return (
-    <div className="space-y-4 rounded-md border border-border/40 bg-card/40 p-3">
+    <div className="space-y-4 rounded-md border border-border/50 bg-muted/40 p-3">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
         Opções por plataforma
       </div>

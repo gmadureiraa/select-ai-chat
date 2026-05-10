@@ -105,7 +105,7 @@ const TYPE_ICONS: Record<SourceType, React.ReactNode> = {
 const TYPE_COLORS: Record<SourceType, string> = {
   rss: "bg-blue-500/10 text-blue-600 border-blue-500/30",
   instagram: "bg-pink-500/10 text-pink-600 border-pink-500/30",
-  tiktok: "bg-zinc-500/10 text-zinc-600 border-zinc-500/30",
+  tiktok: "bg-foreground/10 text-foreground/80 border-foreground/20",
   youtube: "bg-red-500/10 text-red-600 border-red-500/30",
   twitter: "bg-sky-500/10 text-sky-600 border-sky-500/30",
   newsletter: "bg-amber-500/10 text-amber-600 border-amber-500/30",

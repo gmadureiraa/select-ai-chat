@@ -117,7 +117,7 @@ export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelPro
 
   if (platformGoals.length === 0 && !isDialogOpen) {
     return (
-      <Card className="border-border/50 bg-card/50 h-full">
+      <Card className="border-border/60 bg-card shadow-sm h-full">
         <CardContent className="flex flex-col items-center justify-center py-10 h-full min-h-[300px]">
           <div className="p-4 rounded-full bg-muted/50 mb-4">
             <Target className="h-8 w-8 text-muted-foreground" />
@@ -137,7 +137,7 @@ export const GoalsPanel = ({ clientId, platform, currentMetrics }: GoalsPanelPro
 
   return (
     <>
-      <Card className="border-border/50 bg-card/50 h-full">
+      <Card className="border-border/60 bg-card shadow-sm h-full">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">

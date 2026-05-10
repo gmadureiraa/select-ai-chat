@@ -1037,7 +1037,7 @@ function PendencyTile({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-start gap-3 p-3 rounded-lg border border-border/40 bg-card/40 hover:bg-accent/40 hover:border-border/80 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="flex items-start gap-3 p-3 rounded-lg border border-border/60 bg-card hover:bg-accent/30 hover:border-border hover:shadow-sm transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
       <div
         className={cn(

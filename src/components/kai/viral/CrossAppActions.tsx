@@ -46,6 +46,28 @@ async function resolveWorkspaceId(clientId: string): Promise<string | null> {
   }
 }
 
+/**
+ * Resolve o column_id da coluna "Ideia" do workspace. PlanningBoard agrupa por
+ * column_id (não só status), então sem isso o card vai pra `planning_items`
+ * mas não aparece no Kanban.
+ */
+async function resolveIdeaColumnId(workspaceId: string): Promise<string | null> {
+  try {
+    const { data } = await supabase
+      .from("kanban_columns")
+      .select("id, column_type, position")
+      .eq("workspace_id", workspaceId)
+      .order("position", { ascending: true });
+    if (!data || data.length === 0) return null;
+    const ideaCol = (data as Array<{ id: string; column_type: string | null }>).find(
+      (c) => c.column_type === "idea",
+    );
+    return ideaCol?.id ?? data[0].id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 interface CrossAppActionsProps {
   source: ViralBridgeSource;
   topic?: string;
@@ -95,9 +117,15 @@ export function CrossAppActions({
           toast.error("Sem usuário autenticado");
           return;
         }
+        // Resolve column "Ideia" pra o card aparecer no Kanban (PlanningBoard
+        // agrupa por column_id). Sem isso, o item fica órfão no DB.
+        const ideaColumnId = workspaceId
+          ? await resolveIdeaColumnId(workspaceId)
+          : null;
         const { error } = await supabase.from("planning_items").insert({
           client_id: clientId,
           workspace_id: workspaceId,
+          column_id: ideaColumnId,
           title: (topic ?? "Ideia").slice(0, 200),
           content: briefing ?? "",
           status: "idea",

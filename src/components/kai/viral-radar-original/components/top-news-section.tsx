@@ -1,21 +1,21 @@
 /**
  * Seção do dashboard: Notícias em alta hoje.
  *
- * Lê /api/data/news com janela curta (48h) e mostra top N artigos.
- * Bookmark + link direto pra fonte. Empty state CTA pro settings.
+ * Lê /api/data/news com janela curta (48h) e mostra top N artigos. Cada
+ * card expõe link direto pra fonte + <CrossAppActions /> (Carrossel +
+ * Ideia em planejamento + Biblioteca de refs). Empty state CTA pro
+ * settings. 2026-05-09: bookmark local removido — substituido pela
+ * Biblioteca (client_reference_library).
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "../lib/next-shims";
 import {
-  Bookmark,
-  BookmarkCheck,
   ExternalLink,
   Loader2,
   Newspaper,
   ArrowRight,
 } from "lucide-react";
-import { toast } from "sonner";
 import { getJwtToken } from "../lib/auth-client";
 import type { NewsArticleRow } from "../types";
 
@@ -34,12 +34,13 @@ export function TopNewsSection({ nicheId, isPaid, clientId = null }: Props) {
   const [items, setItems] = useState<NewsArticleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<Set<string>>(new Set());
 
   // Toggle: por padrão mostra só atualizações concretas (kind=news).
   // User pode trocar pra "tudo" pra incluir análises/opinião.
   const [showAll, setShowAll] = useState(false);
 
+  // 2026-05-09 — bookmark local + /api/data/saved removidos.
+  // <CrossAppActions /> cobre Salvar→Biblioteca + Criar ideia→Planejamento.
   useEffect(() => {
     let cancel = false;
     (async () => {
@@ -48,23 +49,16 @@ export function TopNewsSection({ nicheId, isPaid, clientId = null }: Props) {
         const jwt = await getJwtToken();
         const headers = jwt ? { Authorization: `Bearer ${jwt}` } : undefined;
         const kindParam = showAll ? "" : "&kind=news";
-        const [newsRes, savedRes] = await Promise.all([
-          fetch(
-            `/api/radar-data-news?niche=${encodeURIComponent(nicheId)}&hours=48&limit=10${kindParam}`,
-            { headers },
-          ),
-          fetch("/api/data/saved?platform=news", { headers }),
-        ]);
+        const newsRes = await fetch(
+          `/api/radar-data-news?niche=${encodeURIComponent(nicheId)}&hours=48&limit=10${kindParam}`,
+          { headers },
+        );
         if (!newsRes.ok) {
           if (!cancel) setError(`HTTP ${newsRes.status}`);
           return;
         }
         const data = (await newsRes.json()) as { articles: NewsArticleRow[] };
         if (!cancel) setItems(data.articles ?? []);
-        if (savedRes.ok) {
-          const sd = (await savedRes.json()) as { items: Array<{ ref_id: string }> };
-          if (!cancel) setSaved(new Set((sd.items ?? []).map((i) => i.ref_id)));
-        }
       } catch (err) {
         if (!cancel) setError(err instanceof Error ? err.message : "Erro");
       } finally {
@@ -75,51 +69,6 @@ export function TopNewsSection({ nicheId, isPaid, clientId = null }: Props) {
       cancel = true;
     };
   }, [nicheId, showAll]);
-
-  const handleSave = useCallback(
-    async (article: NewsArticleRow) => {
-      const refId = article.link;
-      const isSaved = saved.has(refId);
-      try {
-        const jwt = await getJwtToken();
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (jwt) headers["Authorization"] = `Bearer ${jwt}`;
-        if (isSaved) {
-          const res = await fetch(
-            `/api/data/saved?platform=news&refId=${encodeURIComponent(refId)}`,
-            { method: "DELETE", headers },
-          );
-          if (!res.ok) throw new Error("Falha ao remover");
-          setSaved((prev) => {
-            const next = new Set(prev);
-            next.delete(refId);
-            return next;
-          });
-          toast.success("Removido dos salvos");
-        } else {
-          const res = await fetch("/api/data/saved", {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              platform: "news",
-              refId,
-              nicheSlug: nicheId,
-              title: article.title,
-              note: article.source_name ?? undefined,
-              sourceUrl: article.link,
-              thumbnail: article.thumbnail ?? undefined,
-            }),
-          });
-          if (!res.ok) throw new Error("Falha ao salvar");
-          setSaved((prev) => new Set(prev).add(refId));
-          toast.success("Notícia salva");
-        }
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Erro");
-      }
-    },
-    [saved, nicheId],
-  );
 
   return (
     <section style={{ marginBottom: 36 }}>
@@ -179,8 +128,6 @@ export function TopNewsSection({ nicheId, isPaid, clientId = null }: Props) {
             <NewsCard
               key={a.link}
               article={a}
-              saved={saved.has(a.link)}
-              onToggleSave={() => void handleSave(a)}
               clientId={clientId}
             />
           ))}
@@ -192,13 +139,9 @@ export function TopNewsSection({ nicheId, isPaid, clientId = null }: Props) {
 
 function NewsCard({
   article,
-  saved,
-  onToggleSave,
   clientId,
 }: {
   article: NewsArticleRow;
-  saved: boolean;
-  onToggleSave: () => void;
   clientId?: string | null;
 }) {
   const ago = relativeTime(article.pub_date);
@@ -310,21 +253,9 @@ function NewsCard({
         >
           <ExternalLink size={11} />
         </a>
-        <button
-          type="button"
-          onClick={onToggleSave}
-          className="rdv-btn rdv-btn-ghost"
-          style={{
-            padding: "6px 10px",
-            fontSize: 9,
-            color: saved ? "var(--color-rdv-rec)" : undefined,
-            borderColor: saved ? "var(--color-rdv-rec)" : undefined,
-          }}
-          aria-label={saved ? "Remover dos salvos" : "Salvar notícia"}
-        >
-          {saved ? <BookmarkCheck size={11} /> : <Bookmark size={11} />}
-        </button>
-        {/* KAI bridge: notícia vira briefing pra SV ou Reels */}
+        {/* KAI bridge — notícia vira briefing pra Carrossel + Ideia +
+            Biblioteca. Reels desligado pq matéria de texto não vira reel
+            direto. Bookmark local foi removido (deprecated 2026-05-09). */}
         <CrossAppActions
           source="radar"
           topic={article.title}
