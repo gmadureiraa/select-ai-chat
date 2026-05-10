@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import {
   BarChart3,
   CalendarDays,
@@ -162,8 +162,14 @@ export function KaiSidebar({
   isMobile = false
 }: KaiSidebarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { slug } = useParams<{ slug: string }>();
   const { clients } = useClients();
+  // 2026-05-10 — `Perfis` agora navega pra rota dedicada `/kaleidos/clients`.
+  // Highlight ativo precisa olhar o pathname além do tab (porque a rota dedicada
+  // não tem ?tab=clients). Active quando o user está na rota OU vem de bookmark
+  // antigo `?tab=clients` (ainda em redirect).
+  const isOnClientsRoute = location.pathname.startsWith("/kaleidos/clients");
   const {
     canViewPerformance,
     canViewClients,
@@ -465,8 +471,19 @@ export function KaiSidebar({
             <NavItem
               icon={<Building2 className="h-4 w-4" strokeWidth={1.5} />}
               label="Perfis"
-              active={activeTab === "clients"}
-              onClick={() => isViewer ? showPermissionMessage() : onTabChange("clients")}
+              active={isOnClientsRoute || activeTab === "clients"}
+              onClick={() => {
+                if (isViewer) {
+                  showPermissionMessage();
+                  return;
+                }
+                // Rota dedicada (2026-05-10): preserva o cliente selecionado
+                // via query string pra continuidade visual quando voltar.
+                const target = selectedClientId
+                  ? `/kaleidos/clients?client=${encodeURIComponent(selectedClientId)}`
+                  : "/kaleidos/clients";
+                navigate(target);
+              }}
               collapsed={collapsed}
               disabled={isViewer}
               showLock={isViewer}

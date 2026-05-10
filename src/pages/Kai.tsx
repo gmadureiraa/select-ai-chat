@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 // Sidebar/header ficam eager — sempre visíveis, viram parte do "shell" do app.
 import { KaiSidebar } from "@/components/kai/KaiSidebar";
@@ -103,11 +103,14 @@ const ViralFeatureGate = lazy(() =>
 // 2026-05-09 — MCPDocsTab removido como rota top-level (?tab=mcp). Continua
 // importado eagerly dentro de SettingsTab (section "mcp"). Bookmark antigo
 // `?tab=mcp` redireciona pra `?tab=settings&section=mcp` no useEffect acima.
-const ClientsManagementTool = lazy(() =>
-  import("@/components/kai/tools/ClientsManagementTool").then((m) => ({
-    default: m.ClientsManagementTool,
-  })),
-);
+//
+// 2026-05-10 — ClientsManagementTool não é mais montado dentro do Kai.tsx.
+// O tab=clients redireciona pra rota dedicada `/kaleidos/clients` (que renderiza
+// ClientsListPage). Decisão: rota dedicada é mais bookmarkable, mais simples de
+// linkar e elimina a duplicação ClientsManagementTool ↔ ClientsListPage. O
+// componente ClientsManagementTool permanece no repo como referência (quem sabe
+// volta pra um KAI tool slot futuro), mas não é importado nem montado em rota
+// nenhuma do app principal.
 const PlanningBoard = lazy(() =>
   import("@/components/planning/PlanningBoard").then((m) => ({ default: m.PlanningBoard })),
 );
@@ -144,6 +147,7 @@ const MetricoolInboxPanel = lazy(() =>
 
 export default function Kai() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const clientId = searchParams.get("client");
   const tab = searchParams.get("tab") || "home";
   const isMobile = useIsMobile();
@@ -196,6 +200,25 @@ export default function Kai() {
 
   // Route protection: redirect to allowed tabs if trying to access unauthorized ones
   useEffect(() => {
+    // 2026-05-10 — `tab=clients` deduplicado: agora vai pra rota dedicada
+    // `/kaleidos/clients` (ClientsListPage). Antes montava ClientsManagementTool
+    // inline aqui, gerando dois caminhos pra mesma tela. Preserva clientId via
+    // query string pra quando voltar pelo back/forward o cliente continue ativo.
+    if (tab === "clients") {
+      // Permission gate continua valendo: viewer sem canViewClients perde acesso.
+      if (!canViewClients) {
+        const params = new URLSearchParams(searchParams);
+        params.set("tab", "planning");
+        setSearchParams(params);
+        return;
+      }
+      const target = clientId
+        ? `/kaleidos/clients?client=${encodeURIComponent(clientId)}`
+        : "/kaleidos/clients";
+      navigate(target, { replace: true });
+      return;
+    }
+
     let shouldRedirect = false;
     let redirectTab = "planning"; // Default redirect
 
@@ -268,10 +291,8 @@ export default function Kai() {
       redirectTab = "planning";
     }
     
-    // Admin tabs require specific permissions
-    if (tab === "clients" && !canViewClients) {
-      shouldRedirect = true;
-    }
+    // (tab === "clients" early-redirect já acontece no topo do effect — vai
+    // pra rota dedicada `/kaleidos/clients`. O check de canViewClients fica lá.)
 
     // Radar Sources Manager — só super_admin
     if (tab === "radar-sources-admin" && !isSuperAdmin) {
@@ -306,7 +327,7 @@ export default function Kai() {
       params.set("tab", redirectTab);
       setSearchParams(params);
     }
-  }, [tab, canViewClients, canManageTeam, canViewHome, canViewRepurpose, isViewer, isOwner, isSuperAdmin, searchParams, setSearchParams]);
+  }, [tab, clientId, canViewClients, canManageTeam, canViewHome, canViewRepurpose, isViewer, isOwner, isSuperAdmin, searchParams, setSearchParams, navigate]);
 
 
   const handleTabChange = (newTab: string) => {
@@ -352,7 +373,7 @@ export default function Kai() {
     // viral-library removida em 2026-05-08 — unificada com biblioteca normal
     // do cliente (client_reference_library) com scenes/slides/format.
     const toolTabs = [
-      "clients", "settings", "automations", "assistant", "home",
+      "settings", "automations", "assistant", "home",
       // Grupo "Viral" único (globais, não precisam de cliente):
       "viral-carrossel", "viral-reels-page", "viral-radar-page",
       // Metricool: só inbox unificado fica global (push notifications de DMs).
@@ -361,6 +382,8 @@ export default function Kai() {
       // radar-sources-admin (viraram sections em Settings); hashtags,
       // competitors, reports (viraram per-client no Perfil → Viral);
       // mcp (virou section em Settings → Sistema → MCP kAI).
+      // 2026-05-10: removido "clients" — agora vai pra rota dedicada
+      // `/kaleidos/clients` via redirect no useEffect logo no topo.
       // Esses tabs agora redirecionam via useEffect logo no topo.
     ];
 
@@ -437,8 +460,8 @@ export default function Kai() {
               }}
             />
           );
-        case "clients":
-          return <ClientsManagementTool />;
+        // case "clients" removido 2026-05-10 — agora vai pra rota dedicada
+        // `/kaleidos/clients` via early-redirect no useEffect.
         case "settings":
           return <SettingsTab />;
         case "automations":
