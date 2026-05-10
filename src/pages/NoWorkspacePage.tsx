@@ -67,17 +67,25 @@ const NoWorkspacePage = () => {
 
   if (checkingInvites) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <main
+        id="main-content"
+        className="min-h-screen bg-background flex items-center justify-center p-4"
+        aria-busy="true"
+      >
+        <h1 className="sr-only">Verificando convites pendentes</h1>
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
           <p className="text-muted-foreground">Verificando convites pendentes...</p>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
+    <main
+      id="main-content"
+      className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4"
+    >
       <div className="w-full max-w-lg space-y-6">
         {/* Header Card */}
         <Card className="border-primary/20">
@@ -175,7 +183,7 @@ const NoWorkspacePage = () => {
           </Button>
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 

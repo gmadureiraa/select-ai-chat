@@ -28,10 +28,16 @@ export const WorkspaceRouter = () => {
     return <Navigate to="/kaleidos" replace />;
   }
 
-  // Loading states
+  // Loading states — landmarks (main + h1) presentes pra atender WCAG mesmo
+  // durante o brief skeleton (tests Playwright marcavam violations aqui).
   if (authLoading || isLoading) {
     return (
-      <div className="min-h-screen bg-background p-6">
+      <main
+        id="main-content"
+        className="min-h-screen bg-background p-6"
+        aria-busy="true"
+      >
+        <h1 className="sr-only">Carregando workspace</h1>
         <div className="max-w-7xl mx-auto space-y-6">
           <Skeleton className="h-20 w-full" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -40,7 +46,7 @@ export const WorkspaceRouter = () => {
             ))}
           </div>
         </div>
-      </div>
+      </main>
     );
   }
 
