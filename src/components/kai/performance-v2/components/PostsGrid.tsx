@@ -197,9 +197,11 @@ export function PostsGrid({
     );
   }
 
-  const sorted = sortPosts(safe, sortBy);
+  // Memoiza sort + slice. Pra grids 50-200 items o sort estava recomputando
+  // a cada render externo (parent re-render por refetch hover, etc).
+  const sorted = React.useMemo(() => sortPosts(safe, sortBy), [safe, sortBy]);
   const sharesLabel = SHARES_LABEL[network] || "Compart.";
-  const branding = getNetworkBranding(network);
+  const branding = React.useMemo(() => getNetworkBranding(network), [network]);
   const NetworkIcon = branding.icon;
 
   // Slice client-side. Pagina só quando passa de INITIAL_PAGE_SIZE.

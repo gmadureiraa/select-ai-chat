@@ -126,10 +126,14 @@ export function CaseStudyGrid({ clientId, type, onAddNew }: CaseStudyGridProps) 
                 {/* Cover image if exists */}
                 {item.thumbnail_url && (
                   <div className="aspect-video bg-muted overflow-hidden">
-                    <img 
-                      src={item.thumbnail_url} 
+                    <img
+                      src={item.thumbnail_url}
                       alt={item.title}
+                      loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.opacity = "0";
+                      }}
                     />
                   </div>
                 )}

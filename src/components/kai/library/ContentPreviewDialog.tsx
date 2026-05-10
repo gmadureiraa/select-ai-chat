@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
@@ -63,18 +63,9 @@ export function ContentPreviewDialog({
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
 
-  if (!item) return null;
-
-  const Icon = platformIcons[item.platform] ?? FileText;
-  const formattedDate = format(new Date(item.posted_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
-  
-  // Get all images - use images array if available, otherwise use thumbnail
-  const images = item.images || (item.thumbnail_url ? [item.thumbnail_url] : []);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(item.content);
-    toast.success("Conteúdo copiado!");
-  };
+  // Get all images - use images array if available, otherwise use thumbnail.
+  // Calculado antes do early-return pra hooks rule (sempre roda).
+  const images = item?.images || (item?.thumbnail_url ? [item.thumbnail_url] : []);
 
   const handlePrevImage = () => {
     setCurrentImageIndex(prev => prev > 0 ? prev - 1 : images.length - 1);
@@ -82,6 +73,33 @@ export function ContentPreviewDialog({
 
   const handleNextImage = () => {
     setCurrentImageIndex(prev => prev < images.length - 1 ? prev + 1 : 0);
+  };
+
+  // a11y: navegar com setas quando há múltiplas imagens.
+  useEffect(() => {
+    if (!open || images.length <= 1) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') handlePrevImage();
+      else if (e.key === 'ArrowRight') handleNextImage();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, images.length]);
+
+  // Reset index quando troca de item ou abre.
+  useEffect(() => {
+    if (open) setCurrentImageIndex(0);
+  }, [open, item?.id]);
+
+  if (!item) return null;
+
+  const Icon = platformIcons[item.platform] ?? FileText;
+  const formattedDate = format(new Date(item.posted_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(item.content);
+    toast.success("Conteúdo copiado!");
   };
 
   // Download single image
@@ -194,6 +212,7 @@ export function ContentPreviewDialog({
                 <img
                   src={images[currentImageIndex]}
                   alt={`${item.title} - Imagem ${currentImageIndex + 1}`}
+                  loading="lazy"
                   className="max-w-full max-h-[480px] object-contain mx-auto"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none';

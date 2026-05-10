@@ -164,19 +164,19 @@ export function ClientViralSettingsTab({ clientId, clientName }: ClientViralSett
           <CardContent className="space-y-1 text-sm">
             <BulletPoint
               label="Tom de voz e personalidade"
-              hint="Tab Perfil → Tom de Voz · Tab Contexto IA → guia de identidade"
+              hint="Identidade → Sobre (Tom de Voz) · Identidade → Contexto IA (guia de identidade)"
             />
             <BulletPoint
               label="Referências de conteúdo (texto/links)"
-              hint="Tab Referências → Referências de Conteúdo"
+              hint="Conteúdo → Referências → Referências de Conteúdo"
             />
             <BulletPoint
               label="Referências visuais (imagens, paleta)"
-              hint="Tab Referências → Referências Visuais"
+              hint="Conteúdo → Referências → Referências Visuais"
             />
             <BulletPoint
               label="Redes sociais e handles"
-              hint="Tab Digital → Redes Sociais"
+              hint="Identidade → Redes"
             />
           </CardContent>
         </Card>
@@ -226,19 +226,19 @@ export function ClientViralSettingsTab({ clientId, clientName }: ClientViralSett
           <CardContent className="space-y-1 text-sm">
             <BulletPoint
               label="Tom de voz e persona"
-              hint="Tab Perfil → Tom de Voz · Tab Contexto IA"
+              hint="Identidade → Sobre (Tom de Voz) · Identidade → Contexto IA"
             />
             <BulletPoint
               label="Público-alvo (persona, dores, objetivos)"
-              hint="Tab Perfil → Público-Alvo + Objetivos"
+              hint="Identidade → Sobre → Público-Alvo + Objetivos"
             />
             <BulletPoint
               label="Concorrentes e refs visuais"
-              hint="Tab Referências → Referências Visuais"
+              hint="Conteúdo → Referências → Referências Visuais"
             />
             <BulletPoint
               label="Conta IG conectada (pra adapt automático)"
-              hint="Tab Integrações → Instagram"
+              hint="Conteúdo → Integrações → Instagram"
             />
           </CardContent>
         </Card>

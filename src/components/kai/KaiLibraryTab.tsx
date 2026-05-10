@@ -139,7 +139,7 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
       />
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedItems(new Set()); }} className="flex-1 flex flex-col overflow-hidden mt-4">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)} className="flex-1 flex flex-col overflow-hidden mt-4">
         <TabsList className="w-full justify-start flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-green-500/10 data-[state=active]:text-green-600">
             <Layers className="h-4 w-4" />
@@ -239,10 +239,14 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
               {filteredVisualReferences.map((ref) => (
                 <div key={ref.id} className="group relative rounded-lg border overflow-hidden hover:border-primary/50 hover:shadow-md transition-all bg-card">
                   <div className="aspect-square bg-muted">
-                    <img 
-                      src={ref.image_url} 
-                      alt={ref.title || ""} 
-                      className="w-full h-full object-cover" 
+                    <img
+                      src={ref.image_url}
+                      alt={ref.title || ""}
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.opacity = "0";
+                      }}
                     />
                   </div>
                   <div className="p-2">

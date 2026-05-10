@@ -366,7 +366,15 @@ export function AutomationsTab() {
         }
       />
 
-      <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as MainTab)}>
+      <Tabs
+        value={activeMainTab}
+        onValueChange={(v) => {
+          // Reset triggerFilter ao trocar de aba — o filtro só faz sentido em
+          // 'feeds' (RSS vs Webhook). Mantém clientFilter (atalho útil em todas).
+          setTriggerFilter('all');
+          setActiveMainTab(v as MainTab);
+        }}
+      >
         {/* 3 sub-tabs canônicas. Cada uma carrega só o que precisa.
             (workflows usa hook próprio e bypassa filtros do planning.) */}
         <TabsList className="grid w-full sm:w-auto grid-cols-3 sm:inline-grid">

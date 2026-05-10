@@ -32,24 +32,43 @@ interface LinkProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 
 /**
  * Link compatível com next/link mas usando react-router-dom.
  *
- * Se href é externo (http(s)://) renderiza <a> direto.
- * Se href começa com /app/* (rotas internas do Radar), por enquanto
- * tratamos como app links — react-router redireciona se a rota existir,
- * caso contrário cai num <a> normal e o KAI deals com 404.
+ * Regras (em ordem):
+ *   - http(s)://, mailto: → anchor nativo
+ *   - /app/* → standalone Radar tinha sub-routes (/app/news, /app/precos,
+ *     /app/saved). Dentro do KAI essas views não existem (radar usa state
+ *     local), então /app/* vira no-op pra não cair no fallback `/:slug`
+ *     do shell (que redireciona pra /kaleidos e tira o user da tab).
+ *   - default → react-router-dom Link (rota interna)
  */
 export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function Link(
-  { href, children, prefetch: _p, replace, scroll: _s, shallow: _sh, ...rest },
+  { href, children, prefetch: _p, replace, scroll: _s, shallow: _sh, onClick, ...rest },
   ref,
 ) {
   if (/^https?:\/\//i.test(href) || href.startsWith("mailto:")) {
     return (
-      <a ref={ref} href={href} {...rest}>
+      <a ref={ref} href={href} onClick={onClick} {...rest}>
+        {children}
+      </a>
+    );
+  }
+  // /app/* — standalone Radar route. No KAI essas views vivem em state local;
+  // não navegamos pra fora pra preservar contexto. Click vira no-op (mantém
+  // estilo de link, mas não faz nada).
+  if (href.startsWith("/app")) {
+    const handle = (e: React.MouseEvent<HTMLAnchorElement>) => {
+      // Permite cmd/ctrl-click pra abrir em nova aba (fallback amigável).
+      if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+      e.preventDefault();
+      onClick?.(e);
+    };
+    return (
+      <a ref={ref} href={href} onClick={handle} role="button" {...rest}>
         {children}
       </a>
     );
   }
   return (
-    <RRLink ref={ref} to={href} replace={replace} {...(rest as object)}>
+    <RRLink ref={ref} to={href} replace={replace} onClick={onClick} {...(rest as object)}>
       {children}
     </RRLink>
   );

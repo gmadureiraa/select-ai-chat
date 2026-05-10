@@ -126,7 +126,10 @@ export function InboxQuickReplies({ clientId, currentText, onPick, disabled }: P
             </button>
             <button
               type="button"
-              onClick={() => handleRemove(tpl.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemove(tpl.id);
+              }}
               className="text-muted-foreground hover:text-destructive shrink-0 p-1"
               aria-label={`Remover template ${tpl.label}`}
             >

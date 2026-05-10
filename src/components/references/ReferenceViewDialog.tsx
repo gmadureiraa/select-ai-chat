@@ -56,7 +56,7 @@ export function ReferenceViewDialog({ open, onClose, reference }: ReferenceViewD
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-start justify-between gap-4">
@@ -111,6 +111,7 @@ export function ReferenceViewDialog({ open, onClose, reference }: ReferenceViewD
                   key={index}
                   src={url}
                   alt={`${reference.title} - imagem ${index + 1}`}
+                  loading="lazy"
                   className="w-full rounded-lg border"
                 />
               ))}
@@ -121,6 +122,7 @@ export function ReferenceViewDialog({ open, onClose, reference }: ReferenceViewD
               <img
                 src={thumbnailUrl}
                 alt={reference.title}
+                loading="lazy"
                 className="w-full rounded-lg"
               />
             </div>
@@ -146,9 +148,10 @@ export function ReferenceViewDialog({ open, onClose, reference }: ReferenceViewD
                   >
                     {item.type === 'image' ? (
                       <a href={item.url} target="_blank" rel="noopener noreferrer" className="block">
-                        <img 
-                          src={item.url} 
-                          alt={item.name || 'Imagem'} 
+                        <img
+                          src={item.url}
+                          alt={item.name || 'Imagem'}
+                          loading="lazy"
                           className="w-full h-24 object-cover rounded mb-1"
                         />
                         <span className="text-xs text-muted-foreground truncate block">

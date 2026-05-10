@@ -131,6 +131,7 @@ export function ContentCard({
             <img
               src={displayThumbnail}
               alt={item.title}
+              loading="lazy"
               className="w-full h-full object-cover transition-transform group-hover:scale-105"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = 'https://placehold.co/400x225/1a1a2e/666?text=📄';

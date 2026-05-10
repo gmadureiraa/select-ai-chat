@@ -1,7 +1,7 @@
 // EngagementHeatmap — heatmap dia × hora dos POSTS publicados (não best times genérico).
 // Mostra QUANDO o cliente postou e qual foi o engagement, ajudando a identificar
 // horários ideais com base no histórico real do cliente (não na média da plataforma).
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { MetricoolPost } from '@/hooks/useMetricoolPerformance';
 import { Card, CardContent } from '@/components/ui/card';
 import { getPostMetric } from '@/hooks/useMetricoolPerformance';
@@ -52,23 +52,26 @@ export function EngagementHeatmap({ posts, loading, metric: initialMetric = 'eng
   const branding = network ? getNetworkBranding(network) : null;
   if (loading) return <Skeleton className="h-[160px] w-full" />;
 
-  // Constrói grid 7x24 com soma da métrica por slot
-  const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
-  const counts: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
-  let max = 0;
-
-  for (const p of posts) {
-    const dateStr = (p.date || p.publishedAt || p.publishDate) as string | undefined;
-    if (!dateStr) continue;
-    const d = new Date(dateStr);
-    if (Number.isNaN(d.getTime())) continue;
-    const day = d.getDay();
-    const hour = d.getHours();
-    const value = getPostMetric(p, metric);
-    grid[day][hour] += value;
-    counts[day][hour] += 1;
-    if (grid[day][hour] > max) max = grid[day][hour];
-  }
+  // Constrói grid 7x24 com soma da métrica por slot — memoizado pra
+  // não rebuildar 168 cells × 50+ posts a cada render externo (refetch).
+  const { grid, counts, max } = useMemo(() => {
+    const g: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+    const c: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+    let m = 0;
+    for (const p of posts) {
+      const dateStr = (p.date || p.publishedAt || p.publishDate) as string | undefined;
+      if (!dateStr) continue;
+      const d = new Date(dateStr);
+      if (Number.isNaN(d.getTime())) continue;
+      const day = d.getDay();
+      const hour = d.getHours();
+      const value = getPostMetric(p, metric);
+      g[day][hour] += value;
+      c[day][hour] += 1;
+      if (g[day][hour] > m) m = g[day][hour];
+    }
+    return { grid: g, counts: c, max: m };
+  }, [posts, metric]);
 
   // Quando network informado: gera escala em cima da cor da rede via opacity.
   // Sem network: mantém escala emerald clássica.
