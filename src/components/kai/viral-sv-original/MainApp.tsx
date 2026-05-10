@@ -21,9 +21,9 @@
  * contexto pra que features futuras possam scopar geração por cliente.
  */
 
-import { useEffect, useState, useMemo, lazy, Suspense, createContext, useContext } from "react";
+import { useEffect, useState, useMemo, lazy, Suspense, createContext, useContext, type ReactNode } from "react";
 import { Toaster as SonnerToaster } from "sonner";
-import { AuthProvider } from "@sv/lib/auth-context";
+import { AuthProvider, useAuth } from "@sv/lib/auth-context";
 import { Loader2 } from "lucide-react";
 
 // KAI integration: header com nome do cliente + hook de contexto.
@@ -85,6 +85,18 @@ function useHashRoute(): string {
   return route;
 }
 
+/**
+ * AuthGate — espera o useAuth do SV resolver antes de renderizar pages.
+ * Sem isso, pages renderizavam com `user=null` por 1 frame e dispatchavam
+ * `loadCarousels` que retorna [] (lista vazia) — UX "0 carrosseis" mesmo
+ * logado, até refetch após onAuthStateChange.
+ */
+function AuthGate({ children }: { children: ReactNode }) {
+  const { loading } = useAuth();
+  if (loading) return <CenteredLoader />;
+  return <>{children}</>;
+}
+
 function CenteredLoader() {
   return (
     <div className="flex items-center justify-center" style={{ minHeight: 400 }}>
@@ -94,13 +106,19 @@ function CenteredLoader() {
 }
 
 /**
- * Helper — extrai `id` de `/create/<id>/<action>` e empacota em `Promise`
- * pra match com o pattern `params: Promise<{id}>` do Next 16 standalone.
+ * Helper — extrai `id` de `/create/<id>/<action>` e passa como objeto plain.
+ *
+ * O original Next 16 standalone recebia `params: Promise<{id}>` (App Router
+ * async params). Mas as pages aqui destructuram síncrono — `(props.params as
+ * unknown as { id: string })`. Encapsular numa Promise quebrava o destructure
+ * (id virava undefined → useDraft no-op → "Rascunho não encontrado.").
+ *
+ * Versão atual: passa objeto plain síncrono. Pages destructuram direto.
  */
-function paramsFromRoute(route: string): { params: Promise<{ id: string }> } {
+function paramsFromRoute(route: string): { params: { id: string } } {
   const match = route.match(/^\/create\/([^/]+)\//);
   const id = match?.[1] ?? "";
-  return { params: Promise.resolve({ id }) };
+  return { params: { id } };
 }
 
 /**
@@ -227,9 +245,16 @@ export default function MainApp({ clientId = null, client = null }: MainAppProps
             // `--sv-ink`, etc estão em `:root` no globals.css mas sob
             // `sv-root` re-aplicamos algumas defaults pra contornar
             // overrides do KAI (background, color).
+            //
+            // height + overflow auto: pais do KAI shell (main + tab wrapper)
+            // são `overflow:hidden`. Sem scroll próprio aqui, qualquer page
+            // SV mais alta que viewport ficava cortada (sintoma "página de
+            // carrossel não carrega inteira"). Comparar com viral-radar que
+            // já tinha `overflow:auto` no rdv-shell.
             background: "var(--sv-paper, #F7F5EF)",
             color: "var(--sv-ink, #0A0A0A)",
-            minHeight: "100%",
+            height: "100%",
+            overflowY: "auto",
             fontFamily: "var(--sv-sans)",
             display: "flex",
             flexDirection: "column",
@@ -238,7 +263,9 @@ export default function MainApp({ clientId = null, client = null }: MainAppProps
           <ClientContextHeader context={clientCtx ?? null} variant="light" />
           <SubNav route={route} />
           <Suspense fallback={<CenteredLoader />}>
-            <ActivePage route={route} />
+            <AuthGate>
+              <ActivePage route={route} />
+            </AuthGate>
           </Suspense>
           <SonnerToaster position="top-center" richColors closeButton />
         </div>

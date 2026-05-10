@@ -25,6 +25,11 @@ export interface DraftPayload {
   accentOverride?: string;
   displayFont?: string;
   textScale?: number;
+  // KAI multi-tenant context — vem do useKaiContext() no caller. Pra UPDATE
+  // não importa (id já existe). Pra INSERT new, evita cair no fallback do
+  // trigger (workspace mais recente do user).
+  workspaceId?: string | null;
+  clientId?: string | null;
 }
 
 export function useDraft(id: string | null) {
@@ -33,8 +38,16 @@ export function useDraft(id: string | null) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id || !supabase) return;
+    // Early returns precisam zerar loading/error explicitamente — caso
+    // contrário ficam presos no estado anterior se o id mudar pra falsy.
+    if (!id || !supabase) {
+      setLoading(false);
+      setError(null);
+      setDraft(null);
+      return;
+    }
     if (!isCarouselUuid(id)) {
+      setLoading(false);
       setError("Rascunho inválido.");
       return;
     }
@@ -84,6 +97,8 @@ export function useSaveDraft(userId: string | null, _session: Session | null) {
         accentOverride: payload.accentOverride,
         displayFont: payload.displayFont,
         textScale: payload.textScale,
+        workspaceId: payload.workspaceId,
+        clientId: payload.clientId,
       });
       return {
         id: row.id,
@@ -113,6 +128,8 @@ export function useAutoSaveDraft({
   displayFont,
   textScale,
   enabled,
+  workspaceId,
+  clientId,
 }: {
   userId: string | null;
   id: string | null;
@@ -124,6 +141,8 @@ export function useAutoSaveDraft({
   displayFont?: string;
   textScale?: number;
   enabled: boolean;
+  workspaceId?: string | null;
+  clientId?: string | null;
 }) {
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const lastRef = useRef<string>("");
@@ -167,6 +186,8 @@ export function useAutoSaveDraft({
           accentOverride,
           displayFont,
           textScale,
+          workspaceId,
+          clientId,
         });
         lastRef.current = serialized;
         setStatus("saved");

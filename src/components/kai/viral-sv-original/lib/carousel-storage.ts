@@ -168,10 +168,17 @@ export function rowToSavedCarousel(row: CarouselRow): SavedCarousel {
       slides = [];
     }
   }
-  const styleObj =
+  // A view `carousels` no Neon faz `vc.template AS style` (legado 0017) — então
+  // `row.style` chega como STRING (ex: 'manifesto', 'futurista', 'twitter')
+  // em vez do JSON object que o SV standalone tinha. Quando string, tratamos
+  // como `design_template` e deixamos resto vazio (graceful degradation).
+  // Quando object (compat futuro), parseia normal.
+  const styleObj: Record<string, unknown> =
     row.style && typeof row.style === "object"
       ? (row.style as Record<string, unknown>)
-      : {};
+      : typeof row.style === "string"
+        ? { design_template: row.style, slideStyle: "white" }
+        : {};
   const slideStyle =
     typeof styleObj.slideStyle === "string" ? styleObj.slideStyle : "white";
   const rawVar = styleObj.variation;
@@ -347,8 +354,10 @@ export async function fetchUserCarousels(
   client: SupabaseClient,
   options: { clientId?: string | null } = {},
 ): Promise<SavedCarousel[]> {
-  // KAI multi-tenant: quando há cliente selecionado na sidebar, filtrar
-  // por client_id pra esconder carrosseis de outros clientes do workspace.
+  // KAI multi-tenant: quando há cliente selecionado, mostrar carrosseis DESSE
+  // cliente + carrosseis "soltos" (client_id IS NULL — legados ou sandbox).
+  // Sem o IS NULL, carrosseis pré-multi-tenant nunca apareciam pq Kai.tsx
+  // sempre auto-seleciona o primeiro cliente.
   // Quando clientId é null, mantém comportamento padrão (RLS scope).
   const filterClient = options.clientId ?? null;
 
@@ -356,7 +365,9 @@ export async function fetchUserCarousels(
     .from("carousels")
     .select(CAROUSEL_LIST_FIELDS)
     .order("updated_at", { ascending: false });
-  if (filterClient) query = query.eq("client_id", filterClient);
+  if (filterClient) {
+    query = query.or(`client_id.eq.${filterClient},client_id.is.null`);
+  }
 
   let { data, error } = await query;
 
@@ -368,7 +379,9 @@ export async function fetchUserCarousels(
       .from("carousels")
       .select(CAROUSEL_LIST_FIELDS_FALLBACK)
       .order("updated_at", { ascending: false });
-    if (filterClient) retryQuery = retryQuery.eq("client_id", filterClient);
+    if (filterClient) {
+      retryQuery = retryQuery.or(`client_id.eq.${filterClient},client_id.is.null`);
+    }
     const retry = await retryQuery;
     data = (retry.data as unknown) as typeof data;
     error = retry.error;

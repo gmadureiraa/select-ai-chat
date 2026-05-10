@@ -11,6 +11,7 @@ import {
   type TemplateId,
 } from "@sv/components/app/templates";
 import { useAuth } from "@sv/lib/auth-context";
+import { useKaiContext } from "@sv/lib/use-kai-context";
 import { useDraft, useAutoSaveDraft, useSaveDraft } from "@sv/lib/create/use-draft";
 import { useImages } from "@sv/lib/create/use-images";
 import { resolveVariant, resolveLayers } from "@sv/lib/create/render-defaults";
@@ -289,6 +290,7 @@ export default function EditPage(props: {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, profile, session } = useAuth();
+  const kaiCtx = useKaiContext();
   const { draft, loading, error } = useDraft(id);
 
   // Ref do textarea do corpo pra aplicar negrito no range selecionado.
@@ -622,6 +624,8 @@ export default function EditPage(props: {
     displayFont: fontTouched ? familyFromFontId(fontId) : undefined,
     textScale: scaleTouched ? textScale : undefined,
     enabled: slides.length > 0,
+    workspaceId: kaiCtx.workspaceId,
+    clientId: kaiCtx.clientId,
   });
 
   // Transição Editor → Preview: ESTRATEGIA DUPLA pra garantir fidelidade 100%:
@@ -670,6 +674,8 @@ export default function EditPage(props: {
         accentOverride: accentTouched ? accent : undefined,
         displayFont: fontTouched ? familyFromFontId(fontId) : undefined,
         textScale: scaleTouched ? textScale : undefined,
+        workspaceId: kaiCtx.workspaceId,
+        clientId: kaiCtx.clientId,
       });
     } catch (err) {
       console.warn("[edit] flush before preview falhou:", err);
@@ -2117,8 +2123,11 @@ export default function EditPage(props: {
       style={{
         // Bg bege estende até o fim da página (em vez de quebrar pra branco
         // depois do conteúdo). Pedido Gabriel 24/04.
+        // 100% (não 100vh) — dentro do shell KAI esse motion.div é child
+        // do sv-root que já tem scroll próprio. 100vh vazava pra fora do
+        // tab causando recorte e duplo scrollbar.
         background: "var(--sv-paper)",
-        minHeight: "100vh",
+        minHeight: "100%",
       }}
     >
       {/* Popup 30% off — usuário acabou de ver o primeiro carrossel pronto,
