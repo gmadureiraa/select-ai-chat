@@ -65,6 +65,22 @@
     {
       "path": "/api/cron-transcribe-recent-posts",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/process-scheduled-posts",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/process-recurring-content",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/send-publish-reminders",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/process-due-date-notifications",
+      "schedule": "30 9 * * *"
     }
   ],
   "headers": [

@@ -98,6 +98,7 @@ export const handlerLoaders: Record<string, () => Promise<any>> = {
   'metricool-reports': () => import('./_handlers/metricool-reports.js'),
   'metricool-calendar': () => import('./_handlers/metricool-calendar.js'),
   'postiz-analytics': () => import('./_handlers/postiz-analytics.js'),
+  'postiz-summary': () => import('./_handlers/postiz-summary.js'),
   'postiz-post': () => import('./_handlers/postiz-post.js'),
   'postiz-schedule': () => import('./_handlers/postiz-schedule.js'),
   'postiz-integrations': () => import('./_handlers/postiz-integrations.js'),
