@@ -212,17 +212,24 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
     staleTime: 10_000,
   });
 
-  // Create item
+  // Create item — com optimistic update pra evitar percepção de "não criado"
+  // (refetch após invalidate demora 500-1500ms com Neon cold start). Usuário
+  // vê o card aparecer instantaneamente na coluna alvo enquanto o servidor
+  // confirma. Em caso de erro, onError faz rollback automático.
   const createItem = useMutation({
     mutationFn: async (input: CreatePlanningItemInput) => {
-      // Verify authentication directly from Supabase
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) throw new Error('Usuário não autenticado');
-      
       if (!workspaceId) throw new Error('Workspace não encontrado');
 
-      // Get max position for the column
-      const targetColumnId = input.column_id || columns.find(c => c.column_type === 'idea')?.id || columns[0]?.id;
+      // Resolve column_id: input → coluna 'idea' → primeira coluna.
+      // Se nenhuma coluna existir, FALHA EXPLÍCITA em vez de criar órfão.
+      const targetColumnId =
+        input.column_id || columns.find(c => c.column_type === 'idea')?.id || columns[0]?.id;
+      if (!targetColumnId) {
+        throw new Error('Nenhuma coluna do board configurada. Atualize a página.');
+      }
+
       const columnItems = items.filter(i => i.column_id === targetColumnId);
       const maxPosition = columnItems.length > 0 ? Math.max(...columnItems.map(i => i.position)) + 1 : 0;
 
@@ -248,19 +255,90 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
           metadata: (input.metadata || {}) as unknown as Json,
           created_by: authUser.id
         })
-        .select()
+        .select(`
+          *,
+          clients:client_id (id, name, avatar_url),
+          kanban_columns:column_id (id, name, color, column_type)
+        `)
         .single();
 
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
+    // Optimistic update — adiciona o item imediatamente no cache antes do
+    // servidor confirmar. UI mostra o card sem flash de loading.
+    onMutate: async (input) => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser || !workspaceId) return;
+
+      const targetColumnId =
+        input.column_id || columns.find(c => c.column_type === 'idea')?.id || columns[0]?.id;
+      if (!targetColumnId) return;
+
+      await queryClient.cancelQueries({ queryKey: ['planning-items', workspaceId] });
+      const previous = queryClient.getQueriesData({ queryKey: ['planning-items', workspaceId] });
+
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const optimistic: PlanningItem = {
+        id: tempId,
+        workspace_id: workspaceId,
+        client_id: input.client_id ?? null,
+        column_id: targetColumnId,
+        title: input.title,
+        description: input.description ?? null,
+        content: input.content ?? null,
+        platform: (input.platform ?? null) as PlanningPlatform | null,
+        content_type: input.content_type ?? 'social_post',
+        due_date: input.due_date ?? null,
+        scheduled_at: input.scheduled_at ?? null,
+        published_at: null,
+        status: (input.status ?? 'idea') as PlanningStatus,
+        priority: (input.priority ?? 'medium') as PlanningPriority,
+        position: items.filter(i => i.column_id === targetColumnId).length,
+        labels: input.labels ?? [],
+        assigned_to: input.assigned_to ?? null,
+        media_urls: input.media_urls ?? [],
+        metadata: (input.metadata ?? {}) as Record<string, unknown>,
+        external_post_id: null,
+        error_message: null,
+        retry_count: 0,
+        added_to_library: false,
+        content_library_id: null,
+        created_by: authUser.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      queryClient.setQueriesData(
+        { queryKey: ['planning-items', workspaceId] },
+        (old: PlanningItem[] | undefined) => [...(old ?? []), optimistic],
+      );
+      return { previous, tempId };
+    },
+    onError: (error, _input, context) => {
+      // Rollback em caso de erro
+      if (context?.previous) {
+        for (const [key, data] of context.previous) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+      toast.error('Erro ao criar card: ' + (error as Error).message);
+    },
+    onSuccess: (created, _input, context) => {
+      // Substitui placeholder pelo item real do servidor (mantém ID estável)
+      if (context?.tempId && created) {
+        queryClient.setQueriesData(
+          { queryKey: ['planning-items', workspaceId] },
+          (old: PlanningItem[] | undefined) =>
+            (old ?? []).map(it => (it.id === context.tempId ? (created as PlanningItem) : it)),
+        );
+      }
       toast.success('Card criado com sucesso');
     },
-    onError: (error) => {
-      toast.error('Erro ao criar card: ' + error.message);
-    }
+    onSettled: () => {
+      // Invalidate pra garantir consistência com servidor (joins, RLS, etc)
+      queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
+    },
   });
 
   // Update item — passa `silent: true` em moves rápidos pra evitar spam de toasts
