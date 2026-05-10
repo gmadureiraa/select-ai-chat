@@ -137,7 +137,7 @@ export const ClientList = memo(function ClientList({ clients, isLoading }: Clien
                   Informações
                 </Button>
                 <Button
-                  onClick={() => navigate(`/client/${client.id}/library`)}
+                  onClick={() => navigate(`/kaleidos?tab=library&client=${client.id}`)}
                   variant="outline"
                   size="sm"
                   className="w-full justify-start"
@@ -146,7 +146,7 @@ export const ClientList = memo(function ClientList({ clients, isLoading }: Clien
                   Conteúdo
                 </Button>
                 <Button
-                  onClick={() => navigate(`/client/${client.id}/references`)}
+                  onClick={() => navigate(`/kaleidos?tab=library&client=${client.id}&libraryTab=references`)}
                   variant="outline"
                   size="sm"
                   className="w-full justify-start"
@@ -155,7 +155,7 @@ export const ClientList = memo(function ClientList({ clients, isLoading }: Clien
                   Referências
                 </Button>
                 <Button
-                  onClick={() => navigate(`/client/${client.id}/performance`)}
+                  onClick={() => navigate(`/kaleidos?tab=performance&client=${client.id}`)}
                   variant="outline"
                   size="sm"
                   className="w-full justify-start"

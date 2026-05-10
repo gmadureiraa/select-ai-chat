@@ -285,10 +285,14 @@ export default function Kai() {
       redirectTab = "planning";
     }
 
-    // Billing tab removida — caso alguém ainda navegue via URL antiga, redireciona
+    // Billing tab removida — caso alguém ainda navegue via URL antiga,
+    // redireciona pro Settings → workspace section (info do plano + admin).
     if (tab === "billing") {
       shouldRedirect = true;
-      redirectTab = "planning";
+      redirectTab = "settings";
+      // section=workspace é setado pelo handler do tab=billing nos chamadores
+      // (UpgradePrompt, next-link shim, next-navigation shim) via search params
+      // — aqui só garantimos que a tab final é settings.
     }
 
     // Workspace Members — owner ou admin

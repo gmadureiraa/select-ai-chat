@@ -2173,14 +2173,8 @@ export default function EditPage(props: {
           / {String(slides.length).padStart(2, "0")}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="sv-btn sv-btn-outline"
-            style={{ padding: "7px 12px", fontSize: 9 }}
-            onClick={() => toast("Desfazer ainda vem por aí")}
-          >
-            ⌘Z Desfazer
-          </button>
+          {/* Botão Desfazer removido — feature de undo não implementada.
+              Mostrar botão mock causava confusão (toast "vem por aí"). */}
           <button
             type="button"
             className="sv-btn sv-btn-outline"

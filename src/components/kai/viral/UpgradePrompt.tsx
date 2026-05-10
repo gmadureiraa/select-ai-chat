@@ -77,10 +77,14 @@ export function UpgradePrompt({ feature, reason, message, compact = false }: Upg
     ? `Como viewer, você pode visualizar mas não pode criar conteúdo em ${featureName}. Peça pro admin do workspace promover seu acesso.`
     : message || FEATURE_DEFAULT_MSG[feature];
 
+  // KAI 2.0 é uso interno Kaleidos sem cobrança por workspace — BillingTab
+  // foi removido em 2026-05-09. Redireciona pro tab Settings → workspace
+  // onde admin/owner pode ver info do plano + ajustar limites.
   const goToBilling = () => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      next.set("tab", "billing");
+      next.set("tab", "settings");
+      next.set("section", "workspace");
       return next;
     });
   };
@@ -98,7 +102,7 @@ export function UpgradePrompt({ feature, reason, message, compact = false }: Upg
         <div className="flex flex-col gap-2">
           <Button onClick={goToBilling} className="w-full">
             <Sparkles className="h-4 w-4 mr-2" />
-            Ver planos
+            Ver workspace
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
           {!compact && (

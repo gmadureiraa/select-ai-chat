@@ -47,8 +47,12 @@ function stripAppPrefix(href: string): string {
 
 function navigateToKaiBilling() {
   if (typeof window === "undefined") return;
+  // KAI 2.0 não tem BillingTab (uso interno Kaleidos sem cobrança por
+  // workspace, removido 2026-05-09). Redireciona pra Settings → workspace
+  // section onde admin/owner vê info do plano + ajusta limites.
   const url = new URL(window.location.href);
-  url.searchParams.set("tab", "billing");
+  url.searchParams.set("tab", "settings");
+  url.searchParams.set("section", "workspace");
   url.hash = "";
   window.history.pushState({}, "", url.toString());
   window.dispatchEvent(new PopStateEvent("popstate"));
@@ -96,7 +100,7 @@ const Link = forwardRef<HTMLAnchorElement, NextLinkProps>(function Link(
       navigateToKaiBilling();
     };
     return (
-      <a ref={ref} href="?tab=billing" onClick={handle} {...rest}>
+      <a ref={ref} href="?tab=settings&section=workspace" onClick={handle} {...rest}>
         {children}
       </a>
     );
