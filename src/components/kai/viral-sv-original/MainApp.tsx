@@ -103,6 +103,76 @@ function paramsFromRoute(route: string): { params: Promise<{ id: string }> } {
   return { params: Promise.resolve({ id }) };
 }
 
+/**
+ * SubNav fina embaixo do ClientContextHeader — mostra as 2 ações canônicas
+ * (Listagem + Novo) e botão Voltar quando a rota é interna. Sem isso o user
+ * fica preso na tela de Edit/Preview/Concepts sem caminho claro pra listagem.
+ *
+ * Mantém estética SV (mono caps, ink underline) pra integrar com o resto.
+ */
+function SubNav({ route }: { route: string }) {
+  const qIdx = route.indexOf("?");
+  const path = qIdx >= 0 ? route.slice(0, qIdx) : route;
+  // Não mostra subnav nas rotas top-level (já têm CTA primário óbvio).
+  const isList = path === "/carousels" || path === "/" || path === "";
+  const isCreateNew = path === "/create/new" || path === "/create";
+
+  function go(href: string) {
+    if (typeof window === "undefined") return;
+    window.location.hash = href;
+  }
+
+  return (
+    <div
+      className="flex items-center gap-3 border-b px-4 py-2 md:px-6"
+      style={{
+        borderColor: "var(--sv-ink, #0A0A0A)",
+        background: "var(--sv-paper, #F7F5EF)",
+        fontFamily: "var(--sv-mono)",
+        fontSize: 10.5,
+        letterSpacing: "0.18em",
+        textTransform: "uppercase",
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => go("/carousels")}
+        style={{
+          color: isList ? "var(--sv-ink)" : "var(--sv-muted)",
+          fontWeight: isList ? 700 : 500,
+          textDecoration: isList ? "underline" : "none",
+          textUnderlineOffset: 4,
+        }}
+      >
+        Carrosséis
+      </button>
+      <span style={{ color: "var(--sv-muted)" }}>·</span>
+      <button
+        type="button"
+        onClick={() => go("/create/new")}
+        style={{
+          color: isCreateNew ? "var(--sv-ink)" : "var(--sv-muted)",
+          fontWeight: isCreateNew ? 700 : 500,
+          textDecoration: isCreateNew ? "underline" : "none",
+          textUnderlineOffset: 4,
+        }}
+      >
+        + Novo
+      </button>
+      {!isList && !isCreateNew && (
+        <button
+          type="button"
+          onClick={() => go("/carousels")}
+          className="ml-auto"
+          style={{ color: "var(--sv-muted)" }}
+        >
+          ← Voltar pra lista
+        </button>
+      )}
+    </div>
+  );
+}
+
 function ActivePage({ route }: { route: string }) {
   // Strip query string antes de matchar — query vive no hash em rotas tipo
   // `#/create/abc/edit?template=manifesto`. Sem isso, `endsWith("/edit")`
@@ -166,6 +236,7 @@ export default function MainApp({ clientId = null, client = null }: MainAppProps
           }}
         >
           <ClientContextHeader context={clientCtx ?? null} variant="light" />
+          <SubNav route={route} />
           <Suspense fallback={<CenteredLoader />}>
             <ActivePage route={route} />
           </Suspense>
