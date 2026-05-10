@@ -25,6 +25,9 @@ import { useActiveNiche } from "../lib/niche-context";
 import { TopNewsSection } from "../components/top-news-section";
 import { TopInstagramSection } from "../components/top-instagram-section";
 import { TopYouTubeSection } from "../components/top-youtube-section";
+import { TopThreadsSection } from "../components/top-threads-section";
+import { TopTwitterSection } from "../components/top-twitter-section";
+import { TopLinkedinSection } from "../components/top-linkedin-section";
 import { LoopClosureSection } from "../components/loop-closure-section";
 import { NichePillBar } from "../components/niche-pill-bar";
 
@@ -318,12 +321,43 @@ export default function DashboardPage({ clientId = null }: DashboardPageProps = 
             </div>
           )}
 
-          {/* ─── ROW 3: Top YouTube full-width — carrossel horizontal ─── */}
+          {/* ─── ROW 3: Threads (esq) | X / Twitter (dir) ─── */}
+          {session.data?.user && (
+            <div className="rdv-dash-row">
+              <TopThreadsSection
+                nicheId={niche.id}
+                isPaid={Boolean(sub?.isPaid)}
+                limit={6}
+                hours={168}
+                clientId={clientId}
+              />
+              <TopTwitterSection
+                nicheId={niche.id}
+                isPaid={Boolean(sub?.isPaid)}
+                limit={6}
+                hours={168}
+                clientId={clientId}
+              />
+            </div>
+          )}
+
+          {/* ─── ROW 4: Top YouTube full-width — carrossel horizontal ─── */}
           {session.data?.user && (
             <TopYouTubeSection
               nicheId={niche.id}
               isPaid={Boolean(sub?.isPaid)}
               limit={10}
+              clientId={clientId}
+            />
+          )}
+
+          {/* ─── ROW 5: Top LinkedIn full-width (B2B, posts longos) ─── */}
+          {session.data?.user && (
+            <TopLinkedinSection
+              nicheId={niche.id}
+              isPaid={Boolean(sub?.isPaid)}
+              limit={9}
+              hours={168}
               clientId={clientId}
             />
           )}

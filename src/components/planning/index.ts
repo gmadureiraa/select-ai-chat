@@ -1,9 +1,9 @@
 export { PlanningBoard } from './PlanningBoard';
-export { PlanningFilters } from './PlanningFilters';
+export { PlanningFilters, type PlanningFiltersHandle } from './PlanningFilters';
 export { PlanningItemCard } from './PlanningItemCard';
 export { PlanningItemDialog } from './PlanningItemDialog';
 export { ViewToggle } from './ViewToggle';
-export { KanbanView } from './KanbanView';
+export { KanbanView, type KanbanViewHandle } from './KanbanView';
 export { CalendarView } from './CalendarView';
 export { PublicationStatusBadge } from './PublicationStatusBadge';
 export { ViewSettingsPopover, useViewSettings, type ViewSettings } from './ViewSettingsPopover';
@@ -11,3 +11,6 @@ export { MediaUploader, type MediaItem } from './MediaUploader';
 export { RichContentEditor } from './RichContentEditor';
 export { ThreadEditor, type ThreadTweet } from './ThreadEditor';
 export { ContentPreview } from './ContentPreview';
+export { BulkActionsToolbar } from './BulkActionsToolbar';
+export { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
+export { ColumnsCustomizeDialog } from './ColumnsCustomizeDialog';

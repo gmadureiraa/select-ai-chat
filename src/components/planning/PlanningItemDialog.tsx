@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check, Flag, CheckCircle2, MessageSquare, XCircle, Layers, ExternalLink, Trash2 } from 'lucide-react';
+import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check, Flag, CheckCircle2, MessageSquare, XCircle, Layers, ExternalLink, Trash2, Sparkles, Film, Lightbulb } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +29,8 @@ import { usePlanningContentGeneration } from '@/hooks/usePlanningContentGenerati
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useClientPlatformStatus } from '@/hooks/useClientPlatformStatus';
 import { useLateConnection, LatePlatform } from '@/hooks/useLateConnection';
+import { usePlanningViralIntegration } from '@/hooks/usePlanningViralIntegration';
+import { useClientSuggestion } from '@/hooks/useClientSuggestion';
 import { cn } from '@/lib/utils';
 import { MediaUploader, MediaItem } from './MediaUploader';
 import { RichContentEditor } from './RichContentEditor';
@@ -36,6 +38,7 @@ import { ThreadEditor, ThreadTweet } from './ThreadEditor';
 import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationModal';
 import { PlanningItemComments } from './PlanningItemComments';
 import { PlanningItemPerformance } from './PlanningItemPerformance';
+import { PlanningItemReferencesPanel } from './PlanningItemReferencesPanel';
 import { MentionableInput } from './MentionableInput';
 import { RecurrenceConfig } from './RecurrenceConfig';
 import { PlatformOptionsPanel, PlatformOptionsState } from './PlatformOptionsPanel';
@@ -180,6 +183,14 @@ export function PlanningItemDialog({
   const { generateContent, isGenerating: isGeneratingContent, isFetchingReference } = usePlanningContentGeneration();
   const { canAutoPublish, getPlatformStatus } = useClientPlatformStatus(selectedClientId);
   const lateConnection = useLateConnection({ clientId: selectedClientId });
+  // Cross-feature: gerar carrossel viral / mandar pro Reels Viral a partir do card
+  const {
+    generateCarouselFromPlanning,
+    isGeneratingCarousel,
+    sendToReelsAdapter,
+  } = usePlanningViralIntegration();
+  // Auto-suggest cliente baseado em título + biblioteca de refs (ver hook)
+  const clientSuggestion = useClientSuggestion(title, selectedClientId);
 
   // Derive platform from content type (used as default suggestion)
   const platform = CONTENT_TO_PLATFORM[contentType] as PlanningPlatform;
@@ -609,6 +620,74 @@ export function PlanningItemDialog({
               {/* Performance pós-publicação — só renderiza se status='published' + postId */}
               {effectiveItem && <PlanningItemPerformance item={effectiveItem} />}
 
+              {/* Ações cross-feature: gerar carrossel / reel a partir do card.
+                  Só aparece em cards rascunho/ideia (status que faz sentido transformar) */}
+              {!readOnly &&
+                effectiveItem &&
+                (effectiveItem.status === 'idea' || effectiveItem.status === 'draft') &&
+                !((effectiveItem.metadata as any)?.viral_carousel_id) && (
+                  <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs font-semibold text-foreground">
+                        Transformar em conteúdo viral
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mb-2.5">
+                      Use o briefing deste card pra gerar um carrossel pronto, ou abrir o Reels Viral pra adaptar um Reel de referência.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs focus-visible:ring-2 focus-visible:ring-ring"
+                        disabled={isGeneratingCarousel || !selectedClientId || !title.trim()}
+                        onClick={async () => {
+                          if (!effectiveItem) return;
+                          // Pega o estado atual do form em vez do effectiveItem
+                          // (user pode ter editado título/conteúdo sem salvar ainda)
+                          const liveItem = {
+                            ...effectiveItem,
+                            title: title.trim() || effectiveItem.title,
+                            content: content.trim() || effectiveItem.content,
+                            client_id: selectedClientId || effectiveItem.client_id,
+                          };
+                          await generateCarouselFromPlanning({ item: liveItem });
+                        }}
+                      >
+                        {isGeneratingCarousel ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Layers className="h-3 w-3" />
+                        )}
+                        Gerar Carrossel
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs focus-visible:ring-2 focus-visible:ring-ring"
+                        disabled={!selectedClientId || !title.trim()}
+                        onClick={() => {
+                          if (!effectiveItem) return;
+                          const liveItem = {
+                            ...effectiveItem,
+                            title: title.trim() || effectiveItem.title,
+                            content: content.trim() || effectiveItem.content,
+                            client_id: selectedClientId || effectiveItem.client_id,
+                          };
+                          sendToReelsAdapter({ item: liveItem });
+                          onOpenChange(false);
+                        }}
+                      >
+                        <Film className="h-3 w-3" />
+                        Adaptar Reel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
               {/* Viral Carousel banner — quick jump to Sequência Viral editor */}
               {(() => {
                 const meta = (effectiveItem?.metadata as any) || {};
@@ -765,6 +844,23 @@ export function PlanningItemDialog({
                     ))}
                   </SelectContent>
                 </Select>
+                {/* Auto-suggest: se title bate com perfil/refs de algum cliente */}
+                {clientSuggestion && !selectedClientId && (
+                  <button
+                    type="button"
+                    className="w-full rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition-colors flex items-start gap-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                    onClick={() => setSelectedClientId(clientSuggestion.clientId)}
+                    title={`Match: ${clientSuggestion.matchedTokens.join(', ')}`}
+                  >
+                    <Lightbulb className="h-3 w-3 mt-0.5 shrink-0" />
+                    <span className="leading-tight">
+                      Talvez seja{' '}
+                      <strong className="font-semibold">{clientSuggestion.clientName}</strong>
+                      <span className="opacity-70"> ({clientSuggestion.score}% match)</span>
+                      <span className="block opacity-80">Clique pra atribuir</span>
+                    </span>
+                  </button>
+                )}
               </div>
 
               {/* Format */}
@@ -968,6 +1064,18 @@ export function PlanningItemDialog({
                   onChange={setRecurrenceConfig}
                 />
               </div>
+
+              {/* Referências linkadas — só em edit mode (precisa do id pra persistir) */}
+              {effectiveItem && selectedClientId && (
+                <>
+                  <div className="border-t border-border/30" />
+                  <PlanningItemReferencesPanel
+                    planningItemId={effectiveItem.id}
+                    clientId={selectedClientId}
+                    metadata={(effectiveItem.metadata as Record<string, unknown>) || {}}
+                  />
+                </>
+              )}
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,14 @@ import { useClients } from '@/hooks/useClients';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
 import type { PlanningFilters as FilterType, PlanningPlatform, PlanningStatus, PlanningPriority } from '@/hooks/usePlanningItems';
+
+export interface PlanningFiltersHandle {
+  /** Foca o campo de busca (usado pelo atalho `/`). */
+  focusSearch: () => void;
+}
 
 interface PlanningFiltersProps {
   filters: FilterType;
@@ -37,19 +43,58 @@ const statuses: { value: PlanningStatus; label: string }[] = [
   { value: 'failed', label: 'Falhou' },
 ];
 
-const priorities: { value: PlanningPriority; label: string }[] = [
+const _priorities: { value: PlanningPriority; label: string }[] = [
   { value: 'low', label: 'Baixa' },
   { value: 'medium', label: 'Média' },
   { value: 'high', label: 'Alta' },
   { value: 'urgent', label: 'Urgente' },
 ];
 
-export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
-  const { clients } = useClients();
-  const { members } = useTeamMembers();
-  const { user } = useAuth();
-  const isMobile = useIsMobile();
-  const [sheetOpen, setSheetOpen] = useState(false);
+export const PlanningFilters = forwardRef<PlanningFiltersHandle, PlanningFiltersProps>(
+  function PlanningFilters({ filters, onChange }, ref) {
+    const { clients } = useClients();
+    const { members } = useTeamMembers();
+    const { user } = useAuth();
+    const isMobile = useIsMobile();
+    const [sheetOpen, setSheetOpen] = useState(false);
+
+    // Estado local do input de busca pra debounce. O filters.search vem do parent
+    // e dispara queries — esperamos 200ms antes de propagar.
+    const [searchInput, setSearchInput] = useState(filters.search || '');
+    const debouncedSearch = useDebounce(searchInput, 200);
+    const searchRef = useRef<HTMLInputElement>(null);
+    const mobileSearchRef = useRef<HTMLInputElement>(null);
+
+    // Sincroniza estado local quando filtros vêm de fora (ex: clearFilters).
+    useEffect(() => {
+      if ((filters.search || '') !== searchInput) {
+        setSearchInput(filters.search || '');
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filters.search]);
+
+    // Propaga busca debounced pro parent.
+    useEffect(() => {
+      const next = debouncedSearch.trim();
+      if (next === (filters.search || '')) return;
+      onChange({ ...filters, search: next || undefined });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debouncedSearch]);
+
+    useImperativeHandle(ref, () => ({
+      focusSearch: () => {
+        if (isMobile) {
+          setSheetOpen(true);
+          // Espera o sheet abrir antes de focar
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => mobileSearchRef.current?.focus());
+          });
+        } else {
+          searchRef.current?.focus();
+          searchRef.current?.select();
+        }
+      },
+    }), [isMobile]);
 
   const activeFiltersCount = [
     filters.clientId,
@@ -64,7 +109,13 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
   const hasActiveFilters = activeFiltersCount > 0;
 
   const clearFilters = () => {
+    setSearchInput('');
     onChange({});
+  };
+
+  const clearSearch = () => {
+    setSearchInput('');
+    onChange({ ...filters, search: undefined });
   };
 
   const isMineActive = filters.assignedTo && filters.assignedTo === user?.id;
@@ -74,15 +125,34 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
       "flex items-center gap-1.5",
       inSheet && "flex-col items-stretch gap-2"
     )}>
-      {/* Search */}
-      <div className={cn("relative", inSheet ? "w-full" : "flex-1 min-w-[140px] max-w-[180px]")}>
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+      {/* Busca com debounce + clear button + atalho `/` */}
+      <div className={cn("relative", inSheet ? "w-full" : "flex-1 min-w-[160px] max-w-[220px]")}>
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
         <Input
-          placeholder="Buscar..."
-          value={filters.search || ''}
-          onChange={(e) => onChange({ ...filters, search: e.target.value || undefined })}
-          className="pl-7 h-7 text-xs border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-border rounded-md"
+          ref={inSheet ? mobileSearchRef : searchRef}
+          placeholder="Buscar (atalho: /)"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && searchInput) {
+              e.preventDefault();
+              clearSearch();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          className="pl-7 pr-7 h-7 text-xs border-transparent bg-transparent hover:bg-muted/50 focus:bg-background focus:border-border rounded-md focus-visible:ring-1 focus-visible:ring-primary/40"
+          aria-label="Buscar itens do planejamento"
         />
+        {searchInput && (
+          <button
+            type="button"
+            onClick={clearSearch}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/60"
+            aria-label="Limpar busca"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
       </div>
 
       {/* Filters - inline ghost style */}
@@ -197,10 +267,10 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
       )}
 
       {hasActiveFilters && (
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={clearFilters} 
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={clearFilters}
           className={cn("h-7 px-2 text-xs text-muted-foreground hover:text-foreground rounded-md", inSheet && "w-full")}
         >
           <X className="h-3 w-3 mr-1" />
@@ -239,4 +309,4 @@ export function PlanningFilters({ filters, onChange }: PlanningFiltersProps) {
       <FiltersContent />
     </div>
   );
-}
+});

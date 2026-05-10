@@ -17,9 +17,11 @@ import {
   ExternalLink,
   Loader2,
   TrendingUp,
+  LineChart,
 } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import { useFetchPostMetrics, getPlanningItemMetrics } from '@/hooks/usePostMetrics';
 import type { PlanningItem } from '@/hooks/usePlanningItems';
 
@@ -38,6 +40,7 @@ function fmt(n: number | undefined | null): string {
 
 export function PlanningItemPerformance({ item }: Props) {
   const fetchMetrics = useFetchPostMetrics();
+  const navigate = useNavigate();
   const metadata = (item.metadata as Record<string, any>) || {};
   const postId = item.external_post_id || metadata.metricool_post_id;
   const publishedUrl = metadata.published_url as string | undefined;
@@ -174,6 +177,28 @@ export function PlanningItemPerformance({ item }: Props) {
                 <ExternalLink className="h-3.5 w-3.5" />
                 Ver post original
               </a>
+            </Button>
+          )}
+
+          {/* Cross-feature: deep-link pro Performance Dashboard com filtro neste cliente.
+              Usa ?postId pra que dashboard possa scrollar pra esse post. */}
+          {item.client_id && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-xs focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => {
+                const params = new URLSearchParams({
+                  tab: 'performance',
+                  client: item.client_id!,
+                });
+                if (postId) params.set('postId', String(postId));
+                navigate(`/kaleidos?${params.toString()}`);
+              }}
+            >
+              <LineChart className="h-3.5 w-3.5" />
+              Ver no Performance Dashboard
             </Button>
           )}
         </div>

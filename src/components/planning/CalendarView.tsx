@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parseISO, isToday as isDateToday, differenceInDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, addDays, addWeeks, subWeeks, parseISO, isToday as isDateToday, differenceInDays, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Clock, AlertCircle, CheckCircle2, Bot, FileEdit, RefreshCw, Calendar as CalendarIcon, MoreHorizontal, Sparkles, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, AlertCircle, CheckCircle2, Bot, FileEdit, RefreshCw, Calendar as _CalendarIcon, MoreHorizontal as _MoreHorizontal, Sparkles, Trash2 } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -282,12 +283,14 @@ function CalendarCard({
   );
 }
 
+type CalendarMode = 'month' | 'week' | 'day';
+
 export function CalendarView({
   items,
   onEditItem,
   onAddItem,
   onDeleteItem,
-  onMoveToLibrary,
+  onMoveToLibrary: _onMoveToLibrary,
   onRetry,
   onMoveItem,
   canEdit = true,
@@ -296,19 +299,54 @@ export function CalendarView({
   memberMap: _memberMap,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [mode, setMode] = useState<CalendarMode>('month');
   const [draggedItem, setDraggedItem] = useState<PlanningItem | null>(null);
   const [dragOverDay, setDragOverDay] = useState<Date | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = useState<PlanningItem | null>(null);
   const [localDeleting, setLocalDeleting] = useState(false);
 
+  // Dias visíveis no grid — depende do modo (mês/semana/dia)
   const days = useMemo(() => {
+    if (mode === 'day') return [currentDate];
+    if (mode === 'week') {
+      const ws = startOfWeek(currentDate, { weekStartsOn: 0 });
+      const we = endOfWeek(currentDate, { weekStartsOn: 0 });
+      return eachDayOfInterval({ start: ws, end: we });
+    }
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
     const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
     const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
     return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-  }, [currentDate]);
+  }, [currentDate, mode]);
+
+  const goPrev = useCallback(() => {
+    if (mode === 'day') setCurrentDate(d => addDays(d, -1));
+    else if (mode === 'week') setCurrentDate(d => subWeeks(d, 1));
+    else setCurrentDate(d => subMonths(d, 1));
+  }, [mode]);
+
+  const goNext = useCallback(() => {
+    if (mode === 'day') setCurrentDate(d => addDays(d, 1));
+    else if (mode === 'week') setCurrentDate(d => addWeeks(d, 1));
+    else setCurrentDate(d => addMonths(d, 1));
+  }, [mode]);
+
+  const headerLabel = useMemo(() => {
+    if (mode === 'day') {
+      return format(currentDate, "EEEE, dd 'de' MMMM yyyy", { locale: ptBR });
+    }
+    if (mode === 'week') {
+      const ws = startOfWeek(currentDate, { weekStartsOn: 0 });
+      const we = endOfWeek(currentDate, { weekStartsOn: 0 });
+      const sameMonth = isSameMonth(ws, we);
+      return sameMonth
+        ? `${format(ws, 'dd')} – ${format(we, "dd 'de' MMMM yyyy", { locale: ptBR })}`
+        : `${format(ws, "dd 'de' MMM", { locale: ptBR })} – ${format(we, "dd 'de' MMM yyyy", { locale: ptBR })}`;
+    }
+    return format(currentDate, 'MMMM yyyy', { locale: ptBR });
+  }, [currentDate, mode]);
 
   const getItemsForDay = useCallback((day: Date) => {
     return items.filter(item => {
@@ -323,22 +361,29 @@ export function CalendarView({
     });
   }, [items]);
 
-  // Count items by status for summary
-  const monthStats = useMemo(() => {
-    const stats = { scheduled: 0, published: 0, failed: 0, total: 0 };
+  // Stats agregadas no range visível (mês/semana/dia)
+  const rangeStats = useMemo(() => {
+    const stats = { scheduled: 0, published: 0, failed: 0, total: 0, overdue: 0 };
+    const today = startOfDay(new Date());
     days.forEach(day => {
-      if (isSameMonth(day, currentDate)) {
-        const dayItems = getItemsForDay(day);
-        stats.total += dayItems.length;
-        dayItems.forEach(item => {
-          if (item.status === 'scheduled') stats.scheduled++;
-          if (item.status === 'published') stats.published++;
-          if (item.status === 'failed') stats.failed++;
-        });
-      }
+      // No modo mês, só conta dias do mês atual; nas outras views, todos os dias visíveis
+      const includeDay = mode === 'month' ? isSameMonth(day, currentDate) : true;
+      if (!includeDay) return;
+      const dayItems = getItemsForDay(day);
+      stats.total += dayItems.length;
+      dayItems.forEach(item => {
+        if (item.status === 'scheduled') stats.scheduled++;
+        if (item.status === 'published') stats.published++;
+        if (item.status === 'failed') stats.failed++;
+        // Atrasado: scheduled com data passada ou due_date passado sem publicação
+        const target = item.scheduled_at || item.due_date;
+        if (target && item.status !== 'published' && isBefore(parseISO(target), today)) {
+          stats.overdue++;
+        }
+      });
     });
     return stats;
-  }, [days, getItemsForDay, currentDate]);
+  }, [days, getItemsForDay, currentDate, mode]);
 
   const handleDragStart = useCallback((e: React.DragEvent, item: PlanningItem) => {
     setDraggedItem(item);
@@ -386,64 +431,104 @@ export function CalendarView({
   return (
     <div className="h-full min-h-0 flex flex-col gap-3 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold capitalize">
-            {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
+      <div className="flex items-center justify-between px-1 gap-3 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <h3 className="text-lg font-semibold capitalize truncate">
+            {headerLabel}
           </h3>
+          {/* Toggle Mês/Semana/Dia */}
+          <ToggleGroup
+            type="single"
+            value={mode}
+            onValueChange={(v) => v && setMode(v as CalendarMode)}
+            className="gap-0 bg-muted/40 rounded-md p-0.5"
+          >
+            <ToggleGroupItem
+              value="month"
+              aria-label="Visão mensal"
+              className="px-2 h-7 text-xs rounded-sm data-[state=on]:bg-background data-[state=on]:shadow-sm"
+            >
+              Mês
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="week"
+              aria-label="Visão semanal"
+              className="px-2 h-7 text-xs rounded-sm data-[state=on]:bg-background data-[state=on]:shadow-sm"
+            >
+              Semana
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="day"
+              aria-label="Visão diária"
+              className="px-2 h-7 text-xs rounded-sm data-[state=on]:bg-background data-[state=on]:shadow-sm"
+            >
+              Dia
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
-        
-        {/* Stats badges - minimal */}
+
+        {/* Stats badges agregadas */}
         <div className="flex items-center gap-2">
-          {monthStats.total > 0 && (
+          {rangeStats.total > 0 && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="font-medium">{monthStats.total}</span>
-              <span>itens</span>
+              <span className="font-medium tabular-nums">{rangeStats.total}</span>
+              <span>{rangeStats.total === 1 ? 'item' : 'itens'}</span>
             </div>
           )}
-          {monthStats.scheduled > 0 && (
-            <div className="flex items-center gap-1">
+          {rangeStats.scheduled > 0 && (
+            <div className="flex items-center gap-1" title={`${rangeStats.scheduled} agendados`}>
               <Clock className="h-3 w-3 text-orange-500" />
-              <span className="text-xs font-medium">{monthStats.scheduled}</span>
+              <span className="text-xs font-medium tabular-nums">{rangeStats.scheduled}</span>
             </div>
           )}
-          {monthStats.published > 0 && (
-            <div className="flex items-center gap-1">
+          {rangeStats.published > 0 && (
+            <div className="flex items-center gap-1" title={`${rangeStats.published} publicados`}>
               <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-              <span className="text-xs font-medium">{monthStats.published}</span>
+              <span className="text-xs font-medium tabular-nums">{rangeStats.published}</span>
             </div>
           )}
-          {monthStats.failed > 0 && (
-            <div className="flex items-center gap-1">
+          {rangeStats.overdue > 0 && (
+            <div
+              className="flex items-center gap-1 text-amber-600 dark:text-amber-400"
+              title={`${rangeStats.overdue} atrasados`}
+            >
+              <AlertCircle className="h-3 w-3" />
+              <span className="text-xs font-medium tabular-nums">{rangeStats.overdue} atrasados</span>
+            </div>
+          )}
+          {rangeStats.failed > 0 && (
+            <div className="flex items-center gap-1" title={`${rangeStats.failed} falhas`}>
               <AlertCircle className="h-3 w-3 text-red-500" />
-              <span className="text-xs font-medium">{monthStats.failed}</span>
+              <span className="text-xs font-medium tabular-nums">{rangeStats.failed}</span>
             </div>
           )}
         </div>
 
         {/* Navigation */}
         <div className="flex items-center gap-1">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8" 
-            onClick={() => setCurrentDate(subMonths(currentDate, 1))}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={goPrev}
+            aria-label={mode === 'day' ? 'Dia anterior' : mode === 'week' ? 'Semana anterior' : 'Mês anterior'}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-8 px-3 text-xs font-medium" 
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-3 text-xs font-medium"
             onClick={() => setCurrentDate(new Date())}
           >
             Hoje
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8" 
-            onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={goNext}
+            aria-label={mode === 'day' ? 'Próximo dia' : mode === 'week' ? 'Próxima semana' : 'Próximo mês'}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -452,23 +537,37 @@ export function CalendarView({
 
       {/* Calendar Grid */}
       <div className="flex-1 border border-border/60 rounded-xl overflow-auto bg-card shadow-sm min-h-0">
-        {/* Week Header */}
-        <div className="grid grid-cols-7 border-b border-border/50 bg-muted/30">
-          {weekDays.map((day, i) => (
-            <div 
-              key={day} 
-              className={cn(
-                "py-2 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
-                i < 6 && "border-r border-border/30"
-              )}
-            >
-              {day}
-            </div>
-          ))}
-        </div>
+        {/* Week Header — escondido em modo "dia" */}
+        {mode !== 'day' && (
+          <div className="grid grid-cols-7 border-b border-border/50 bg-muted/30">
+            {weekDays.map((day, i) => (
+              <div
+                key={day}
+                className={cn(
+                  "py-2 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
+                  i < 6 && "border-r border-border/30"
+                )}
+              >
+                {day}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Days Grid */}
-        <div className="grid grid-cols-7" style={{ gridAutoRows: 'minmax(140px, auto)' }}>
+        <div
+          className={cn(
+            mode === 'day' && 'flex flex-col',
+            mode !== 'day' && 'grid grid-cols-7',
+          )}
+          style={{
+            gridAutoRows: mode === 'week'
+              ? 'minmax(360px, 1fr)'
+              : mode === 'month'
+                ? 'minmax(140px, auto)'
+                : undefined,
+          }}
+        >
           {days.map((day, i) => {
             const dayItems = getItemsForDay(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
@@ -478,18 +577,24 @@ export function CalendarView({
             const row = Math.floor(i / 7);
             const col = i % 7;
             const isLastRow = row === Math.floor((days.length - 1) / 7);
+            const dayKey = format(day, 'yyyy-MM-dd');
+            const isExpanded = expandedDay === dayKey;
+            // No modo semana/dia mostramos todos itens; no mês limita 3 (UX existente)
+            const visibleItemLimit = mode === 'month' ? 3 : Infinity;
+            const itemsToRender = isExpanded ? dayItems : dayItems.slice(0, visibleItemLimit);
 
             return (
               <div
                 key={i}
                 className={cn(
                   "relative p-1.5 transition-all duration-150 group",
-                  col < 6 && "border-r border-border/30",
-                  !isLastRow && "border-b border-border/30",
-                  !isCurrentMonth && "bg-muted/5",
+                  mode !== 'day' && col < 6 && "border-r border-border/30",
+                  mode === 'month' && !isLastRow && "border-b border-border/30",
+                  mode === 'month' && !isCurrentMonth && "bg-muted/5",
                   isToday && "bg-primary/5 ring-1 ring-inset ring-primary/20",
                   isDragOver && "bg-primary/10 ring-1 ring-primary/40 ring-inset",
-                  canEdit && "hover:bg-muted/20 cursor-pointer"
+                  canEdit && "hover:bg-muted/20 cursor-pointer",
+                  mode === 'day' && "p-4 min-h-full",
                 )}
                 onClick={() => canEdit && onAddItem(day)}
                 onDragOver={(e) => handleDragOver(e, day)}
@@ -497,16 +602,29 @@ export function CalendarView({
                 onDrop={(e) => handleDrop(e, day)}
               >
                 {/* Day Header */}
-                <div className="flex items-center justify-between mb-1 px-0.5">
-                  <span className={cn(
-                    "text-[11px] font-medium w-7 h-7 flex items-center justify-center rounded-full transition-all duration-200",
-                    isToday && "bg-primary text-primary-foreground font-bold shadow-md shadow-primary/40 scale-110",
-                    !isToday && !isCurrentMonth && "text-muted-foreground/50",
-                    !isToday && isCurrentMonth && "text-foreground"
-                  )}>
-                    {format(day, 'd')}
-                  </span>
-                  
+                <div className="flex items-center justify-between mb-1 px-0.5 gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className={cn(
+                      "text-[11px] font-medium w-7 h-7 flex items-center justify-center rounded-full transition-all duration-200",
+                      isToday && "bg-primary text-primary-foreground font-bold shadow-md shadow-primary/40 scale-110",
+                      !isToday && !isCurrentMonth && mode === 'month' && "text-muted-foreground/50",
+                      !isToday && (isCurrentMonth || mode !== 'month') && "text-foreground",
+                      mode === 'day' && "w-9 h-9 text-sm",
+                    )}>
+                      {format(day, 'd')}
+                    </span>
+                    {isToday && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-primary px-1.5 py-0.5 rounded bg-primary/10 border border-primary/30">
+                        Hoje
+                      </span>
+                    )}
+                    {mode === 'week' && (
+                      <span className="text-[10px] font-medium text-muted-foreground capitalize">
+                        {format(day, 'EEE', { locale: ptBR })}
+                      </span>
+                    )}
+                  </div>
+
                   {/* Add button */}
                   {canEdit && (
                     <Button
@@ -517,6 +635,7 @@ export function CalendarView({
                         hasItems && "opacity-20"
                       )}
                       onClick={(e) => { e.stopPropagation(); onAddItem(day); }}
+                      aria-label="Adicionar item neste dia"
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
@@ -526,9 +645,9 @@ export function CalendarView({
                 {/* Items */}
                 <div className={cn(
                   "space-y-0.5",
-                  expandedDay === format(day, 'yyyy-MM-dd') ? "overflow-visible" : "overflow-hidden"
+                  isExpanded ? "overflow-visible" : "overflow-hidden",
                 )}>
-                  {(expandedDay === format(day, 'yyyy-MM-dd') ? dayItems : dayItems.slice(0, 3)).map(item => {
+                  {itemsToRender.map(item => {
                     // Hide delete for already-published items that are tied to a real external post
                     const isLockedFromDelete = item.status === 'published' && !!item.external_post_id;
                     return (
@@ -545,22 +664,29 @@ export function CalendarView({
                     );
                   })}
 
-                  {dayItems.length > 3 && expandedDay !== format(day, 'yyyy-MM-dd') && (
+                  {mode === 'month' && dayItems.length > 3 && !isExpanded && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); setExpandedDay(format(day, 'yyyy-MM-dd')); }}
+                      onClick={(e) => { e.stopPropagation(); setExpandedDay(dayKey); }}
                       className="w-full text-[9px] text-center py-0.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
                     >
                       +{dayItems.length - 3} mais
                     </button>
                   )}
-                  
-                  {dayItems.length > 3 && expandedDay === format(day, 'yyyy-MM-dd') && (
+
+                  {mode === 'month' && dayItems.length > 3 && isExpanded && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setExpandedDay(null); }}
                       className="w-full text-[9px] text-center py-0.5 text-primary hover:text-primary/80 hover:bg-muted/50 rounded transition-colors font-medium"
                     >
                       ver menos
                     </button>
+                  )}
+
+                  {/* Empty hint na visão dia/semana */}
+                  {mode !== 'month' && dayItems.length === 0 && canEdit && (
+                    <div className="text-[11px] text-muted-foreground/60 italic px-1 py-1.5">
+                      Sem itens. Clique pra adicionar.
+                    </div>
                   )}
                 </div>
               </div>

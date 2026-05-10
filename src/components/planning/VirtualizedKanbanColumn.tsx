@@ -34,9 +34,17 @@ interface VirtualizedKanbanColumnProps {
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
   onDuplicate: (item: PlanningItem) => void;
+  onQuickRename?: (id: string, title: string) => void;
   onAddCard: (columnId: string) => void;
   canDelete?: boolean;
   activeItemId: string | null;
+  /** ID do item em foco via teclado (j/k). */
+  focusedItemId?: string | null;
+  /** Set de IDs selecionados (shift-click). */
+  selectedIds?: Set<string>;
+  onCardClick?: (item: PlanningItem, e: React.MouseEvent) => void;
+  /** Indicador visual de drop position — id do card sobre o qual está o drag. */
+  dropIndicatorId?: string | null;
   height: number;
   className?: string;
   viewSettings?: ViewSettings;
@@ -51,9 +59,15 @@ interface SortableCardProps {
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
   onDuplicate: (item: PlanningItem) => void;
+  onQuickRename?: (id: string, title: string) => void;
   canDelete?: boolean;
   viewSettings?: ViewSettings;
   memberMap?: Record<string, { name: string; initials: string }>;
+  isSelected?: boolean;
+  hasSelection?: boolean;
+  onCardClick?: (item: PlanningItem, e: React.MouseEvent) => void;
+  isFocused?: boolean;
+  showDropIndicator?: boolean;
 }
 
 const SortableCard = memo(function SortableCard({
@@ -64,9 +78,15 @@ const SortableCard = memo(function SortableCard({
   onMoveToLibrary,
   onRetry,
   onDuplicate,
+  onQuickRename,
   canDelete,
   viewSettings,
   memberMap,
+  isSelected,
+  hasSelection,
+  onCardClick,
+  isFocused,
+  showDropIndicator,
 }: SortableCardProps) {
   const {
     attributes,
@@ -75,6 +95,7 @@ const SortableCard = memo(function SortableCard({
     transform,
     transition,
     isDragging,
+    isOver,
   } = useSortable({ id: item.id });
 
   const style = {
@@ -88,11 +109,19 @@ const SortableCard = memo(function SortableCard({
       style={style}
       {...attributes}
       {...listeners}
+      data-card-id={item.id}
       className={cn(
-        'cursor-grab active:cursor-grabbing touch-none',
+        'relative cursor-grab active:cursor-grabbing touch-none',
         (isDragging || isActive) && 'opacity-40',
       )}
     >
+      {/* Indicador de drop — linha azul horizontal acima do card alvo */}
+      {(isOver || showDropIndicator) && !isDragging && !isActive && (
+        <div
+          className="absolute -top-1 left-0 right-0 h-0.5 bg-primary rounded-full z-10 shadow-[0_0_8px_hsl(var(--primary)/0.5)] pointer-events-none"
+          aria-hidden="true"
+        />
+      )}
       <PlanningItemCard
         item={item}
         onEdit={onEdit}
@@ -100,11 +129,16 @@ const SortableCard = memo(function SortableCard({
         onMoveToLibrary={onMoveToLibrary}
         onRetry={onRetry}
         onDuplicate={onDuplicate}
+        onQuickRename={onQuickRename}
         isDragging={isDragging || isActive}
         compact={false}
         canDelete={canDelete}
         viewSettings={viewSettings}
         memberMap={memberMap}
+        isSelected={isSelected}
+        hasSelection={hasSelection}
+        onCardClick={onCardClick}
+        isFocused={isFocused}
       />
     </div>
   );
@@ -118,9 +152,14 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
   onMoveToLibrary,
   onRetry,
   onDuplicate,
+  onQuickRename,
   onAddCard,
   canDelete = true,
   activeItemId,
+  focusedItemId,
+  selectedIds,
+  onCardClick,
+  dropIndicatorId,
   height,
   className,
   viewSettings,
@@ -162,7 +201,8 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
         'flex-shrink-0 bg-muted/40 dark:bg-muted/20 border border-border/40 rounded-lg flex flex-col transition-all duration-150',
         !className && 'w-80',
         className,
-        isOver && 'bg-primary/10 border-primary/40',
+        // Borda primary forte + ring quando algo está sobrevoando a coluna
+        isOver && 'bg-primary/10 border-primary ring-2 ring-primary/30',
       )}
       style={{ maxHeight: height }}
     >
@@ -223,9 +263,15 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
                     onMoveToLibrary={onMoveToLibrary}
                     onRetry={onRetry}
                     onDuplicate={onDuplicate}
+                    onQuickRename={onQuickRename}
                     canDelete={canDelete}
                     viewSettings={viewSettings}
                     memberMap={memberMap}
+                    isSelected={selectedIds?.has(item.id)}
+                    hasSelection={(selectedIds?.size ?? 0) > 0}
+                    onCardClick={onCardClick}
+                    isFocused={focusedItemId === item.id}
+                    showDropIndicator={dropIndicatorId === item.id}
                   />
                 ))}
               </SortableContext>

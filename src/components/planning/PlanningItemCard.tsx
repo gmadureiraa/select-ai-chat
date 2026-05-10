@@ -1,14 +1,15 @@
-import { useState, useMemo, memo } from 'react';
+import { useState, useMemo, memo, useEffect, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   MoreHorizontal,
   Twitter, Linkedin, Instagram, Youtube, Mail, FileText, Video, Facebook, AtSign,
-  Calendar, MessageSquare, Image as ImageIcon, Flag, Layers, Heart, Eye, ExternalLink
+  Calendar, MessageSquare, Image as ImageIcon, Flag, Layers, Heart, Eye, ExternalLink, Check
 } from 'lucide-react';
 import { ImageLightbox } from './ImageLightbox';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +22,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
 import { PublicationStatusBadge } from './PublicationStatusBadge';
 import { Badge } from '@/components/ui/badge';
@@ -37,11 +43,24 @@ interface PlanningItemCardProps {
   onMoveToLibrary: (id: string) => void;
   onRetry?: (id: string) => void;
   onDuplicate?: (item: PlanningItem) => void;
+  /** Atualiza só o título inline (quick edit via duplo-clique). */
+  onQuickRename?: (id: string, title: string) => void;
   isDragging?: boolean;
   compact?: boolean;
   canDelete?: boolean;
   viewSettings?: ViewSettings;
   memberMap?: Record<string, { name: string; initials: string }>;
+  /** Estado de seleção múltipla (shift-click). */
+  isSelected?: boolean;
+  /** Indica que existe alguma seleção ativa — muda o behavior do click. */
+  hasSelection?: boolean;
+  /**
+   * Click no card. Recebe o evento (com shiftKey/metaKey) pra que o handler
+   * decida entre alternar seleção, abrir o card, etc.
+   */
+  onCardClick?: (item: PlanningItem, e: React.MouseEvent) => void;
+  /** Foco visual via teclado (j/k). */
+  isFocused?: boolean;
 }
 
 const CLIENT_HUE_PALETTE = [12, 45, 90, 150, 200, 260, 310, 340];
@@ -106,14 +125,54 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   onMoveToLibrary,
   onRetry,
   onDuplicate,
+  onQuickRename,
   isDragging = false,
   compact = false,
   canDelete = true,
   viewSettings,
   memberMap,
+  isSelected = false,
+  hasSelection = false,
+  onCardClick,
+  isFocused = false,
 }: PlanningItemCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  // Quick-edit do título via duplo-clique. Enter salva, Esc cancela.
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(item.title);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditingTitle) {
+      // Foca e seleciona todo o texto pra UX rápida
+      requestAnimationFrame(() => {
+        titleInputRef.current?.focus();
+        titleInputRef.current?.select();
+      });
+    }
+  }, [isEditingTitle]);
+
+  // Sincroniza draft quando título do item muda externamente
+  useEffect(() => {
+    setTitleDraft(item.title);
+  }, [item.title]);
+
+  const commitTitle = () => {
+    const trimmed = titleDraft.trim();
+    if (!trimmed || trimmed === item.title) {
+      setTitleDraft(item.title);
+      setIsEditingTitle(false);
+      return;
+    }
+    onQuickRename?.(item.id, trimmed);
+    setIsEditingTitle(false);
+  };
+
+  const cancelTitle = () => {
+    setTitleDraft(item.title);
+    setIsEditingTitle(false);
+  };
   const { getPublicationMode, getPlatformStatus } = useClientPlatformStatus(item.client_id);
   
   const platform = item.platform || 'other';
@@ -172,21 +231,58 @@ export const PlanningItemCard = memo(function PlanningItemCard({
 
   const assigneeInfo = item.assigned_to ? memberMap?.[item.assigned_to] : undefined;
 
-  return (
+  const cardInner = (
     <div
       className={cn(
-        "group bg-card border border-border/60 rounded-lg overflow-hidden cursor-pointer shadow-sm",
+        "group bg-card border border-border/60 rounded-lg overflow-hidden cursor-pointer shadow-sm relative",
         "transition-all duration-150 ease-out",
         "hover:border-border hover:shadow-md hover:ring-1 hover:ring-primary/10",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
         isDragging && "opacity-50 shadow-lg rotate-1",
         isFailed && "border-destructive/30 hover:border-destructive/50",
-        isPublished && "border-emerald-500/20 hover:border-emerald-500/30"
+        isPublished && "border-emerald-500/20 hover:border-emerald-500/30",
+        isSelected && "ring-2 ring-primary border-primary/60",
+        isFocused && !isSelected && "ring-2 ring-primary/40",
       )}
       style={accentColor ? { borderLeft: `4px solid ${accentColor}` } : undefined}
-      onClick={() => {
-        if (!lightboxOpen) onEdit(item);
+      role="button"
+      tabIndex={0}
+      aria-pressed={isSelected || undefined}
+      onClick={(e) => {
+        if (lightboxOpen || isEditingTitle) return;
+        // Modo seleção (shift/cmd/ctrl ou seleção já ativa) — não abre dialog
+        if (onCardClick && (e.shiftKey || e.metaKey || e.ctrlKey || hasSelection)) {
+          onCardClick(item, e);
+          return;
+        }
+        onEdit(item);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !isEditingTitle) {
+          e.preventDefault();
+          onEdit(item);
+        }
       }}
     >
+      {/* Checkbox de seleção em massa — visível em hover ou quando há seleção */}
+      {onCardClick && (
+        <div
+          className={cn(
+            "absolute top-2 left-2 z-10 transition-opacity",
+            (isSelected || hasSelection) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCardClick(item, e as unknown as React.MouseEvent);
+          }}
+        >
+          <Checkbox
+            checked={isSelected}
+            className="h-4 w-4 bg-card border-border/80 data-[state=checked]:bg-primary"
+            aria-label={`${isSelected ? 'Desmarcar' : 'Selecionar'} card ${item.title}`}
+          />
+        </div>
+      )}
       {/* Media thumbnail preview (multiplos = strip carrossel) */}
       {isImage && firstMediaUrl && (
         <div className="relative w-full bg-muted/30 overflow-hidden border-b border-border/30">
@@ -380,10 +476,49 @@ export const PlanningItemCard = memo(function PlanningItemCard({
           </div>
         </div>
 
-        {/* Row 2: Title */}
-        <h4 className="font-semibold text-sm leading-snug line-clamp-2 text-foreground group-hover:text-primary transition-colors mb-1.5">
-          {item.title}
-        </h4>
+        {/* Row 2: Title (quick-edit via duplo-clique) */}
+        {isEditingTitle ? (
+          <input
+            ref={titleInputRef}
+            value={titleDraft}
+            onChange={(e) => setTitleDraft(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitTitle();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelTitle();
+              }
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onBlur={commitTitle}
+            className={cn(
+              "w-full font-semibold text-sm leading-snug text-foreground mb-1.5 px-1.5 py-0.5 -mx-1.5",
+              "bg-background border border-primary/40 rounded-md",
+              "focus:outline-none focus:ring-2 focus:ring-primary/40",
+            )}
+            aria-label="Editar título"
+            maxLength={200}
+          />
+        ) : (
+          <h4
+            className={cn(
+              "font-semibold text-sm leading-snug line-clamp-2 text-foreground transition-colors mb-1.5",
+              !hasSelection && "group-hover:text-primary",
+              onQuickRename && "cursor-text",
+            )}
+            onDoubleClick={(e) => {
+              if (!onQuickRename) return;
+              e.stopPropagation();
+              setIsEditingTitle(true);
+            }}
+            title={onQuickRename ? "Duplo-clique pra renomear" : undefined}
+          >
+            {item.title}
+          </h4>
+        )}
 
         {/* Row 3: Description */}
         {(item.description || item.content) && (
@@ -551,6 +686,90 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         />
       )}
     </div>
+  );
+
+  // Hover preview rico — desabilitado durante drag/edit/lightbox/seleção pra
+  // não atrapalhar o fluxo. Delay 800ms (timing pesquisado pra não spammar).
+  const enableHover = !isDragging && !isEditingTitle && !lightboxOpen && !hasSelection;
+
+  if (!enableHover) return cardInner;
+
+  return (
+    <HoverCard openDelay={800} closeDelay={120}>
+      <HoverCardTrigger asChild>{cardInner}</HoverCardTrigger>
+      <HoverCardContent side="right" align="start" className="w-80 p-0 overflow-hidden">
+        <div className="px-3 py-2 border-b border-border/40 bg-muted/30">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className="text-xs font-semibold line-clamp-2 flex-1">{item.title}</span>
+            <PublicationStatusBadge
+              status={item.status}
+              errorMessage={item.error_message}
+              retryCount={item.retry_count}
+              compact
+            />
+          </div>
+          {item.clients && (
+            <span className="text-[10px] text-muted-foreground">{item.clients.name}</span>
+          )}
+        </div>
+        <div className="px-3 py-2 space-y-2">
+          {(item.description || item.content) && (
+            <p className="text-[11px] text-muted-foreground line-clamp-5 leading-relaxed">
+              {item.description || item.content}
+            </p>
+          )}
+          {(displayDate || priority || assigneeInfo) && (
+            <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground pt-1 border-t border-border/30">
+              {displayDate && (
+                <span className="inline-flex items-center gap-1">
+                  <Calendar className="h-2.5 w-2.5" />
+                  {format(parseISO(displayDate), "dd MMM 'às' HH:mm", { locale: ptBR })}
+                </span>
+              )}
+              {priority && priorityConfig[priority] && (
+                <span className={cn("inline-flex items-center gap-1", priorityConfig[priority].color)}>
+                  <Flag className="h-2.5 w-2.5" />
+                  {priorityConfig[priority].label}
+                </span>
+              )}
+              {assigneeInfo && (
+                <span className="inline-flex items-center gap-1">
+                  <Avatar className="h-3.5 w-3.5"><AvatarFallback className="text-[7px] bg-muted">{assigneeInfo.initials}</AvatarFallback></Avatar>
+                  {assigneeInfo.name}
+                </span>
+              )}
+            </div>
+          )}
+          {(metadata as any)?.checklist && Array.isArray((metadata as any).checklist) && (metadata as any).checklist.length > 0 && (
+            <div className="pt-2 border-t border-border/30">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Checklist</span>
+                <span className="text-[10px] text-muted-foreground tabular-nums">
+                  {((metadata as any).checklist as Array<{done: boolean}>).filter(c => c.done).length}/{(metadata as any).checklist.length}
+                </span>
+              </div>
+              <div className="space-y-0.5">
+                {((metadata as any).checklist as Array<{id: string; text: string; done: boolean}>).slice(0, 4).map((c) => (
+                  <div key={c.id} className="flex items-center gap-1.5 text-[11px]">
+                    <Check className={cn("h-3 w-3 shrink-0", c.done ? "text-emerald-500" : "text-muted-foreground/30")} />
+                    <span className={cn("truncate", c.done && "line-through text-muted-foreground/60")}>{c.text}</span>
+                  </div>
+                ))}
+                {((metadata as any).checklist as Array<unknown>).length > 4 && (
+                  <span className="text-[10px] text-muted-foreground italic">
+                    +{(metadata as any).checklist.length - 4} {(metadata as any).checklist.length - 4 === 1 ? 'item' : 'itens'}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="px-3 py-1.5 bg-muted/20 border-t border-border/30 text-[10px] text-muted-foreground flex items-center justify-between">
+          <span>Clique pra abrir</span>
+          <span>Shift-clique seleciona</span>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   );
 });
 

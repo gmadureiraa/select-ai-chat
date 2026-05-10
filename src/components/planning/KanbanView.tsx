@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { VirtualizedKanbanColumn } from './VirtualizedKanbanColumn';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -21,6 +21,15 @@ import { EmptyState } from './EmptyState';
 import type { PlanningItem, KanbanColumn, PlanningStatus } from '@/hooks/usePlanningItems';
 import type { ViewSettings } from './ViewSettingsPopover';
 
+export interface KanbanViewHandle {
+  /** Move o foco visual entre cards (atalhos j/k). */
+  moveFocus: (direction: 'next' | 'prev') => void;
+  /** Abre o card focado (atalho Enter/e). */
+  openFocused: () => void;
+  /** Item atualmente focado. */
+  getFocusedItem: () => PlanningItem | null;
+}
+
 interface KanbanViewProps {
   columns: KanbanColumn[];
   getItemsByColumn: (columnId: string) => PlanningItem[];
@@ -29,6 +38,7 @@ interface KanbanViewProps {
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
   onDuplicate: (item: PlanningItem) => void;
+  onQuickRename?: (id: string, title: string) => void;
   /** Legacy: cross-column move with status update */
   onMoveItem: (itemId: string, columnId: string, position: number) => void;
   /** New: batch reorder for drag & drop (preferred when provided) */
@@ -37,6 +47,10 @@ interface KanbanViewProps {
   canDelete?: boolean;
   viewSettings?: ViewSettings;
   memberMap?: Record<string, { name: string; initials: string }>;
+  /** Set de IDs selecionados (shift-click). */
+  selectedIds?: Set<string>;
+  /** Handler de click no card (decide entre selecionar ou abrir). */
+  onCardClick?: (item: PlanningItem, e: React.MouseEvent) => void;
 }
 
 const STATUS_MAP: Record<string, PlanningStatus> = {
@@ -48,7 +62,7 @@ const STATUS_MAP: Record<string, PlanningStatus> = {
   published: 'published',
 };
 
-export function KanbanView({
+export const KanbanView = forwardRef<KanbanViewHandle, KanbanViewProps>(function KanbanView({
   columns,
   getItemsByColumn,
   onEditItem,
@@ -56,17 +70,24 @@ export function KanbanView({
   onMoveToLibrary,
   onRetry,
   onDuplicate,
+  onQuickRename,
   onMoveItem,
   onReorder,
   onAddCard,
   canDelete = true,
   viewSettings,
   memberMap,
-}: KanbanViewProps) {
+  selectedIds,
+  onCardClick,
+}: KanbanViewProps, ref) {
   const isMobile = useIsMobile();
   const [activeItem, setActiveItem] = useState<PlanningItem | null>(null);
   const [containerHeight, setContainerHeight] = useState(500);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Foco visual via teclado (j/k)
+  const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
+  // Card alvo do drag pra mostrar indicador de drop position
+  const [dropOverId, setDropOverId] = useState<string | null>(null);
 
   // Local optimistic columns map (so cards appear to move while dragging)
   const [localColumnsMap, setLocalColumnsMap] = useState<Record<string, PlanningItem[]> | null>(null);
@@ -121,13 +142,20 @@ export function KanbanView({
     const colId = itemColumnIndex[id];
     const item = colId ? columnsMap[colId].find(i => i.id === id) : null;
     setActiveItem(item ?? null);
+    // Cursor global durante drag
+    document.body.style.cursor = 'grabbing';
   }, [columnsMap, itemColumnIndex]);
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
-    if (!over) return;
+    if (!over) {
+      setDropOverId(null);
+      return;
+    }
     const activeId = String(active.id);
     const overId = String(over.id);
+    // Atualiza indicador de drop
+    setDropOverId(overId !== activeId ? overId : null);
     if (activeId === overId) return;
 
     const activeCol = findColumnIdOf(activeId);
@@ -159,6 +187,8 @@ export function KanbanView({
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     setActiveItem(null);
+    setDropOverId(null);
+    document.body.style.cursor = '';
     if (!over) {
       setLocalColumnsMap(null);
       return;
@@ -225,7 +255,61 @@ export function KanbanView({
   const handleDragCancel = useCallback(() => {
     setActiveItem(null);
     setLocalColumnsMap(null);
+    setDropOverId(null);
+    document.body.style.cursor = '';
   }, []);
+
+  // Lista linear de items (ordem visual) pra navegação j/k
+  const flatItems = useMemo(() => {
+    const flat: PlanningItem[] = [];
+    columns.forEach(col => {
+      const list = columnsMap[col.id] ?? [];
+      list.forEach(it => flat.push(it));
+    });
+    return flat;
+  }, [columns, columnsMap]);
+
+  // Garante que um item exista no foco (vai pro primeiro se válido)
+  useEffect(() => {
+    if (focusedItemId && !flatItems.find(i => i.id === focusedItemId)) {
+      setFocusedItemId(null);
+    }
+  }, [flatItems, focusedItemId]);
+
+  const moveFocus = useCallback((direction: 'next' | 'prev') => {
+    if (flatItems.length === 0) return;
+    if (!focusedItemId) {
+      // Sem foco — começa do primeiro item visível
+      setFocusedItemId(flatItems[0].id);
+      requestAnimationFrame(() => {
+        const el = containerRef.current?.querySelector<HTMLElement>(`[data-card-id="${flatItems[0].id}"]`);
+        el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+      return;
+    }
+    const idx = flatItems.findIndex(i => i.id === focusedItemId);
+    const nextIdx = direction === 'next'
+      ? Math.min(idx + 1, flatItems.length - 1)
+      : Math.max(idx - 1, 0);
+    const nextId = flatItems[nextIdx].id;
+    setFocusedItemId(nextId);
+    requestAnimationFrame(() => {
+      const el = containerRef.current?.querySelector<HTMLElement>(`[data-card-id="${nextId}"]`);
+      el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }, [flatItems, focusedItemId]);
+
+  const openFocused = useCallback(() => {
+    if (!focusedItemId) return;
+    const item = flatItems.find(i => i.id === focusedItemId);
+    if (item) onEditItem(item);
+  }, [flatItems, focusedItemId, onEditItem]);
+
+  useImperativeHandle(ref, () => ({
+    moveFocus,
+    openFocused,
+    getFocusedItem: () => flatItems.find(i => i.id === focusedItemId) ?? null,
+  }), [moveFocus, openFocused, flatItems, focusedItemId]);
 
   if (columns.length === 0) {
     return (
@@ -266,9 +350,14 @@ export function KanbanView({
                   onMoveToLibrary={onMoveToLibrary}
                   onRetry={onRetry}
                   onDuplicate={onDuplicate}
+                  onQuickRename={onQuickRename}
                   onAddCard={onAddCard}
                   canDelete={canDelete}
                   activeItemId={activeItem?.id ?? null}
+                  focusedItemId={focusedItemId}
+                  selectedIds={selectedIds}
+                  onCardClick={onCardClick}
+                  dropIndicatorId={dropOverId}
                   height={containerHeight}
                   className={isMobile ? "w-[90vw] min-w-[90vw] snap-center" : undefined}
                   viewSettings={viewSettings}
@@ -282,7 +371,7 @@ export function KanbanView({
 
         <DragOverlay dropAnimation={null}>
           {activeItem ? (
-            <div className="rotate-1 opacity-95 shadow-2xl">
+            <div className="rotate-2 opacity-95 shadow-2xl scale-[1.02] cursor-grabbing">
               <PlanningItemCard
                 item={activeItem}
                 onEdit={() => {}}
@@ -298,4 +387,4 @@ export function KanbanView({
       </DndContext>
     </div>
   );
-}
+});

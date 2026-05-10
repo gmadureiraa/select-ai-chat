@@ -86,3 +86,63 @@ export interface NewsletterRow {
   sent_at: string | null;
   fetched_at: string;
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Threads / X (Twitter) / LinkedIn — novas seções dedicadas no dashboard.
+// Schemas refletem as tabelas viral_*_posts populadas pelos crons (2026-05-10).
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface ThreadsPostRow {
+  url: string;
+  author_handle: string;
+  author_followers: number | null;
+  text_content: string | null;
+  media_urls: string[] | null;
+  views: number | null;
+  likes: number;
+  reposts: number;
+  replies: number;
+  niche: string | null;
+  posted_at: string | null;
+  scraped_at: string;
+}
+
+export interface TwitterPostRow {
+  tweet_id: string;
+  url: string;
+  author_handle: string;
+  author_name: string | null;
+  author_followers: number | null;
+  author_verified: boolean | null;
+  text_content: string | null;
+  media_urls: string[] | null;
+  is_thread: boolean;
+  thread_tweets: Array<{ id: string; text: string; media_urls?: string[] }> | null;
+  views: number;
+  likes: number;
+  retweets: number;
+  replies: number;
+  bookmarks: number;
+  niche: string | null;
+  posted_at: string | null;
+  scraped_at: string;
+}
+
+export interface LinkedInPostRow {
+  post_id: string;
+  url: string;
+  author_handle: string | null;
+  author_name: string | null;
+  author_headline: string | null;
+  author_followers: number | null;
+  text_content: string | null;
+  media_urls: string[] | null;
+  post_type: string | null;
+  reactions: number | null;
+  likes: number;
+  comments: number;
+  shares: number;
+  niche: string | null;
+  posted_at: string | null;
+  scraped_at: string;
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Zap, Eye, Keyboard, Upload, CalendarDays } from 'lucide-react';
+import { Plus, Zap, Eye, Keyboard, Upload, CalendarDays, Columns3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -10,16 +10,19 @@ import { cn } from '@/lib/utils';
 import { usePlanningItems, type PlanningFilters, type PlanningItem } from '@/hooks/usePlanningItems';
 import { usePlanningRealtime } from '@/hooks/usePlanningRealtime';
 import { usePlanningKeyboardShortcuts, getShortcutHint } from '@/hooks/usePlanningKeyboardShortcuts';
-import { PlanningFilters as FiltersComponent } from './PlanningFilters';
+import { PlanningFilters as FiltersComponent, type PlanningFiltersHandle } from './PlanningFilters';
 import { ViewToggle, type PlanningView } from './ViewToggle';
 import { PlanningItemCard } from './PlanningItemCard';
 import { PlanningListRow } from './PlanningListRow';
 import { PlanningItemDialog } from './PlanningItemDialog';
-import { KanbanView } from './KanbanView';
+import { KanbanView, type KanbanViewHandle } from './KanbanView';
 import { CalendarView } from './CalendarView';
 import { MetricoolCalendarView } from '@/components/metricool/MetricoolCalendarView';
 import { ViewSettingsPopover, useViewSettings } from './ViewSettingsPopover';
 import { EmptyState } from './EmptyState';
+import { BulkActionsToolbar } from './BulkActionsToolbar';
+import { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
+import { ColumnsCustomizeDialog } from './ColumnsCustomizeDialog';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useMemberClientAccess } from '@/hooks/useMemberClientAccess';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
@@ -45,6 +48,13 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
   const [defaultTitle, setDefaultTitle] = useState<string | undefined>();
   const [showAutomations, setShowAutomations] = useState(false);
   const [showClickUpImport, setShowClickUpImport] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [showColumnsCustomize, setShowColumnsCustomize] = useState(false);
+  // Seleção múltipla via shift-click (apenas no Kanban)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Refs pra integrar atalhos de teclado
+  const filtersRef = useRef<PlanningFiltersHandle>(null);
+  const kanbanRef = useRef<KanbanViewHandle>(null);
   const { settings, setSettings } = useViewSettings();
   
   const { isViewer, workspace } = useWorkspace();
@@ -223,12 +233,109 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
     toast.success('Item movido para ' + format(newDate, 'dd/MM'));
   }, [items, updateItem]);
 
-  // Keyboard shortcuts
+  // ── Bulk actions (multi-select via shift-click) ─────────────────────────
+  const lastClickedIdRef = useRef<string | null>(null);
+
+  const handleCardClick = useCallback((item: PlanningItem, e: React.MouseEvent) => {
+    // shift-click: range select. Como o Kanban tem ordem visual complexa
+    // (várias colunas), implementamos range simples baseado no array `items`.
+    if (e.shiftKey && lastClickedIdRef.current && lastClickedIdRef.current !== item.id) {
+      const startIdx = items.findIndex(i => i.id === lastClickedIdRef.current);
+      const endIdx = items.findIndex(i => i.id === item.id);
+      if (startIdx !== -1 && endIdx !== -1) {
+        const [from, to] = startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx];
+        const range = items.slice(from, to + 1).map(i => i.id);
+        setSelectedIds(prev => {
+          const next = new Set(prev);
+          range.forEach(id => next.add(id));
+          return next;
+        });
+        return;
+      }
+    }
+    // cmd/ctrl-click ou já há seleção: toggle individual
+    if (e.metaKey || e.ctrlKey || selectedIds.size > 0) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        if (next.has(item.id)) next.delete(item.id);
+        else next.add(item.id);
+        return next;
+      });
+      lastClickedIdRef.current = item.id;
+      return;
+    }
+    lastClickedIdRef.current = item.id;
+  }, [items, selectedIds.size]);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  const bulkMoveToColumn = useCallback(async (columnId: string) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const column = columns.find(c => c.id === columnId);
+    const columnType = column?.column_type;
+    // Calcula posições incrementais a partir do final da coluna alvo
+    const colItems = items.filter(i => i.column_id === columnId);
+    let basePos = colItems.length > 0 ? Math.max(...colItems.map(i => i.position)) + 1 : 0;
+    const updates = ids.map((id, i) => ({
+      id,
+      column_id: columnId,
+      position: basePos + i,
+      status: columnType ? (columnType as PlanningItem['status']) : undefined,
+    }));
+    reorderItems.mutate(updates);
+    toast.success(`${ids.length} ${ids.length === 1 ? 'card movido' : 'cards movidos'} pra ${column?.name ?? 'coluna'}`);
+    clearSelection();
+  }, [selectedIds, columns, items, reorderItems, clearSelection]);
+
+  const bulkAssign = useCallback(async (userId: string | null) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    await Promise.all(
+      ids.map(id => updateItem.mutateAsync({ id, assigned_to: userId, silent: true } as any)),
+    );
+    toast.success(`Responsável ${userId ? 'atribuído' : 'removido'} em ${ids.length} ${ids.length === 1 ? 'card' : 'cards'}`);
+    clearSelection();
+  }, [selectedIds, updateItem, clearSelection]);
+
+  const bulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    await Promise.all(ids.map(id => deleteItem.mutateAsync(id)));
+    toast.success(`${ids.length} ${ids.length === 1 ? 'card excluído' : 'cards excluídos'}`);
+    clearSelection();
+  }, [selectedIds, deleteItem, clearSelection]);
+
+  // Esc limpa seleção (quando há) ou fecha dialog (handled separately)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedIds.size > 0 && !dialogOpen) {
+        clearSelection();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selectedIds.size, dialogOpen, clearSelection]);
+
+  // ── Keyboard shortcuts ──────────────────────────────────────────────────
   usePlanningKeyboardShortcuts({
     onNewItem: () => handleNewCard(),
     onCloseDialog: () => setDialogOpen(false),
+    onSearch: () => filtersRef.current?.focusSearch(),
+    onNavigate: (dir) => {
+      if (view === 'board') kanbanRef.current?.moveFocus(dir);
+    },
+    onOpenFocused: () => {
+      if (view === 'board') kanbanRef.current?.openFocused();
+    },
+    onShowHelp: () => setShowShortcutsHelp(true),
     isDialogOpen: dialogOpen,
   });
+
+  const handleQuickRename = useCallback((id: string, title: string) => {
+    // silent=true porque a UX inline já é o feedback
+    updateItem.mutate({ id, title, silent: true } as any);
+  }, [updateItem]);
   
   const showFilters = !(isViewer && viewerClientIds.length === 1);
   const isEmpty = items.length === 0;
@@ -322,6 +429,39 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
                   <TooltipContent>Importar do ClickUp</TooltipContent>
                 </Tooltip>
                 <ViewSettingsPopover settings={settings} onChange={setSettings} />
+                {view === 'board' && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowColumnsCustomize(true)}
+                        className="h-9 w-9"
+                        aria-label="Personalizar colunas"
+                      >
+                        <Columns3 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Personalizar colunas</TooltipContent>
+                  </Tooltip>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowShortcutsHelp(true)}
+                      className="h-9 w-9"
+                      aria-label="Atalhos do teclado"
+                    >
+                      <Keyboard className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <span>Atalhos</span>
+                    <span className="ml-2 text-muted-foreground text-[10px]">?</span>
+                  </TooltipContent>
+                </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button onClick={() => handleNewCard()} size="sm" className="h-9 gap-1.5 kai-btn-rec">
@@ -342,9 +482,10 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
 
       {/* Filters */}
       {showFilters && (
-        <FiltersComponent 
-          filters={effectiveFilters} 
-          onChange={handleFiltersChange} 
+        <FiltersComponent
+          ref={filtersRef}
+          filters={effectiveFilters}
+          onChange={handleFiltersChange}
         />
       )}
 
@@ -359,6 +500,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
       <div className="flex-1 min-h-0 overflow-hidden">
         {view === 'board' && (
           <KanbanView
+            ref={kanbanRef}
             columns={columns}
             getItemsByColumn={getItemsByColumn}
             onEditItem={handleEdit}
@@ -366,12 +508,15 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
             onMoveToLibrary={(id) => moveToLibrary.mutate(id)}
             onRetry={(id) => retryPublication.mutate(id)}
             onDuplicate={handleDuplicate}
+            onQuickRename={!isViewer ? handleQuickRename : undefined}
             onMoveItem={(itemId, columnId, position) => moveToColumn.mutate({ itemId, columnId, newPosition: position })}
             onReorder={(updates) => reorderItems.mutate(updates)}
             onAddCard={(columnId) => handleNewCard(columnId)}
             canDelete={!isViewer}
             viewSettings={settings}
             memberMap={memberMap}
+            selectedIds={selectedIds}
+            onCardClick={!isViewer ? handleCardClick : undefined}
           />
         )}
 
@@ -476,6 +621,33 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
         open={showClickUpImport}
         onOpenChange={setShowClickUpImport}
       />
+
+      {/* Modal de atalhos de teclado */}
+      <KeyboardShortcutsDialog
+        open={showShortcutsHelp}
+        onOpenChange={setShowShortcutsHelp}
+      />
+
+      {/* Personalizar colunas do Kanban */}
+      <ColumnsCustomizeDialog
+        open={showColumnsCustomize}
+        onOpenChange={setShowColumnsCustomize}
+        columns={columns}
+      />
+
+      {/* Toolbar flutuante de ações em massa */}
+      {!isViewer && (
+        <BulkActionsToolbar
+          selectedCount={selectedIds.size}
+          columns={columns}
+          members={members}
+          onMoveToColumn={bulkMoveToColumn}
+          onAssignTo={bulkAssign}
+          onDelete={bulkDelete}
+          onClear={clearSelection}
+          canDelete={!isViewer}
+        />
+      )}
     </div>
   );
 }

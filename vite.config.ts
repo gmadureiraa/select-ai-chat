@@ -67,8 +67,10 @@ export default defineConfig(({ mode }) => ({
             "@radix-ui/react-slider",
           ],
           "data-vendor": ["@tanstack/react-query", "@supabase/supabase-js"],
-          "auth-vendor": ["@neondatabase/auth", "@neondatabase/auth-ui"],
-          "form-vendor": ["react-hook-form", "@hookform/resolvers", "zod"],
+          // 2026-05-10 — @neondatabase/auth-ui removida (órfã, 60MB no node_modules).
+          "auth-vendor": ["@neondatabase/auth"],
+          // 2026-05-10 — form-vendor removida (react-hook-form + @hookform/resolvers
+          // não estão sendo usados no app — bundle audit). zod fica no chunk default.
           "chart-vendor": ["recharts"],
           // Bibliotecas pesadas usadas só em features específicas (export PDF/imagem,
           // upload XLSX, animações). Ficam em chunks próprios pra não inflar o initial.
@@ -86,9 +88,9 @@ export default defineConfig(({ mode }) => ({
           "export-html-vendor": ["html-to-image"],
           "export-pdf-vendor": ["jspdf"],
           "export-zip-vendor": ["jszip"],
-          "export-xlsx-vendor": ["xlsx"],
+          // 2026-05-10 — xlsx removida (órfã) e reactflow removida (visual-builder
+          // morto). Chunks export-xlsx-vendor + flow-vendor sem produção.
           "motion-vendor": ["framer-motion"],
-          "flow-vendor": ["reactflow"],
           "dnd-vendor": ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
           "icons-vendor": ["lucide-react"],
         },
