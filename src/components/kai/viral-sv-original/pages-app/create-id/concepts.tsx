@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { Loader2, RefreshCcw, ArrowRight, ArrowLeft } from "lucide-react";
 import { useAuth } from "@sv/lib/auth-context";
+import { useKaiContext } from "@sv/lib/use-kai-context";
 import { supabase } from "@sv/lib/supabase";
 import {
   fetchUserCarousel,
@@ -78,6 +79,7 @@ export default function ConceptsPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
   const { user, session } = useAuth();
+  const kaiCtx = useKaiContext();
   const { generateConcepts, generateCarousel, loadingConcepts, loadingCarousel } =
     useGenerate(session);
 
@@ -206,6 +208,8 @@ export default function ConceptsPage() {
             style: `${tone}|${language}|${niche}`,
           },
           promptUsed,
+          workspaceId: kaiCtx.workspaceId,
+          clientId: kaiCtx.clientId,
         });
 
         router.push(`/app/create/${id}/templates`);

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useAuth } from "@sv/lib/auth-context";
 import { supabase } from "@sv/lib/supabase";
 import { upsertUserCarousel } from "@sv/lib/carousel-storage";
+import { useKaiContext } from "@sv/lib/use-kai-context";
 import { useGenerate, type GenerationError } from "@sv/lib/create/use-generate";
 import { DiscountPopup } from "@sv/components/app/discount-popup";
 import { authHeaders, jsonWithAuth } from "@sv/lib/api-auth-headers";
@@ -140,6 +141,7 @@ export default function NewCarouselPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, profile, session } = useAuth();
+  const kaiCtx = useKaiContext();
   const { generateCarousel, loadingCarousel } = useGenerate(session);
 
   // ── KAI client context ──────────────────────────────────────────────
@@ -664,6 +666,8 @@ export default function NewCarouselPage() {
         slides: [],
         slideStyle: "white",
         status: "draft",
+        workspaceId: kaiCtx.workspaceId,
+        clientId: kaiCtx.clientId,
         variation: {
           title: idea.slice(0, 80),
           style: `${tone}|${lang}|${niche}|${JSON.stringify(styleMeta)}`,
@@ -859,6 +863,8 @@ export default function NewCarouselPage() {
         slides: slidesWithImages,
         slideStyle: "white",
         status: "draft",
+        workspaceId: kaiCtx.workspaceId,
+        clientId: kaiCtx.clientId,
         visualTemplate: designTemplate,
         variation: {
           title: chosen.title || idea.slice(0, 80),

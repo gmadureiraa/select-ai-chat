@@ -435,6 +435,13 @@ export async function upsertUserCarousel(
      * Quando presente, é gravado na coluna `prompt_used` pra auditoria admin.
      */
     promptUsed?: string | null;
+    /**
+     * Multi-tenant context vindo do shell KAI. workspace_id é NOT NULL na
+     * tabela viral_carousels (RLS exige), client_id é opcional (carrosseis
+     * "soltos" sem cliente são permitidos via migration 0032+0035).
+     */
+    workspaceId?: string | null;
+    clientId?: string | null;
   }
 ): Promise<{ row: CarouselRow; inserted: boolean }> {
   const style: Record<string, unknown> = {
@@ -497,6 +504,10 @@ export async function upsertUserCarousel(
         slides: payload.slides,
         style,
         status: payload.status,
+        // workspace_id NOT NULL: trigger INSTEAD OF da VIEW carousels precisa.
+        // client_id opcional (carrosseis "soltos" permitidos via 0032+0035).
+        workspace_id: payload.workspaceId ?? null,
+        client_id: payload.clientId ?? null,
       };
       if (typeof payload.promptUsed === "string") {
         insertWithId.prompt_used = payload.promptUsed;
@@ -628,6 +639,9 @@ export async function upsertUserCarousel(
     slides: payload.slides,
     style,
     status: payload.status,
+    // workspace_id NOT NULL: trigger INSTEAD OF da VIEW carousels precisa.
+    workspace_id: payload.workspaceId ?? null,
+    client_id: payload.clientId ?? null,
   };
   if (typeof payload.promptUsed === "string") {
     insertPayload.prompt_used = payload.promptUsed;

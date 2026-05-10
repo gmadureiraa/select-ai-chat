@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { useAuth } from "@sv/lib/auth-context";
+import { useKaiContext } from "@sv/lib/use-kai-context";
 import type { UserProfile } from "@sv/lib/auth-context";
 import { supabase } from "@sv/lib/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -63,6 +64,7 @@ type FilterKey = "all" | "drafts" | "published" | "archived";
 
 export default function CarouselsPage() {
   const { user, refreshProfile, profile } = useAuth();
+  const kaiCtx = useKaiContext();
   const previewProfile = useMemo(() => buildLibraryPreviewProfile(profile), [profile]);
   const [carousels, setCarousels] = useState<SavedCarousel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -207,6 +209,8 @@ export default function CarouselsPage() {
           designTemplate: DEFAULT_DESIGN_TEMPLATE,
           creationMode: carousel.creationMode ?? "quick",
           imagePeopleMode: carousel.imagePeopleMode,
+          workspaceId: kaiCtx.workspaceId,
+          clientId: kaiCtx.clientId,
         });
         okCount++;
       } catch (err) {
@@ -299,6 +303,8 @@ export default function CarouselsPage() {
         designTemplate: DEFAULT_DESIGN_TEMPLATE,
         creationMode: carousel.creationMode ?? "quick",
         imagePeopleMode: carousel.imagePeopleMode,
+        workspaceId: kaiCtx.workspaceId,
+        clientId: kaiCtx.clientId,
       });
       if (inserted) {
         await bumpCarouselUsage(supabase, user.id);

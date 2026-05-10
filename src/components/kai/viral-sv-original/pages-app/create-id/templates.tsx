@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@sv/lib/auth-context";
 import { supabase } from "@sv/lib/supabase";
 import { upsertUserCarousel } from "@sv/lib/carousel-storage";
+import { useKaiContext } from "@sv/lib/use-kai-context";
 import { useDraft } from "@sv/lib/create/use-draft";
 import { defaultImagesForTemplate } from "@sv/lib/create/default-images";
 import type { SlideVariant } from "@sv/lib/create/types";
@@ -124,6 +125,7 @@ export default function TemplatesPage(props: {
   const { id } = (props.params as unknown as { id: string });
   const router = useRouter();
   const { user, profile } = useAuth();
+  const kaiCtx = useKaiContext();
   const { draft, loading, error } = useDraft(id);
 
   const [selected, setSelected] = useState<TemplateId | null>(null);
@@ -182,6 +184,8 @@ export default function TemplatesPage(props: {
         slideStyle: draft.style === "dark" ? "dark" : "white",
         status: "draft",
         visualTemplate: selected,
+        workspaceId: kaiCtx.workspaceId,
+        clientId: kaiCtx.clientId,
       });
       router.push(`/app/create/${draft.id}/edit?template=${selected}`);
     } catch (e) {
