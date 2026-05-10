@@ -111,19 +111,47 @@ export function usePathname(): string {
 
 /**
  * Next 16: useSearchParams() → ReadonlyURLSearchParams (do query string).
- * Aqui derivamos do `window.location.search` em browser. Reativo via popstate.
+ *
+ * Como o mini-router é hash-based (`#/create/abc/edit?template=manifesto`),
+ * a query string do Next (`?template=...`) na verdade vive DENTRO do hash.
+ * `window.location.search` permanece com a query do shell KAI (`?tab=viral-carrossel`).
+ *
+ * Aqui combinamos os dois: search params do hash TÊM precedência, e o que
+ * vier do shell KAI fica como fallback. Reativo via hashchange + popstate.
+ *
+ * Pages que dependem disso (verificado 2026-05-09):
+ *   - create-id/edit.tsx → searchParams.get("template") após /create/<id>/edit?template=manifesto
+ *   - settings/page.tsx → searchParams.get("section")
  */
+function readCombinedSearchParams(): URLSearchParams {
+  if (typeof window === "undefined") return new URLSearchParams();
+  // 1) Pega query do shell (do KAI Router)
+  const fromShell = new URLSearchParams(window.location.search);
+  // 2) Extrai query string DO hash (depois do `?` em `#/create/abc/edit?x=1`)
+  const hash = window.location.hash.replace(/^#/, "");
+  const qIdx = hash.indexOf("?");
+  if (qIdx >= 0) {
+    const fromHash = new URLSearchParams(hash.slice(qIdx + 1));
+    // Hash tem precedência — sobrepõe duplicatas do shell.
+    fromHash.forEach((v, k) => {
+      fromShell.set(k, v);
+    });
+  }
+  return fromShell;
+}
+
 export function useSearchParams(): URLSearchParams {
-  const [params, setParams] = useState<URLSearchParams>(() => {
-    if (typeof window === "undefined") return new URLSearchParams();
-    return new URLSearchParams(window.location.search);
-  });
+  const [params, setParams] = useState<URLSearchParams>(() => readCombinedSearchParams());
   useEffect(() => {
     function onChange() {
-      setParams(new URLSearchParams(window.location.search));
+      setParams(readCombinedSearchParams());
     }
     window.addEventListener("popstate", onChange);
-    return () => window.removeEventListener("popstate", onChange);
+    window.addEventListener("hashchange", onChange);
+    return () => {
+      window.removeEventListener("popstate", onChange);
+      window.removeEventListener("hashchange", onChange);
+    };
   }, []);
   return params;
 }
@@ -149,8 +177,14 @@ export function useParams<T extends Record<string, string | string[] | undefined
 
 function extractParams<T>(): T {
   if (typeof window === "undefined") return {} as T;
-  const hash = window.location.hash.replace(/^#/, "");
-  const parts = hash.split("/").filter(Boolean);
+  // Tira `?query` antes de splitar — query vive no hash em rotas
+  // tipo `#/create/abc/edit?template=manifesto`. Sem isso, parts[2]
+  // seria `edit?template=manifesto` e id `abc` continuaria correto,
+  // MAS se a query estiver entre id e action (raro), bagunça. Defensivo:
+  const rawHash = window.location.hash.replace(/^#/, "");
+  const qIdx = rawHash.indexOf("?");
+  const path = qIdx >= 0 ? rawHash.slice(0, qIdx) : rawHash;
+  const parts = path.split("/").filter(Boolean);
   // pages-app/create-id rotas: /create/<id>/<action>
   if (parts[0] === "create" && parts[1] && parts[1] !== "new") {
     return { id: parts[1] } as unknown as T;

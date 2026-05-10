@@ -104,23 +104,30 @@ function paramsFromRoute(route: string): { params: Promise<{ id: string }> } {
 }
 
 function ActivePage({ route }: { route: string }) {
+  // Strip query string antes de matchar — query vive no hash em rotas tipo
+  // `#/create/abc/edit?template=manifesto`. Sem isso, `endsWith("/edit")`
+  // falhava e caía no fallback CarouselsPage. `useSearchParams()` no shim
+  // ainda lê o `?template=...` do hash em runtime.
+  const qIdx = route.indexOf("?");
+  const path = qIdx >= 0 ? route.slice(0, qIdx) : route;
+
   // Mapping ad-hoc — replicar `app/app/<segment>` do Next standalone.
   // Ordem importa: rotas mais específicas primeiro.
-  if (route.startsWith("/create/") && route.endsWith("/edit"))
-    return <CreateIdEditPage {...paramsFromRoute(route)} />;
-  if (route.startsWith("/create/") && route.endsWith("/preview"))
-    return <CreateIdPreviewPage {...paramsFromRoute(route)} />;
-  if (route.startsWith("/create/") && route.endsWith("/concepts"))
-    return <CreateIdConceptsPage {...paramsFromRoute(route)} />;
-  if (route.startsWith("/create/") && route.endsWith("/templates"))
-    return <CreateIdTemplatesPage {...paramsFromRoute(route)} />;
-  if (route === "/create/new" || route === "/create") return <CreateNewPage />;
-  if (route === "/carousels") return <CarouselsPage />;
-  if (route === "/settings" || route.startsWith("/settings/")) return <SettingsPage />;
-  if (route === "/plans") return <PlansPage />;
-  if (route === "/help") return <HelpPage />;
-  if (route === "/onboarding") return <OnboardingPage />;
-  if (route === "/dashboard") return <DashboardPage />;
+  if (path.startsWith("/create/") && path.endsWith("/edit"))
+    return <CreateIdEditPage {...paramsFromRoute(path)} />;
+  if (path.startsWith("/create/") && path.endsWith("/preview"))
+    return <CreateIdPreviewPage {...paramsFromRoute(path)} />;
+  if (path.startsWith("/create/") && path.endsWith("/concepts"))
+    return <CreateIdConceptsPage {...paramsFromRoute(path)} />;
+  if (path.startsWith("/create/") && path.endsWith("/templates"))
+    return <CreateIdTemplatesPage {...paramsFromRoute(path)} />;
+  if (path === "/create/new" || path === "/create") return <CreateNewPage />;
+  if (path === "/carousels") return <CarouselsPage />;
+  if (path === "/settings" || path.startsWith("/settings/")) return <SettingsPage />;
+  if (path === "/plans") return <PlansPage />;
+  if (path === "/help") return <HelpPage />;
+  if (path === "/onboarding") return <OnboardingPage />;
+  if (path === "/dashboard") return <DashboardPage />;
   // default → carrosseis (entry point principal — KAI 2026-05-08).
   // Antes era /dashboard, mas pra modo interno Kaleidos a primeira tela
   // útil é a lista de carrosseis com botão "+ Novo carrossel" visível.
