@@ -33,7 +33,7 @@ import {
 import { usePlanningAutomations, PlanningAutomation, ScheduleConfig, RSSConfig } from '@/hooks/usePlanningAutomations';
 import { useAiWorkflows, AiWorkflow, describeCron, estimateNextRun } from '@/hooks/useAiWorkflows';
 import { useAiWorkflowRuns, useLatestRunsByWorkflow, AiWorkflowRun } from '@/hooks/useAiWorkflowRuns';
-import { useClients } from '@/hooks/useClients';
+import { useClients, type Client as ClientType } from '@/hooks/useClients';
 import { AutomationDialog } from '@/components/planning/AutomationDialog';
 import { AutomationHistoryDialog } from './AutomationHistoryDialog';
 import { AiWorkflowEditor } from '@/components/admin/AiWorkflowEditor';
@@ -117,7 +117,14 @@ export function AutomationsTab() {
   const [workflowRunsId, setWorkflowRunsId] = useState<string | null>(null);
   const [editingWorkflow, setEditingWorkflow] = useState<AiWorkflow | null>(null);
   const [editingAgent, setEditingAgent] = useState<AiAgent | null>(null);
-  const [activeMainTab, setActiveMainTab] = useState<'planning' | 'workflows'>('planning');
+  // 2026-05-10 — Quebra dos 3 conceitos misturados na aba antiga 'planning':
+  //   schedule  → "Agendamentos"  (gatilhos cron-like, recorrência periódica)
+  //   feeds     → "Feeds & Webhooks" (recorrência via RSS + triggers externos)
+  //   workflows → "Workflows AI"   (atalhos de IA, agentes em cron próprio)
+  // O dialog de criação cria automation com trigger_type pré-selecionado em
+  // função da aba ativa pra reduzir cliques.
+  type MainTab = 'schedule' | 'feeds' | 'workflows';
+  const [activeMainTab, setActiveMainTab] = useState<MainTab>('schedule');
 
   const handleEdit = (automation: PlanningAutomation) => {
     setEditingAutomation(automation);
@@ -212,14 +219,35 @@ export function AutomationsTab() {
     }
   };
 
-  // Filter automations
+  // Filter automations — escopo da sub-tab ativa primeiro, depois cliente/trigger.
+  // schedule: só tipo schedule. feeds: rss + webhook. workflows: aba diferente.
+  const tabAutomations = useMemo(() => {
+    if (activeMainTab === 'schedule') {
+      return automations.filter(a => a.trigger_type === 'schedule');
+    }
+    if (activeMainTab === 'feeds') {
+      return automations.filter(a => a.trigger_type === 'rss' || a.trigger_type === 'webhook');
+    }
+    return [] as PlanningAutomation[]; // workflows tab é renderizada separadamente
+  }, [automations, activeMainTab]);
+
   const filteredAutomations = useMemo(() => {
-    return automations.filter(a => {
+    return tabAutomations.filter(a => {
       if (clientFilter !== 'all' && a.client_id !== clientFilter) return false;
       if (triggerFilter !== 'all' && a.trigger_type !== triggerFilter) return false;
       return true;
     });
-  }, [automations, clientFilter, triggerFilter]);
+  }, [tabAutomations, clientFilter, triggerFilter]);
+
+  // Counts por sub-tab — pra mostrar badge no TabsTrigger sem refiltrar.
+  const scheduleTotal = useMemo(
+    () => automations.filter(a => a.trigger_type === 'schedule').length,
+    [automations]
+  );
+  const feedsTotal = useMemo(
+    () => automations.filter(a => a.trigger_type === 'rss' || a.trigger_type === 'webhook').length,
+    [automations]
+  );
 
   // Group by client with sorting: active first, then by last_triggered_at
   const groupedByClient = useMemo(() => {
@@ -251,7 +279,6 @@ export function AutomationsTab() {
   }, [automations, clients]);
 
   const activeCount = filteredAutomations.filter(a => a.is_active).length;
-  const pausedCount = filteredAutomations.filter(a => !a.is_active).length;
   const rssCount = filteredAutomations.filter(a => a.trigger_type === 'rss').length;
   const scheduleCount = filteredAutomations.filter(a => a.trigger_type === 'schedule').length;
 
@@ -279,9 +306,9 @@ export function AutomationsTab() {
           <Skeleton className="h-9 w-[200px]" />
           <Skeleton className="h-9 w-[180px]" />
         </div>
-        {/* Stats skeleton */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[0, 1, 2, 3].map((i) => (
+        {/* Stats skeleton — 3 cards (Total / Ativas / contagem por escopo) */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-20 w-full" />
           ))}
         </div>
@@ -296,20 +323,40 @@ export function AutomationsTab() {
     );
   }
 
+  // Stats e copy adaptam à aba ativa pra cada uma fazer sentido sozinha.
+  const tabCopy: Record<MainTab, { eyebrow: string; title: string; description: string }> = {
+    schedule: {
+      eyebrow: 'Automações · Agendamentos',
+      title: 'Agendamentos',
+      description: 'Gatilhos cron-like que disparam recorrências periódicas (diário, semanal, mensal).',
+    },
+    feeds: {
+      eyebrow: 'Automações · Feeds & Webhooks',
+      title: 'Feeds & Webhooks',
+      description: 'Disparos externos: novo item no feed RSS ou chamada webhook gera card no planning.',
+    },
+    workflows: {
+      eyebrow: 'Automações · Workflows AI',
+      title: 'Workflows AI',
+      description: 'Atalhos de IA — agentes Madureira-style rodando em cron próprio com prompt versionado.',
+    },
+  };
+  const headerCopy = tabCopy[activeMainTab];
+
   return (
     <div className="p-4 md:p-6 h-full overflow-auto space-y-4">
       <TabHeader
-        eyebrow="Automações"
+        eyebrow={headerCopy.eyebrow}
         icon={Zap}
-        title="Automações"
-        description="Configure fluxos automáticos: RSS → IA → Publicação."
+        title={headerCopy.title}
+        description={headerCopy.description}
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} className="h-9">
               <History className="h-4 w-4 mr-2" />
               Histórico
             </Button>
-            {activeMainTab === 'planning' && (
+            {(activeMainTab === 'schedule' || activeMainTab === 'feeds') && (
               <Button size="sm" onClick={handleCreate} className="h-9 kai-btn-rec">
                 <Plus className="h-4 w-4 mr-2" />
                 Nova automação
@@ -319,13 +366,21 @@ export function AutomationsTab() {
         }
       />
 
-      <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as 'planning' | 'workflows')}>
-        <TabsList className="grid w-full sm:w-auto grid-cols-2 sm:inline-grid">
-          <TabsTrigger value="planning" className="flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            <span className="hidden sm:inline">Automações Planning</span>
-            <span className="sm:hidden">Planning</span>
-            <Badge variant="secondary" className="text-[10px] ml-1">{automations.length}</Badge>
+      <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as MainTab)}>
+        {/* 3 sub-tabs canônicas. Cada uma carrega só o que precisa.
+            (workflows usa hook próprio e bypassa filtros do planning.) */}
+        <TabsList className="grid w-full sm:w-auto grid-cols-3 sm:inline-grid">
+          <TabsTrigger value="schedule" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            <span className="hidden sm:inline">Agendamentos</span>
+            <span className="sm:hidden">Agenda</span>
+            <Badge variant="secondary" className="text-[10px] ml-1">{scheduleTotal}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="feeds" className="flex items-center gap-2">
+            <Rss className="h-4 w-4" />
+            <span className="hidden sm:inline">Feeds & Webhooks</span>
+            <span className="sm:hidden">Feeds</span>
+            <Badge variant="secondary" className="text-[10px] ml-1">{feedsTotal}</Badge>
           </TabsTrigger>
           <TabsTrigger value="workflows" className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
@@ -335,178 +390,60 @@ export function AutomationsTab() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="planning" className="mt-4 space-y-4">
+        {/* Schedule + Feeds compartilham o mesmo render (lista de automations
+            agrupada por cliente). Diferença = trigger types incluídos no
+            tabAutomations. Filtro por trigger type é restrito ao escopo da aba
+            (schedule oculta select; feeds permite escolher rss vs webhook). */}
+        <TabsContent value="schedule" className="mt-4 space-y-4">
+          <PlanningAutomationsList
+            scope={activeMainTab}
+            filteredAutomations={filteredAutomations}
+            tabAutomations={tabAutomations}
+            groupedByClient={groupedByClient}
+            clients={clients}
+            clientsWithAutomations={clientsWithAutomations}
+            clientFilter={clientFilter}
+            setClientFilter={setClientFilter}
+            triggerFilter={triggerFilter}
+            setTriggerFilter={setTriggerFilter}
+            getClientName={getClientName}
+            getTriggerDescription={getTriggerDescription}
+            handleEdit={handleEdit}
+            handleDelete={(id) => setDeleteId(id)}
+            handleTest={handleTest}
+            handleCreate={handleCreate}
+            toggleAutomation={(id, is_active) => toggleAutomation.mutate({ id, is_active })}
+            testingId={testingId}
+            activeCount={activeCount}
+            scheduleCount={scheduleCount}
+            rssCount={rssCount}
+          />
+        </TabsContent>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-1 min-w-[200px] sm:flex-initial">
-          <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
-          <Select value={clientFilter} onValueChange={setClientFilter}>
-            <SelectTrigger className="flex-1 sm:w-[200px] h-9">
-              <SelectValue placeholder="Filtrar por cliente" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os clientes</SelectItem>
-              {clientsWithAutomations.map(c => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Select value={triggerFilter} onValueChange={setTriggerFilter}>
-          <SelectTrigger className="flex-1 sm:w-[180px] h-9 min-w-[140px]">
-            <SelectValue placeholder="Tipo de trigger" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os tipos</SelectItem>
-            <SelectItem value="schedule">Agendamento</SelectItem>
-            <SelectItem value="rss">RSS Feed</SelectItem>
-            <SelectItem value="webhook">Webhook</SelectItem>
-          </SelectContent>
-        </Select>
-        {(clientFilter !== 'all' || triggerFilter !== 'all') && (
-          <Button variant="ghost" size="sm" onClick={() => { setClientFilter('all'); setTriggerFilter('all'); }}>
-            Limpar filtros
-          </Button>
-        )}
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold">{filteredAutomations.length}</div>
-            <p className="text-sm text-muted-foreground">Total</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold text-green-500">{activeCount}</div>
-            <p className="text-sm text-muted-foreground">Ativas</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold text-blue-500">{scheduleCount}</div>
-            <p className="text-sm text-muted-foreground">Agendadas</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold text-orange-500">{rssCount}</div>
-            <p className="text-sm text-muted-foreground">RSS</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Grouped by Client */}
-      {Object.entries(groupedByClient).map(([clientId, clientAutomations]) => {
-        const clientName = clientId === '__none__' ? 'Sem cliente' : getClientName(clientId);
-        const client = clients.find(c => c.id === clientId);
-        const activeInGroup = clientAutomations.filter(a => a.is_active);
-        const pausedInGroup = clientAutomations.filter(a => !a.is_active);
-
-        return (
-          <Card key={clientId}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  {client?.avatar_url ? (
-                    <img src={client.avatar_url} alt="" className="h-6 w-6 rounded-full object-cover" />
-                  ) : (
-                    <Users className="h-5 w-5 text-muted-foreground" />
-                  )}
-                  {clientName}
-                  <Badge variant="secondary" className="text-xs ml-1">
-                    {clientAutomations.length} automação{clientAutomations.length !== 1 ? 'ões' : ''}
-                  </Badge>
-                </CardTitle>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  {activeInGroup.length > 0 && (
-                    <span className="flex items-center gap-1">
-                      <span className="h-2 w-2 rounded-full bg-green-500" />
-                      {activeInGroup.length} ativa{activeInGroup.length !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                  {pausedInGroup.length > 0 && (
-                    <span className="flex items-center gap-1">
-                      <span className="h-2 w-2 rounded-full bg-muted-foreground" />
-                      {pausedInGroup.length} pausada{pausedInGroup.length !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                  {/* Bulk actions */}
-                  {activeInGroup.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => activeInGroup.forEach((a) => toggleAutomation.mutate({ id: a.id, is_active: false }))}
-                      title="Pausar todas as automações ativas deste cliente"
-                    >
-                      <Pause className="h-3 w-3 mr-1" />
-                      Pausar todas
-                    </Button>
-                  )}
-                  {pausedInGroup.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => pausedInGroup.forEach((a) => toggleAutomation.mutate({ id: a.id, is_active: true }))}
-                      title="Ativar todas as automações pausadas deste cliente"
-                    >
-                      <Play className="h-3 w-3 mr-1" />
-                      Ativar todas
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {clientAutomations.map((automation) => (
-                <AutomationCard
-                  key={automation.id}
-                  automation={automation}
-                  onEdit={handleEdit}
-                  onDelete={(id) => setDeleteId(id)}
-                  onToggle={(id, active) => toggleAutomation.mutate({ id, is_active: active })}
-                  onTest={handleTest}
-                  getClientName={getClientName}
-                  getTriggerDescription={getTriggerDescription}
-                  isTesting={testingId === automation.id}
-                  showClient={false}
-                />
-              ))}
-            </CardContent>
-          </Card>
-        );
-      })}
-
-      {/* Empty State */}
-      {filteredAutomations.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Zap className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-            <h3 className="text-lg font-medium mb-2">
-              {automations.length === 0 ? 'Nenhuma automação configurada' : 'Nenhuma automação encontrada'}
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              {automations.length === 0
-                ? 'Crie sua primeira automação para gerar conteúdo automaticamente'
-                : 'Tente ajustar os filtros'}
-            </p>
-            {automations.length === 0 && (
-              <Button onClick={handleCreate} className="gap-1.5 kai-btn-rec">
-                <Plus className="h-4 w-4" />
-                Criar primeira automação
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
+        <TabsContent value="feeds" className="mt-4 space-y-4">
+          <PlanningAutomationsList
+            scope={activeMainTab}
+            filteredAutomations={filteredAutomations}
+            tabAutomations={tabAutomations}
+            groupedByClient={groupedByClient}
+            clients={clients}
+            clientsWithAutomations={clientsWithAutomations}
+            clientFilter={clientFilter}
+            setClientFilter={setClientFilter}
+            triggerFilter={triggerFilter}
+            setTriggerFilter={setTriggerFilter}
+            getClientName={getClientName}
+            getTriggerDescription={getTriggerDescription}
+            handleEdit={handleEdit}
+            handleDelete={(id) => setDeleteId(id)}
+            handleTest={handleTest}
+            handleCreate={handleCreate}
+            toggleAutomation={(id, is_active) => toggleAutomation.mutate({ id, is_active })}
+            testingId={testingId}
+            activeCount={activeCount}
+            scheduleCount={scheduleCount}
+            rssCount={rssCount}
+          />
         </TabsContent>
 
         <TabsContent value="workflows" className="mt-4 space-y-4">
@@ -575,6 +512,254 @@ export function AutomationsTab() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// PlanningAutomationsList — render compartilhado das duas sub-tabs de
+// planning (Agendamentos + Feeds & Webhooks). Diferença é o `scope`:
+//   schedule → mostra só schedule; oculta select de tipo (já é só 1 tipo).
+//   feeds    → mostra rss + webhook; mantém select limitado a esses 2.
+// Stats topo adaptam por escopo (Agendamentos mostra "Diário/Semanal";
+// Feeds mostra "RSS / Webhook"). Empty state idem.
+// ────────────────────────────────────────────────────────────────────────
+
+interface PlanningAutomationsListProps {
+  scope: 'schedule' | 'feeds' | 'workflows';
+  filteredAutomations: PlanningAutomation[];
+  tabAutomations: PlanningAutomation[];
+  groupedByClient: Record<string, PlanningAutomation[]>;
+  clients: ClientType[];
+  clientsWithAutomations: ClientType[];
+  clientFilter: string;
+  setClientFilter: (v: string) => void;
+  triggerFilter: string;
+  setTriggerFilter: (v: string) => void;
+  getClientName: (clientId: string | null) => string;
+  getTriggerDescription: (automation: PlanningAutomation) => string;
+  handleEdit: (automation: PlanningAutomation) => void;
+  handleDelete: (id: string) => void;
+  handleTest: (automation: PlanningAutomation) => void;
+  handleCreate: () => void;
+  toggleAutomation: (id: string, is_active: boolean) => void;
+  testingId: string | null;
+  activeCount: number;
+  scheduleCount: number;
+  rssCount: number;
+}
+
+function PlanningAutomationsList({
+  scope,
+  filteredAutomations,
+  tabAutomations,
+  groupedByClient,
+  clients,
+  clientsWithAutomations,
+  clientFilter,
+  setClientFilter,
+  triggerFilter,
+  setTriggerFilter,
+  getClientName,
+  getTriggerDescription,
+  handleEdit,
+  handleDelete,
+  handleTest,
+  handleCreate,
+  toggleAutomation,
+  testingId,
+  activeCount,
+  scheduleCount,
+  rssCount,
+}: PlanningAutomationsListProps) {
+  const isSchedule = scope === 'schedule';
+  const webhookCount = filteredAutomations.filter(a => a.trigger_type === 'webhook').length;
+
+  return (
+    <>
+      {/* Filters — schedule não precisa de select de tipo (escopo já é 1 só). */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-1 min-w-[200px] sm:flex-initial">
+          <Filter className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+          <Select value={clientFilter} onValueChange={setClientFilter}>
+            <SelectTrigger className="flex-1 sm:w-[200px] h-9 focus-visible:ring-2 focus-visible:ring-ring">
+              <SelectValue placeholder="Filtrar por cliente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os clientes</SelectItem>
+              {clientsWithAutomations.map(c => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {!isSchedule && (
+          <Select value={triggerFilter} onValueChange={setTriggerFilter}>
+            <SelectTrigger className="flex-1 sm:w-[180px] h-9 min-w-[140px] focus-visible:ring-2 focus-visible:ring-ring">
+              <SelectValue placeholder="Tipo de trigger" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">RSS e Webhooks</SelectItem>
+              <SelectItem value="rss">RSS Feed</SelectItem>
+              <SelectItem value="webhook">Webhook</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+        {(clientFilter !== 'all' || (!isSchedule && triggerFilter !== 'all')) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setClientFilter('all'); setTriggerFilter('all'); }}
+          >
+            Limpar filtros
+          </Button>
+        )}
+      </div>
+
+      {/* Stats — copy adapta ao escopo da sub-tab. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold">{filteredAutomations.length}</div>
+            <p className="text-sm text-muted-foreground">Total</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-green-500">{activeCount}</div>
+            <p className="text-sm text-muted-foreground">Ativas</p>
+          </CardContent>
+        </Card>
+        {isSchedule ? (
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-2xl font-bold text-blue-500">{scheduleCount}</div>
+              <p className="text-sm text-muted-foreground">Agendadas</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-2xl font-bold text-orange-500">{rssCount + webhookCount}</div>
+              <p className="text-sm text-muted-foreground">RSS + Webhooks</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Grouped by Client */}
+      {Object.entries(groupedByClient).map(([clientId, clientAutomations]) => {
+        const clientName = clientId === '__none__' ? 'Sem cliente' : getClientName(clientId);
+        const client = clients.find(c => c.id === clientId);
+        const activeInGroup = clientAutomations.filter(a => a.is_active);
+        const pausedInGroup = clientAutomations.filter(a => !a.is_active);
+
+        return (
+          <Card key={clientId}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  {client?.avatar_url ? (
+                    <img src={client.avatar_url} alt="" className="h-6 w-6 rounded-full object-cover" />
+                  ) : (
+                    <Users className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                  )}
+                  {clientName}
+                  <Badge variant="secondary" className="text-xs ml-1">
+                    {clientAutomations.length} automação{clientAutomations.length !== 1 ? 'ões' : ''}
+                  </Badge>
+                </CardTitle>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  {activeInGroup.length > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-green-500" aria-hidden="true" />
+                      {activeInGroup.length} ativa{activeInGroup.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {pausedInGroup.length > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-muted-foreground" aria-hidden="true" />
+                      {pausedInGroup.length} pausada{pausedInGroup.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {/* Bulk actions — pausar/ativar todas do cliente */}
+                  {activeInGroup.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => activeInGroup.forEach((a) => toggleAutomation(a.id, false))}
+                      title="Pausar todas as automações ativas deste cliente"
+                    >
+                      <Pause className="h-3 w-3 mr-1" aria-hidden="true" />
+                      Pausar todas
+                    </Button>
+                  )}
+                  {pausedInGroup.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => pausedInGroup.forEach((a) => toggleAutomation(a.id, true))}
+                      title="Ativar todas as automações pausadas deste cliente"
+                    >
+                      <Play className="h-3 w-3 mr-1" aria-hidden="true" />
+                      Ativar todas
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {clientAutomations.map((automation) => (
+                <AutomationCard
+                  key={automation.id}
+                  automation={automation}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onToggle={(id, active) => toggleAutomation(id, active)}
+                  onTest={handleTest}
+                  getClientName={getClientName}
+                  getTriggerDescription={getTriggerDescription}
+                  isTesting={testingId === automation.id}
+                  showClient={false}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })}
+
+      {/* Empty State — copy também adapta ao escopo. */}
+      {filteredAutomations.length === 0 && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Zap className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" aria-hidden="true" />
+            <h3 className="text-lg font-medium mb-2">
+              {tabAutomations.length === 0
+                ? (isSchedule
+                    ? 'Nenhum agendamento configurado'
+                    : 'Nenhum feed ou webhook configurado')
+                : 'Nenhuma automação encontrada'}
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              {tabAutomations.length === 0
+                ? (isSchedule
+                    ? 'Crie um gatilho cron-like para gerar conteúdo periodicamente.'
+                    : 'Conecte um feed RSS ou webhook para criar cards automaticamente.')
+                : 'Tente ajustar os filtros'}
+            </p>
+            {tabAutomations.length === 0 && (
+              <Button onClick={handleCreate} className="gap-1.5 kai-btn-rec">
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Criar primeira automação
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </>
   );
 }
 
