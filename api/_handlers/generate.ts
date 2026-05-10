@@ -147,7 +147,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         tone,
         slideCount: 8,
         title: topic.slice(0, 80),
-        persistAs: 'both',
+        // 'none' — frontend persiste via upsertUserCarousel após receber o payload.
+        // Antes era 'both' e gerava 2 rows duplicadas em viral_carousels por geração.
+        persistAs: 'none',
         source: 'manual',
       }),
     });

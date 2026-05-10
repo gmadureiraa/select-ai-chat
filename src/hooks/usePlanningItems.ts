@@ -231,6 +231,14 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       const columnItems = items.filter(i => i.column_id === targetColumnId);
       const maxPosition = columnItems.length > 0 ? Math.max(...columnItems.map(i => i.position)) + 1 : 0;
 
+      const inputWithRecurrence = input as CreatePlanningItemInput & {
+        recurrence_type?: string | null;
+        recurrence_days?: unknown;
+        recurrence_time?: string | null;
+        recurrence_end_date?: string | null;
+        is_recurrence_template?: boolean | null;
+      };
+
       const { data, error } = await supabase
         .from('planning_items')
         .insert({
@@ -251,6 +259,12 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
           assigned_to: input.assigned_to || null,
           media_urls: (input.media_urls || []) as unknown as Json,
           metadata: (input.metadata || {}) as unknown as Json,
+          // Recurrence — opcional, salva só se vier do dialog.
+          recurrence_type: inputWithRecurrence.recurrence_type ?? null,
+          recurrence_days: (inputWithRecurrence.recurrence_days ?? null) as unknown as Json,
+          recurrence_time: inputWithRecurrence.recurrence_time ?? null,
+          recurrence_end_date: inputWithRecurrence.recurrence_end_date ?? null,
+          is_recurrence_template: inputWithRecurrence.is_recurrence_template ?? false,
           created_by: authUser.id
         })
         .select(`
@@ -361,6 +375,26 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       if (updates.media_urls !== undefined) updateData.media_urls = updates.media_urls as unknown as Json;
       if (updates.metadata !== undefined) updateData.metadata = updates.metadata as unknown as Json;
       if (updates.error_message !== undefined) updateData.error_message = updates.error_message;
+
+      // Recurrence fields — passar undefined explícito pra PATCHar null no DB
+      // (Dialog manda null pra desligar recurrence; antes esses campos eram dropados).
+      const updatesWithRecurrence = updates as typeof updates & {
+        recurrence_type?: string | null;
+        recurrence_days?: unknown;
+        recurrence_time?: string | null;
+        recurrence_end_date?: string | null;
+        is_recurrence_template?: boolean | null;
+      };
+      if (updatesWithRecurrence.recurrence_type !== undefined)
+        updateData.recurrence_type = updatesWithRecurrence.recurrence_type;
+      if (updatesWithRecurrence.recurrence_days !== undefined)
+        updateData.recurrence_days = updatesWithRecurrence.recurrence_days as unknown as Json;
+      if (updatesWithRecurrence.recurrence_time !== undefined)
+        updateData.recurrence_time = updatesWithRecurrence.recurrence_time;
+      if (updatesWithRecurrence.recurrence_end_date !== undefined)
+        updateData.recurrence_end_date = updatesWithRecurrence.recurrence_end_date;
+      if (updatesWithRecurrence.is_recurrence_template !== undefined)
+        updateData.is_recurrence_template = updatesWithRecurrence.is_recurrence_template;
 
       const { data, error } = await supabase
         .from('planning_items')

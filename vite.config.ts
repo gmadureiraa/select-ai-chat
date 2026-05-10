@@ -86,7 +86,9 @@ export default defineConfig(({ mode }) => ({
           //    jspdf+html-to-image. ZIP → só jszip+html-to-image. CSV/XLSX upload
           //    → só xlsx. Nada de baixar 960kB de uma vez.
           "export-html-vendor": ["html-to-image"],
-          "export-pdf-vendor": ["jspdf"],
+          // jspdf importa html2canvas internamente — sem isso, html2canvas vira
+          // chunk órfão de 198KB que carrega junto com o PDF de qualquer forma.
+          "export-pdf-vendor": ["jspdf", "html2canvas"],
           "export-zip-vendor": ["jszip"],
           // 2026-05-10 — xlsx removida (órfã) e reactflow removida (visual-builder
           // morto). Chunks export-xlsx-vendor + flow-vendor sem produção.

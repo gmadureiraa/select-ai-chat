@@ -35,7 +35,20 @@ const ClientsListPage = lazy(() =>
   })),
 );
 
-const queryClient = new QueryClient();
+// QueryClient com defaults sãos pra Neon serverless (cold start ~1-2s).
+// Sem isso: cada Cmd+Tab refaz N queries (workspace, members, planning, clients...)
+// e o app fica visivelmente travado por 3-5s ao voltar pra aba.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <ErrorBoundary>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO, setHours, setMinutes } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -118,7 +118,11 @@ export function PlanningItemDialog({
   
   const [freshItem, setFreshItem] = useState<PlanningItem | null>(null);
   const [isFetchingItem, setIsFetchingItem] = useState(false);
-  
+  // Trava de hidratação — depois que o form for populado pra um item.id, não
+  // re-popula quando freshItem chega tarde. Antes a digitação do user era
+  // sobrescrita 100-500ms depois pelo refetch assíncrono do dialog open.
+  const hydratedItemIdRef = useRef<string | null>(null);
+
   // Fetch fresh item data when dialog opens to ensure we have latest content
   useEffect(() => {
     const fetchFreshItem = async () => {
@@ -126,7 +130,7 @@ export function PlanningItemDialog({
         setFreshItem(null);
         return;
       }
-      
+
       setIsFetchingItem(true);
       try {
         const { data, error } = await supabase
@@ -134,7 +138,7 @@ export function PlanningItemDialog({
           .select('*')
           .eq('id', item.id)
           .single();
-        
+
         if (error) {
           console.error('Error fetching fresh item:', error);
           setFreshItem(null);
@@ -148,10 +152,17 @@ export function PlanningItemDialog({
         setIsFetchingItem(false);
       }
     };
-    
+
     fetchFreshItem();
   }, [open, item?.id]);
-  
+
+  // Reset trava de hidratação ao fechar/abrir dialog ou trocar item.
+  useEffect(() => {
+    if (!open) {
+      hydratedItemIdRef.current = null;
+    }
+  }, [open]);
+
   // Use fresh item if available, otherwise fall back to prop
   const effectiveItem = freshItem || item;
   
@@ -256,6 +267,10 @@ export function PlanningItemDialog({
   useEffect(() => {
     // Use effectiveItem (fresh data if available) instead of stale item prop
     if (effectiveItem) {
+      // Já hidratamos esse id? Não rehidratar — preserva digitação do user
+      // contra o flush tardio do freshItem fetch.
+      if (hydratedItemIdRef.current === effectiveItem.id) return;
+      hydratedItemIdRef.current = effectiveItem.id;
       setTitle(effectiveItem.title);
       // Use content, fallback to description if content is empty (for automation-generated items)
       const itemContent = effectiveItem.content || (effectiveItem as any).description || '';

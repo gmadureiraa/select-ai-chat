@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@sv/lib/auth-context";
 import { supabase } from "@sv/lib/supabase";
 import { fetchUserCarousels, type SavedCarousel } from "@sv/lib/carousel-storage";
+import { useKaiContext } from "@sv/lib/use-kai-context";
 import EditorialSlide from "@sv/components/app/editorial-slide";
 import { CarouselListSkeleton } from "@sv/components/app/carousel-skeleton";
 import { DiscountPopup } from "@sv/components/app/discount-popup";
@@ -55,6 +56,7 @@ function formatSince(iso?: string | null): string {
 
 export default function DashboardPage() {
   const { profile, user } = useAuth();
+  const kaiCtx = useKaiContext();
   const [carousels, setCarousels] = useState<SavedCarousel[]>([]);
   const [carouselLoading, setCarouselLoading] = useState(true);
   const [carouselError, setCarouselError] = useState<string | null>(null);
@@ -64,7 +66,7 @@ export default function DashboardPage() {
     setCarouselLoading(true);
     try {
       if (user && supabase) {
-        const list = await fetchUserCarousels(supabase);
+        const list = await fetchUserCarousels(supabase, { clientId: kaiCtx.clientId });
         setCarousels(list);
       } else {
         setCarousels([]);
@@ -76,7 +78,7 @@ export default function DashboardPage() {
     } finally {
       setCarouselLoading(false);
     }
-  }, [user]);
+  }, [user, kaiCtx.clientId]);
 
   useEffect(() => {
     const t = window.setTimeout(() => {

@@ -344,21 +344,32 @@ function isMissingColumnError(err: unknown): boolean {
 }
 
 export async function fetchUserCarousels(
-  client: SupabaseClient
+  client: SupabaseClient,
+  options: { clientId?: string | null } = {},
 ): Promise<SavedCarousel[]> {
-  let { data, error } = await client
+  // KAI multi-tenant: quando há cliente selecionado na sidebar, filtrar
+  // por client_id pra esconder carrosseis de outros clientes do workspace.
+  // Quando clientId é null, mantém comportamento padrão (RLS scope).
+  const filterClient = options.clientId ?? null;
+
+  let query = client
     .from("carousels")
     .select(CAROUSEL_LIST_FIELDS)
     .order("updated_at", { ascending: false });
+  if (filterClient) query = query.eq("client_id", filterClient);
+
+  let { data, error } = await query;
 
   if (error && isMissingColumnError(error)) {
     console.warn(
       "[fetchUserCarousels] export_assets column missing — falling back to base fields. Apply migration 20260415120000_carousel_export_assets.sql to restore cloud-export metadata."
     );
-    const retry = await client
+    let retryQuery = client
       .from("carousels")
       .select(CAROUSEL_LIST_FIELDS_FALLBACK)
       .order("updated_at", { ascending: false });
+    if (filterClient) retryQuery = retryQuery.eq("client_id", filterClient);
+    const retry = await retryQuery;
     data = (retry.data as unknown) as typeof data;
     error = retry.error;
   }

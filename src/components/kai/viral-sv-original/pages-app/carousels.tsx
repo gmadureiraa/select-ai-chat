@@ -86,7 +86,9 @@ export default function CarouselsPage() {
       return;
     }
     try {
-      const cloudList = await fetchUserCarousels(supabase);
+      // Filtra por cliente ativo na sidebar — sem isso, listava carrosseis
+      // de TODOS os clientes do workspace mesmo com cliente selecionado.
+      const cloudList = await fetchUserCarousels(supabase, { clientId: kaiCtx.clientId });
       setCarousels(cloudList);
     } catch (err) {
       console.error("[carousels] Supabase failed:", err);
@@ -95,14 +97,14 @@ export default function CarouselsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, kaiCtx.clientId]);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
       void loadCarousels();
     }, 0);
     return () => window.clearTimeout(t);
-  }, [loadCarousels]);
+  }, [loadCarousels, kaiCtx.clientId]);
 
   const counts = useMemo(() => {
     return {
