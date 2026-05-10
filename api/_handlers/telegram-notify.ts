@@ -1,7 +1,12 @@
 // Migrated from supabase/functions/telegram-notify/index.ts
 // Sends rich (text or photo) Telegram notification with inline keyboard.
 // Uses TELEGRAM_BOT_TOKEN env (no Lovable connector gateway).
-import { anonPost } from '../_lib/handler.js';
+//
+// Auth (atualizado 2026-05-10): cron OR user logado. Nunca anônimo (qualquer
+// um podia spammar o bot). Cron pra notify automático em fluxos backend.
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
+import { tryAuth } from '../_lib/auth.js';
 import { queryOne } from '../_lib/db.js';
 
 const PLATFORM_EMOJI: Record<string, string> = {
@@ -61,9 +66,25 @@ async function tgSendPhoto(
   return { ok: r.ok, data };
 }
 
-export default anonPost(async ({ body }) => {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (handlePreflight(req, res)) return;
+  applyCors(res);
+  if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
+
+  // Auth: cron (Bearer CRON_SECRET) OR user logado (JWT). Nunca anônimo.
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = req.headers.authorization;
+  const isCron = authHeader === `Bearer ${cronSecret}` && !!cronSecret;
+  if (!isCron) {
+    const user = await tryAuth(req);
+    if (!user) return jsonError(res, 401, 'Authentication required');
+  }
+
   const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-  if (!TELEGRAM_BOT_TOKEN) throw new Error('TELEGRAM_BOT_TOKEN is not configured');
+  if (!TELEGRAM_BOT_TOKEN) return jsonError(res, 500, 'TELEGRAM_BOT_TOKEN is not configured');
+
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : (req.body ? JSON.parse(req.body) : {});
 
   const {
     item_id,
@@ -89,7 +110,7 @@ export default anonPost(async ({ body }) => {
   }
   if (!chatId) chatId = process.env.TELEGRAM_CHAT_ID;
   if (!chatId) {
-    return { error: 'No chat_id configured. Send /start to the bot first.' };
+    return res.status(200).json({ error: 'No chat_id configured. Send /start to the bot first.' });
   }
 
   const emoji = PLATFORM_EMOJI[platform || ''] || '📋';
@@ -170,9 +191,13 @@ export default anonPost(async ({ body }) => {
     sentMessage = await tgSendMessage(TELEGRAM_BOT_TOKEN, chatId, messageText, inlineKeyboard);
   }
 
-  console.log(`[telegram-notify] sent for item ${item_id}`);
-  return {
-    success: true,
-    message_id: sentMessage?.result?.message_id,
-  };
-});
+    console.log(`[telegram-notify] sent for item ${item_id}`);
+    return res.status(200).json({
+      success: true,
+      message_id: sentMessage?.result?.message_id,
+    });
+  } catch (e: any) {
+    console.error('[telegram-notify] error:', e);
+    return jsonError(res, 500, e?.message || 'Internal error');
+  }
+}

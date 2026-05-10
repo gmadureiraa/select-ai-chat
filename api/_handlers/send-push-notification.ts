@@ -242,15 +242,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(res);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
 
-  // Auth: cron OR authed user
+  // Auth: cron (broadcast pra qualquer user) OR authed user (só pra si OU workspace dele).
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = req.headers.authorization;
   const isCron =
     req.headers['x-vercel-cron'] === '1' ||
     (cronSecret && authHeader === `Bearer ${cronSecret}`);
+  let authedUser: { id: string } | null = null;
   if (!isCron) {
-    const user = await tryAuth(req);
-    if (!user) return jsonError(res, 401, 'Unauthorized');
+    authedUser = await tryAuth(req);
+    if (!authedUser) return jsonError(res, 401, 'Unauthorized');
   }
 
   try {
@@ -277,6 +278,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (!payload || !payload.title) {
       throw new Error('payload.title is required');
+    }
+
+    // Defesa contra spam: user logado SÓ pode enviar pra si mesmo OU pro
+    // workspace ao qual pertence. Cron pode pra qualquer um.
+    if (!isCron && authedUser) {
+      if (userId && userId !== authedUser.id) {
+        return jsonError(res, 403, 'Cannot send push to another user');
+      }
+      if (workspaceId) {
+        const member = await query<any>(
+          `SELECT id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 LIMIT 1`,
+          [workspaceId, authedUser.id],
+        );
+        if (member.length === 0) {
+          return jsonError(res, 403, 'Não membro desse workspace');
+        }
+      }
     }
 
     const subscriptions = userId

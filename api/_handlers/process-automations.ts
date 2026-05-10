@@ -578,6 +578,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   console.log(`[process-automations] start ${isManualTest ? `(manual: ${automationId})` : '(scheduled)'}`);
 
+  // Defesa contra IDOR: se for manual test (user logado com automationId), garantir
+  // que ele é membro do workspace da automation antes de rodar.
+  if (isManualTest && user && automationId) {
+    const aut = await queryOne<{ workspace_id: string }>(
+      `SELECT workspace_id FROM planning_automations WHERE id = $1 LIMIT 1`,
+      [automationId],
+    );
+    if (!aut) return jsonError(res, 404, 'Automation não encontrada');
+    const member = await queryOne<{ id: string }>(
+      `SELECT id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 LIMIT 1`,
+      [aut.workspace_id, user.id],
+    );
+    if (!member) return jsonError(res, 403, 'Acesso negado a essa automation');
+  }
+
   const automations = automationId
     ? await query<PlanningAutomation>(`SELECT * FROM planning_automations WHERE id = $1`, [automationId])
     : await query<PlanningAutomation>(`SELECT * FROM planning_automations WHERE is_active = true`);

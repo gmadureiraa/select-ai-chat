@@ -3,7 +3,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, query } from '../_lib/db.js';
-import { tryAuth } from '../_lib/auth.js';
+import { tryAuth, type AuthUser } from '../_lib/auth.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 type Platform = 'instagram' | 'tiktok' | 'twitter' | 'linkedin' | 'youtube';
 
@@ -126,9 +127,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const isCron =
     req.headers['x-vercel-cron'] === '1' ||
     (cronSecret && authHeader === `Bearer ${cronSecret}`);
+  let authedUser: AuthUser | null = null;
   if (!isCron) {
-    const user = await tryAuth(req);
-    if (!user) return jsonError(res, 401, 'Unauthorized');
+    authedUser = await tryAuth(req);
+    if (!authedUser) return jsonError(res, 401, 'Unauthorized');
   }
 
   const startedAt = Date.now();
@@ -146,8 +148,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const triggeredBy = body.source === 'cron' || isCron ? 'cron' : 'manual';
     const onlyClientId = body.clientId as string | undefined;
 
+    // Defesa IDOR: se user logado especifica clientId, garantir acesso.
+    // Sem clientId E user logado: limita aos clientes do workspace dele.
+    if (authedUser && onlyClientId) {
+      await assertClientAccess(authedUser.id, onlyClientId);
+    }
+
     const clients = onlyClientId
       ? await query<any>(`SELECT id, name, social_media FROM clients WHERE id = $1`, [onlyClientId])
+      : authedUser && !isCron
+      ? await query<any>(
+          `SELECT c.id, c.name, c.social_media
+             FROM clients c
+             JOIN workspace_members wm ON wm.workspace_id = c.workspace_id
+            WHERE wm.user_id = $1`,
+          [authedUser.id],
+        )
       : await query<any>(`SELECT id, name, social_media FROM clients`);
 
     const allJobs: Array<{ client: any; job: PlatformJob }> = [];

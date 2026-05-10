@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/send-invite-email/index.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handlePreflight, jsonError } from '../_lib/cors.js';
+import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
+import { tryAuth } from '../_lib/auth.js';
 
 const roleLabels: Record<string, string> = {
   owner: 'Proprietário',
@@ -19,7 +20,13 @@ function formatExpirationDate(expiresAt: string | null | undefined): string | nu
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
+  applyCors(res);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
+
+  // Defesa contra spam de email: requer auth real (qualquer user logado).
+  // O fluxo de invite vem do front após o usuário criar o invite no DB.
+  const user = await tryAuth(req);
+  if (!user) return jsonError(res, 401, 'Authentication required');
 
   const resendApiKey = process.env.RESEND_API_KEY;
   if (!resendApiKey) return jsonError(res, 500, 'Email service not configured');

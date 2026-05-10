@@ -133,15 +133,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return jsonError(res, 405, 'Method not allowed');
   }
 
-  // Auth: vercel cron OR CRON_SECRET OR authed user
+  // Auth: SOMENTE cron — esse handler materializa planning_items GLOBAIS
+  // de TODOS os workspaces. Permitir trigger por user autenticado seria
+  // privilege escalation (qualquer user dispara recurring de outro client).
   const cronSecret = process.env.CRON_SECRET;
   const auth = req.headers.authorization;
   const isCron =
     req.headers['x-vercel-cron'] === '1' ||
     (cronSecret && auth === `Bearer ${cronSecret}`);
   if (!isCron) {
-    const user = await tryAuth(req);
-    if (!user) return jsonError(res, 401, 'Unauthorized');
+    return jsonError(res, 403, 'Cron-only endpoint');
   }
 
   try {
