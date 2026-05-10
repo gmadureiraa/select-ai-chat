@@ -437,7 +437,7 @@ function BoardView({ tasks, memberMap, clientMap, onCardClick, onToggleDone, onA
           <div
             key={statusKey}
             className={cn(
-              "flex flex-col rounded-lg border border-border/60 bg-muted/10 min-h-[200px] transition-all",
+              "group flex flex-col rounded-lg border border-border/60 bg-muted/10 min-h-[200px] transition-all",
               isHover && "ring-2 ring-primary/50 bg-primary/5",
             )}
             onDragOver={(e) => { e.preventDefault(); setHoverColumn(statusKey); }}
@@ -463,7 +463,7 @@ function BoardView({ tasks, memberMap, clientMap, onCardClick, onToggleDone, onA
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                   onClick={() => onAddInColumn(statusKey)}
                   aria-label={`Adicionar tarefa em ${meta.title}`}
                 >

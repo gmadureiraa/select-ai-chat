@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -161,7 +161,7 @@ export function TaskDialog({
     [members],
   );
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!title.trim()) return;
     const ids = mentionIds.length ? mentionIds : extractMentionedIds(description, memberOptions);
     const payload = {
@@ -181,7 +181,22 @@ export function TaskDialog({
       await createTask.mutateAsync(payload);
     }
     onOpenChange(false);
-  };
+  }, [
+    title,
+    description,
+    mentionIds,
+    memberOptions,
+    status,
+    priority,
+    dueDate,
+    assignedTo,
+    clientId,
+    labels,
+    task,
+    updateTask,
+    createTask,
+    onOpenChange,
+  ]);
 
   const handleDelete = async () => {
     if (!task) return;
@@ -211,8 +226,7 @@ export function TaskDialog({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, title, description, status, priority, dueDate, assignedTo, clientId, labels]);
+  }, [open, handleSave]);
 
   return (
     <>

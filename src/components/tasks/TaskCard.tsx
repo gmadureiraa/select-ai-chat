@@ -51,9 +51,19 @@ export function TaskCard({
   return (
     <div
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Abrir tarefa ${task.title}`}
       className={cn(
         "group relative cursor-pointer rounded-md border border-border/60 bg-card pl-3 pr-2.5 py-2 overflow-hidden",
         "transition-all duration-150 hover:border-primary/40 hover:-translate-y-px hover:shadow-sm",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
         isDone && "opacity-60",
       )}
     >
@@ -66,17 +76,20 @@ export function TaskCard({
       <div className="flex items-start gap-2">
         {onToggleDone && (
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               onToggleDone();
             }}
             className={cn(
               "mt-0.5 h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
               isDone
                 ? "bg-emerald-500 border-emerald-500 text-white"
                 : "border-muted-foreground/40 hover:border-primary",
             )}
-            aria-label="Concluir tarefa"
+            aria-label={isDone ? "Reabrir tarefa" : "Concluir tarefa"}
+            aria-pressed={isDone}
           >
             {isDone && <CheckCircle2 className="h-3 w-3" />}
           </button>
