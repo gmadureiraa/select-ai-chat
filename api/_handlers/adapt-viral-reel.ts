@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/adapt-viral-reel/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import {
   getClientContextServer,
   buildClientPromptContext,
@@ -255,6 +256,7 @@ export default authedPost(async ({ user, body }) => {
   if (!isValidIgUrl(sourceUrl)) {
     throw new Error('URL precisa ser de Reel/post Instagram');
   }
+  await assertClientAccess(user.id, clientId);
 
   const client = await queryOne<{ workspace_id: string }>(
     `SELECT workspace_id FROM clients WHERE id = $1 LIMIT 1`,

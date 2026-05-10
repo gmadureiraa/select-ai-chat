@@ -3,7 +3,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool } from '../_lib/db.js';
-import { tryAuth } from '../_lib/auth.js';
+import { tryAuth, type AuthUser } from '../_lib/auth.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 function detectLinkedInTarget(input: string): { url: string; type: 'person' | 'company' } {
   const cleaned = input.trim();
@@ -28,9 +29,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const isCron =
     req.headers['x-vercel-cron'] === '1' ||
     (cronSecret && authHeader === `Bearer ${cronSecret}`);
+  let authedUser: AuthUser | null = null;
   if (!isCron) {
-    const user = await tryAuth(req);
-    if (!user) return jsonError(res, 401, 'Unauthorized');
+    authedUser = await tryAuth(req);
+    if (!authedUser) return jsonError(res, 401, 'Unauthorized');
   }
 
   const startedAt = Date.now();
@@ -43,6 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : {};
     const { clientId, handle } = body as { clientId?: string; handle?: string };
     if (!clientId || !handle) throw new Error('clientId and handle are required');
+    if (authedUser && clientId) await assertClientAccess(authedUser.id, clientId);
 
     const apifyApiKey = process.env.APIFY_API_KEY || process.env.APIFY_API_TOKEN;
     if (!apifyApiKey) throw new Error('APIFY_API_KEY not configured');

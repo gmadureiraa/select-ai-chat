@@ -11,6 +11,7 @@
 // Retorna: { transcriptions: TranscriptionRow[], total: number }
 import { authedPost } from '../_lib/handler.js';
 import { query } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 interface GetBody {
   clientId?: string;
@@ -21,7 +22,7 @@ interface GetBody {
   limit?: number;
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const {
     clientId,
     postId,
@@ -32,6 +33,7 @@ export default authedPost(async ({ body }) => {
   } = (body || {}) as GetBody;
 
   if (!clientId) throw new Error('clientId é obrigatório');
+  await assertClientAccess(user.id, clientId);
 
   const ids = postId ? [postId] : Array.isArray(postIds) ? postIds : null;
 

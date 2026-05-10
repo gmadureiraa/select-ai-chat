@@ -3,6 +3,7 @@
 // Defensive fallback: requires TWITTER_CONSUMER_KEY/SECRET to be configured.
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { createHmac } from 'node:crypto';
 
 const REQUIRED_ENV = ['TWITTER_CONSUMER_KEY', 'TWITTER_CONSUMER_SECRET'];
@@ -176,7 +177,7 @@ async function postTweet(
   return { id: responseData.data?.id };
 }
 
-export default authedPost(async ({ body, res }) => {
+export default authedPost(async ({ body, res, user }) => {
   const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
   if (missing.length > 0) {
     res.status(503).json({
@@ -206,6 +207,11 @@ export default authedPost(async ({ body, res }) => {
     postId = scheduledPostId;
   } else {
     throw new Error('scheduledPostId ou planningItemId é obrigatório');
+  }
+
+  // Garante que o usuário pertence ao workspace dono do client deste post.
+  if (post.client_id) {
+    await assertClientAccess(user.id, post.client_id);
   }
 
   console.log(`Processing Twitter post for ${tableName}: ${postId}`);

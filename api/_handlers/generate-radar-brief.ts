@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/generate-radar-brief/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { getPool, query, queryOne, insertRow } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
 
@@ -168,6 +169,7 @@ export default authedPost(async ({ user, body }) => {
 
   const { clientId, niche } = body;
   if (!clientId) throw new Error('clientId obrigatório');
+  await assertClientAccess(user.id, clientId);
 
   const client = await queryOne<any>(`SELECT workspace_id, name, tags FROM clients WHERE id = $1`, [clientId]);
   if (!client) throw new Error('Cliente não encontrado');

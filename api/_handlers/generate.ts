@@ -21,6 +21,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { tryAuth } from '../_lib/auth.js';
 import { queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 interface SvPayload {
   topic?: string;
@@ -101,6 +102,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   //   2. primeiro client do workspace ativo do user (último editado primeiro)
   // tryAuth retorna AuthUser = { id, email?, raw } — id direto, não auth.user.id.
   let clientId = body.clientId;
+  if (clientId) {
+    // Defesa contra IDOR: garante que user pertence ao workspace dono do client.
+    await assertClientAccess(auth.id, clientId);
+  }
   if (!clientId) {
     const row = await queryOne<{ id: string }>(
       `SELECT c.id FROM clients c

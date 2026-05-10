@@ -4,6 +4,7 @@
 // (2) scraping og:image from the source URL.
 import { authedPost } from '../_lib/handler.js';
 import { query, getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 interface NewsletterRow {
   id: string;
@@ -47,9 +48,10 @@ async function scrapeOgImage(url: string): Promise<string | null> {
   }
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, limit = 50 } = body as { clientId?: string; limit?: number };
   if (!clientId) throw new Error('clientId is required');
+  await assertClientAccess(user.id, clientId);
 
   console.log(`[update-newsletter-covers] starting for client ${clientId}`);
 

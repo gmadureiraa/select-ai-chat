@@ -2,13 +2,14 @@
 import { z } from 'zod';
 import { authedPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const BodySchema = z.object({
   url: z.string().url('URL must be a valid http(s) URL'),
   clientId: z.string().min(1, 'clientId is required'),
 });
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const parsed = BodySchema.safeParse(body);
   if (!parsed.success) {
     throw new Error(
@@ -16,6 +17,7 @@ export default authedPost(async ({ body }) => {
     );
   }
   const { url, clientId } = parsed.data;
+  await assertClientAccess(user.id, clientId);
 
   console.log('Scraping website:', url);
 

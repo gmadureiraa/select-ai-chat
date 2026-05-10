@@ -7,6 +7,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { tryAuth } from '../_lib/auth.js';
 import { query, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { logAIUsage, estimateTokens } from '../_lib/shared/ai-usage.js';
 import {
   CONTENT_TYPE_MAP,
@@ -1808,6 +1809,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       materialContext,
       materialTitle,
     } = body;
+
+    // Defesa contra IDOR: a menos que seja chamada interna do bot (que já passou
+    // pelo expected auth), validamos que o user logado pertence ao workspace do client.
+    if (clientId && !body.internalServiceAuth) {
+      await assertClientAccess(userId, clientId);
+    }
 
     console.log('[kai-simple-chat] Request:', {
       userId, clientId,

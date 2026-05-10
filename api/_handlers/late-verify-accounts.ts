@@ -2,6 +2,7 @@
 // @deprecated 2026-05-08: use `postiz-integrations` (POST com clientId verifica e atualiza).
 import { authedPost } from '../_lib/handler.js';
 import { getPool, query } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const LATE_API_BASE = 'https://getlate.dev/api/v1';
 
@@ -20,11 +21,12 @@ interface LateAccount {
   connected?: boolean;
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const lateApiKey = process.env.LATE_API_KEY;
   if (!lateApiKey) throw new Error('LATE_API_KEY não configurada');
   const { clientId } = body;
   if (!clientId) throw new Error('clientId é obrigatório');
+  await assertClientAccess(user.id, clientId);
 
   const credentials = await query<any>(
     `SELECT id, platform, metadata, account_name, is_valid

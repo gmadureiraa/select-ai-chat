@@ -9,6 +9,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { tryAuth } from '../_lib/auth.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
 import { put } from '@vercel/blob';
 import { logAIUsage, estimateTokens } from '../_lib/shared/ai-usage.js';
@@ -344,14 +345,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const isInternalCall = req.headers['x-internal-call'] === 'true';
 
     let userId: string | null = providedUserId ?? null;
+    let authedUserId: string | null = null;
     if (!userId && !isCron && !isInternalCall) {
       const user = await tryAuth(req);
       if (!user) return jsonError(res, 401, 'Authentication required');
       userId = user.id;
+      authedUserId = user.id;
     } else if (!userId) {
       // Try optional auth even on internal calls
       const user = await tryAuth(req);
-      if (user) userId = user.id;
+      if (user) {
+        userId = user.id;
+        authedUserId = user.id;
+      }
+    } else {
+      // userId foi informado explicitamente — checar se há header de auth real
+      const user = await tryAuth(req);
+      if (user) authedUserId = user.id;
+    }
+    // Se há um user real autenticado, garantir que ele tem acesso ao client.
+    if (authedUserId && clientId) {
+      await assertClientAccess(authedUserId, clientId);
     }
 
     // Resolve client + workspace

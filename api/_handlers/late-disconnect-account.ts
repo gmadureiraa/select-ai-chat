@@ -3,15 +3,17 @@
 // e `client_social_credentials` é deletado direto pelo handler de UI. Fallback durante migração.
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const LATE_API_BASE = 'https://getlate.dev/api/v1';
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const lateApiKey = process.env.LATE_API_KEY;
   if (!lateApiKey) throw new Error('LATE_API_KEY não configurada');
 
   const { clientId, platform } = body;
   if (!clientId || !platform) throw new Error('clientId e platform são obrigatórios');
+  await assertClientAccess(user.id, clientId);
 
   const credential = await queryOne<any>(
     `SELECT id, metadata FROM client_social_credentials WHERE client_id = $1 AND platform = $2 LIMIT 1`,

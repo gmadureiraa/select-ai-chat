@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, queryOne } from '../_lib/db.js';
 import { tryAuth } from '../_lib/auth.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const ContentBodySchema = z.object({
   clientId: z.string().min(1, 'clientId é obrigatório'),
@@ -82,6 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = await tryAuth(req);
     let userId: string | null = user?.id ?? null;
     let resolvedWorkspaceId: string | null = workspaceId ?? null;
+    if (user && clientId) await assertClientAccess(user.id, clientId);
 
     if (clientId) {
       const c = await queryOne<any>(

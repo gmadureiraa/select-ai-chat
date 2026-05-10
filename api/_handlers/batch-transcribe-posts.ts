@@ -2,6 +2,7 @@
 // Iterates pending instagram_posts, OCRs each image and writes full_content.
 import { authedPost } from '../_lib/handler.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import type { VercelRequest } from '@vercel/node';
 
 function getOrigin(req: VercelRequest): string {
@@ -30,7 +31,7 @@ async function callInternal(
   }
 }
 
-export default authedPost(async ({ body, req }) => {
+export default authedPost(async ({ body, req, user }) => {
   const { clientId, batchSize = 5, postTypes } = body as {
     clientId?: string;
     batchSize?: number;
@@ -39,6 +40,7 @@ export default authedPost(async ({ body, req }) => {
   if (!clientId) {
     throw new Error('clientId is required');
   }
+  await assertClientAccess(user.id, clientId);
 
   // Pending posts: have images but full_content empty
   const finalSql = postTypes && postTypes.length > 0

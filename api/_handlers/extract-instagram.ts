@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { authedPost } from '../_lib/handler.js';
 import { put } from '@vercel/blob';
+import { assertClientAccess } from '../_lib/access.js';
 
 const instagramRegex = /^https?:\/\/(www\.)?instagram\.com\/(p|reel)\/[a-zA-Z0-9_-]+\/?/;
 
@@ -15,7 +16,7 @@ const BodySchema = z.object({
   uploadToStorage: z.boolean().optional(),
 });
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const parsed = BodySchema.safeParse(body);
   if (!parsed.success) {
     throw new Error(
@@ -23,6 +24,7 @@ export default authedPost(async ({ body }) => {
     );
   }
   const { url, clientId, uploadToStorage } = parsed.data;
+  if (clientId) await assertClientAccess(user.id, clientId);
   const apifyApiKey = process.env.APIFY_API_KEY_INSTAGRAM || process.env.APIFY_API_KEY;
   if (!apifyApiKey) throw new Error('APIFY_API_KEY_INSTAGRAM not configured');
 

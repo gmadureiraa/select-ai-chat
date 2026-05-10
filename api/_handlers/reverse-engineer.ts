@@ -7,6 +7,7 @@
 import { authedPost } from '../_lib/handler.js';
 import { queryOne, query } from '../_lib/db.js';
 import { logAIUsage } from '../_lib/shared/ai-usage.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 interface ReverseBody {
   clientId: string;
@@ -52,6 +53,7 @@ export default authedPost(async ({ user, body }) => {
   if (!phase || (phase !== 'analyze' && phase !== 'generate')) {
     throw new Error('phase deve ser "analyze" ou "generate"');
   }
+  await assertClientAccess(user.id, clientId);
 
   const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GOOGLE_AI_STUDIO_API_KEY não configurada');

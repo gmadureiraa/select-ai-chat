@@ -12,6 +12,7 @@
 // telas de "linkar manualmente integration X ao cliente Y").
 import { authedPost } from '../_lib/handler.js';
 import { getPool, query } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import {
   getPostizConfig,
   listIntegrations,
@@ -25,7 +26,7 @@ interface VerifyResult {
   message?: string;
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const cfg = getPostizConfig();
   const { clientId, mode = 'verify' } = body;
 
@@ -46,6 +47,7 @@ export default authedPost(async ({ body }) => {
   }
 
   if (!clientId) throw new Error('clientId é obrigatório');
+  await assertClientAccess(user.id, clientId);
 
   const integrations = await listIntegrations(cfg);
   const integrationsById = new Map<string, PostizIntegration>();

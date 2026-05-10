@@ -2,6 +2,7 @@
 import { createHmac } from 'node:crypto';
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 function generateOAuthSignature(method: string, url: string, params: Record<string, string>, consumerSecret: string, tokenSecret: string): string {
   const baseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(
@@ -26,9 +27,10 @@ function generateOAuthHeader(method: string, url: string, queryParams: Record<st
   return 'OAuth ' + Object.entries(signed).sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`).join(', ');
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, query: customQuery, maxResults = 20 } = body;
   if (!clientId) throw new Error('clientId is required');
+  await assertClientAccess(user.id, clientId);
 
   const client = await queryOne<any>(
     `SELECT name, identity_guide, social_media, description FROM clients WHERE id = $1`,

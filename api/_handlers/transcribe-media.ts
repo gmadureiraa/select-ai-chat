@@ -3,6 +3,7 @@
 import { anonPost } from '../_lib/handler.js';
 import { queryOne } from '../_lib/db.js';
 import { logAIUsage } from '../_lib/shared/ai-usage.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const MAX_SIZE = 25 * 1024 * 1024; // 25MB Whisper cap
 const VALID_EXTENSIONS = ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm'];
@@ -13,7 +14,7 @@ function base64ToBuffer(base64: string): Buffer {
   return Buffer.from(base64Data, 'base64');
 }
 
-export default anonPost(async ({ body }) => {
+export default anonPost(async ({ body, user }) => {
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
   if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY não configurada');
 
@@ -27,6 +28,7 @@ export default anonPost(async ({ body }) => {
   };
 
   if (!url && !base64) throw new Error('URL ou base64 é obrigatório');
+  if (user && clientId) await assertClientAccess(user.id, clientId);
 
   let audioBuffer: Buffer;
   let resolvedContentType: string;

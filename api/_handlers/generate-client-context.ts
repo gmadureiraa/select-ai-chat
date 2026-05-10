@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/generate-client-context/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const LIMITS = {
   websiteChars: 3000,
@@ -17,9 +18,10 @@ function truncate(text: string | null | undefined, limit: number): string {
   return text.length > limit ? text.substring(0, limit) + '...' : text;
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId } = body;
   if (!clientId) throw new Error('clientId é obrigatório');
+  await assertClientAccess(user.id, clientId);
   console.log(`[generate-client-context] Starting for client ${clientId}`);
 
   const pool = getPool();

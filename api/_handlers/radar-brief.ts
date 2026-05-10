@@ -8,6 +8,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { applyCors, handlePreflight } from "../_lib/cors.js";
 import { tryAuth } from "../_lib/auth.js";
 import { query } from "../_lib/db.js";
+import { assertClientAccess } from "../_lib/access.js";
 
 interface BriefRow {
   id: string;
@@ -42,10 +43,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Auth opcional (free user também vê briefs globais)
-  await tryAuth(req);
+  const authedUser = await tryAuth(req);
 
   const niche = (req.query.niche as string) || "marketing";
   const clientId = (req.query.clientId as string) || null;
+
+  // Se passou clientId E user logado, garantir acesso (defesa IDOR).
+  // Brief sem clientId é global (free), permitido pra qualquer um.
+  if (authedUser && clientId) {
+    await assertClientAccess(authedUser.id, clientId);
+  }
 
   try {
     // Status canônico do brief é 'done' (writer trigger checa 'done').

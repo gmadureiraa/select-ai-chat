@@ -2,6 +2,7 @@
 // Batch syncs Instagram posts: extract images via Apify -> transcribe -> persist.
 import { authedPost } from '../_lib/handler.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import type { VercelRequest } from '@vercel/node';
 
 interface InstagramPost {
@@ -38,11 +39,12 @@ async function callInternal(
   }
 }
 
-export default authedPost(async ({ body, req }) => {
+export default authedPost(async ({ body, req, user }) => {
   const { clientId, batchSize = 3 } = body as { clientId?: string; batchSize?: number };
   if (!clientId) {
     throw new Error('clientId is required');
   }
+  await assertClientAccess(user.id, clientId);
 
   // Posts that haven't been synced yet (no content_synced_at, with permalink)
   const posts = await query<InstagramPost>(

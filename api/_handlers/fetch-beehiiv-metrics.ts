@@ -1,10 +1,12 @@
 // Migrated from supabase/functions/fetch-beehiiv-metrics/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId } = body;
   if (!clientId) throw new Error('Client ID is required');
+  await assertClientAccess(user.id, clientId);
 
   const beehiivApiKey = process.env.BEEHIIV_API_KEY;
   if (!beehiivApiKey) throw new Error('Beehiiv API key not configured');

@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/twitter-reply/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { createHmac } from 'node:crypto';
 
 function generateOAuthSignature(method: string, url: string, params: Record<string, string>, consumerSecret: string, tokenSecret: string): string {
@@ -25,9 +26,10 @@ function generateOAuthHeader(method: string, url: string, apiKey: string, apiSec
   return 'OAuth ' + Object.entries(signed).sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`).join(', ');
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, opportunityId, replyText, tone = 'insightful', generateOnly = false } = body;
   if (!clientId || !opportunityId) throw new Error('clientId and opportunityId are required');
+  await assertClientAccess(user.id, clientId);
 
   const pool = getPool();
   const opportunity = await queryOne<any>(

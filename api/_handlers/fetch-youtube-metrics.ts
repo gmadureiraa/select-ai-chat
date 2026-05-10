@@ -1,10 +1,12 @@
 // Migrated from supabase/functions/fetch-youtube-metrics/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, channelId } = body;
   if (!clientId || !channelId) throw new Error('clientId and channelId are required');
+  await assertClientAccess(user.id, clientId);
 
   const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
   if (!YOUTUBE_API_KEY) throw new Error('YOUTUBE_API_KEY not configured');

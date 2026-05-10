@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/validate-social-credentials/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { createHmac } from 'node:crypto';
 
 function percentEncode(s: string): string {
@@ -65,8 +66,10 @@ async function validateLinkedIn(c: any) {
   }
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, platform, credentials } = body;
+  if (!clientId) throw new Error('clientId obrigatório');
+  await assertClientAccess(user.id, clientId);
   let result: any;
   if (platform === 'twitter') result = await validateTwitter(credentials);
   else if (platform === 'linkedin') result = await validateLinkedIn(credentials);

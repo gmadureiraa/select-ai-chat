@@ -12,6 +12,7 @@
 // já lê de `*_posts` tables locais).
 import { authedPost } from '../_lib/handler.js';
 import { query } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import {
   getPostizConfig,
   getPlatformAnalytics,
@@ -72,9 +73,10 @@ function calcChange(history: Array<{ date: string; followers: number }>, days: n
   return last.followers - old.followers;
 }
 
-export default authedPost<PostizSummaryResponse>(async ({ body }) => {
+export default authedPost<PostizSummaryResponse>(async ({ body, user }) => {
   const { clientId, period = 30 } = body;
   if (!clientId) throw new Error('clientId obrigatório');
+  await assertClientAccess(user.id, clientId);
 
   let cfg;
   try {

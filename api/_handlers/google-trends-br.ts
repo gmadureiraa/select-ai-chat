@@ -1,10 +1,12 @@
 // Migrated from supabase/functions/google-trends-br/index.ts
 import { anonPost } from '../_lib/handler.js';
 import { cacheViralSearch } from '../_lib/shared/viral-cache.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const FEED = 'https://trends.google.com/trending/rss?geo=BR';
 
 export default anonPost(async ({ user, body }) => {
+  if (user && body?.clientId) await assertClientAccess(user.id, body.clientId);
   const r = await fetch(FEED, { headers: { 'User-Agent': 'Mozilla/5.0 kAI-Trends' } });
   if (!r.ok) throw new Error(`Trends HTTP ${r.status}`);
   const xml = await r.text();

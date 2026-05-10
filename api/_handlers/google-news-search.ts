@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/google-news-search/index.ts
 import { anonPost } from '../_lib/handler.js';
 import { cacheViralSearch } from '../_lib/shared/viral-cache.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 function parseRSS(xml: string) {
   const items: Array<{ title: string; link: string; pubDate: string; description: string; guid?: string }> = [];
@@ -30,6 +31,7 @@ function parseRSS(xml: string) {
 export default anonPost(async ({ user, body }) => {
   const query = (body?.query ?? '').trim();
   if (!query) throw new Error('query é obrigatória');
+  if (user && body?.clientId) await assertClientAccess(user.id, body.clientId);
 
   const lang = body?.lang ?? 'pt-BR';
   const region = body?.region ?? 'BR';

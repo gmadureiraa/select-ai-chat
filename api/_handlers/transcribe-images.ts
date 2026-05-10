@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/transcribe-images/index.ts
 import { anonPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const MAX_IMAGES_PER_REQUEST = 1;
 const MODEL = 'gemini-2.5-flash';
@@ -82,12 +83,14 @@ Você receberá ${imageUrls.length} imagens (páginas ${startIndex + 1} a ${star
   return { transcription, inputTokens, outputTokens };
 }
 
-export default anonPost(async ({ body }) => {
+export default anonPost(async ({ body, user }) => {
   const { imageUrls, userId, clientId } = body;
   const startIndex = Number(body?.startIndex ?? 0);
   if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) throw new Error('imageUrls array is required');
   if (!Number.isFinite(startIndex) || startIndex < 0) throw new Error('startIndex must be a non-negative number');
   if (imageUrls.length > MAX_IMAGES_PER_REQUEST) throw new Error(`Maximum ${MAX_IMAGES_PER_REQUEST} images allowed per request`);
+  // Defesa: se o user logou e mandou clientId, garantir acesso. Anônimo passa direto.
+  if (user && clientId) await assertClientAccess(user.id, clientId);
   const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
   if (!apiKey) throw new Error('GOOGLE_AI_STUDIO_API_KEY not configured');
 

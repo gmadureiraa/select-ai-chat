@@ -1,12 +1,14 @@
 // Migrated from supabase/functions/generate-content-learnings/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { logAIUsage, estimateTokens } from '../_lib/shared/ai-usage.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const MODEL = 'gemini-2.0-flash';
 
 export default authedPost(async ({ user, body }) => {
   const { clientId, topPostsContext, bottomPostsContext, typeAvgContext, totalPosts } = body;
   if (!topPostsContext) throw new Error('Context is required');
+  if (clientId) await assertClientAccess(user.id, clientId);
 
   const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
   if (!apiKey) throw new Error('GOOGLE_AI_STUDIO_API_KEY not configured');

@@ -1,12 +1,14 @@
 // Migrated from supabase/functions/extract-docx/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const MODEL = 'gemini-2.5-flash';
 
 export default authedPost(async ({ user, body }) => {
   const { fileUrl, fileName, userId, clientId } = body;
   if (!fileUrl) throw new Error('fileUrl é obrigatório');
+  if (clientId) await assertClientAccess(user.id, clientId);
 
   console.log(`Extracting DOCX content from: ${fileName || fileUrl}`);
 

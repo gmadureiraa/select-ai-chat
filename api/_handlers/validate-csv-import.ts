@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/validate-csv-import/index.ts
 import { anonPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 type DateRange = { start: string; end: string };
 const MODEL = 'google/gemini-2.5-flash';
@@ -25,8 +26,9 @@ function computeDateRangeFromMetrics(metrics: any[]): DateRange | null {
   return { start: dates[0], end: dates[dates.length - 1] };
 }
 
-export default anonPost(async ({ body }) => {
+export default anonPost(async ({ body, user }) => {
   const { clientId, platform, importedCount, dateRange, userId, importTypes, fileName } = body;
+  if (user && clientId) await assertClientAccess(user.id, clientId);
 
   const hasDateRange = Boolean(dateRange?.start && dateRange?.end);
   const pool = getPool();

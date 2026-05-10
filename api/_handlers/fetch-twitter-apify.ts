@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/fetch-twitter-apify/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 function parseCount(val: any): number {
   if (val === null || val === undefined) return 0;
@@ -10,9 +11,10 @@ function parseCount(val: any): number {
   return isNaN(num) ? 0 : num;
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, twitterHandle, maxResults: customMaxResults } = body;
   if (!clientId || !twitterHandle) throw new Error('clientId and twitterHandle are required');
+  await assertClientAccess(user.id, clientId);
 
   const APIFY_API_TOKEN_1 = process.env.APIFY_API_TOKEN || process.env.APIFY_API_KEY;
   const APIFY_API_TOKEN_2 = process.env.APIFY_API_TOKEN_2;

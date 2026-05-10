@@ -25,6 +25,7 @@
 import { authedPost } from '../_lib/handler.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
 import { logAIUsage, estimateImageTokens, estimateTokens } from '../_lib/shared/ai-usage.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const MODEL = 'gemini-2.5-flash';
 const MAX_VIDEO_SIZE = 18 * 1024 * 1024; // 18MB pra inlineData (Gemini limita 20MB total)
@@ -297,6 +298,7 @@ export default authedPost(async ({ user, body }) => {
   } = (body || {}) as TranscribeBody;
 
   if (!clientId) throw new Error('clientId é obrigatório');
+  await assertClientAccess(user.id, clientId);
   if (!postId) throw new Error('postId é obrigatório');
 
   const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;

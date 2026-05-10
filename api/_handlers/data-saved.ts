@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { tryAuth } from '../_lib/auth.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const PostSchema = z.object({
   platform: z.string().min(1).max(40),
@@ -94,6 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       clientId,
       refData,
     } = parsed.data;
+    if (clientId) await assertClientAccess(auth.id, clientId);
     const resolvedNiche = niche ?? nicheSlug ?? null;
     const resolvedNote = note ?? notes ?? null;
     // Empacota campos flat dentro de ref_data (DB schema usa jsonb pra esses).

@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/sync-rss-to-library/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 interface SyncResult {
   total: number;
@@ -223,9 +224,10 @@ async function syncNewsletter(clientId: string, rssUrl: string | undefined, mode
   }
 }
 
-export default authedPost(async ({ body, req }) => {
+export default authedPost(async ({ body, req, user }) => {
   const { clientId, platform, rssUrl, channelId, mode = 'only_missing', forceRetranscribe = false, limit = 20 } = body;
   if (!clientId || !platform) throw new Error('clientId and platform are required');
+  await assertClientAccess(user.id, clientId);
 
   console.log(`Syncing ${platform} RSS to library for client ${clientId}`);
 

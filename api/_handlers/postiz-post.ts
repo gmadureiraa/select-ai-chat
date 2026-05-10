@@ -15,6 +15,7 @@
 // `late_account_id` legado como fallback durante a migração).
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import {
   getPostizConfig,
   createPost,
@@ -27,7 +28,7 @@ import {
 const ALLOWED_PLATFORMS = ['twitter', 'linkedin', 'instagram', 'tiktok', 'youtube', 'facebook', 'threads'] as const;
 type AllowedPlatform = typeof ALLOWED_PLATFORMS[number];
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const {
     clientId,
     platform,
@@ -45,6 +46,7 @@ export default authedPost(async ({ body }) => {
   if (!ALLOWED_PLATFORMS.includes(platform as AllowedPlatform)) {
     throw new Error(`Plataforma inválida: ${platform}`);
   }
+  await assertClientAccess(user.id, clientId);
 
   const igOpts = platformOptions?.instagram || {};
   const fbOpts = platformOptions?.facebook || {};

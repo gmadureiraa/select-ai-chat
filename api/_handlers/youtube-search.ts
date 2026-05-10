@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/youtube-search/index.ts
 import { anonPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const YT_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
@@ -58,6 +59,7 @@ export default anonPost(async ({ user, body }) => {
   if (!apiKey) {
     throw new Error('YOUTUBE_API_KEY não configurada');
   }
+  if (user && (body as SearchBody)?.clientId) await assertClientAccess(user.id, (body as SearchBody).clientId!);
   const b = body as Partial<SearchBody>;
   const query = (b.query ?? '').trim();
   if (!query) throw new Error('query é obrigatória');

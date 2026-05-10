@@ -3,6 +3,7 @@
 // Defensive fallback: if LinkedIn integration not configured, returns 503.
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const REQUIRED_ENV = ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET'];
 
@@ -77,7 +78,7 @@ async function uploadImageToLinkedIn(
   }
 }
 
-export default authedPost(async ({ body, res }) => {
+export default authedPost(async ({ body, res, user }) => {
   const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
   if (missing.length > 0) {
     res.status(503).json({
@@ -108,6 +109,11 @@ export default authedPost(async ({ body, res }) => {
     postId = scheduledPostId;
   } else {
     throw new Error('scheduledPostId ou planningItemId é obrigatório');
+  }
+
+  // Garante que o usuário pertence ao workspace dono do client deste post.
+  if (post.client_id) {
+    await assertClientAccess(user.id, post.client_id);
   }
 
   console.log(`Processing LinkedIn post for ${tableName}: ${postId}`);

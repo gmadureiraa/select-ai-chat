@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { tryAuth } from '../_lib/auth.js';
 import { getPool, queryOne, query } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { put } from '@vercel/blob';
 
 // =====================================================
@@ -297,6 +298,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Resolve user (may be missing on internal/cron calls — try clientId fallback)
     const user = await tryAuth(req);
     let userId: string | null = user?.id ?? null;
+    // Se user logado, validar acesso ao client (defesa contra IDOR).
+    // Se não logado, mantemos o fluxo legado (cron + internal).
+    if (user && clientId) await assertClientAccess(user.id, clientId);
     if (!userId && clientId) {
       const c = await queryOne<any>(
         `SELECT user_id, created_by, workspace_id FROM clients WHERE id = $1`,

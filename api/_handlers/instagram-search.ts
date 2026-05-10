@@ -1,10 +1,12 @@
 // Migrated from supabase/functions/instagram-search/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { cacheViralSearch } from '../_lib/shared/viral-cache.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 export default authedPost(async ({ user, body }) => {
   const hashtag = (body?.hashtag ?? '').trim().replace(/^#/, '');
   if (!hashtag) throw new Error('hashtag obrigatória');
+  if (body?.clientId) await assertClientAccess(user.id, body.clientId);
 
   const limit = Math.min(Math.max(body?.limit ?? 12, 1), 30);
   const offset = Math.max(body?.offset ?? 0, 0);

@@ -1,10 +1,12 @@
 // Migrated from supabase/functions/analyze-youtube-sentiment/index.ts
 import { authedPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user }) => {
   const { clientId, comments } = body;
   if (!clientId) throw new Error('clientId is required');
+  await assertClientAccess(user.id, clientId);
 
   const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
   if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');

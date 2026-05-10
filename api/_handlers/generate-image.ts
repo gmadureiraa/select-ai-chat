@@ -3,6 +3,7 @@
 import { authedPost } from '../_lib/handler.js';
 import { put } from '@vercel/blob';
 import { logAIUsage, estimateTokens } from '../_lib/shared/ai-usage.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 interface ReferenceImageInput {
   url?: string;
@@ -48,6 +49,7 @@ function parseDataUrl(input: string): { mime: string; data: string } | null {
 export default authedPost(async ({ user, body }) => {
   const { prompt, referenceImages, aspectRatio, noText, clientId, model } = body as GenerateImageBody;
   if (!prompt || typeof prompt !== 'string') throw new Error('prompt é obrigatório');
+  if (clientId) await assertClientAccess(user.id, clientId);
 
   const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
   if (!apiKey) throw new Error('GOOGLE_AI_STUDIO_API_KEY não configurada');

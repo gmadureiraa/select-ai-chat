@@ -2,6 +2,7 @@
 // NOTE: token check (workspace tokens) deferred — implement after Neon schema is ported
 import { authedPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const MODEL = 'gemini-2.5-flash';
 
@@ -14,6 +15,7 @@ export default authedPost(async ({ user, body }) => {
   if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
     throw new Error('imageUrls array is required');
   }
+  if (clientId) await assertClientAccess(user.id, clientId);
   const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
   if (!apiKey) throw new Error('API key not configured');
 

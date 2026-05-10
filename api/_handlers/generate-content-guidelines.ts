@@ -2,10 +2,12 @@
 import { anonPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
 import { callLLM } from '../_lib/llm.js';
+import { assertClientAccess } from '../_lib/access.js';
 
-export default anonPost(async ({ body }) => {
+export default anonPost(async ({ body, user }) => {
   const { clientId } = body;
   if (!clientId) throw new Error('clientId is required');
+  if (user) await assertClientAccess(user.id, clientId);
 
   const pool = getPool();
   const [client, library, topPosts] = await Promise.all([

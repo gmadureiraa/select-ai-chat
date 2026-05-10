@@ -3,14 +3,16 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { handlePreflight, applyCors, jsonError } from '../_lib/cors.js';
 import { verifyAuth } from '../_lib/auth.js';
 import { queryOne, query } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
   applyCors(res);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
 
+  let authedUser;
   try {
-    await verifyAuth(req);
+    authedUser = await verifyAuth(req);
   } catch (e: any) {
     return jsonError(res, 401, e.message || 'Authentication required');
   }
@@ -19,6 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const body = req.body && typeof req.body === 'object' ? req.body : (req.body ? JSON.parse(req.body) : {});
     const { clientId, workspaceId, userId, request, action, quantity } = body;
     if (!clientId || !workspaceId || !userId) return jsonError(res, 400, 'clientId, workspaceId e userId são obrigatórios');
+    await assertClientAccess(authedUser.id, clientId);
 
     const client = await queryOne<any>(`SELECT name, description, identity_guide FROM clients WHERE id = $1`, [clientId]);
     const topPosts = await query<any>(

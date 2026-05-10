@@ -5,6 +5,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { tryAuth } from '../_lib/auth.js';
 import { logAIUsage, estimateTokens } from '../_lib/shared/ai-usage.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 interface ChatMessage { role: 'system' | 'user' | 'assistant'; content: string; }
 
@@ -40,6 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const user = await tryAuth(req);
     const userId = user?.id ?? null;
+    if (user && clientId) await assertClientAccess(user.id, clientId);
     const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
     if (!apiKey) return jsonError(res, 500, 'Chave da API do Google AI não configurada');
 

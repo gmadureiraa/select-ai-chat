@@ -10,6 +10,7 @@
 // client_social_credentials.metadata.postiz_integration_id.
 import { authedPost } from '../_lib/handler.js';
 import { queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import {
   getPostizConfig,
   getPlatformAnalytics,
@@ -26,8 +27,9 @@ interface PostizAnalyticsResult {
   error?: string;
 }
 
-export default authedPost<PostizAnalyticsResult>(async ({ body }) => {
+export default authedPost<PostizAnalyticsResult>(async ({ body, user }) => {
   const { clientId, platform, integrationId: directId, postId, daysBack = 30 } = body;
+  if (clientId) await assertClientAccess(user.id, clientId);
 
   let cfg;
   try {
