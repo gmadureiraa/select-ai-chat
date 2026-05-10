@@ -37,54 +37,57 @@ interface CalendarViewProps {
   memberMap?: Record<string, { name: string; initials: string }>;
 }
 
+// Usa CSS vars --status-* (declaradas em index.css com light/dark) pra
+// consistência com o Kanban. Cada status renderiza com tinted bg + dot
+// + border na mesma cor, escalonando opacity entre light/dark via /10, /20.
 const statusConfig: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-  idea: { 
-    bg: 'bg-purple-100 dark:bg-purple-900/50', 
-    text: 'text-purple-800 dark:text-purple-200',
-    border: 'border-purple-300 dark:border-purple-700',
-    dot: 'bg-purple-500'
+  idea: {
+    bg: 'bg-[hsl(var(--status-idea)/0.12)]',
+    text: 'text-[hsl(var(--status-idea))]',
+    border: 'border-[hsl(var(--status-idea)/0.30)]',
+    dot: 'bg-[hsl(var(--status-idea))]',
   },
-  draft: { 
-    bg: 'bg-blue-100 dark:bg-blue-900/50', 
-    text: 'text-blue-800 dark:text-blue-200',
-    border: 'border-blue-300 dark:border-blue-700',
-    dot: 'bg-blue-500'
+  draft: {
+    bg: 'bg-[hsl(var(--status-draft)/0.12)]',
+    text: 'text-[hsl(var(--status-draft))]',
+    border: 'border-[hsl(var(--status-draft)/0.30)]',
+    dot: 'bg-[hsl(var(--status-draft))]',
   },
-  review: { 
-    bg: 'bg-amber-100 dark:bg-amber-900/50', 
-    text: 'text-amber-800 dark:text-amber-200',
-    border: 'border-amber-300 dark:border-amber-700',
-    dot: 'bg-amber-500'
+  review: {
+    bg: 'bg-[hsl(var(--status-review)/0.12)]',
+    text: 'text-[hsl(var(--status-review))]',
+    border: 'border-[hsl(var(--status-review)/0.30)]',
+    dot: 'bg-[hsl(var(--status-review))]',
   },
-  approved: { 
-    bg: 'bg-emerald-100 dark:bg-emerald-900/50', 
-    text: 'text-emerald-800 dark:text-emerald-200',
-    border: 'border-emerald-300 dark:border-emerald-700',
-    dot: 'bg-emerald-500'
+  approved: {
+    bg: 'bg-[hsl(var(--status-approved)/0.12)]',
+    text: 'text-[hsl(var(--status-approved))]',
+    border: 'border-[hsl(var(--status-approved)/0.30)]',
+    dot: 'bg-[hsl(var(--status-approved))]',
   },
-  scheduled: { 
-    bg: 'bg-orange-100 dark:bg-orange-900/50', 
-    text: 'text-orange-800 dark:text-orange-200',
-    border: 'border-orange-300 dark:border-orange-700',
-    dot: 'bg-orange-500'
+  scheduled: {
+    bg: 'bg-[hsl(var(--status-scheduled)/0.12)]',
+    text: 'text-[hsl(var(--status-scheduled))]',
+    border: 'border-[hsl(var(--status-scheduled)/0.30)]',
+    dot: 'bg-[hsl(var(--status-scheduled))]',
   },
-  publishing: { 
-    bg: 'bg-orange-100 dark:bg-orange-900/50', 
-    text: 'text-orange-700 dark:text-orange-200',
-    border: 'border-orange-300 dark:border-orange-700',
-    dot: 'bg-orange-400 animate-pulse'
+  publishing: {
+    bg: 'bg-[hsl(var(--status-publishing)/0.12)]',
+    text: 'text-[hsl(var(--status-publishing))]',
+    border: 'border-[hsl(var(--status-publishing)/0.30)]',
+    dot: 'bg-[hsl(var(--status-publishing))] animate-pulse',
   },
-  published: { 
-    bg: 'bg-green-100 dark:bg-green-900/50', 
-    text: 'text-green-800 dark:text-green-200',
-    border: 'border-green-300 dark:border-green-700',
-    dot: 'bg-green-500'
+  published: {
+    bg: 'bg-[hsl(var(--status-published)/0.12)]',
+    text: 'text-[hsl(var(--status-published))]',
+    border: 'border-[hsl(var(--status-published)/0.30)]',
+    dot: 'bg-[hsl(var(--status-published))]',
   },
-  failed: { 
-    bg: 'bg-red-100 dark:bg-red-900/50', 
-    text: 'text-red-800 dark:text-red-200',
-    border: 'border-red-300 dark:border-red-700',
-    dot: 'bg-red-500 animate-pulse'
+  failed: {
+    bg: 'bg-[hsl(var(--status-failed)/0.12)]',
+    text: 'text-[hsl(var(--status-failed))]',
+    border: 'border-[hsl(var(--status-failed)/0.30)]',
+    dot: 'bg-[hsl(var(--status-failed))] animate-pulse',
   },
 };
 

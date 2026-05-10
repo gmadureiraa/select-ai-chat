@@ -102,7 +102,7 @@ export const KanbanView = forwardRef<KanbanViewHandle, KanbanViewProps>(function
 
   const columnsMap = localColumnsMap ?? baseColumnsMap;
 
-  // Index: itemId -> columnId
+  // Index: itemId -> columnId (do estado VISÍVEL — usado pra resolver hits)
   const itemColumnIndex = useMemo(() => {
     const idx: Record<string, string> = {};
     for (const colId in columnsMap) {
@@ -110,6 +110,15 @@ export const KanbanView = forwardRef<KanbanViewHandle, KanbanViewProps>(function
     }
     return idx;
   }, [columnsMap]);
+
+  // Index: itemId -> columnId (do BASE — usado pra computar diffs no dragEnd)
+  const baseItemColumnIndex = useMemo(() => {
+    const idx: Record<string, string> = {};
+    for (const colId in baseColumnsMap) {
+      for (const item of baseColumnsMap[colId]) idx[item.id] = colId;
+    }
+    return idx;
+  }, [baseColumnsMap]);
 
   useEffect(() => {
     const updateHeight = () => {
@@ -219,15 +228,21 @@ export const KanbanView = forwardRef<KanbanViewHandle, KanbanViewProps>(function
       }
     }
 
-    // Compute diffs vs base
+    // Compute diffs vs base — só envia updates pra cards que realmente mudaram
+    // de coluna ou posição. Bug anterior: lookup `baseColumnsMap[itemColumnIndex[item.id]]`
+    // funcionava mas comparava contra column_id atual (já mutado pelo dragOver
+    // no localColumnsMap), gerando updates desnecessários a cada drag.
     const updates: Array<{ id: string; column_id: string; position: number; status?: PlanningStatus }> = [];
     for (const colId in workingMap) {
       const column = columns.find(c => c.id === colId);
       const newStatus = column?.column_type ? STATUS_MAP[column.column_type] : undefined;
       workingMap[colId].forEach((item, idx) => {
-        const baseItem = baseColumnsMap[item.id ? itemColumnIndex[item.id] : '']?.find(i => i.id === item.id);
-        const movedColumn = baseItem?.column_id !== colId;
-        const movedPosition = baseItem?.position !== idx;
+        // Olha a posição/coluna ORIGINAL (base), não a versão que o dragOver mutou
+        const baseColId = baseItemColumnIndex[item.id];
+        const baseItem = baseColId ? baseColumnsMap[baseColId]?.find(i => i.id === item.id) : undefined;
+        if (!baseItem) return; // item novo? skip
+        const movedColumn = baseColId !== colId;
+        const movedPosition = baseItem.position !== idx;
         if (movedColumn || movedPosition) {
           updates.push({
             id: item.id,
@@ -250,7 +265,7 @@ export const KanbanView = forwardRef<KanbanViewHandle, KanbanViewProps>(function
     }
 
     setLocalColumnsMap(null);
-  }, [baseColumnsMap, columns, findColumnIdOf, itemColumnIndex, localColumnsMap, onMoveItem, onReorder]);
+  }, [baseColumnsMap, baseItemColumnIndex, columns, findColumnIdOf, localColumnsMap, onMoveItem, onReorder]);
 
   const handleDragCancel = useCallback(() => {
     setActiveItem(null);
