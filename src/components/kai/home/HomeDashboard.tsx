@@ -20,7 +20,6 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
-  AlertTriangle,
   ArrowRight,
   Bell,
   CalendarDays,
@@ -45,7 +44,6 @@ import {
 } from "lucide-react";
 import {
   format,
-  formatDistanceToNow,
   isPast,
   isToday,
   parseISO,
@@ -351,6 +349,22 @@ export function HomeDashboard({
     return full.split(" ")[0]; // primeiro nome só
   }, [userProfile, user]);
 
+  // ── Drafts em revisão (planning_items com status='review' no workspace) ──
+  const { data: reviewCount = 0 } = useQuery({
+    queryKey: ["dashboard-review-count", workspaceId],
+    queryFn: async () => {
+      if (!workspaceId) return 0;
+      const { count } = await supabase
+        .from("planning_items")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId)
+        .eq("status", "review");
+      return count ?? 0;
+    },
+    enabled: !!workspaceId,
+    staleTime: 60_000,
+  });
+
   // ── Radar setup proxy: usa contagem de viral_radar_briefs (cliente recebeu
   //    pelo menos 1 brief) como sinal de que o radar está configurado.
   //    `radar_sources` real é gerenciada via Settings → Radar Sources, mas
@@ -624,19 +638,15 @@ export function HomeDashboard({
                   <PendencyTile
                     icon={Eye}
                     label="Aguardando revisão"
-                    count={
-                      stats &&
-                      stats.totalPlanningItems > 0
-                        ? // Conta drafts em revisão usando o totalPlanningItems é
-                          // grosseiro — buscamos exato via NotificationsBell.
-                          // Aqui só sinalizamos se tem pipeline.
-                          0
-                        : 0
+                    count={reviewCount}
+                    hint={
+                      reviewCount > 0
+                        ? `${reviewCount === 1 ? "Draft esperando" : "Drafts esperando"} aprovação`
+                        : "Nada na fila de revisão"
                     }
-                    hint="Drafts esperando aprovação"
                     tone="warning"
                     onClick={() => onNavigate("planning")}
-                    fallback="Veja no Planning"
+                    fallback="Sem pendências"
                   />
                   <PendencyTile
                     icon={Clock}
