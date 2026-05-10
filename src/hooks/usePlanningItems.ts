@@ -134,40 +134,38 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       const pageSize = 1000;
       const allData: Record<string, any>[] = [];
 
-      for (let from = 0; ; from += pageSize) {
-        let query = supabase
+      // Fallback: se PostgREST schema cache ainda estiver stale (FKs recém-aplicadas),
+      // fazer query SEM embed. Front lida com clients/columns separadamente via
+      // os queries dedicados de useClients/useKanbanColumns.
+      const buildQuery = (withEmbed: boolean) => {
+        let q = supabase
           .from('planning_items')
-          .select(`
-            *,
-            clients:client_id (id, name, avatar_url),
-            kanban_columns:column_id (id, name, color, column_type)
-          `)
+          .select(
+            withEmbed
+              ? `*,clients:client_id(id,name,avatar_url),kanban_columns:column_id(id,name,color,column_type)`
+              : '*',
+          )
           .eq('workspace_id', workspaceId)
-          .order('position', { ascending: true })
-          .range(from, from + pageSize - 1);
+          .order('position', { ascending: true });
+        if (filters.clientId) q = q.eq('client_id', filters.clientId);
+        if (filters.platform) q = q.eq('platform', filters.platform);
+        if (filters.status) q = q.eq('status', filters.status);
+        if (filters.priority) q = q.eq('priority', filters.priority);
+        if (filters.assignedTo) q = q.eq('assigned_to', filters.assignedTo);
+        if (filters.search) q = q.ilike('title', `%${filters.search}%`);
+        return q;
+      };
 
-        if (filters.clientId) {
-          query = query.eq('client_id', filters.clientId);
+      for (let from = 0; ; from += pageSize) {
+        let { data, error } = await buildQuery(true).range(from, from + pageSize - 1);
+        // PGRST200: relationship not found → schema cache stale, retry sem embed.
+        if (error && (error as any)?.code === 'PGRST200') {
+          console.warn('[usePlanningItems] embed query failed (schema cache stale), retrying without embed');
+          const fallback = await buildQuery(false).range(from, from + pageSize - 1);
+          data = fallback.data;
+          error = fallback.error;
         }
-        if (filters.platform) {
-          query = query.eq('platform', filters.platform);
-        }
-        if (filters.status) {
-          query = query.eq('status', filters.status);
-        }
-        if (filters.priority) {
-          query = query.eq('priority', filters.priority);
-        }
-        if (filters.assignedTo) {
-          query = query.eq('assigned_to', filters.assignedTo);
-        }
-        if (filters.search) {
-          query = query.ilike('title', `%${filters.search}%`);
-        }
-
-        const { data, error } = await query;
         if (error) throw error;
-
         allData.push(...(data || []));
         if (!data || data.length < pageSize) break;
       }
