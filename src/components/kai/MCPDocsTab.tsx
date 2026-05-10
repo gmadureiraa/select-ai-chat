@@ -75,11 +75,11 @@ const TOOLS: Tool[] = [
 
 const CATEGORY_META: Record<Tool["category"], { label: string; color: string; icon: React.ReactNode }> = {
   system: { label: "Sistema", color: "bg-muted text-muted-foreground border-border", icon: <Terminal className="h-3 w-3" /> },
-  read: { label: "Leitura", color: "bg-blue-500/10 text-blue-300 border-blue-500/30", icon: <Database className="h-3 w-3" /> },
-  write: { label: "Escrita", color: "bg-amber-500/10 text-amber-300 border-amber-500/30", icon: <Wrench className="h-3 w-3" /> },
-  files: { label: "Arquivos", color: "bg-purple-500/10 text-purple-300 border-purple-500/30", icon: <Image className="h-3 w-3" /> },
+  read: { label: "Leitura", color: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30", icon: <Database className="h-3 w-3" /> },
+  write: { label: "Escrita", color: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30", icon: <Wrench className="h-3 w-3" /> },
+  files: { label: "Arquivos", color: "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30", icon: <Image className="h-3 w-3" /> },
   publish: { label: "Publicação", color: "bg-primary/10 text-primary border-primary/30", icon: <Megaphone className="h-3 w-3" /> },
-  ai: { label: "IA", color: "bg-pink-500/10 text-pink-300 border-pink-500/30", icon: <Sparkles className="h-3 w-3" /> },
+  ai: { label: "IA", color: "bg-pink-500/10 text-pink-700 dark:text-pink-300 border-pink-500/30", icon: <Sparkles className="h-3 w-3" /> },
 };
 
 const CLAUDE_CODE_CONFIG = `{
@@ -516,7 +516,7 @@ export function MCPDocsTab() {
             ].map((row) => (
               <Card key={row.code} className="p-3 bg-muted/40 border-border/50">
                 <div className="flex items-start gap-3">
-                  <code className="text-xs font-mono text-amber-300 whitespace-nowrap pt-0.5">{row.code}</code>
+                  <code className="text-xs font-mono text-amber-700 dark:text-amber-300 whitespace-nowrap pt-0.5">{row.code}</code>
                   <span className="text-xs text-muted-foreground">{row.fix}</span>
                 </div>
               </Card>

@@ -39,7 +39,13 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <ErrorBoundary>
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem storageKey="kai-theme">
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark"
+      enableSystem
+      disableTransitionOnChange
+      storageKey="kai-theme"
+    >
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <SkipLink />

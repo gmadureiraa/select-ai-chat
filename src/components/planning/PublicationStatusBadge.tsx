@@ -100,7 +100,7 @@ export function PublicationStatusBadge({
       <Badge 
         variant="secondary" 
         className={cn(
-          "gap-1 bg-blue-100 text-blue-700 border-blue-200",
+          "gap-1 bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
           compact && "text-[10px] px-1.5 py-0"
         )}
       >
@@ -116,7 +116,7 @@ export function PublicationStatusBadge({
       <Badge 
         variant="secondary" 
         className={cn(
-          "gap-1 bg-green-100 text-green-700 border-green-200",
+          "gap-1 bg-green-100 text-green-700 border-green-200 dark:bg-green-500/15 dark:text-green-300 dark:border-green-500/30",
           compact && "text-[10px] px-1.5 py-0"
         )}
       >

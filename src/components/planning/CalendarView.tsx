@@ -205,12 +205,12 @@ function CalendarCard({
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-semibold truncate flex-1">{item.title}</span>
             {isAutoPublish ? (
-              <Badge variant="outline" className="text-[9px] h-4 bg-green-100 text-green-700 border-green-300 shrink-0">
+              <Badge variant="outline" className="text-[9px] h-4 bg-green-100 text-green-700 border-green-300 dark:bg-green-500/15 dark:text-green-300 dark:border-green-500/30 shrink-0">
                 <Bot className="h-2 w-2 mr-0.5" />
                 Auto
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-[9px] h-4 bg-amber-100 text-amber-700 border-amber-300 shrink-0">
+              <Badge variant="outline" className="text-[9px] h-4 bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30 shrink-0">
                 <FileEdit className="h-2 w-2 mr-0.5" />
                 Manual
               </Badge>
@@ -248,8 +248,8 @@ function CalendarCard({
           {daysUntil !== null && item.status === 'scheduled' && (
             <div className={cn(
               "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full",
-              daysUntil === 0 && "bg-orange-100 text-orange-700",
-              daysUntil === 1 && "bg-amber-100 text-amber-700",
+              daysUntil === 0 && "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300",
+              daysUntil === 1 && "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
               daysUntil > 1 && "bg-muted text-muted-foreground"
             )}>
               <Sparkles className="h-2.5 w-2.5" />

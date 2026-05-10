@@ -37,9 +37,9 @@ interface TasksCalendarViewProps {
 }
 
 const priorityClass: Record<string, string> = {
-  urgent: "bg-red-500/20 text-red-300 hover:bg-red-500/30 border-red-500/30",
-  high: "bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 border-orange-500/30",
-  medium: "bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border-blue-500/30",
+  urgent: "bg-red-500/15 text-red-700 hover:bg-red-500/25 border-red-500/30 dark:text-red-300",
+  high: "bg-orange-500/15 text-orange-700 hover:bg-orange-500/25 border-orange-500/30 dark:text-orange-300",
+  medium: "bg-blue-500/15 text-blue-700 hover:bg-blue-500/25 border-blue-500/30 dark:text-blue-300",
   low: "bg-muted text-muted-foreground hover:bg-muted/80 border-border/50",
 };
 
@@ -155,12 +155,12 @@ export function TasksCalendarView({
                 <span className="font-medium text-foreground">{monthStats.total}</span> tarefas
               </span>
               {monthStats.overdue > 0 && (
-                <span className="text-red-400">
+                <span className="text-destructive">
                   <span className="font-medium">{monthStats.overdue}</span> atrasadas
                 </span>
               )}
               {monthStats.done > 0 && (
-                <span className="text-emerald-400">
+                <span className="text-emerald-600 dark:text-emerald-400">
                   <span className="font-medium">{monthStats.done}</span> concluídas
                 </span>
               )}
@@ -274,7 +274,7 @@ export function TasksCalendarView({
                       className={cn(
                         "w-full text-left text-[10px] px-1.5 py-0.5 rounded truncate transition-colors border",
                         t.status === "done"
-                          ? "bg-emerald-500/15 text-emerald-300 line-through border-emerald-500/30"
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 line-through border-emerald-500/30"
                           : priorityClass[t.priority] ?? priorityClass.low,
                         statusBg[t.status],
                         draggedId === t.id && "opacity-40",

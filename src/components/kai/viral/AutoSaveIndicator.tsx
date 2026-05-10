@@ -79,7 +79,7 @@ export function AutoSaveIndicator({
       )}
       {status === "saved" && (
         <>
-          <Check className="h-3 w-3" style={{ color: "#16a34a" }} />
+          <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-500" />
           <span>
             Salvo
             {lastSavedLabel && (
@@ -90,7 +90,7 @@ export function AutoSaveIndicator({
       )}
       {status === "error" && (
         <>
-          <CloudOff className="h-3 w-3" style={{ color: "#dc2626" }} />
+          <CloudOff className="h-3 w-3 text-destructive" />
           <span>Erro ao salvar</span>
         </>
       )}

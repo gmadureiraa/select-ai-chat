@@ -29,14 +29,14 @@ const FORMAT_CHIP: Record<
   string,
   { label: string; icon: React.ComponentType<{ className?: string }>; class: string }
 > = {
-  carousel: { label: "Carrossel", icon: Layers, class: "bg-purple-500/10 text-purple-600 border-purple-500/30" },
-  reel: { label: "Reel", icon: Film, class: "bg-rose-500/10 text-rose-600 border-rose-500/30" },
-  static: { label: "Imagem única", icon: ImageIcon, class: "bg-sky-500/10 text-sky-600 border-sky-500/30" },
-  tweet: { label: "Tweet", icon: AtSign, class: "bg-cyan-500/10 text-cyan-600 border-cyan-500/30" },
-  thread: { label: "Thread", icon: ScrollText, class: "bg-cyan-500/10 text-cyan-700 border-cyan-500/30" },
-  newsletter: { label: "Newsletter", icon: Mail, class: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" },
-  article: { label: "Artigo", icon: BookOpen, class: "bg-amber-500/10 text-amber-600 border-amber-500/30" },
-  email: { label: "Email mkt", icon: Mail, class: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30" },
+  carousel: { label: "Carrossel", icon: Layers, class: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30" },
+  reel: { label: "Reel", icon: Film, class: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30" },
+  static: { label: "Imagem única", icon: ImageIcon, class: "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30" },
+  tweet: { label: "Tweet", icon: AtSign, class: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/30" },
+  thread: { label: "Thread", icon: ScrollText, class: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/30" },
+  newsletter: { label: "Newsletter", icon: Mail, class: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
+  article: { label: "Artigo", icon: BookOpen, class: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30" },
+  email: { label: "Email mkt", icon: Mail, class: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
 };
 
 interface ClientReferencesManagerProps {

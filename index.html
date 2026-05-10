@@ -9,8 +9,25 @@
     <meta name="author" content="Kaleidos Digital" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 
+    <!-- Anti-FOUC: aplica tema salvo antes do React montar
+         (evita flash de light durante hydration do next-themes em Vite SPA) -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('kai-theme');
+          var theme = stored || 'dark';
+          if (theme === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.classList.add(theme);
+          document.documentElement.style.colorScheme = theme;
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#16a34a" />
+    <meta name="theme-color" content="#d262b2" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#16a34a" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="KAI" />

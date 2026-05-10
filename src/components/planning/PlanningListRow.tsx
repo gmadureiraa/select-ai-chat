@@ -47,7 +47,7 @@ const priorityConfig: Record<string, { color: string; label: string }> = {
   urgent: { color: 'text-red-600', label: 'Urgente' },
   high: { color: 'text-red-500', label: 'Alta' },
   medium: { color: 'text-amber-500', label: 'Média' },
-  low: { color: 'text-blue-400', label: 'Baixa' },
+  low: { color: 'text-blue-600 dark:text-blue-400', label: 'Baixa' },
 };
 
 const statusLabels: Record<string, string> = {

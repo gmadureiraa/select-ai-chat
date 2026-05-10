@@ -261,7 +261,7 @@ export function ClickUpImportDialog({ open, onOpenChange, onImportComplete }: Cl
               <ScrollArea className="max-h-32 w-full">
                 <div className="space-y-1 px-4">
                   {result.errors.map((err, i) => (
-                    <p key={i} className="text-xs text-red-400 flex items-start gap-1">
+                    <p key={i} className="text-xs text-destructive flex items-start gap-1">
                       <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
                       {err}
                     </p>

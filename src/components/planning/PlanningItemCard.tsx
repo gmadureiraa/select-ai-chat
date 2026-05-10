@@ -115,7 +115,7 @@ const platformLabels: Record<string, string> = {
 const priorityConfig: Record<string, { color: string; label: string }> = {
   high: { color: 'text-red-500', label: 'Alta' },
   medium: { color: 'text-amber-500', label: 'Média' },
-  low: { color: 'text-blue-400', label: 'Baixa' },
+  low: { color: 'text-blue-600 dark:text-blue-400', label: 'Baixa' },
 };
 
 export const PlanningItemCard = memo(function PlanningItemCard({

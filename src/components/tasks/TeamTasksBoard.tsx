@@ -396,11 +396,11 @@ export function TeamTasksBoard({ defaultClientId }: { defaultClientId?: string |
 function Kpi({ label, value, tone }: { label: string; value: number; tone?: "primary" | "danger" | "success" }) {
   const toneCls =
     tone === "danger"
-      ? "bg-red-500/10 text-red-400 border-red-500/30"
+      ? "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30"
       : tone === "primary"
         ? "bg-primary/10 text-primary border-primary/30"
         : tone === "success"
-          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
           : "bg-muted/40 text-muted-foreground border-border";
   return (
     <span className={cn("inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-full border", toneCls)}>

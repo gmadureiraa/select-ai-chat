@@ -125,7 +125,7 @@ export function TaskCard({
               <span
                 className={cn(
                   "inline-flex items-center gap-1",
-                  overdue ? "text-red-400" : dueToday ? "text-amber-400" : "text-muted-foreground",
+                  overdue ? "text-destructive" : dueToday ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
                 )}
               >
                 {overdue && (

@@ -81,8 +81,8 @@ const TEST_EVENTS = [
 ] as const;
 
 const severityStyles: Record<string, string> = {
-  alert: "bg-red-500/10 text-red-400 border-red-500/30",
-  info: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  alert: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30",
+  info: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30",
   silent: "bg-muted text-muted-foreground border-border",
 };
 
@@ -262,7 +262,7 @@ export function WebhookSettings() {
           <TabsTrigger value="history">
             Histórico
             {failureCount > 0 && (
-              <Badge variant="outline" className="ml-2 text-[10px] bg-red-500/10 text-red-400 border-red-500/30">
+              <Badge variant="outline" className="ml-2 text-[10px] bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30">
                 {failureCount} erros
               </Badge>
             )}
@@ -496,7 +496,7 @@ export function WebhookSettings() {
                             )}
                           </div>
                           {ev.error_message && (
-                            <div className="text-[10px] text-red-400 mt-0.5 max-w-md truncate">
+                            <div className="text-[10px] text-destructive mt-0.5 max-w-md truncate">
                               {ev.error_message}
                             </div>
                           )}
@@ -554,7 +554,7 @@ export function WebhookSettings() {
                         <TableCell className="font-medium">{c.name}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <span className={`text-xs ${enabled ? "text-green-400" : "text-muted-foreground"}`}>
+                            <span className={`text-xs ${enabled ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
                               {enabled ? "Ativos" : "Silenciado"}
                             </span>
                             <Switch
@@ -572,7 +572,7 @@ export function WebhookSettings() {
           </Card>
 
           {failureCount > 0 && (
-            <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+            <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-400">
               <AlertTriangle className="h-3.5 w-3.5" />
               {failureCount} eventos com erro recentes. Veja em Histórico para reprocessar.
             </div>

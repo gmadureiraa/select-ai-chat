@@ -151,7 +151,7 @@ export const PendingAccessOverlay = ({
       
       {/* Overlay centralizado */}
       <div className="absolute inset-0 flex items-center justify-center z-50 bg-background/30">
-        <div className="text-center space-y-6 p-10 rounded-2xl bg-card/95 border border-border/50 shadow-2xl backdrop-blur-sm max-w-md mx-4">
+        <div className="text-center space-y-6 p-10 rounded-2xl bg-card border border-border/50 shadow-2xl max-w-md mx-4">
           <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${
             isRejected ? "bg-destructive/10" : "bg-primary/10"
           }`}>

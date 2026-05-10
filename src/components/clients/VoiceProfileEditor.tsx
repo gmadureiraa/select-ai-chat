@@ -289,7 +289,7 @@ export function VoiceProfileEditor({
                     <span className="font-medium text-emerald-600">Use:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {suggestion.use_patterns.slice(0, 6).map((p, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-700">
+                        <Badge key={i} variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
                           {p}
                         </Badge>
                       ))}
@@ -302,7 +302,7 @@ export function VoiceProfileEditor({
                     <span className="font-medium text-rose-600">Evite:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {suggestion.avoid_patterns.slice(0, 6).map((p, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs bg-rose-500/10 text-rose-700">
+                        <Badge key={i} variant="secondary" className="text-xs bg-rose-500/10 text-rose-700 dark:text-rose-400">
                           {p}
                         </Badge>
                       ))}
@@ -375,7 +375,7 @@ export function VoiceProfileEditor({
               <Badge 
                 key={item} 
                 variant="secondary"
-                className="bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 gap-1 pr-1"
+                className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 gap-1 pr-1"
               >
                 {item}
                 <button
@@ -419,7 +419,7 @@ export function VoiceProfileEditor({
               <Badge 
                 key={item} 
                 variant="secondary"
-                className="bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 gap-1 pr-1"
+                className="bg-rose-500/10 text-rose-700 dark:text-rose-400 hover:bg-rose-500/20 gap-1 pr-1"
               >
                 {item}
                 <button
@@ -443,7 +443,7 @@ export function VoiceProfileEditor({
                   <Badge
                     key={phrase}
                     variant="outline"
-                    className="cursor-pointer hover:bg-rose-500/10 hover:text-rose-700 transition-colors text-xs"
+                    className="cursor-pointer hover:bg-rose-500/10 hover:text-rose-700 dark:hover:text-rose-400 transition-colors text-xs"
                     onClick={() => addSuggestedAvoid(phrase)}
                   >
                     + {phrase}
