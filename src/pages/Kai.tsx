@@ -64,13 +64,17 @@ const KaiAssistantTab = lazy(() =>
 // 3 generadores Viral (sequence/reels/radar) que são as ports das versões atuais
 // dos repos standalone (sequencia-viral, reels-viral, radar-viral). Backup em
 // _legacy/viral-replaced-2026-05-08/.
+// 2026-05-10 — Trocado de cópia literal (viral-sv-original/ via shims Next→Vite)
+// pra LAUNCHER + new tab pro standalone viral.kaleidos.com.br.
+// Razão: a cópia acumulou bugs em cascata (params Promise/sync, RLS, scroll,
+// CSS overflow, SECURITY DEFINER triggers, schema mismatch). O standalone tá
+// 100% em prod. Launcher mostra carrosseis salvos no Neon (legacy read-only)
+// + CTA pra abrir o flow completo. Backup da cópia velha:
+// _legacy/viral-sv-original-replaced-2026-05-10/ (mover manualmente quando
+// validar que SVLauncher resolveu).
 const ViralSequenceTab = lazy(() =>
-  // 2026-05-08 — substituído pela cópia LITERAL do app standalone
-  // (`code/sequencia-viral/`), preservando UI/CSS/cores/fontes/layouts ~95%+.
-  // A versão antiga estilo KAI foi removida (era ViralSequenceTab.legacy.tsx +
-  // pasta viral-sequence/, ambos órfãos desde a port).
-  import("@/components/kai/viral-sv-original/MainApp").then((m) => ({
-    default: m.ViralSequenceTab,
+  import("@/components/kai/viral/SVLauncher").then((m) => ({
+    default: m.SVLauncher,
   })),
 );
 const ViralReelsTab = lazy(() =>
