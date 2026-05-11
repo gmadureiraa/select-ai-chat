@@ -11,7 +11,7 @@ interface OAuthStartRequest {
   platform: 'twitter' | 'linkedin' | 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'threads';
 }
 
-const LATE_API_BASE = "https://zernio.com/api";
+const LATE_API_BASE = "https://getlate.dev/api";
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -53,7 +53,7 @@ serve(async (req: Request) => {
       });
     }
 
-    const LATE_API_KEY = (Deno.env.get("ZERNIO_API_KEY") ?? Deno.env.get("LATE_API_KEY"));
+    const LATE_API_KEY = (Deno.env.get("LATE_API_KEY"));
     if (!LATE_API_KEY) {
       return new Response(JSON.stringify({ error: "LATE_API_KEY not configured" }), {
         status: 500,

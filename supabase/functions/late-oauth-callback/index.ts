@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const LATE_API_BASE = "https://zernio.com/api";
+const LATE_API_BASE = "https://getlate.dev/api";
 
 interface LateAccount {
   _id: string;
@@ -73,7 +73,7 @@ serve(async (req: Request) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const LATE_API_KEY = (Deno.env.get("ZERNIO_API_KEY") ?? Deno.env.get("LATE_API_KEY"));
+    const LATE_API_KEY = (Deno.env.get("LATE_API_KEY"));
 
     if (!LATE_API_KEY) {
       console.error("LATE_API_KEY not configured");
