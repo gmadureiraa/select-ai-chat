@@ -147,6 +147,37 @@ serve(async (req: Request) => {
         const lateAccounts: LateAccount[] = accountsData.accounts || [];
 
         console.log(`Found ${lateAccounts.length} accounts in Late API for profile ${profileId}`);
+
+        // IMPORT: insert any Late accounts that are missing in our DB for this client
+        const clientIdForProfile = profileCredentials[0]?.client_id ?? clientId;
+        const existingAccountIds = new Set(
+          profileCredentials
+            .map((c) => (c.metadata as Record<string, unknown> | null)?.late_account_id as string | undefined)
+            .filter(Boolean)
+        );
+        for (const acc of lateAccounts) {
+          if (!acc._id || existingAccountIds.has(acc._id)) continue;
+          const platform = acc.platform;
+          if (!platform) continue;
+          const accountName = acc.displayName || acc.username || platform;
+          const { error: insertError } = await supabase
+            .from("client_social_credentials")
+            .insert({
+              client_id: clientIdForProfile,
+              platform,
+              account_name: accountName,
+              account_id: acc._id,
+              is_valid: true,
+              last_validated_at: new Date().toISOString(),
+              metadata: { late_profile_id: profileId, late_account_id: acc._id },
+            });
+          if (insertError) {
+            console.error(`Error importing account ${acc._id} (${platform}):`, insertError);
+          } else {
+            console.log(`Imported missing ${platform} account: ${accountName}`);
+            results.push({ platform, status: 'valid', message: 'Conta importada do Late' });
+          }
+        }
         
         // Log all accounts for debugging
         for (const acc of lateAccounts) {
