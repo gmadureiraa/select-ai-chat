@@ -57,7 +57,7 @@ serve(async (req: Request) => {
     // Exclude 'late_profile' as it's not a real social account - just stores the profile ID
     const { data: credentials, error: fetchError } = await supabase
       .from("client_social_credentials")
-      .select("id, platform, metadata, account_name, is_valid")
+      .select("id, client_id, platform, metadata, account_name, is_valid")
       .eq("client_id", clientId)
       .neq("platform", "late_profile");
 
