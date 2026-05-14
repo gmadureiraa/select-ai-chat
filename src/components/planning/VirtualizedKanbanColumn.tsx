@@ -32,6 +32,7 @@ interface VirtualizedKanbanColumnProps {
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
   onDuplicate: (item: PlanningItem) => void;
+  onApprove?: (id: string) => void;
   onAddCard: (columnId: string) => void;
   canDelete?: boolean;
   activeItemId: string | null;
@@ -49,6 +50,7 @@ interface SortableCardProps {
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
   onDuplicate: (item: PlanningItem) => void;
+  onApprove?: (id: string) => void;
   canDelete?: boolean;
   viewSettings?: ViewSettings;
   memberMap?: Record<string, { name: string; initials: string }>;
