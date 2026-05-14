@@ -614,6 +614,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
     updateItem,
     deleteItem,
     moveToColumn,
+    approveItem,
     reorderItems,
     moveToLibrary,
     scheduleItem,
