@@ -340,7 +340,22 @@ export const PlanningItemCard = memo(function PlanningItemCard({
           )}
 
           {/* Menu - pushed to right */}
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            {onApprove && ['idea', 'draft', 'review'].includes(item.status || '') && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
+                    onClick={(e) => { e.stopPropagation(); onApprove(item.id); }}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">Aprovar</TooltipContent>
+              </Tooltip>
+            )}
             <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                 <Button 
