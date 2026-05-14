@@ -100,6 +100,7 @@ const SortableCard = memo(function SortableCard({
         onMoveToLibrary={onMoveToLibrary}
         onRetry={onRetry}
         onDuplicate={onDuplicate}
+        onApprove={onApprove}
         isDragging={isDragging || isActive}
         compact={false}
         canDelete={canDelete}
