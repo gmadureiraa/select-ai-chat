@@ -358,13 +358,25 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       };
       const newStatus = column?.column_type ? statusMap[column.column_type] || 'idea' : 'idea';
 
+      const current = items.find(i => i.id === itemId);
+      const wasScheduled = current?.status === 'scheduled';
+      const goingToScheduled = column?.column_type === 'scheduled';
+
+      const payload: Record<string, unknown> = {
+        column_id: columnId,
+        position: newPosition,
+        status: newStatus,
+      };
+      if (wasScheduled && !goingToScheduled) {
+        payload.scheduled_at = null;
+        payload.next_retry_at = null;
+        payload.retry_count = 0;
+        payload.error_message = null;
+      }
+
       const { error } = await supabase
         .from('planning_items')
-        .update({ 
-          column_id: columnId, 
-          position: newPosition,
-          status: newStatus
-        })
+        .update(payload)
         .eq('id', itemId);
 
       if (error) throw error;
@@ -378,9 +390,48 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
     }
   });
 
+  // Quick approve: move item to "approved" column
+  const approveItem = useMutation({
+    mutationFn: async (itemId: string) => {
+      const approvedColumn = columns.find(c => c.column_type === 'approved');
+      if (!approvedColumn) throw new Error('Coluna "Aprovado" não encontrada');
+
+      const current = items.find(i => i.id === itemId);
+      const wasScheduled = current?.status === 'scheduled';
+
+      const payload: Record<string, unknown> = {
+        column_id: approvedColumn.id,
+        status: 'approved',
+      };
+      if (wasScheduled) {
+        payload.scheduled_at = null;
+        payload.next_retry_at = null;
+        payload.retry_count = 0;
+        payload.error_message = null;
+      }
+
+      const { error } = await supabase
+        .from('planning_items')
+        .update(payload)
+        .eq('id', itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
+      toast.success('Card aprovado');
+    },
+    onError: (error) => {
+      toast.error('Erro ao aprovar: ' + (error as Error).message);
+    },
+  });
+
   // Reorder items in batch (drag & drop with @dnd-kit)
   const reorderItems = useMutation({
     mutationFn: async (updates: Array<{ id: string; column_id: string; position: number; status?: PlanningStatus }>) => {
+      // Build a quick lookup for column types
+      const colTypeById: Record<string, string | null | undefined> = {};
+      for (const c of columns) colTypeById[c.id] = c.column_type;
+
       // Run in parallel
       const results = await Promise.all(
         updates.map(u => {
@@ -389,6 +440,23 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
             position: u.position,
           };
           if (u.status) payload.status = u.status;
+
+          // Find current item to detect "leaving scheduled column"
+          const current = items.find(i => i.id === u.id);
+          const wasInScheduled = current?.status === 'scheduled' || colTypeById[current?.column_id || ''] === 'scheduled';
+          const newColType = colTypeById[u.column_id];
+          const goingToScheduled = newColType === 'scheduled';
+
+          // If user dragged the card OUT of "scheduled" into another column,
+          // clear scheduled_at so the cron stops trying to publish it (which
+          // was making the card "snap back" to the Agendado column).
+          if (wasInScheduled && !goingToScheduled) {
+            payload.scheduled_at = null;
+            payload.next_retry_at = null;
+            payload.retry_count = 0;
+            payload.error_message = null;
+          }
+
           return supabase.from('planning_items').update(payload).eq('id', u.id);
         })
       );
@@ -546,6 +614,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
     updateItem,
     deleteItem,
     moveToColumn,
+    approveItem,
     reorderItems,
     moveToLibrary,
     scheduleItem,

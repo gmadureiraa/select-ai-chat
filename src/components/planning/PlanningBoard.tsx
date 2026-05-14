@@ -109,6 +109,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
     updateItem,
     deleteItem,
     moveToColumn,
+    approveItem,
     reorderItems,
     moveToLibrary,
     retryPublication,
@@ -311,6 +312,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
             onRetry={(id) => retryPublication.mutate(id)}
             onDuplicate={handleDuplicate}
             onMoveItem={(itemId, columnId, position) => moveToColumn.mutate({ itemId, columnId, newPosition: position })}
+            onApprove={(id) => approveItem.mutate(id)}
             onReorder={(updates) => reorderItems.mutate(updates)}
             onAddCard={(columnId) => handleNewCard(columnId)}
             canDelete={!isViewer}

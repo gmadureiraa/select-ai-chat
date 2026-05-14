@@ -32,6 +32,7 @@ interface VirtualizedKanbanColumnProps {
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
   onDuplicate: (item: PlanningItem) => void;
+  onApprove?: (id: string) => void;
   onAddCard: (columnId: string) => void;
   canDelete?: boolean;
   activeItemId: string | null;
@@ -49,6 +50,7 @@ interface SortableCardProps {
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
   onDuplicate: (item: PlanningItem) => void;
+  onApprove?: (id: string) => void;
   canDelete?: boolean;
   viewSettings?: ViewSettings;
   memberMap?: Record<string, { name: string; initials: string }>;
@@ -62,6 +64,7 @@ const SortableCard = memo(function SortableCard({
   onMoveToLibrary,
   onRetry,
   onDuplicate,
+  onApprove,
   canDelete,
   viewSettings,
   memberMap,
@@ -98,6 +101,7 @@ const SortableCard = memo(function SortableCard({
         onMoveToLibrary={onMoveToLibrary}
         onRetry={onRetry}
         onDuplicate={onDuplicate}
+        onApprove={onApprove}
         isDragging={isDragging || isActive}
         compact={false}
         canDelete={canDelete}
@@ -116,6 +120,7 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
   onMoveToLibrary,
   onRetry,
   onDuplicate,
+  onApprove,
   onAddCard,
   canDelete = true,
   activeItemId,
@@ -221,6 +226,7 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
                     onMoveToLibrary={onMoveToLibrary}
                     onRetry={onRetry}
                     onDuplicate={onDuplicate}
+                    onApprove={onApprove}
                     canDelete={canDelete}
                     viewSettings={viewSettings}
                     memberMap={memberMap}
