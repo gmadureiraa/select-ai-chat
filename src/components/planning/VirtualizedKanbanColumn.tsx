@@ -65,6 +65,16 @@ const SortableCard = memo(function SortableCard({
   onRetry,
   onDuplicate,
   canDelete,
+const SortableCard = memo(function SortableCard({
+  item,
+  isActive,
+  onEdit,
+  onDelete,
+  onMoveToLibrary,
+  onRetry,
+  onDuplicate,
+  onApprove,
+  canDelete,
   viewSettings,
   memberMap,
 }: SortableCardProps) {
