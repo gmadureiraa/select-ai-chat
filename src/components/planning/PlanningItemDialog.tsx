@@ -201,6 +201,7 @@ export function PlanningItemDialog({
   // Check if any selected platform can auto-publish
   const publishablePlatforms = selectedPlatforms.filter(p => canAutoPublish(p as any));
   const canPublishNow = publishablePlatforms.length > 0 && (content.trim() || threadTweets.some(t => t.text.trim()));
+  const isSelectedScheduledColumn = columns.find(c => c.id === columnId)?.column_type === 'scheduled';
 
   const canGenerateContent = title.trim() && contentType && selectedClientId;
   const canGenerateImage = (content.trim() || threadTweets.some(t => t.text.trim())) && selectedClientId;
@@ -882,7 +883,7 @@ export function PlanningItemDialog({
                     />
                   </div>
                 </div>
-                {scheduledAt && publishablePlatforms.length > 0 && (
+                {scheduledAt && isSelectedScheduledColumn && publishablePlatforms.length > 0 && (
                   <p className="text-[10px] text-muted-foreground">
                     ✓ Auto-publicar em {publishablePlatforms.length} plataforma(s) às {scheduledTime}
                   </p>
