@@ -358,13 +358,25 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       };
       const newStatus = column?.column_type ? statusMap[column.column_type] || 'idea' : 'idea';
 
+      const current = items.find(i => i.id === itemId);
+      const wasScheduled = current?.status === 'scheduled';
+      const goingToScheduled = column?.column_type === 'scheduled';
+
+      const payload: Record<string, unknown> = {
+        column_id: columnId,
+        position: newPosition,
+        status: newStatus,
+      };
+      if (wasScheduled && !goingToScheduled) {
+        payload.scheduled_at = null;
+        payload.next_retry_at = null;
+        payload.retry_count = 0;
+        payload.error_message = null;
+      }
+
       const { error } = await supabase
         .from('planning_items')
-        .update({ 
-          column_id: columnId, 
-          position: newPosition,
-          status: newStatus
-        })
+        .update(payload)
         .eq('id', itemId);
 
       if (error) throw error;
@@ -376,6 +388,41 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
         toast.success(`Movido para ${column.name}`);
       }
     }
+  });
+
+  // Quick approve: move item to "approved" column
+  const approveItem = useMutation({
+    mutationFn: async (itemId: string) => {
+      const approvedColumn = columns.find(c => c.column_type === 'approved');
+      if (!approvedColumn) throw new Error('Coluna "Aprovado" não encontrada');
+
+      const current = items.find(i => i.id === itemId);
+      const wasScheduled = current?.status === 'scheduled';
+
+      const payload: Record<string, unknown> = {
+        column_id: approvedColumn.id,
+        status: 'approved',
+      };
+      if (wasScheduled) {
+        payload.scheduled_at = null;
+        payload.next_retry_at = null;
+        payload.retry_count = 0;
+        payload.error_message = null;
+      }
+
+      const { error } = await supabase
+        .from('planning_items')
+        .update(payload)
+        .eq('id', itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
+      toast.success('Card aprovado');
+    },
+    onError: (error) => {
+      toast.error('Erro ao aprovar: ' + (error as Error).message);
+    },
   });
 
   // Reorder items in batch (drag & drop with @dnd-kit)
