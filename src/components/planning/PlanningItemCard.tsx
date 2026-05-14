@@ -35,6 +35,7 @@ interface PlanningItemCardProps {
   onMoveToLibrary: (id: string) => void;
   onRetry?: (id: string) => void;
   onDuplicate?: (item: PlanningItem) => void;
+  onApprove?: (id: string) => void;
   isDragging?: boolean;
   compact?: boolean;
   canDelete?: boolean;
