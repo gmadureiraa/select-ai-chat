@@ -105,6 +105,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
   onMoveToLibrary,
   onRetry,
   onDuplicate,
+  onApprove,
   isDragging = false,
   compact = false,
   canDelete = true,
