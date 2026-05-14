@@ -381,6 +381,10 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
   // Reorder items in batch (drag & drop with @dnd-kit)
   const reorderItems = useMutation({
     mutationFn: async (updates: Array<{ id: string; column_id: string; position: number; status?: PlanningStatus }>) => {
+      // Build a quick lookup for column types
+      const colTypeById: Record<string, string | null | undefined> = {};
+      for (const c of columns) colTypeById[c.id] = c.column_type;
+
       // Run in parallel
       const results = await Promise.all(
         updates.map(u => {
@@ -389,6 +393,23 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
             position: u.position,
           };
           if (u.status) payload.status = u.status;
+
+          // Find current item to detect "leaving scheduled column"
+          const current = items.find(i => i.id === u.id);
+          const wasInScheduled = current?.status === 'scheduled' || colTypeById[current?.column_id || ''] === 'scheduled';
+          const newColType = colTypeById[u.column_id];
+          const goingToScheduled = newColType === 'scheduled';
+
+          // If user dragged the card OUT of "scheduled" into another column,
+          // clear scheduled_at so the cron stops trying to publish it (which
+          // was making the card "snap back" to the Agendado column).
+          if (wasInScheduled && !goingToScheduled) {
+            payload.scheduled_at = null;
+            payload.next_retry_at = null;
+            payload.retry_count = 0;
+            payload.error_message = null;
+          }
+
           return supabase.from('planning_items').update(payload).eq('id', u.id);
         })
       );
