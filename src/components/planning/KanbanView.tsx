@@ -56,6 +56,7 @@ export function KanbanView({
   onMoveToLibrary,
   onRetry,
   onDuplicate,
+  onApprove,
   onMoveItem,
   onReorder,
   onAddCard,
