@@ -28,6 +28,7 @@ interface KanbanViewProps {
   onMoveToLibrary: (id: string) => void;
   onRetry: (id: string) => void;
   onDuplicate: (item: PlanningItem) => void;
+  onApprove?: (id: string) => void;
   /** Legacy: cross-column move with status update */
   onMoveItem: (itemId: string, columnId: string, position: number) => void;
   /** New: batch reorder for drag & drop (preferred when provided) */
