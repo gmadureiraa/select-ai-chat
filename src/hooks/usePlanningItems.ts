@@ -368,7 +368,9 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
         status: newStatus,
       };
       if (wasScheduled && !goingToScheduled) {
-        payload.scheduled_at = null;
+        // Keep scheduled_at as user's intended date, but stop the cron from
+        // trying to publish it by clearing retry/error state. The status
+        // change (no longer 'scheduled') already prevents auto-publish.
         payload.next_retry_at = null;
         payload.retry_count = 0;
         payload.error_message = null;
@@ -404,7 +406,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
         status: 'approved',
       };
       if (wasScheduled) {
-        payload.scheduled_at = null;
+        // Preserve scheduled_at as user's planned date
         payload.next_retry_at = null;
         payload.retry_count = 0;
         payload.error_message = null;
@@ -451,7 +453,9 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
           // clear scheduled_at so the cron stops trying to publish it (which
           // was making the card "snap back" to the Agendado column).
           if (wasInScheduled && !goingToScheduled) {
-            payload.scheduled_at = null;
+            // Preserve scheduled_at; only clear retry/error state so the
+            // cron won't keep trying to publish (status change already
+            // disables auto-publish).
             payload.next_retry_at = null;
             payload.retry_count = 0;
             payload.error_message = null;
