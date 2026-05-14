@@ -370,6 +370,15 @@ export const PlanningItemCard = memo(function PlanningItemCard({
                 <DropdownMenuItem onClick={() => { onEdit(item); setIsMenuOpen(false); }}>
                   Editar
                 </DropdownMenuItem>
+                {onApprove && ['idea', 'draft', 'review'].includes(item.status || '') && (
+                  <DropdownMenuItem
+                    className="text-emerald-600 focus:text-emerald-700"
+                    onClick={() => { onApprove(item.id); setIsMenuOpen(false); }}
+                  >
+                    <Check className="h-3.5 w-3.5 mr-2" />
+                    Aprovar
+                  </DropdownMenuItem>
+                )}
                 {onDuplicate && (
                   <DropdownMenuItem onClick={() => { onDuplicate(item); setIsMenuOpen(false); }}>
                     Duplicar
