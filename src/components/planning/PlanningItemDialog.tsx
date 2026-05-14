@@ -330,17 +330,25 @@ export function PlanningItemDialog({
         finalScheduledAt = setMinutes(setHours(scheduledAt, hours), minutes);
       }
 
-      // IMPORTANT: If scheduling is set, auto-move to "scheduled" column
+      // A planned date/time must not force the card into "Agendado".
+      // The selected column owns the workflow status; scheduled_at only stores
+      // the intended posting date unless the user explicitly keeps/moves it to
+      // the scheduled column.
       let targetColumnId = columnId;
-      let targetStatus: 'idea' | 'draft' | 'review' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'failed' = 'idea';
-      
-      if (finalScheduledAt && columns.length > 0) {
-        const scheduledColumn = columns.find(c => c.column_type === 'scheduled');
-        if (scheduledColumn) {
-          targetColumnId = scheduledColumn.id;
-          targetStatus = 'scheduled';
-        }
-      }
+      const statusMap: Record<string, 'idea' | 'draft' | 'review' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'failed'> = {
+        idea: 'idea',
+        draft: 'draft',
+        review: 'review',
+        approved: 'approved',
+        scheduled: 'scheduled',
+        publishing: 'publishing',
+        published: 'published',
+        failed: 'failed',
+      };
+      const selectedColumn = columns.find(c => c.id === targetColumnId);
+      const targetStatus = selectedColumn?.column_type
+        ? statusMap[selectedColumn.column_type] || 'idea'
+        : effectiveItem?.status || 'idea';
 
       const data: CreatePlanningItemInput & Record<string, any> = {
         title: title.trim(),
@@ -349,7 +357,7 @@ export function PlanningItemDialog({
         column_id: targetColumnId || undefined,
         platform: platform || undefined,
         priority,
-        status: finalScheduledAt ? targetStatus : undefined,
+        status: targetStatus,
         due_date: finalScheduledAt ? format(finalScheduledAt, 'yyyy-MM-dd') : undefined,
         scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
         media_urls: mediaItems.map(m => m.url),
@@ -381,6 +389,7 @@ export function PlanningItemDialog({
       // If scheduling is set AND we can publish to this platform, send to Late API
       const shouldScheduleToLate = 
         finalScheduledAt && 
+        targetStatus === 'scheduled' &&
         publishablePlatforms.length > 0 && 
         selectedClientId &&
         (finalContent.trim() || threadTweets.some(t => t.text.trim()));
