@@ -226,6 +226,7 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
                     onMoveToLibrary={onMoveToLibrary}
                     onRetry={onRetry}
                     onDuplicate={onDuplicate}
+                    onApprove={onApprove}
                     canDelete={canDelete}
                     viewSettings={viewSettings}
                     memberMap={memberMap}
