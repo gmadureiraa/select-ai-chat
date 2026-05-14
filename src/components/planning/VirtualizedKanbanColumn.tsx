@@ -120,6 +120,7 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
   onMoveToLibrary,
   onRetry,
   onDuplicate,
+  onApprove,
   onAddCard,
   canDelete = true,
   activeItemId,
