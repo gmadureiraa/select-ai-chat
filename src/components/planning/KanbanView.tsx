@@ -255,6 +255,7 @@ export function KanbanView({
                   onMoveToLibrary={onMoveToLibrary}
                   onRetry={onRetry}
                   onDuplicate={onDuplicate}
+                  onApprove={onApprove}
                   onAddCard={onAddCard}
                   canDelete={canDelete}
                   activeItemId={activeItem?.id ?? null}
