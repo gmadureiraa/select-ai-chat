@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import { 
   MoreHorizontal, 
   Twitter, Linkedin, Instagram, Youtube, Mail, FileText, Video, Facebook, AtSign,
-  Calendar, MessageSquare, Image as ImageIcon, Flag, Layers
+  Calendar, MessageSquare, Image as ImageIcon, Flag, Layers, Check
 } from 'lucide-react';
 import { ImageLightbox } from './ImageLightbox';
 import { Button } from '@/components/ui/button';
