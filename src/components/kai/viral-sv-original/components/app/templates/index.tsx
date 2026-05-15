@@ -10,6 +10,7 @@ import TemplateBohdan from "./template-bohdan";
 import TemplatePaperMono from "./template-paper-mono";
 import TemplateMadureira from "./template-madureira";
 import TemplateMadureiraReflection from "./template-madureira-reflection";
+import TemplateDsecDark from "./template-dsec-dark";
 import type { SlideProps, TemplateId, TemplateMeta } from "./types";
 
 export type { SlideProps, TemplateId, TemplateMeta } from "./types";
@@ -43,6 +44,8 @@ export const TemplateRenderer = forwardRef<
       return <TemplateMadureira ref={ref} {...rest} />;
     case "madureira-reflection":
       return <TemplateMadureiraReflection ref={ref} {...rest} />;
+    case "dsec-dark":
+      return <TemplateDsecDark ref={ref} {...rest} />;
     default:
       return <TemplateTwitter ref={ref} {...rest} />;
   }
@@ -110,6 +113,12 @@ export const TEMPLATES_META: TemplateMeta[] = [
     kicker: "Nº 10 · TEXTO-PURO",
     palette: ["#000000", "#f4f1ea", "#e63a1f"],
   },
+  {
+    id: "dsec-dark",
+    name: "DSEC Dark",
+    kicker: "Nº 11 · TECH B2B",
+    palette: ["#0A0A0B", "#F7931A", "#00FF88"],
+  },
 ];
 
 export {
@@ -123,4 +132,5 @@ export {
   TemplatePaperMono,
   TemplateMadureira,
   TemplateMadureiraReflection,
+  TemplateDsecDark,
 };

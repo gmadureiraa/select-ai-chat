@@ -158,6 +158,10 @@ const POOLS: Record<TemplateId, string[]> = {
   // Madureira Reflection é text-only — fundo preto puro, zero imagem.
   // Pool vazio garante que slide.imageUrl nunca é pré-populado.
   "madureira-reflection": [],
+  // DSEC Dark — paleta dark cybersecurity/bitcoin. Imagens opcionais
+  // (template é texto-dominante; quando carrossel pede imagem, reaproveita
+  // pool do Futurista que tem palette dark + accent compatível).
+  "dsec-dark": FUTURISTA,
 };
 
 /**

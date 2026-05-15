@@ -81,6 +81,7 @@ const TEMPLATE_DESC: Record<TemplateId, string> = {
   "paper-mono": "Confessional · cream paper-grain · sans bold + mono · B&W halftone (ref: tobi.the.og)",
   madureira: "Futurista simples · capa IA dominante · navy + accent verde · slides com quadrado 1:1",
   "madureira-reflection": "Texto-puro · 7 layouts DS (capa emoji/type, curva, barras, bullets, reflexão, CTA) · Geist + Fraunces italic accent · zero imagem (admin)",
+  "dsec-dark": "DSEC Labs · dark cybersecurity · Inter + Mono · accent BTC orange + verde dado · repurpose blog em 8-10 slides (B2B PT-BR)",
 };
 
 /**

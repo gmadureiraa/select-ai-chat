@@ -28,7 +28,8 @@ export type DesignTemplateId =
   | "blank"
   | "bohdan"
   | "paper-mono"
-  | "madureira-reflection";
+  | "madureira-reflection"
+  | "dsec-dark";
 
 /** Template default quando nada é especificado. */
 export const DEFAULT_DESIGN_TEMPLATE: DesignTemplateId = "manifesto";
@@ -266,6 +267,25 @@ export const DESIGN_TEMPLATES: DesignTemplateMeta[] = [
     avoidPalette: [],
     textOnly: true,
   },
+  {
+    id: "dsec-dark",
+    emoji: "◧",
+    name: "DSEC Dark",
+    desc: "Sistema visual canônico do D-Sec Labs / Alfred para LinkedIn carrossel B2B PT-BR. Fundo preto profundo + accent laranja Bitcoin (#F7931A) + dados em verde elétrico (#00FF88). Tipografia clean tech (Inter 900 + JetBrains Mono). Padrões: capa-hook, problema+dado, princípio, takeaway, CTA orgânico (mini curso/blog/COLDKIT). 8-10 slides escaneáveis, repurpose de blog. Renderer canônico do spec 'dsec_design_system_dark'.",
+    color: "#F7931A",
+    blockCount: 9,
+    figmaLabel: "Template DSEC Dark",
+    imageSearchStyleHint:
+      "dark cybersecurity tech editorial photography hardware closeup terminal screen glow bitcoin signal high contrast monochrome -watermark -shutterstock -getty -istock",
+    imageGenRealismFragment:
+      "Dark moody technical photograph of cybersecurity or bitcoin hardware (hardware wallet, terminal screen, server LED, metal case). Real photo, not illustration, not 3D render, not anime.",
+    styleGuidePrompt:
+      "Dark moody technical photography for cybersecurity/bitcoin editorial (D-Sec Labs reference): deep matte black and charcoal backgrounds, single warm orange highlight (Bitcoin orange F7931A as bias) or cold neon green pop. Hardware closeups (Ledger/Trezor/Coldcard style wallets, anonymized), terminal screens with subtle glow, server room LEDs, metal-on-felt textures, hands holding seed metal plate, isolated key on dark surface. Camera: Sony A7 + 50mm f/1.4, shallow DoF, specular highlights on metal. Mood: technical authority, quiet competence, B2B trust signal, post-cypherpunk. AVOID: bright daylight, smiling stock subjects, illustrations, anime, fake-looking 3D coins, generic 'crypto bro' imagery, colorful neon explosions.",
+    slideAestheticModifier:
+      "dark moody cybersecurity bitcoin hardware photography shallow depth single light source matte black surface",
+    preferPalette: ["#0A0A0B", "#F7931A", "#00FF88", "#F5F5F7"],
+    avoidPalette: ["#D262B2", "#1D9BF0", "#EACB7C", "#7CF067"],
+  },
 ] as const;
 
 export const EDITORIAL_ACCENT = "#FF5500";
@@ -331,6 +351,7 @@ const VALID_TEMPLATE_IDS: readonly DesignTemplateId[] = [
   "bohdan",
   "paper-mono",
   "madureira-reflection",
+  "dsec-dark",
 ];
 
 /** Normaliza qualquer string em um DesignTemplateId válido (default: manifesto). */
@@ -344,6 +365,8 @@ export function normalizeDesignTemplate(
   }
   // Aliases legados
   if (v === "editorial" || v === "spotlight") return "manifesto";
+  // Aliases dos specs Camada 2 (renderer_template canônico do vault)
+  if (v === "dsec_design_system_dark") return "dsec-dark";
   return DEFAULT_DESIGN_TEMPLATE;
 }
 
@@ -359,6 +382,26 @@ export const CONTENT_MACHINE_RENDER_SPECS: Record<
   blank: { blocks: 10, rules: CONTENT_MACHINE_NARRATIVE_RULES },
   bohdan: { blocks: 10, rules: CONTENT_MACHINE_NARRATIVE_RULES },
   "paper-mono": { blocks: 8, rules: CONTENT_MACHINE_NARRATIVE_RULES },
+  "dsec-dark": {
+    blocks: 9,
+    rules: [
+      CONTENT_MACHINE_NARRATIVE_RULES,
+      "",
+      "ESTRUTURA HARD do carrossel DSEC (repurpose de blog):",
+      "- Slide 1 (cover): hook curto e específico (5-12 palavras) — tensão real + 'pra quem', sem clickbait gritado.",
+      "- Slide 2 (inner): O problema + DADO numérico OBRIGATÓRIO (% perda, $ hack, nº vítimas). Cita fonte (CertiK, Chainalysis, BleepingComputer) entre parênteses.",
+      "- Slide 3: definição do conceito técnico em 2-3 linhas, sem jargão desnecessário.",
+      "- Slides 4-7 (inner): passos/princípios, 1 ideia por slide, bullets curtos com dado quando aplicável.",
+      "- Slide 8: o custo de não fazer nada — exemplo real com $X / data / vetor.",
+      "- Slide N-1 (quote): takeaway forte de 1 linha martelada. Padrão DSEC: 'Certificado é papel. Código aberto é verificação.'",
+      "- Slide N (cta): CTA orgânico — Mini curso, blog, ou COLDKIT (sem hard sell, sem inventar preço/URL/cupom).",
+      "",
+      "VOZ: DSEC institucional PT-BR. Didática visual + técnica acessível.",
+      "BANIDOS: travessão (—), hashtag, 'Nós da DSEC...', 'incrível', 'transformador', 'sem KYC' (usar 'KYC simplificado'), 'altcoins' (exceto crítica).",
+      "MAX 50 palavras por slide. Bullets com '- ' viram • verde elétrico.",
+      "Body suporta prefixo opcional 'EYEBROW: <texto uppercase>' linha 1 pra eyebrow accent.",
+    ].join("\n"),
+  },
   "madureira-reflection": {
     blocks: 7,
     rules: [
