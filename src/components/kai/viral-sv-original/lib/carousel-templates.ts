@@ -389,6 +389,10 @@ export function normalizeDesignTemplate(
   // Aliases dos specs Camada 2 (renderer_template canônico do vault)
   if (v === "dsec_design_system_dark") return "dsec-dark";
   if (v === "defiverso-ig-carrossel-html") return "defiverso-carrossel";
+  // Aliases TBD do Lucas Amendola (decisão Gabriel 2026-05-15):
+  // reaproveitar templates editoriais já existentes até Lucas validar template visual próprio.
+  if (v === "tbd_lucas_template") return "manifesto";       // IG carrossel — manifesto é editorial premium serif
+  if (v === "tbd_executive_serif") return "blank";          // LinkedIn carrossel B2B — blank tem Playfair + sans
   return DEFAULT_DESIGN_TEMPLATE;
 }
 

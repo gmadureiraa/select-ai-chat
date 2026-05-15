@@ -28,8 +28,8 @@ Buckets:
 | `video_export` | D | — | — | Pipeline export vídeo | Madureira ig-reels. Indicador "isso é vídeo, não slide" — output é arquivo .mp4 do CapCut/Descript, não do template engine. |
 | `face_cam_with_burned_caption` | D | — | — | Pipeline edição vídeo manual | Lucas ig-reels. Indicador de formato de vídeo (face-cam + caption queimada no editor). Sem renderer. |
 | `foto_crua_com_overlay` | D | — | — | Stories template manual | Lucas ig-story. Indicador "foto da câmera + overlay texto no IG Story editor". Sem renderer. |
-| `tbd_lucas_template` | B | — | — | — | Lucas IG carrossel. Decisão visual pendente — Lucas precisa briefing pra definir paleta/tipografia próprias. Bloqueador. |
-| `tbd_executive_serif` | B | — | — | — | Lucas LI carrossel. Mesma situação — placeholder declarado, sem decisão de design. Bloqueador. |
+| `tbd_lucas_template` | A (alias) | `TemplateManifesto` | `manifesto` | — | Lucas IG carrossel. Alias decidido 2026-05-15 — reaproveita manifesto até Lucas validar template próprio. |
+| `tbd_executive_serif` | A (alias) | `TemplateBlank` | `blank` | — | Lucas LI carrossel. Alias decidido 2026-05-15 — reaproveita blank (Playfair + sans) pra carrossel executive B2B. |
 | `beehiiv-defiverso` | C | — | — | `scripts/send-defiverso-newsletter.ts` (a criar) → Beehiiv API | Defiverso newsletter. Output HTML/MD vai pra Beehiiv direto, não passa por renderer React do SV. |
 | `rd_station` | C | — | — | RD Station API / Resend (existe template lá) | DSEC newsletter. Pipeline via RD Station — output do KAI vira email no RD Marketing. |
 | `defiverso-ig-story-html` | C | — | — | HTML→PNG via Puppeteer dedicado (a criar) | Defiverso IG story 1080x1920. Aspect 9:16 diferente do canvas SV (4:5 1080x1350) — precisa template próprio fora do SV, não cabe no `TemplateRenderer`. Out of scope da Fase 4. |
