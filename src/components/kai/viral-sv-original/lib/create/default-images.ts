@@ -155,6 +155,9 @@ const POOLS: Record<TemplateId, string[]> = {
   // Madureira reaproveita pool do Futurista — paleta navy + accent verde
   // gera prompts com o mesmo style guide cinematográfico.
   madureira: FUTURISTA,
+  // Madureira Reflection é text-only — fundo preto puro, zero imagem.
+  // Pool vazio garante que slide.imageUrl nunca é pré-populado.
+  "madureira-reflection": [],
 };
 
 /**

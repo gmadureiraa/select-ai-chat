@@ -12,10 +12,12 @@ import { useAuth } from "@sv/lib/auth-context";
 import { supabase } from "@sv/lib/supabase";
 import { upsertUserCarousel } from "@sv/lib/carousel-storage";
 import { useKaiContext } from "@sv/lib/use-kai-context";
+import { buildSVPreviewProfile } from "@sv/lib/client-profile";
 import { useDraft } from "@sv/lib/create/use-draft";
 import { defaultImagesForTemplate } from "@sv/lib/create/default-images";
 import type { SlideVariant } from "@sv/lib/create/types";
 import { isAdminEmail } from "@sv/lib/admin-emails";
+import { useSVClient } from "../../MainApp";
 
 /**
  * Distribuição narrativa default quando um slide vem sem `variant` (rascunhos
@@ -65,6 +67,7 @@ const TEMPLATE_ORDER: TemplateId[] = [
   "blank",
   "bohdan",
   "paper-mono",
+  "madureira-reflection",
 ];
 
 const TEMPLATE_DESC: Record<TemplateId, string> = {
@@ -77,6 +80,15 @@ const TEMPLATE_DESC: Record<TemplateId, string> = {
   bohdan: "Design-forward · B&W contraste alto · serif italic lime · handwritten",
   "paper-mono": "Confessional · cream paper-grain · sans bold + mono · B&W halftone (ref: tobi.the.og)",
   madureira: "Futurista simples · capa IA dominante · navy + accent verde · slides com quadrado 1:1",
+  "madureira-reflection": "Texto-puro · 7 layouts DS (capa emoji/type, curva, barras, bullets, reflexão, CTA) · Geist + Fraunces italic accent · zero imagem (admin)",
+};
+
+/**
+ * Templates que SÓ aparecem pra admin. User comum nem vê no picker.
+ * Diferente de COMING_SOON (que aparece com badge mas não pode selecionar).
+ */
+const ADMIN_ONLY_TEMPLATES: Partial<Record<TemplateId, true>> = {
+  "madureira-reflection": true,
 };
 
 const TEMPLATE_NAME_OVERRIDE: Partial<Record<TemplateId, string>> = {
@@ -100,25 +112,6 @@ const COMING_SOON_BASE: Partial<Record<TemplateId, true>> = {
   "paper-mono": true,
 };
 
-function buildPreviewProfile(profile: {
-  name: string;
-  twitter_handle?: string;
-  instagram_handle?: string;
-  avatar_url?: string;
-} | null) {
-  if (!profile) return { name: "Seu nome", handle: "@seuhandle", photoUrl: "" };
-  const handle = profile.twitter_handle
-    ? `@${profile.twitter_handle}`
-    : profile.instagram_handle
-      ? `@${profile.instagram_handle}`
-      : "@seuhandle";
-  return {
-    name: profile.name || "Seu nome",
-    handle,
-    photoUrl: profile.avatar_url || "",
-  };
-}
-
 export default function TemplatesPage(props: {
   params: ({ id: string });
 }) {
@@ -126,6 +119,7 @@ export default function TemplatesPage(props: {
   const router = useRouter();
   const { user, profile } = useAuth();
   const kaiCtx = useKaiContext();
+  const { client } = useSVClient();
   const { draft, loading, error } = useDraft(id);
 
   const [selected, setSelected] = useState<TemplateId | null>(null);
@@ -143,18 +137,8 @@ export default function TemplatesPage(props: {
   }, [draft]);
 
   const previewProfile = useMemo(
-    () =>
-      buildPreviewProfile(
-        profile
-          ? {
-              name: profile.name,
-              twitter_handle: profile.twitter_handle,
-              instagram_handle: profile.instagram_handle,
-              avatar_url: profile.avatar_url,
-            }
-          : null
-      ),
-    [profile]
+    () => buildSVPreviewProfile(client, profile),
+    [client, profile]
   );
 
   const slides = draft?.slides ?? [];
@@ -271,7 +255,9 @@ export default function TemplatesPage(props: {
       <div
         className="mt-6 grid gap-6 grid-cols-1 sm:grid-cols-2"
       >
-        {TEMPLATE_ORDER.map((tplId) => {
+        {TEMPLATE_ORDER.filter(
+          (tplId) => isAdmin || !ADMIN_ONLY_TEMPLATES[tplId],
+        ).map((tplId) => {
           const meta = TEMPLATES_META.find((m) => m.id === tplId)!;
           const isOn = selected === tplId;
           const comingSoon = Boolean(COMING_SOON[tplId]);
