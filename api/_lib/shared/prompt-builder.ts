@@ -12,6 +12,7 @@ import {
   UNIVERSAL_OUTPUT_RULES,
 } from './quality-rules.js';
 import { buildFormatContract } from './format-schemas.js';
+import { loadAndBuildFormatPrompt } from './format-standards.js';
 
 export interface PromptBuilderParams {
   clientId: string;
@@ -136,6 +137,13 @@ export async function buildWriterSystemPrompt(params: PromptBuilderParams): Prom
   if (additionalMaterial) {
     parts.push(`\n## 📎 MATERIAL DE REFERÊNCIA FORNECIDO\n${additionalMaterial.substring(0, 15000)}\n`);
   }
+
+  // Camada 1+2 (format_specs × client_format_standards) — enriquecimento opcional.
+  // Migration 0040. Se não houver spec pro par (client, format), retorna "" e nada
+  // é adicionado. Posicionado no fim do bloco de contexto pra ficar próximo do
+  // ## TAREFA — facilita o modelo a usar as regras na hora de gerar.
+  const formatStandardBlock = await loadAndBuildFormatPrompt(clientId, normalizedFormat);
+  if (formatStandardBlock) parts.push(formatStandardBlock);
 
   parts.push(`\n## TAREFA\nCrie conteúdo seguindo RIGOROSAMENTE o formato de entrega acima.\nSeu output deve conter APENAS o conteúdo final - nada de explicações.`);
 

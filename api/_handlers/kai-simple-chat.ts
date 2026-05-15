@@ -14,6 +14,7 @@ import {
   CONTENT_FORMAT_KEYWORDS,
 } from '../_lib/shared/format-constants.js';
 import { getFormatRules } from '../_lib/shared/format-rules.js';
+import { loadAndBuildFormatPrompt } from '../_lib/shared/format-standards.js';
 import {
   ToolRegistry,
   runToolLoop,
@@ -2059,6 +2060,18 @@ ${identityGuide ? `## Guia de Identidade\n${identityGuide}` : ''}`;
     if (referenceExamplesContext) systemPrompt += `\n${referenceExamplesContext}`;
     if (topPerformersContext) systemPrompt += `\n${topPerformersContext}`;
     if (formatRulesContext) systemPrompt += `\n${formatRulesContext}`;
+
+    // Camada 1+2 (format_specs × client_format_standards) — enriquecimento opcional.
+    // Só dispara quando (a) é criação de conteúdo, (b) há clientId, (c) formato foi
+    // detectado. Se a tabela não existir (migration 0040 ainda não rodada) ou se não
+    // houver row pra esse par, retorna "" e o fluxo segue normal.
+    if (contentCreation.isContentCreation && clientId && contentCreation.detectedFormat) {
+      const fmtStandardBlock = await loadAndBuildFormatPrompt(
+        clientId,
+        contentCreation.detectedFormat,
+      );
+      if (fmtStandardBlock) systemPrompt += fmtStandardBlock;
+    }
 
     if (contentCreation.isContentCreation) {
       systemPrompt += `
