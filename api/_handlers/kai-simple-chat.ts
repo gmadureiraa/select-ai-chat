@@ -2089,7 +2089,12 @@ SIGA RIGOROSAMENTE a ordem de prioridade:
 - ZERO emojis no corpo do texto
 - PROIBIDO: "Entenda", "Aprenda", "Descubra como", frases genéricas
 - USE: linguagem direta, verbos de ação, números específicos
-- ENTREGUE APENAS o conteúdo final, sem explicações`;
+- ENTREGUE APENAS o conteúdo final, sem explicações
+
+### FORMATO DE OUTPUT (CRÍTICO):
+- NÃO repita o título dentro do corpo.
+- NÃO rotule seções com **Hook:**, **Gancho:**, **Corpo:**, **Title:**, # Título — entregue o tweet/post/carrossel exatamente como ele seria postado direto na plataforma.
+- Comece pelo conteúdo final (primeira linha = primeira linha do post). Sem cabeçalhos, sem labels, sem prefixos meta.`;
     } else if (comparisonQuery.isComparison) {
       systemPrompt += `\n## Instruções para Análise Comparativa\nDestaque diferenças, tendências, causas e ações. Use tabelas markdown e emojis 📈📉➡️.`;
     } else if (isReport) {
