@@ -12,6 +12,10 @@
  */
 
 import { query, queryOne } from "../db.js";
+import {
+  normalizeDesignTemplate,
+  type DesignTemplateId,
+} from "../../../src/components/kai/viral-sv-original/lib/carousel-templates.js";
 
 export interface FormatStandardRow {
   standard_id: string;
@@ -37,6 +41,16 @@ export interface FormatStandardRow {
   cadence_actual: string | null;
   schedule_window: unknown;
   renderer_template: string | null;
+  /**
+   * Renderer template normalizado via `normalizeDesignTemplate()` do
+   * viral-sv-original/lib/carousel-templates. Resolve aliases declarados nos
+   * specs Camada 2 (ex: `dsec_design_system_dark` → `dsec-dark`,
+   * `defiverso-ig-carrossel-html` → `defiverso-carrossel`).
+   *
+   * Mantém `renderer_template` original intacto pra debug/audit; consumidores
+   * que precisam do renderer real do React devem usar este campo.
+   */
+  renderer_template_normalized: DesignTemplateId | null;
   voice_overrides: Record<string, unknown> | null;
   pillar_distribution: Record<string, unknown> | null;
   cta_template: Record<string, unknown> | null;
@@ -119,7 +133,15 @@ export async function loadFormatStandard(
       `SELECT * FROM public.v_client_format_full WHERE client_id = $1 AND format_id = $2`,
       [clientId, formatId],
     );
-    return row ?? null;
+    if (!row) return null;
+    // Resolve aliases (ex: `dsec_design_system_dark` → `dsec-dark`) sem
+    // mutar o valor original do spec. Caller decide qual usar:
+    //   - renderer_template            → string opaca do spec (audit/debug)
+    //   - renderer_template_normalized → DesignTemplateId pronto pro renderer React
+    row.renderer_template_normalized = row.renderer_template
+      ? normalizeDesignTemplate(row.renderer_template)
+      : null;
+    return row;
   } catch (err) {
     // Tabela pode ainda não existir em ambientes que não rodaram migration 0040.
     // Logamos e retornamos null pro fluxo default.
@@ -234,7 +256,14 @@ export function buildFormatSystemPrompt(spec: FormatStandardRow): string {
   lines.push("");
   lines.push(`Status: ${spec.status}  ·  cadência: ${spec.cadence_actual || spec.cadence_typical || "n/d"}`);
   if (spec.renderer_template) {
-    lines.push(`Renderer template: \`${spec.renderer_template}\``);
+    const normalized = spec.renderer_template_normalized;
+    if (normalized && normalized !== spec.renderer_template) {
+      lines.push(
+        `Renderer template: \`${normalized}\` (original spec: \`${spec.renderer_template}\`)`,
+      );
+    } else {
+      lines.push(`Renderer template: \`${normalized || spec.renderer_template}\``);
+    }
   }
 
   // Hard constraints
