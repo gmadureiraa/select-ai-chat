@@ -261,7 +261,7 @@ const Login = () => {
           <div className="mt-4 text-center space-y-2">
             <button
               type="button"
-              onClick={() => navigate("/register")}
+              onClick={() => navigate("/signup")}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               disabled={loading || googleLoading}
             >

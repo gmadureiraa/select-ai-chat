@@ -52,6 +52,17 @@ const queryClient = new QueryClient({
   },
 });
 
+function GlobalAddons() {
+  return (
+    <>
+      <GlobalKAIAssistant />
+      <CommandPalette />
+      <InstallPrompt />
+      <OfflineIndicator />
+    </>
+  );
+}
+
 const App = () => (
   <ErrorBoundary>
     <ThemeProvider
@@ -73,7 +84,7 @@ const App = () => (
                   <Routes>
                     {/* Public routes */}
                     <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<SimpleSignup />} />
+                    <Route path="/register" element={<Navigate to="/signup" replace />} />
                     <Route path="/signup" element={<SimpleSignup />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
                     {/* Root redirects to Kaleidos */}
@@ -102,15 +113,7 @@ const App = () => (
                   </Routes>
                 </Suspense>
 
-                {/* Global kAI Assistant - available on all authenticated pages */}
-                <GlobalKAIAssistant />
-
-                {/* Global Cmd+K Command Palette */}
-                <CommandPalette />
-
-                {/* PWA: install prompt e indicador de offline (globais) */}
-                <InstallPrompt />
-                <OfflineIndicator />
+                <GlobalAddons />
               </GlobalKAIProvider>
               {/* Vercel telemetry — gratuitos no Hobby */}
               <Analytics />
