@@ -162,6 +162,11 @@ const POOLS: Record<TemplateId, string[]> = {
   // (template é texto-dominante; quando carrossel pede imagem, reaproveita
   // pool do Futurista que tem palette dark + accent compatível).
   "dsec-dark": FUTURISTA,
+  // Defiverso Carrossel — fundo verde profundo + dado-driven. Imagens
+  // opcionais (texto domina); quando pede imagem, usa pool Blank
+  // editorial (warm neutral magazine feature, compatível com palette
+  // cream + green sutil).
+  "defiverso-carrossel": BLANK,
 };
 
 /**

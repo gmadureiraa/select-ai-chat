@@ -16,7 +16,8 @@ export type TemplateId =
   | "paper-mono"
   | "madureira"
   | "madureira-reflection"
-  | "dsec-dark";
+  | "dsec-dark"
+  | "defiverso-carrossel";
 
 export type SlideVariantName =
   | "cover"

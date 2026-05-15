@@ -29,7 +29,8 @@ export type DesignTemplateId =
   | "bohdan"
   | "paper-mono"
   | "madureira-reflection"
-  | "dsec-dark";
+  | "dsec-dark"
+  | "defiverso-carrossel";
 
 /** Template default quando nada é especificado. */
 export const DEFAULT_DESIGN_TEMPLATE: DesignTemplateId = "manifesto";
@@ -286,6 +287,25 @@ export const DESIGN_TEMPLATES: DesignTemplateMeta[] = [
     preferPalette: ["#0A0A0B", "#F7931A", "#00FF88", "#F5F5F7"],
     avoidPalette: ["#D262B2", "#1D9BF0", "#EACB7C", "#7CF067"],
   },
+  {
+    id: "defiverso-carrossel",
+    emoji: "👽",
+    name: "Defiverso IG",
+    desc: "Carrossel Instagram 1080x1350 do @defiverso. Repurpose semanal de Resumo Criptoverso ou hot-take macro. Fundo verde profundo Defiverso (#0E3B2E) + cream texto (#F5F1E8) + accent amarelo (#F5D547) pra dados numéricos + verde alien (#7CF067) pra bold. Tipografia editorial (Söhne/Inter Display). 10 slides padrão sexta: capa 👽 + 8 temas + CTA ManyChat. Cada slide interno tem eyebrow pilar, título, bullets com dado, rodapé 'Fonte: X'. Renderer canônico do spec 'defiverso-ig-carrossel-html'.",
+    color: "#7CF067",
+    blockCount: 10,
+    figmaLabel: "Template Defiverso Carrossel",
+    imageSearchStyleHint:
+      "editorial photography crypto finance macroeconomic abstract data visualization muted palette warm screen glow -watermark -shutterstock -getty -istock",
+    imageGenRealismFragment:
+      "Editorial photograph or rendered abstract for crypto/finance newsletter: muted earth tones, single warm screen glow, contextual macro imagery (bank facade, central bank lobby, on-chain dashboard, monetary symbol). Real photo or stylized render in muted palette, not 3D render of generic crypto coins.",
+    styleGuidePrompt:
+      "Editorial documentary photography in crypto/macro analyst aesthetic (Defiverso / Bankless reference): muted earth tones (cream, olive, deep green, warm beige), natural diffused light, real environments — bank facades, central bank lobbies, founder at desk with charts, paper newspapers with crypto headlines, abstract on-chain dashboards (slightly blurred to avoid faux UI). Camera: Sony A7R + 35mm f/2, medium-format compression, soft film grain. Mood: analytical, intentional, Bankless/Bloomberg-newsletter, slow-content macro. NEVER hype trader imagery, NEVER moon emoji style, NEVER over-saturated crypto art. AVOID: neon Discord gradients, smiling office stock, 3D coins, animated mascots, fake holographic UI.",
+    slideAestheticModifier:
+      "editorial documentary photography muted earth palette warm screen glow analytical macro mood",
+    preferPalette: ["#0E3B2E", "#F5F1E8", "#F5D547", "#7CF067"],
+    avoidPalette: ["#1D9BF0", "#D262B2", "#FF3D2E"],
+  },
 ] as const;
 
 export const EDITORIAL_ACCENT = "#FF5500";
@@ -352,6 +372,7 @@ const VALID_TEMPLATE_IDS: readonly DesignTemplateId[] = [
   "paper-mono",
   "madureira-reflection",
   "dsec-dark",
+  "defiverso-carrossel",
 ];
 
 /** Normaliza qualquer string em um DesignTemplateId válido (default: manifesto). */
@@ -367,6 +388,7 @@ export function normalizeDesignTemplate(
   if (v === "editorial" || v === "spotlight") return "manifesto";
   // Aliases dos specs Camada 2 (renderer_template canônico do vault)
   if (v === "dsec_design_system_dark") return "dsec-dark";
+  if (v === "defiverso-ig-carrossel-html") return "defiverso-carrossel";
   return DEFAULT_DESIGN_TEMPLATE;
 }
 
@@ -400,6 +422,25 @@ export const CONTENT_MACHINE_RENDER_SPECS: Record<
       "BANIDOS: travessão (—), hashtag, 'Nós da DSEC...', 'incrível', 'transformador', 'sem KYC' (usar 'KYC simplificado'), 'altcoins' (exceto crítica).",
       "MAX 50 palavras por slide. Bullets com '- ' viram • verde elétrico.",
       "Body suporta prefixo opcional 'EYEBROW: <texto uppercase>' linha 1 pra eyebrow accent.",
+    ].join("\n"),
+  },
+  "defiverso-carrossel": {
+    blocks: 10,
+    rules: [
+      CONTENT_MACHINE_NARRATIVE_RULES,
+      "",
+      "ESTRUTURA HARD do carrossel Defiverso (10 slides padrão sexta):",
+      "- Slide 1 (cover): 3 headlines empilhadas (separadas por \\n) OU 1 statement de 1 frase. Emoji 👽 renderiza no topo automaticamente. Body opcional começa com 'EYEBROW: X temas que marcaram o mercado · DD-DD/MM' pra subhead com período.",
+      "- Slides 2-9 (inner): 1 tema/slide. body começa com 'EYEBROW: 🏛️ MACRO' (ou pilar: 🪙 token / ⚡ ETFs / 🛡️ DeFi / 🎤 evento / 🏦 instituição / 📜 regulação). 3-4 bullets ('- '), cada um com 1 dado numérico concreto (US$, %, data, ator). Termina com linha 'FONTE: NomeDoVeículo' pra rodapé.",
+      "- Slide 10 (cta): CTA ManyChat keyword ('Manda RESUMO na DM') OU bio link news.defiverso.com.",
+      "",
+      "VOZ: analítica, direta, sem hype. Repurpose de Resumo Criptoverso.",
+      "BANIDOS: 'Simples assim.', 'Se você chegou até aqui', 'Arrasta pro lado', 'Compartilhe com alguém que precisa', travessão '—', hashtag no corpo.",
+      "Padrões de carrossel:",
+      "- Sexta (default, 10 slides): repurpose newsletter. 8 temas no meio.",
+      "- Hot-take ad-hoc (7-9 slides): dado-shock na capa, contexto, desdobramentos, takeaway, CTA.",
+      "- Educacional evergreen (8-12 slides): pergunta provocadora, linha do tempo ou framework, lição central, ponte.",
+      "**bold** vira verde alien (#7CF067). Números/datas/cifras destacados em amarelo (#F5D547) automaticamente.",
     ].join("\n"),
   },
   "madureira-reflection": {

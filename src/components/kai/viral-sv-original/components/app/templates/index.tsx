@@ -11,6 +11,7 @@ import TemplatePaperMono from "./template-paper-mono";
 import TemplateMadureira from "./template-madureira";
 import TemplateMadureiraReflection from "./template-madureira-reflection";
 import TemplateDsecDark from "./template-dsec-dark";
+import TemplateDefiversoCarrossel from "./template-defiverso-carrossel";
 import type { SlideProps, TemplateId, TemplateMeta } from "./types";
 
 export type { SlideProps, TemplateId, TemplateMeta } from "./types";
@@ -46,6 +47,8 @@ export const TemplateRenderer = forwardRef<
       return <TemplateMadureiraReflection ref={ref} {...rest} />;
     case "dsec-dark":
       return <TemplateDsecDark ref={ref} {...rest} />;
+    case "defiverso-carrossel":
+      return <TemplateDefiversoCarrossel ref={ref} {...rest} />;
     default:
       return <TemplateTwitter ref={ref} {...rest} />;
   }
@@ -119,6 +122,12 @@ export const TEMPLATES_META: TemplateMeta[] = [
     kicker: "Nº 11 · TECH B2B",
     palette: ["#0A0A0B", "#F7931A", "#00FF88"],
   },
+  {
+    id: "defiverso-carrossel",
+    name: "Defiverso IG",
+    kicker: "Nº 12 · CRIPTO BR",
+    palette: ["#0E3B2E", "#F5D547", "#7CF067"],
+  },
 ];
 
 export {
@@ -133,4 +142,5 @@ export {
   TemplateMadureira,
   TemplateMadureiraReflection,
   TemplateDsecDark,
+  TemplateDefiversoCarrossel,
 };
