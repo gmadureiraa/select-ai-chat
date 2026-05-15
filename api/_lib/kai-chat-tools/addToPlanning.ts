@@ -135,9 +135,20 @@ export const addToPlanningTool: RegisteredTool<AddToPlanningArgs, AddToPlanningD
         args.column_type ?? (scheduledIso ? 'scheduled' : 'draft');
       const columnId = await resolveColumnId(workspaceId, desiredColumn);
 
+      const fallbackTitle = (() => {
+        const firstNonMetaLine = content
+          .split(/\n/)
+          .map((l) => l.trim())
+          .find((l) => l && !/^\*\*Hook:\*\*/i.test(l) && !/^\*\*Gancho:\*\*/i.test(l));
+        return (firstNonMetaLine ?? content)
+          .replace(/^#+\s*/, '')
+          .replace(/\*\*/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 60);
+      })();
       const title =
-        (args.title && String(args.title).slice(0, 200)) ||
-        content.replace(/\s+/g, ' ').trim().slice(0, 60);
+        (args.title && String(args.title).slice(0, 200)) || fallbackTitle;
       const format = String(args.format ?? 'post').toLowerCase();
       const status = scheduledIso ? 'scheduled' : 'draft';
 

@@ -5,6 +5,7 @@
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { query, insertRow } from '../db.js';
+import { notifyPlanningItemTelegram } from '../telegram-planning.js';
 
 interface CreateContentArgs {
   platform: string;
@@ -16,6 +17,43 @@ interface CreateContentArgs {
 interface CreateContentData {
   planningItemId: string;
   content: string;
+}
+
+function inferContentType(format: string, platform: string): string {
+  const f = format.toLowerCase();
+  if (f.includes('thread') || f.includes('fio')) return 'thread';
+  if (f.includes('carousel') || f.includes('carrossel') || f.includes('carrosel')) return 'carousel';
+  if (f.includes('reel') || f.includes('short')) return 'short_video';
+  if (platform === 'linkedin') return 'linkedin_post';
+  if (platform === 'twitter' || platform === 'x') return 'tweet';
+  if (platform === 'instagram') return 'instagram_post';
+  return 'social_post';
+}
+
+function parseThreadItems(text: string): Array<{ text: string; media_urls: string[] }> | undefined {
+  const cleaned = text.trim();
+  if (!cleaned) return undefined;
+  const bySeparators = cleaned
+    .split(/\n\s*(?:---+|—{3,})\s*\n/g)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const byNumbers = cleaned
+    .split(/\n(?=\s*(?:tweet\s*)?\d+\s*(?:[\/.)-]|:)\s+)/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const parts = bySeparators.length >= 2 ? bySeparators : byNumbers;
+  if (parts.length < 2) return undefined;
+  const tweets = parts
+    .map((part) =>
+      part
+        .replace(/^\s*(?:tweet\s*)?\d+\s*(?:[\/.)-]|:)\s*/i, '')
+        .replace(/\n\s*(?:---+|—{3,})\s*$/g, '')
+        .trim()
+        .slice(0, 280),
+    )
+    .filter(Boolean)
+    .map((part) => ({ text: part, media_urls: [] }));
+  return tweets.length >= 2 ? tweets : undefined;
 }
 
 async function invokeContentAgent(
@@ -142,11 +180,31 @@ export const createContentTool: RegisteredTool<CreateContentArgs, CreateContentD
 
       const columnId = await resolveDraftColumnId(workspaceId);
 
-      const title = content.replace(/\s+/g, ' ').trim().slice(0, 60);
+      // Strip markdown heading + **Hook:** prefix antes de extrair título.
+      // O Gemini frequentemente devolve `# {título}\n\n**Hook:** {mesmo título}\n\n{body}`.
+      // Sem isso, title vira o cabeçalho markdown e duplica visualmente
+      // quando a biblioteca mostra title + content lado a lado.
+      const firstNonMetaLine = content
+        .split(/\n/)
+        .map((l) => l.trim())
+        .find((l) => l && !/^\*\*Hook:\*\*/i.test(l) && !/^\*\*Gancho:\*\*/i.test(l));
+      const rawTitle = (firstNonMetaLine ?? content).trim();
+      const title = rawTitle
+        .replace(/^#+\s*/, '')
+        .replace(/\*\*/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 60);
+      const contentType = inferContentType(format, platform);
+      const threadTweets =
+        contentType === 'thread' || format.includes('thread') || format.includes('fio')
+          ? parseThreadItems(content)
+          : undefined;
       const item = await insertRow<{ id: string }>('planning_items', {
         title,
         content,
         platform,
+        content_type: contentType,
         status: 'draft',
         client_id: ctx.clientId,
         workspace_id: workspaceId,
@@ -157,9 +215,18 @@ export const createContentTool: RegisteredTool<CreateContentArgs, CreateContentD
           format,
           briefing,
           tone: tone ?? null,
+          content_type: contentType,
+          target_platforms: [platform],
+          ...(threadTweets ? { thread_tweets: threadTweets } : {}),
         }),
       });
       const planningItemId = item.id;
+      notifyPlanningItemTelegram(planningItemId, {
+        mode: 'review',
+        reason: 'Criado pelo KAI Chat',
+      }).catch((error) => {
+        console.warn('[createContent] telegram notify failed:', error);
+      });
 
       const card: KAIActionCard = {
         id: newActionCardId(),
