@@ -44,28 +44,37 @@ const Login = () => {
 
   // Redirect to workspace if already logged in
   useEffect(() => {
+    // 2026-05-17 — audit P0-2: antes navigate(`/${slug}`) caia em 3 RPCs
+    // diferentes que podiam devolver "null" / undefined, formando rotas tipo
+    // `/null` que entravam em loop de redirect com App.tsx. Sanitizamos cada
+    // slug e — pq KAI 2.0 hoje so tem workspace "kaleidos" — qualquer slug
+    // valido cai em "/kaleidos" (App.tsx forca isso de toda forma).
+    const isValidSlug = (s: unknown): s is string =>
+      typeof s === "string" && s.length > 0 && s !== "null" && s !== "undefined";
+    const goToWorkspace = (slug: string) => {
+      // Sempre redireciona pra /kaleidos. Quando KAI tiver multi-workspace
+      // real, trocar pra `/${slug}` (preservando o sanitize acima).
+      navigate("/kaleidos", { replace: true });
+    };
+
     const redirectToWorkspace = async () => {
       if (user) {
         setCheckingRedirect(true);
         try {
-          // Get user email
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          const userEmail = authUser?.email;
-
           // Check for pending invites using RPC (bypasses RLS)
           const { data: pendingInvites } = await supabase.rpc("get_my_pending_workspace_invites");
 
           if (pendingInvites && pendingInvites.length > 0) {
             const invite = pendingInvites[0];
-            
+
             // Accept the invite via RPC
             const { data: accepted } = await supabase.rpc("accept_pending_invite", {
               p_workspace_id: invite.workspace_id,
               p_user_id: user.id
             });
-            
-            if (accepted && invite.workspace_slug) {
-              navigate(`/${invite.workspace_slug}`, { replace: true });
+
+            if (accepted && isValidSlug(invite.workspace_slug)) {
+              goToWorkspace(invite.workspace_slug);
               return;
             }
           }
@@ -79,8 +88,8 @@ const Login = () => {
 
           if (memberships && memberships.length > 0) {
             const workspace = memberships[0].workspaces as { slug: string } | null;
-            if (workspace?.slug) {
-              navigate(`/${workspace.slug}`, { replace: true });
+            if (isValidSlug(workspace?.slug)) {
+              goToWorkspace(workspace!.slug);
               return;
             }
           }
@@ -88,9 +97,9 @@ const Login = () => {
           // Fallback to RPC
           const { data: slug } = await supabase
             .rpc("get_user_workspace_slug", { p_user_id: user.id });
-          
-          if (slug) {
-            navigate(`/${slug}`, { replace: true });
+
+          if (isValidSlug(slug)) {
+            goToWorkspace(slug);
           } else {
             // User has no workspace, redirect to no-workspace page
             navigate("/no-workspace", { replace: true });
