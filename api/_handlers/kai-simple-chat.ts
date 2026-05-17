@@ -2435,7 +2435,7 @@ adicional. O card de confirmação já injeta isso automaticamente.
       };
 
       try {
-        const { finalText, toolCalls } = await runToolLoop({
+        const { finalText, toolCalls, cacheStats } = await runToolLoop({
           apiKey: GOOGLE_API_KEY,
           model: geminiModel,
           orchestratorModel: 'gemini-2.5-pro',
@@ -2446,7 +2446,7 @@ adicional. O card de confirmação já injeta isso automaticamente.
           ctx: toolCtx,
         });
         console.log(
-          `[kai-simple-chat] 🔧 tool-loop done — ${toolCalls.length} tool calls, ${finalText.length} chars de texto`,
+          `[kai-simple-chat] 🔧 tool-loop done — ${toolCalls.length} tool calls, ${finalText.length} chars de texto, cache hits=${cacheStats.hits}/creates=${cacheStats.creates}/bypassed=${cacheStats.bypassed}`,
         );
         const inputTokens = estimateTokens(JSON.stringify(geminiContents));
         const outputTokens = estimateTokens(finalText);
@@ -2456,7 +2456,13 @@ adicional. O card de confirmação já injeta isso automaticamente.
           'kai-simple-chat-tools',
           inputTokens,
           outputTokens,
-          { client_id: clientId, tool_calls: toolCalls.length },
+          {
+            client_id: clientId,
+            tool_calls: toolCalls.length,
+            cache_hits: cacheStats.hits,
+            cache_creates: cacheStats.creates,
+            cache_bypassed: cacheStats.bypassed,
+          },
         ).catch(() => {});
       } catch (err) {
         console.error('[kai-simple-chat] runToolLoop error:', err);

@@ -5,6 +5,7 @@ import type { KAIStreamEmitter } from './kai-stream.js';
 import type { ToolExecutionContext } from './types.js';
 import { ToolRegistry } from './registry.js';
 import { isApprovalRequest } from '../approval-flow.js';
+import { getOrCreateGeminiCache } from './gemini-cache.js';
 
 export interface GeminiContent {
   role: 'user' | 'model' | 'function';
@@ -55,6 +56,7 @@ export async function runToolLoop(
 ): Promise<{
   finalText: string;
   toolCalls: Array<{ name: string; args: Record<string, unknown>; result: unknown }>;
+  cacheStats: { hits: number; creates: number; bypassed: number };
 }> {
   const {
     apiKey,
@@ -72,6 +74,9 @@ export async function runToolLoop(
   const workingContents: GeminiContent[] = [...contents];
   const executedTools: Array<{ name: string; args: Record<string, unknown>; result: unknown }> = [];
   let finalText = '';
+  const cacheStats = { hits: 0, creates: 0, bypassed: 0 };
+
+  const toolDeclarations = registry.getDeclarations();
 
   for (let iter = 0; iter < maxIterations; iter++) {
     const activeModel =
@@ -83,11 +88,23 @@ export async function runToolLoop(
         `[runToolLoop] upgrade pra orchestrator model (${activeModel}) na iter ${iter} após ${executedTools.length} tool calls`,
       );
     }
+
+    // Tenta usar cached content pra system+tools (economiza ~75% input tokens
+    // do prompt fixo). Se inviável (< min tokens, model sem suporte), cai pro
+    // path normal com systemInstruction + tools inline.
+    const cacheLookup = await getOrCreateGeminiCache({
+      apiKey,
+      model: activeModel,
+      systemInstruction,
+      tools: toolDeclarations,
+    });
+    if (cacheLookup.hit) cacheStats.hits++;
+    else if (cacheLookup.cacheName) cacheStats.creates++;
+    else cacheStats.bypassed++;
+
     const url = `${GEMINI_API_BASE}/${activeModel}:streamGenerateContent?key=${apiKey}&alt=sse`;
     const body: Record<string, unknown> = {
       contents: workingContents,
-      systemInstruction: { parts: [{ text: systemInstruction }] },
-      tools: [{ functionDeclarations: registry.getDeclarations() }],
       // toolConfig.AUTO — Gemini decide entre chamar tool ou responder em texto.
       // Explícito pra deixar claro o contrato (default já é AUTO mas facilita debug).
       toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
@@ -97,6 +114,14 @@ export async function runToolLoop(
         maxOutputTokens: 8192,
       },
     };
+    if (cacheLookup.cacheName) {
+      // Cached content já inclui systemInstruction + tools. Não pode duplicar
+      // no body — a API rejeita.
+      body.cachedContent = cacheLookup.cacheName;
+    } else {
+      body.systemInstruction = { parts: [{ text: systemInstruction }] };
+      body.tools = [{ functionDeclarations: toolDeclarations }];
+    }
 
     const response = await fetch(url, {
       method: 'POST',
@@ -188,7 +213,7 @@ export async function runToolLoop(
     break;
   }
 
-  return { finalText, toolCalls: executedTools };
+  return { finalText, toolCalls: executedTools, cacheStats };
 }
 
 async function parseGeminiStream(
