@@ -150,9 +150,10 @@ export default function Kai() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Atalhos globais de teclado — funcionam em qualquer tab.
-  // ⌘K / Ctrl+K → pula pro chat KAI (assistant)
+  // ⌘K / Ctrl+K → abre o CommandPalette global (handler em
+  //   src/components/CommandPalette.tsx; mantemos APENAS aquele para evitar
+  //   conflito que disparava 2 ações no mesmo keydown — 2026-05-16).
   // ⌘J / Ctrl+J → pula pra Sequência Viral (carrossel)
-  // ⌘I / Ctrl+I → pula pro Radar Viral (substitui antigo Viral Hunter)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -162,23 +163,20 @@ export default function Kai() {
         (target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
           target.isContentEditable);
-      // Não bloqueia Cmd+K em inputs (é o padrão universal de "command menu")
-      // mas ignora Cmd+J/I em inputs (podem conflitar com atalhos do browser)
       const key = e.key.toLowerCase();
-      if (isViewer && ["k", "j", "i"].includes(key)) {
+      // Cmd+K é tratado exclusivamente pelo CommandPalette — não interceptar
+      // aqui (causa double-fire: muda tab pra assistant E abre palette).
+      if (key === "k") return;
+      // Viewer: Cmd+J redireciona pra planning (única tab permitida)
+      if (isViewer && key === "j") {
+        if (inEditable) return;
         e.preventDefault();
         const params = new URLSearchParams(searchParams);
         params.set("tab", "planning");
         setSearchParams(params);
         return;
       }
-      if (key === "k") {
-        if (inEditable) return;
-        e.preventDefault();
-        const params = new URLSearchParams(searchParams);
-        params.set("tab", "assistant");
-        setSearchParams(params);
-      } else if (key === "j" && !inEditable) {
+      if (key === "j" && !inEditable) {
         e.preventDefault();
         const params = new URLSearchParams(searchParams);
         params.set("tab", "viral-carrossel");
