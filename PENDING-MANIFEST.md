@@ -283,6 +283,16 @@ commit `0d1aec94`:
 'task-comments-delete': () => import('./_handlers/task-comments-delete.js'),
 ```
 
+Round 2 (commit `2409c2a0`) adicionou:
+
+```ts
+'planning-items-update': () => import('./_handlers/planning-items-update.js'),
+'kanban-columns-init': () => import('./_handlers/kanban-columns-init.js'),
+```
+
+`planning-items-create` foi extendido pra aceitar id (restore/undo flow)
+e todos os campos editáveis (recurrence_*, media_urls, labels, etc).
+
 ### Follow-ups recomendados
 
 - **team-tasks-recurrence** — handler dedicado pra criar/editar templates
