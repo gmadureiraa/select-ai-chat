@@ -49,16 +49,13 @@ import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 // Migrated 2026-05-07: Supabase edge function -> Vercel Function under /api/.
-// Atualizado 2026-05-08: provider primário virou Postiz. URL principal aponta pra postiz-webhook.
-// late-webhook ainda existe como fallback durante migração.
+// 2026-05-17: Postiz arquivado (provider voltou pra Late.ai como única integração).
 const WEBHOOK_URL = (() => {
   if (typeof window !== "undefined" && window.location?.origin) {
-    return `${window.location.origin}/api/postiz-webhook`;
+    return `${window.location.origin}/api/late-webhook`;
   }
-  return `/api/postiz-webhook`;
+  return `/api/late-webhook`;
 })();
-// Legacy late-webhook URL pode ser construído como `${origin}/api/late-webhook` se precisar
-// expor pro user durante migração. Hoje só usamos postiz-webhook acima.
 
 const SUPPORTED_EVENTS = [
   { id: "post.published", label: "post.published", severity: "info", description: "Move o card para Publicado e registra a URL." },

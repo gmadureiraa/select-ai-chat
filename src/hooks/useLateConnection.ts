@@ -141,7 +141,8 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       // Store expected connection for correlation
       expectedConnectionRef.current = { clientId, platform };
 
-      const { data, error } = await apiInvoke('postiz-oauth-start', {
+      // 2026-05-17: Postiz arquivado, voltamos pro late-oauth-start como provider único.
+      const { data, error } = await apiInvoke('late-oauth-start', {
         body: { clientId, platform }
       });
 
@@ -233,7 +234,8 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
 
       const isScheduling = !!options?.scheduledFor && options?.publishNow === false;
 
-      const { data, error } = await apiInvoke('postiz-post', {
+      // 2026-05-17: Postiz arquivado, late-post como provider único.
+      const { data, error } = await apiInvoke('late-post', {
         body: {
           clientId,
           platform,

@@ -103,8 +103,9 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
     mutationFn: async () => {
       if (!clientId) return null;
       
-      const { data, error } = await apiInvoke('postiz-integrations', {
-        body: { clientId, mode: 'verify' }
+      // 2026-05-17: Postiz arquivado, voltamos pro late-verify-accounts (mode 'verify' já era o default).
+      const { data, error } = await apiInvoke('late-verify-accounts', {
+        body: { clientId }
       });
       
       if (error) throw error;

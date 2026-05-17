@@ -45,6 +45,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'fetch-twitter-apify': () => import('./_handlers/fetch-twitter-apify.js'),
   'fetch-youtube-apify': () => import('./_handlers/fetch-youtube-apify.js'),
   'fetch-youtube-metrics': () => import('./_handlers/fetch-youtube-metrics.js'),
+  'fetch-late-metrics': () => import('./_handlers/fetch-late-metrics.js'),
   'firecrawl-scrape': () => import('./_handlers/firecrawl-scrape.js'),
   'generate-caption': () => import('./_handlers/generate-caption.js'),
   'generate-client-context': () => import('./_handlers/generate-client-context.js'),
@@ -59,7 +60,9 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'generate-viral-carousel': () => import('./_handlers/generate-viral-carousel.js'),
   'generate-voice-profile': () => import('./_handlers/generate-voice-profile.js'),
   'get-vapid-public-key': () => import('./_handlers/get-vapid-public-key.js'),
-  'get-integrations-status': () => import('./_handlers/get-integrations-status.js'),
+  // 2026-05-17: 'get-integrations-status' removido (handler nunca existiu como arquivo,
+  //   só era chamado por IntegrationsSettings.tsx via supabase.functions.invoke
+  //   herdado da era pré-Vercel. UI vai precisar adotar getIntegrationsStatus tool/refactor).
   'google-news-search': () => import('./_handlers/google-news-search.js'),
   'google-trends-br': () => import('./_handlers/google-trends-br.js'),
   'image-search': () => import('./_handlers/image-search.js'),
@@ -88,6 +91,16 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'metricool-summary': () => import('./_handlers/metricool-summary.js'),
   'metricool-reports': () => import('./_handlers/metricool-reports.js'),
   'metricool-calendar': () => import('./_handlers/metricool-calendar.js'),
+  // Late.ai integration (publisher único pós-2026-05-17, Postiz arquivado).
+  'late-analytics': () => import('./_handlers/late-analytics.js'),
+  'late-disconnect-account': () => import('./_handlers/late-disconnect-account.js'),
+  'late-oauth-callback': () => import('./_handlers/late-oauth-callback.js'),
+  'late-oauth-start': () => import('./_handlers/late-oauth-start.js'),
+  'late-post': () => import('./_handlers/late-post.js'),
+  'late-verify-accounts': () => import('./_handlers/late-verify-accounts.js'),
+  'late-webhook': () => import('./_handlers/late-webhook.js'),
+  'late-webhook-reprocess': () => import('./_handlers/late-webhook-reprocess.js'),
+  'late-webhook-test': () => import('./_handlers/late-webhook-test.js'),
   'linkedin-oauth-callback': () => import('./_handlers/linkedin-oauth-callback.js'),
   'linkedin-oauth-start': () => import('./_handlers/linkedin-oauth-start.js'),
   'linkedin-post': () => import('./_handlers/linkedin-post.js'),
@@ -135,7 +148,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'automations-create': () => import('./_handlers/automations-create.js'),
   'automations-list': () => import('./_handlers/automations-list.js'),
   'automations-toggle': () => import('./_handlers/automations-toggle.js'),
-  'automation-webhook': () => import('./_handlers/automation-webhook.js'),
+  // 2026-05-17: 'automation-webhook' removido (handler nunca existiu como arquivo).
   'ai-workflow-update': () => import('./_handlers/ai-workflow-update.js'),
   'ai-workflow-trigger': () => import('./_handlers/ai-workflow-trigger.js'),
   'ai-agent-update': () => import('./_handlers/ai-agent-update.js'),
@@ -177,7 +190,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'update-newsletter-covers': () => import('./_handlers/update-newsletter-covers.js'),
   'validate-csv-import': () => import('./_handlers/validate-csv-import.js'),
   'validate-social-credentials': () => import('./_handlers/validate-social-credentials.js'),
-  'viral-library': () => import('./_handlers/viral-library.js'),
+  // 2026-05-17: 'viral-library' removido — unificado com biblioteca normal em 2026-05-08, handler nunca existiu.
   'viral-stats': () => import('./_handlers/viral-stats.js'),
   'youtube-search': () => import('./_handlers/youtube-search.js'),
 };

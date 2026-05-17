@@ -215,18 +215,18 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
     fetchLibraries();
   }, [selectedClientId]);
 
-  // Keyboard shortcut: Cmd/Ctrl + K
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setIsOpen(prev => !prev);
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  // 2026-05-17 — Cmd/Ctrl+K REMOVIDO daqui.
+  // Audit 2026-05-16 P0-1 marcou o conflito Kai.tsx <-> CommandPalette mas
+  // perdeu este TERCEIRO handler: ele tambem abria o GlobalKAIPanel via
+  // setIsOpen. Resultado pratico: Cmd+K simultaneamente abria o palette
+  // (CommandPalette) E o panel lateral kAI por cima — UX confusa, foco
+  // perdido. CommandPalette continua dono exclusivo do atalho. Quem quiser
+  // abrir o GlobalKAIPanel via teclado pode usar Cmd+Shift+K no futuro
+  // (mais consistente com app patterns — Cmd+K busca, Cmd+Shift+K =
+  // alternativa, ver Linear/Notion).
+  // ---
+  // Pra abrir o panel programaticamente, use `togglePanel()` / `openPanel()`
+  // exposto via contexto.
 
   // Panel controls
   const openPanel = useCallback(() => setIsOpen(true), []);

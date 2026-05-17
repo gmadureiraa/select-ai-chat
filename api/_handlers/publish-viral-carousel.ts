@@ -1,10 +1,8 @@
 // Migrated from supabase/functions/publish-viral-carousel/index.ts
 // Storage migrated 2026-05-08 → Vercel Blob (era Supabase Storage legacy).
+// Publisher 2026-05-17 → Late.ai como único provider (Postiz arquivado).
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
-// Migração 2026-05-08: passa a chamar postiz-post (Late.ai foi substituído).
-// Mantemos importação Late apenas como fallback in-process se Postiz env estiver missing.
-import postizPostHandler from './postiz-post.js';
 import latePostHandler from './late-post.js';
 import { put } from '@vercel/blob';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -107,8 +105,7 @@ export default authedPost(async ({ user, body, req, res }) => {
 
   console.log(`[publish-viral-carousel] uploaded ${mediaUrls.length} slides for carousel ${carouselId}`);
 
-  // Call postiz-post handler in-process via a captured pseudo response.
-  // Fallback: se POSTIZ_API_KEY não setada, cai pra late-post (handler legado).
+  // Call late-post handler in-process via a captured pseudo response.
   const lateBody = {
     clientId,
     platform: 'instagram',
@@ -119,8 +116,7 @@ export default authedPost(async ({ user, body, req, res }) => {
     publishNow: !scheduledFor,
   };
 
-  const usePostiz = !!process.env.POSTIZ_API_KEY;
-  const publishHandler = usePostiz ? postizPostHandler : latePostHandler;
+  const publishHandler = latePostHandler;
 
   let latePayload: any = null;
   let lateStatus = 200;
@@ -154,10 +150,9 @@ export default authedPost(async ({ user, body, req, res }) => {
   await (publishHandler as any)(mockReq, mockRes);
 
   if (lateStatus >= 400 || !latePayload) {
-    const provider = usePostiz ? 'postiz-post' : 'late-post';
-    console.error(`[publish-viral-carousel] ${provider} failed:`, lateStatus, latePayload);
+    console.error(`[publish-viral-carousel] late-post failed:`, lateStatus, latePayload);
     res.status(502).json({
-      error: latePayload?.error || `${provider} falhou (${lateStatus})`,
+      error: latePayload?.error || `late-post falhou (${lateStatus})`,
       details: latePayload,
       mediaUrls,
     });
