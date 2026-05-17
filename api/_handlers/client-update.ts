@@ -8,17 +8,29 @@ import { getPool, queryOne } from '../_lib/db.js';
 const BodySchema = z.object({
   client_id: z.string().uuid(),
   name: z.string().min(1).max(200).optional(),
-  description: z.string().max(5000).optional(),
-  context_notes: z.string().max(20000).optional(),
-  identity_guide: z.string().max(50000).optional(),
-  content_guidelines: z.string().max(20000).optional(),
+  description: z.string().max(5000).nullable().optional(),
+  context_notes: z.string().max(20000).nullable().optional(),
+  identity_guide: z.string().max(50000).nullable().optional(),
+  content_guidelines: z.string().max(20000).nullable().optional(),
   avatar_url: z.string().url().nullable().optional(),
   social_media: z.record(z.unknown()).optional(),
-  voice_profile: z.record(z.unknown()).optional(),
+  voice_profile: z.record(z.unknown()).nullable().optional(),
+  // brand_assets armazena logos/colors/fonts (shape new + legacy — ver
+  // src/hooks/useBrandAssets.ts pro tipo completo). Aceitamos record solto
+  // pra nao quebrar com schema fragmentado documentado no audit.
+  brand_assets: z.record(z.unknown()).nullable().optional(),
+  // ai_analysis = resultado completo de analyze-client-onboarding.
+  ai_analysis: z.record(z.unknown()).nullable().optional(),
   tags: z.union([z.array(z.string()), z.record(z.unknown())]).optional(),
 });
 
-const JSONB_FIELDS = new Set(['social_media', 'voice_profile', 'tags']);
+const JSONB_FIELDS = new Set([
+  'social_media',
+  'voice_profile',
+  'tags',
+  'brand_assets',
+  'ai_analysis',
+]);
 
 export default authedPost(async ({ body, user }) => {
   const parsed = BodySchema.safeParse(body ?? {});
