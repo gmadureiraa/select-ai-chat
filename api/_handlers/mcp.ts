@@ -27,10 +27,12 @@
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
-import { assertMcpAuth, tryMcpAuth } from '../_lib/mcp/auth.js';
+import { assertMcpAuth, tryMcpAuth, type McpAuthResult } from '../_lib/mcp/auth.js';
 import { invokeMcpTool } from '../_lib/mcp/invoke.js';
+import { buildRateKey, classifyTool } from '../_lib/mcp/rate-limit-policy.js';
 import { listMcpDescriptors, mcpRegistryStats } from '../_lib/mcp/registry.js';
 import { listResources, readResource } from '../_lib/mcp/resources.js';
+import { rateLimit } from '../_lib/shared/rate-limit.js';
 
 const PROTOCOL_VERSION = '2024-11-05';
 
@@ -155,6 +157,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!toolName || typeof toolName !== 'string') {
           return rpcError(res, id, -32602, 'params.name (tool name) é obrigatório');
         }
+        // Rate-limit por bucket + identidade. Service-token e user JWT
+        // têm pools separados pra evitar starvation cruzado.
+        const rateError = await applyMcpRateLimit(res, toolName, auth);
+        if (rateError) return rateError(id);
+
         const args = (params.arguments ?? params.args ?? {}) as Record<string, unknown>;
         const clientIdFallback = params.meta?.clientId as string | undefined;
         const result = await invokeMcpTool({
@@ -202,4 +209,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error(`[mcp] method="${method}" error:`, err);
     return rpcError(res, id, -32603, err?.message || 'Internal error');
   }
+}
+
+/**
+ * Aplica rate-limit pra tools/call no JSON-RPC handler. Retorna `null`
+ * quando passa, ou uma factory `(id) => Response` quando excede limite —
+ * caller deve `return rateError(id)` pra emitir o erro com id correto.
+ *
+ * Headers `X-RateLimit-*` são setados em ambos os casos pra clients
+ * conseguirem se auto-throttle.
+ */
+async function applyMcpRateLimit(
+  res: VercelResponse,
+  toolName: string,
+  auth: McpAuthResult,
+): Promise<((id: any) => any) | null> {
+  const policy = classifyTool(toolName);
+  const rlKey = buildRateKey({
+    bucket: policy.bucket,
+    authMode: auth.mode,
+    userId: auth.userId,
+  });
+  const rl = await rateLimit({
+    key: rlKey,
+    limit: policy.limit,
+    windowMs: policy.windowMs,
+  });
+  res.setHeader('X-RateLimit-Bucket', policy.bucket);
+  res.setHeader('X-RateLimit-Limit', String(policy.limit));
+  res.setHeader('X-RateLimit-Remaining', String(rl.remaining));
+  res.setHeader('X-RateLimit-Reset', String(Math.floor(rl.reset / 1000)));
+  if (rl.allowed) return null;
+
+  res.setHeader('Retry-After', String(rl.retryAfterSec));
+  const message = `Rate limit excedido pra tool "${toolName}" (bucket=${policy.bucket}, ${policy.limit}/min). Tente em ${rl.retryAfterSec}s.`;
+  return (id: any) =>
+    res.status(200).json({
+      jsonrpc: '2.0',
+      id,
+      error: {
+        code: -32029,
+        message,
+        data: {
+          bucket: policy.bucket,
+          limit: policy.limit,
+          retryAfterSec: rl.retryAfterSec,
+        },
+      },
+    });
 }
