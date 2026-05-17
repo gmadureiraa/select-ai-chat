@@ -219,7 +219,9 @@ export default authedPost(async ({ body, res, user }) => {
   await pool.query(`UPDATE ${tableName} SET status = 'publishing' WHERE id = $1`, [postId]);
 
   const credentials = await queryOne<any>(
-    `SELECT * FROM client_social_credentials WHERE client_id = $1 AND platform = 'twitter' LIMIT 1`,
+    // Usa a view `_decrypted` que aplica `decrypt_social_token` em cada
+    // coluna `*_encrypted`.
+    `SELECT * FROM client_social_credentials_decrypted WHERE client_id = $1 AND platform = 'twitter' LIMIT 1`,
     [post.client_id]
   );
   if (!credentials) throw new Error('Credenciais do Twitter não configuradas');
@@ -234,8 +236,9 @@ export default authedPost(async ({ body, res, user }) => {
   const api_secret = creds.api_secret || meta.api_secret;
   const access_token = creds.access_token || meta.access_token;
   const access_token_secret = creds.access_token_secret || meta.access_token_secret;
+  // View `_decrypted` expõe `oauth_access_token` em plaintext.
   const oauth_access_token =
-    creds.oauth_access_token_encrypted || creds.oauth_access_token || meta.oauth_access_token;
+    creds.oauth_access_token || creds.oauth_access_token_encrypted || meta.oauth_access_token;
 
   const useOAuth2 = !!oauth_access_token && !api_key;
   console.log(`Using ${useOAuth2 ? 'OAuth 2.0' : 'OAuth 1.0a'} authentication`);

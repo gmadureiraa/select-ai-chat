@@ -54,25 +54,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log(`[cron-transcribe-recent-posts] processing ${posts.length} posts`);
 
   const results: { id: string; success: boolean; error?: string }[] = [];
-  const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 
+  // Pós-migração Neon o cron-scrape-instagram grava `thumbnail_url` como URL
+  // absoluta (IG CDN). Linhas legadas tinham `images` como array de paths
+  // Supabase Storage `client-files/...`, mas esse bucket não está mais sendo
+  // populado, então NÃO fazemos fallback pra Supabase. Se `images[i]` não
+  // for URL absoluta, ignoramos e logamos.
   for (const post of posts) {
     if (!post.post_id) {
       results.push({ id: post.id, success: false, error: 'no post_id' });
       continue;
     }
 
-    // Resolve image URLs: pode ser array de paths (storage) ou URLs absolutas
     let imageUrls: string[] = [];
     if (Array.isArray(post.images) && post.images.length > 0) {
-      imageUrls = post.images.map((img: string) => {
-        if (typeof img !== 'string') return '';
-        if (img.startsWith('http')) return img;
-        if (SUPABASE_URL && !img.startsWith('/')) {
-          return `${SUPABASE_URL}/storage/v1/object/public/client-files/${img}`;
-        }
-        return img;
-      }).filter(Boolean);
+      const dropped: string[] = [];
+      imageUrls = post.images
+        .map((img: unknown) => (typeof img === 'string' ? img : ''))
+        .filter((img: string) => {
+          if (!img) return false;
+          if (img.startsWith('http')) return true;
+          dropped.push(img);
+          return false;
+        });
+      if (dropped.length > 0) {
+        console.warn(
+          `[cron-transcribe-recent-posts] post ${post.id}: ${dropped.length} imagens legadas (Supabase paths) ignoradas`,
+        );
+      }
     }
     if (imageUrls.length === 0 && post.thumbnail_url) {
       imageUrls = [post.thumbnail_url];

@@ -188,10 +188,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
       : null;
 
+    // IMPORTANTE: passar tokens por `public.encrypt_social_token` antes do
+    // INSERT. As colunas `*_encrypted` esperam ciphertext com prefix `enc:`
+    // — `decrypt_social_token` retorna as-is quando não tem o marker,
+    // fallback silencioso que mascarava plaintext em prod.
     await getPool().query(
       `INSERT INTO client_social_credentials
         (client_id, platform, is_valid, last_validated_at, validation_error, account_name, account_id, oauth_access_token_encrypted, oauth_refresh_token_encrypted, expires_at, metadata)
-        VALUES ($1, 'twitter', TRUE, NOW(), NULL, $2, $3, $4, $5, $6, $7::jsonb)
+        VALUES ($1, 'twitter', TRUE, NOW(), NULL, $2, $3, public.encrypt_social_token($4::text), public.encrypt_social_token($5::text), $6, $7::jsonb)
        ON CONFLICT (client_id, platform) DO UPDATE SET
         is_valid = TRUE,
         last_validated_at = NOW(),

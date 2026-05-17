@@ -111,12 +111,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       accountId = profile.sub || '';
     }
 
-    // Save credentials to client_social_credentials
+    // Save credentials to client_social_credentials.
+    // IMPORTANTE: `oauth_access_token_encrypted` precisa receber o token
+    // já passado por `public.encrypt_social_token(plaintext)`. Antes esse
+    // INSERT colocava o token CRU na coluna `*_encrypted`, e a função
+    // `decrypt_social_token` retorna `text` as-is quando não tem prefix
+    // `enc:` (fallback silencioso plaintext). Resultado: token vazava no
+    // primeiro dump do DB. Migration 0017-encrypt (2026-01-12) já existe.
     const pool = getPool();
     await pool.query(
       `INSERT INTO client_social_credentials
         (client_id, platform, oauth_access_token_encrypted, expires_at, account_id, account_name, is_valid, last_validated_at, validation_error, metadata)
-        VALUES ($1, 'linkedin', $2, $3, $4, $5, TRUE, NOW(), NULL, $6::jsonb)
+        VALUES ($1, 'linkedin', public.encrypt_social_token($2::text), $3, $4, $5, TRUE, NOW(), NULL, $6::jsonb)
        ON CONFLICT (client_id, platform) DO UPDATE SET
         oauth_access_token_encrypted = EXCLUDED.oauth_access_token_encrypted,
         expires_at = EXCLUDED.expires_at,

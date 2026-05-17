@@ -122,7 +122,10 @@ export default authedPost(async ({ body, res, user }) => {
 
   // Get credentials for this client
   const credentials = await queryOne<any>(
-    `SELECT * FROM client_social_credentials WHERE client_id = $1 AND platform = 'linkedin' LIMIT 1`,
+    // Usa a view `_decrypted` que aplica `decrypt_social_token` em cada
+    // coluna `*_encrypted`. Antes a leitura crua expunha ciphertext em
+    // posições onde plaintext era esperado.
+    `SELECT * FROM client_social_credentials_decrypted WHERE client_id = $1 AND platform = 'linkedin' LIMIT 1`,
     [post.client_id]
   );
 
@@ -137,8 +140,12 @@ export default authedPost(async ({ body, res, user }) => {
     );
   }
 
+  // View `_decrypted` expõe a coluna `oauth_access_token` (plaintext após
+  // passar por decrypt_social_token). Fallback pro nome `*_encrypted` é
+  // dead code legacy mas mantido por safety.
   const accessToken =
-    credentials.oauth_access_token_encrypted || (credentials as any).oauth_access_token;
+    (credentials as any).oauth_access_token ||
+    (credentials as any).oauth_access_token_encrypted;
   if (!accessToken) {
     throw new Error('Access token do LinkedIn ausente');
   }
