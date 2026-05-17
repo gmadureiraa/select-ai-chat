@@ -3,6 +3,7 @@
  * Útil pra "quais automações tenho ativas?" ou "lista as automações desse cliente".
  */
 import type { RegisteredTool } from './types.js';
+import { buildToolFetchHeaders } from './internal-headers.js';
 
 interface ListAutomationsArgs {
   status?: 'active' | 'paused' | 'all';
@@ -58,10 +59,7 @@ export const listAutomationsTool: RegisteredTool<ListAutomationsArgs, ListAutoma
   handler: async (args, ctx) => {
     const res = await fetch(`${ctx.internalBaseUrl}/api/router?slug=automations-list`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-      },
+      headers: buildToolFetchHeaders(ctx),
       body: JSON.stringify({
         status: args.status ?? 'all',
         platform: args.platform,

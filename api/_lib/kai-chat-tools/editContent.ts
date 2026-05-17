@@ -2,8 +2,9 @@
  * Tool `editContent` — edita/reescreve um rascunho via kai-content-agent.
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
-import type { RegisteredTool } from './types.js';
+import type { RegisteredTool, ToolExecutionContext } from './types.js';
 import { query } from '../db.js';
+import { buildToolFetchHeaders } from './internal-headers.js';
 
 interface EditContentArgs {
   planningItemId: string;
@@ -16,8 +17,7 @@ interface EditContentData {
 }
 
 async function invokeContentAgentForEdit(
-  internalBaseUrl: string,
-  accessToken: string,
+  ctx: ToolExecutionContext,
   clientId: string,
   currentContent: string,
   instruction: string,
@@ -30,12 +30,9 @@ async function invokeContentAgentForEdit(
     `CONTEÚDO ATUAL:\n${currentContent}\n\n` +
     `Devolva SOMENTE a versão reescrita, mantendo o mesmo formato e plataforma.`;
 
-  const res = await fetch(`${internalBaseUrl}/api/kai-content-agent`, {
+  const res = await fetch(`${ctx.internalBaseUrl}/api/kai-content-agent`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: buildToolFetchHeaders(ctx),
     body: JSON.stringify({
       clientId,
       request: editRequest,
@@ -110,8 +107,7 @@ export const editContentTool: RegisteredTool<EditContentArgs, EditContentData> =
       const format = meta.format ?? 'post';
 
       const newContent = await invokeContentAgentForEdit(
-        ctx.internalBaseUrl,
-        ctx.accessToken,
+        ctx,
         ctx.clientId,
         currentContent,
         instruction,

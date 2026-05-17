@@ -5,6 +5,7 @@
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
+import { buildToolFetchHeaders } from './internal-headers.js';
 
 interface SaveToLibraryArgs {
   title: string;
@@ -81,10 +82,7 @@ export const saveToLibraryTool: RegisteredTool<
 
     const res = await fetch(`${ctx.internalBaseUrl}/api/save-to-library`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-      },
+      headers: buildToolFetchHeaders(ctx),
       body: JSON.stringify({
         client_id: ctx.clientId,
         title,

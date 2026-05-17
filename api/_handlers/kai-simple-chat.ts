@@ -9,6 +9,7 @@ import { tryAuth } from '../_lib/auth.js';
 import { query, queryOne } from '../_lib/db.js';
 import { assertClientAccess } from '../_lib/access.js';
 import { logAIUsage, estimateTokens } from '../_lib/shared/ai-usage.js';
+import { generateEmbedding, toVectorLiteral } from '../_lib/shared/embeddings.js';
 import {
   CONTENT_TYPE_MAP,
   CONTENT_FORMAT_KEYWORDS,
@@ -1547,59 +1548,60 @@ async function fetchVoiceAndGuidelines(clientId: string): Promise<string> {
 }
 
 async function fetchKnowledgeContext(workspaceId: string, queryText: string): Promise<string> {
-  // BLOCKER: search_knowledge_semantic é uma RPC custom do Supabase com pgvector.
-  // Em Neon, precisa ser SQL direto. Como alternativa portável, faz LIKE search
-  // simples na knowledge_base. Se quiser semantic search real, precisa pgvector
-  // configurado no Neon e reescrever esta função pra fazer SELECT com cosine sim.
+  // Semantic search em global_knowledge.embedding (vector(1536),
+  // OpenAI text-embedding-3-small). Fallback ILIKE em global_knowledge se
+  // a função RPC ou embedding falharem; segundo fallback em knowledge_base
+  // (tabela seed do Madureira agent — mantida pra compat).
   try {
-    const GOOGLE_API_KEY = process.env.GOOGLE_AI_STUDIO_API_KEY;
-    if (!GOOGLE_API_KEY) return '';
-
-    // Generate embedding for telemetry (não usado em LIKE, mas mantém parity API)
-    const embeddingResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${GOOGLE_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'models/text-embedding-004',
-          content: { parts: [{ text: queryText }] },
-          outputDimensionality: 768,
-        }),
-      },
-    );
-    if (!embeddingResponse.ok) return '';
-    const embeddingData = await embeddingResponse.json();
-    const queryEmbedding: number[] | undefined = embeddingData?.embedding?.values;
-    if (!queryEmbedding) return '';
-
-    // Tenta RPC equivalente em Neon: SQL direto se a função existir, senão LIKE.
     let results: any[] = [];
-    try {
-      results = await query<any>(
-        `SELECT title, content, summary, source_url
-           FROM search_knowledge_semantic($1::vector, $2::uuid, 3, 0.5)`,
-        [JSON.stringify(queryEmbedding), workspaceId],
-      );
-    } catch {
-      // Fallback: ILIKE em knowledge_base (sem semantic).
+    let semanticOk = false;
+
+    // 1. Embedding via OpenAI text-embedding-3-small (1536 dims, alinha com schema).
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        const embedding = await generateEmbedding(queryText);
+        results = await query<any>(
+          `SELECT title, content, summary, source_url
+             FROM search_knowledge_semantic($1::vector, $2::uuid, 3, 0.5)`,
+          [toVectorLiteral(embedding), workspaceId],
+        );
+        semanticOk = true;
+      } catch (e) {
+        console.warn('[kai-simple-chat] semantic search failed, falling back to ILIKE:', e);
+      }
+    }
+
+    // 2. Fallback ILIKE em global_knowledge (caso semantic falhe ou sem OpenAI key).
+    if (!semanticOk || !results || results.length === 0) {
       const tokens = queryText
         .split(/\s+/)
         .filter((t) => t.length > 3)
         .slice(0, 3);
-      if (tokens.length === 0) return '';
-      const orClauses = tokens.map((_, i) => `(title ILIKE $${i + 2} OR content ILIKE $${i + 2})`).join(' OR ');
-      const params: any[] = [workspaceId, ...tokens.map((t) => `%${t}%`)];
-      try {
-        results = await query<any>(
-          `SELECT title, content, summary, source_url
-             FROM knowledge_base
-            WHERE workspace_id = $1 AND (${orClauses})
-            LIMIT 3`,
-          params,
-        );
-      } catch {
-        return '';
+      if (tokens.length > 0) {
+        const orClauses = tokens.map((_, i) => `(title ILIKE $${i + 2} OR content ILIKE $${i + 2})`).join(' OR ');
+        const params: any[] = [workspaceId, ...tokens.map((t) => `%${t}%`)];
+        try {
+          results = await query<any>(
+            `SELECT title, content, summary, source_url
+               FROM global_knowledge
+              WHERE workspace_id = $1 AND (${orClauses})
+              LIMIT 3`,
+            params,
+          );
+        } catch {
+          // 3. Último fallback: knowledge_base (tabela seed do Madureira agent).
+          try {
+            results = await query<any>(
+              `SELECT title, content, summary, source_url
+                 FROM knowledge_base
+                WHERE workspace_id = $1 AND (${orClauses})
+                LIMIT 3`,
+              params,
+            );
+          } catch {
+            return '';
+          }
+        }
       }
     }
 

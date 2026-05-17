@@ -4,6 +4,7 @@
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
+import { buildToolFetchHeaders } from './internal-headers.js';
 
 interface CreateAutomationArgs {
   name: string;
@@ -116,10 +117,7 @@ export const createAutomationTool: RegisteredTool<CreateAutomationArgs, CreateAu
 
     const res = await fetch(`${ctx.internalBaseUrl}/api/router?slug=automations-create`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-      },
+      headers: buildToolFetchHeaders(ctx),
       body: JSON.stringify({
         name,
         trigger_type: triggerType,

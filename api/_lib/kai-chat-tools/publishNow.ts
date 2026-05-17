@@ -2,8 +2,9 @@
  * Tool `publishNow` — publica rascunho via late-post handler.
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
-import type { RegisteredTool } from './types.js';
+import type { RegisteredTool, ToolExecutionContext } from './types.js';
 import { query, queryOne } from '../db.js';
+import { buildToolFetchHeaders } from './internal-headers.js';
 
 interface PublishNowArgs {
   planningItemId: string;
@@ -37,18 +38,14 @@ function isNotConnectedError(status: number, body: string): boolean {
 }
 
 async function fetchOAuthUrl(
-  internalBaseUrl: string,
-  accessToken: string,
+  ctx: ToolExecutionContext,
   clientId: string,
   platform: string,
 ): Promise<string | null> {
   try {
-    const res = await fetch(`${internalBaseUrl}/api/late-oauth-start`, {
+    const res = await fetch(`${ctx.internalBaseUrl}/api/late-oauth-start`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: buildToolFetchHeaders(ctx),
       body: JSON.stringify({ clientId, platform }),
     });
     if (!res.ok) {
@@ -143,10 +140,7 @@ export const publishNowTool: RegisteredTool<PublishNowArgs, PublishNowData> = {
 
       const postResponse = await fetch(`${ctx.internalBaseUrl}/api/late-post`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ctx.accessToken}`,
-        },
+        headers: buildToolFetchHeaders(ctx),
         body: JSON.stringify({
           clientId: ctx.clientId,
           platform,
@@ -231,8 +225,7 @@ export const publishNowTool: RegisteredTool<PublishNowArgs, PublishNowData> = {
 
         if (isNotConnectedError(postResponse.status, responseText)) {
           const oauthUrl = await fetchOAuthUrl(
-            ctx.internalBaseUrl,
-            ctx.accessToken,
+            ctx,
             ctx.clientId,
             platform,
           );

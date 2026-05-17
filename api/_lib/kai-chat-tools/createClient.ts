@@ -4,6 +4,7 @@
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
+import { buildToolFetchHeaders } from './internal-headers.js';
 
 interface CreateClientArgs {
   name: string;
@@ -68,10 +69,7 @@ export const createClientTool: RegisteredTool<CreateClientArgs, CreateClientData
 
     const res = await fetch(`${ctx.internalBaseUrl}/api/client-create`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-      },
+      headers: buildToolFetchHeaders(ctx),
       body: JSON.stringify({
         name,
         description: args.description,

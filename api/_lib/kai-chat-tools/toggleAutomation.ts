@@ -3,6 +3,7 @@
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
+import { buildToolFetchHeaders } from './internal-headers.js';
 
 interface ToggleAutomationArgs {
   automation_id: string;
@@ -43,10 +44,7 @@ export const toggleAutomationTool: RegisteredTool<ToggleAutomationArgs, ToggleAu
 
     const res = await fetch(`${ctx.internalBaseUrl}/api/router?slug=automations-toggle`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-      },
+      headers: buildToolFetchHeaders(ctx),
       body: JSON.stringify({ automation_id: automationId, enabled }),
     }).catch((err) => {
       console.error('[toggleAutomation] fetch failed:', err);

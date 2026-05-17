@@ -3,9 +3,10 @@
  * Node port: Neon SQL em vez de Supabase, fetch interno em vez de supabase.functions.invoke.
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
-import type { RegisteredTool } from './types.js';
+import type { RegisteredTool, ToolExecutionContext } from './types.js';
 import { query, insertRow } from '../db.js';
 import { notifyPlanningItemTelegram } from '../telegram-planning.js';
+import { buildToolFetchHeaders } from './internal-headers.js';
 
 interface CreateContentArgs {
   platform: string;
@@ -57,8 +58,7 @@ function parseThreadItems(text: string): Array<{ text: string; media_urls: strin
 }
 
 async function invokeContentAgent(
-  internalBaseUrl: string,
-  accessToken: string,
+  ctx: ToolExecutionContext,
   clientId: string,
   briefing: string,
   format: string,
@@ -66,12 +66,9 @@ async function invokeContentAgent(
   tone?: string,
 ): Promise<string> {
   const effectiveRequest = tone ? `${briefing}\n\n[Tom desejado: ${tone}]` : briefing;
-  const res = await fetch(`${internalBaseUrl}/api/kai-content-agent`, {
+  const res = await fetch(`${ctx.internalBaseUrl}/api/kai-content-agent`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: buildToolFetchHeaders(ctx),
     body: JSON.stringify({
       clientId,
       request: effectiveRequest,
@@ -168,8 +165,7 @@ export const createContentTool: RegisteredTool<CreateContentArgs, CreateContentD
       }
 
       const content = await invokeContentAgent(
-        ctx.internalBaseUrl,
-        ctx.accessToken,
+        ctx,
         ctx.clientId,
         briefing,
         format,

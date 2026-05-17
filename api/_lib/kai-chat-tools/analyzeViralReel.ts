@@ -6,6 +6,7 @@
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
+import { buildToolFetchHeaders } from './internal-headers.js';
 
 interface AnalyzeViralReelArgs {
   referenceUrl: string;
@@ -104,10 +105,7 @@ export const analyzeViralReelTool: RegisteredTool<
     try {
       const res = await fetch(`${ctx.internalBaseUrl}/api/adapt-viral-reel`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ctx.accessToken}`,
-        },
+        headers: buildToolFetchHeaders(ctx),
         body: JSON.stringify({
           clientId: ctx.clientId,
           referenceUrl,

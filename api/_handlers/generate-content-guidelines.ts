@@ -1,13 +1,28 @@
 // Migrated from supabase/functions/generate-content-guidelines/index.ts
-import { anonPost } from '../_lib/handler.js';
+// 2026-05-16 — convertido pra authedPost + rate-limit pra fechar DoS/bill-burn
+// vector. Antes era anonPost (auth opcional) chamando Gemini Pro sem proteção.
+import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
 import { callLLM } from '../_lib/llm.js';
 import { assertClientAccess } from '../_lib/access.js';
+import { checkRateLimit, maybeGc } from '../_lib/shared/rate-limit.js';
 
-export default anonPost(async ({ body, user }) => {
+export default authedPost(async ({ body, user, req, res }) => {
+  // Rate limit: 3 calls/min, 20/h por IP — geração custosa de LLM por cliente.
+  maybeGc();
+  const rl = checkRateLimit(req, {
+    key: `generate-guidelines:${user.id}`,
+    maxPerMinute: 3,
+    maxPerHour: 20,
+  });
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfterSec));
+    throw Object.assign(new Error('Too many requests — aguarde um momento.'), { status: 429 });
+  }
+
   const { clientId } = body;
   if (!clientId) throw new Error('clientId is required');
-  if (user) await assertClientAccess(user.id, clientId);
+  await assertClientAccess(user.id, clientId);
 
   const pool = getPool();
   const [client, library, topPosts] = await Promise.all([
@@ -58,7 +73,11 @@ Máximo 15-20 regras no total. Retorne APENAS o guia, sem explicações.`,
       },
       { role: 'user', content: `Gere o guia de criação para este cliente:\n\n${analysisContext}` },
     ],
-    { maxTokens: 2048, temperature: 0.6 }
+    {
+      maxTokens: 2048,
+      temperature: 0.6,
+      usageContext: { userId: user.id, edgeFunction: 'generate-content-guidelines', clientId },
+    },
   );
 
   return { guidelines: result.content };

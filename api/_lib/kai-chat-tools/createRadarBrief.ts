@@ -6,6 +6,7 @@
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
+import { buildToolFetchHeaders } from './internal-headers.js';
 
 interface CreateRadarBriefArgs {
   niche?: string;
@@ -68,10 +69,7 @@ export const createRadarBriefTool: RegisteredTool<
     try {
       const res = await fetch(`${ctx.internalBaseUrl}/api/generate-radar-brief`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ctx.accessToken}`,
-        },
+        headers: buildToolFetchHeaders(ctx),
         body: JSON.stringify({
           clientId: ctx.clientId,
           niche,

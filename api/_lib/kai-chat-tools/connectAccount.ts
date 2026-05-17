@@ -3,6 +3,7 @@
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
+import { buildToolFetchHeaders } from './internal-headers.js';
 
 interface ConnectAccountArgs {
   platform: string;
@@ -55,10 +56,7 @@ export const connectAccountTool: RegisteredTool<ConnectAccountArgs, ConnectAccou
     try {
       const res = await fetch(`${ctx.internalBaseUrl}/api/late-oauth-start`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ctx.accessToken}`,
-        },
+        headers: buildToolFetchHeaders(ctx),
         body: JSON.stringify({ clientId: ctx.clientId, platform }),
       });
 

@@ -4,6 +4,7 @@
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
+import { buildToolFetchHeaders } from './internal-headers.js';
 
 interface UpdateClientArgs {
   client_id?: string;
@@ -83,10 +84,7 @@ export const updateClientTool: RegisteredTool<UpdateClientArgs, UpdateClientData
 
     const res = await fetch(`${ctx.internalBaseUrl}/api/router?slug=client-update`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-      },
+      headers: buildToolFetchHeaders(ctx),
       body: JSON.stringify({ ...args, client_id: clientId }),
     }).catch((err) => {
       console.error('[updateClient] fetch failed:', err);
