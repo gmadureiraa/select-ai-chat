@@ -80,13 +80,23 @@ export default authedPost(async ({ body, req, user }) => {
 
   console.log(`[batch-transcribe-posts] ${posts.length} posts, ~${remaining} remaining`);
 
-  const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const results: { id: string; success: boolean; error?: string }[] = [];
 
   for (const post of posts) {
     try {
-      const images = (post.images as string[]) || null;
-      if (!images || images.length === 0) {
+      const rawImages = (post.images as string[]) || null;
+      // Pós-Neon: só URLs absolutas funcionam. Paths Supabase legados são
+      // ignorados (bucket não populado mais).
+      const images = Array.isArray(rawImages)
+        ? rawImages.filter((img): img is string => typeof img === 'string' && img.startsWith('http'))
+        : [];
+      const droppedLegacy = (rawImages?.length ?? 0) - images.length;
+      if (droppedLegacy > 0) {
+        console.warn(
+          `[batch-transcribe-posts] ${post.id}: ${droppedLegacy} imagens legadas (Supabase paths) ignoradas`,
+        );
+      }
+      if (images.length === 0) {
         await getPool().query(
           `UPDATE instagram_posts SET full_content = $1, content_synced_at = NOW() WHERE id = $2`,
           [post.caption || '[Sem conteúdo visual]', post.id],
@@ -100,7 +110,9 @@ export default authedPost(async ({ body, req, user }) => {
         const transcribeResp = await callInternal(req, '/api/transcribe-images', {
           imageUrls: [images[i]],
           startIndex: i,
-          userId: 'batch-process',
+          // userId real do user autenticado (era hardcoded 'batch-process',
+          // o que quebrava log de uso porque transcribe-images espera UUID).
+          userId: user.id,
           clientId,
         });
         if (transcribeResp.ok && transcribeResp.data?.transcription) {
@@ -113,13 +125,12 @@ export default authedPost(async ({ body, req, user }) => {
       }
       const transcription =
         transcriptions.join('\n\n---\n\n') || post.caption || '[Sem conteúdo]';
-      let thumbnailUrl: string | null = null;
-      if (images.length > 0 && SUPABASE_URL) {
-        thumbnailUrl = `${SUPABASE_URL}/storage/v1/object/public/client-files/${images[0]}`;
-      }
+      // thumbnail_url já vem absoluta do cron-scrape-instagram; só atualiza
+      // se images[0] for absoluta (e diferente do que já tem).
+      const thumbnailUrl = images[0] ?? null;
       await getPool().query(
         `UPDATE instagram_posts
-          SET full_content = $1, content_synced_at = NOW(), thumbnail_url = $2
+          SET full_content = $1, content_synced_at = NOW(), thumbnail_url = COALESCE($2, thumbnail_url)
           WHERE id = $3`,
         [transcription, thumbnailUrl, post.id],
       );

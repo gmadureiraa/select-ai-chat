@@ -31,8 +31,6 @@ import {
   scheduleForTool,
   connectAccountTool,
   getMetricsTool,
-  analyzeViralReelTool,
-  createRadarBriefTool,
   createTeamTaskTool,
   saveToLibraryTool,
   createAutomationTool,
@@ -2150,8 +2148,8 @@ SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundante
 - "tarefa interna", "TODO admin", "agenda reunião" → \`createTeamTask\` (NÃO usar pra posts — usa createContent)
 - "automação recorrente", "auto gerar diário", "rotina" → \`createAutomation\` / \`listAutomations\` / \`toggleAutomation\`
 - "salva isso", "guarda essa ref" → \`saveToLibrary\`
-- "engenharia reversa de reel", "adapta esse reel" + URL Instagram → \`analyzeViralReel\`
-- "monitora no radar", "rastrear contas", "brief de tendências" → \`createRadarBrief\`
+- "engenharia reversa de reel", "adapta esse reel" + URL Instagram → diga ao usuário pra abrir https://reels.kaleidos.com.br (app standalone, saiu do KAI em 2026-05-16)
+- "monitora no radar", "rastrear contas", "brief de tendências" → diga ao usuário pra abrir https://radar.kaleidos.com.br (app standalone, saiu do KAI em 2026-05-16)
 - "joga no planejamento", "põe pra revisar" → \`addToPlanning\`
 - "aprovações pendentes", "o que tá pra revisar" → \`listPendingApprovals\`
 - "edita esse rascunho/card" → \`getPlanningItem\` (recupera ID + content) → \`editContent\`
@@ -2160,7 +2158,7 @@ SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundante
 1. **Falta dado do cliente?** → \`getClientContext\` PRIMEIRO. Não adivinhe brand voice ou guidelines.
 2. **Vai editar/agendar/publicar um post mencionado vagamente** ("esse post", "o último") → \`getPlanningItem\` com latest=true ANTES da ação, pra resolver o ID real.
 3. **Vai criar conteúdo do zero?** → opcionalmente \`searchLibrary\` antes pra capturar tom + estrutura dos top performers.
-4. **Recebeu URL de Reel/Post Instagram?** → tool específica (\`analyzeViralReel\` pra adaptação, \`saveToLibrary\` pra arquivar).
+4. **Recebeu URL de Reel/Post Instagram?** → \`saveToLibrary\` pra arquivar; pra adaptar reel, aponte pra https://reels.kaleidos.com.br (app standalone).
 5. **Múltiplas ações?** → encadeie tools em sequência (ex: \`createContent\` → \`addToPlanning\` → \`scheduleFor\`).
 6. **Após executar tool de ação** (publish/schedule/create/automation) → 1 frase curta de confirmação. Sem checklist, sem "feito ✅", sem reescrever o que a tool já mostrou.
 7. **NÃO invente** dados de cliente, métricas, refs ou histórico. Se não tem via tool, BUSCA primeiro. Se a tool falhar, só aí pergunte ao usuário.`;
@@ -2269,8 +2267,8 @@ SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundante
       registry.register(scheduleForTool);
       registry.register(connectAccountTool);
       registry.register(getMetricsTool);
-      registry.register(analyzeViralReelTool);
-      registry.register(createRadarBriefTool);
+      // 2026-05-16: analyzeViralReelTool + createRadarBriefTool removidos
+      // (Reels/Radar Viral viraram apps standalone, handlers deletados).
       registry.register(createTeamTaskTool);
       registry.register(saveToLibraryTool);
       registry.register(createAutomationTool);

@@ -53,8 +53,8 @@ export { publishNowTool } from './publishNow.js';
 export { scheduleForTool } from './scheduleFor.js';
 export { connectAccountTool } from './connectAccount.js';
 export { getMetricsTool } from './getMetrics.js';
-export { analyzeViralReelTool } from './analyzeViralReel.js';
-export { createRadarBriefTool } from './createRadarBrief.js';
+// 2026-05-16: analyzeViralReelTool/createRadarBriefTool removidos junto com
+// Reels Viral + Radar Viral (commit e4575fce). Handlers downstream deletados.
 export { createTeamTaskTool } from './createTeamTask.js';
 export { saveToLibraryTool } from './saveToLibrary.js';
 export { createAutomationTool } from './createAutomation.js';

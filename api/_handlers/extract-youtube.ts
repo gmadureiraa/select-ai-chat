@@ -84,6 +84,20 @@ export default authedPost(async ({ body }) => {
 
   const thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
   const hasTranscript = !!(content && content.length > 0);
+
+  // Antes: retornávamos 200 com content='' quando transcrição falhava, o que
+  // fazia o UnifiedUploader exibir "Conteúdo extraído com sucesso" e gravar
+  // string vazia. Agora lançamos erro estruturado pra o caller mostrar
+  // toast claro. Quem só precisa de metadata pode passar `metadataOnly: true`.
+  if (!hasTranscript && body?.metadataOnly !== true) {
+    const err: any = new Error(
+      'Transcrição indisponível: o vídeo não tem legendas em pt/pt-BR ou Supadata não respondeu',
+    );
+    err.statusCode = 422;
+    err.metadata = { title, thumbnail, videoId, duration };
+    throw err;
+  }
+
   return {
     title,
     content: content || '',

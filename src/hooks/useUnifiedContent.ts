@@ -39,21 +39,21 @@ export function useUnifiedContent(clientId: string) {
     queryFn: async () => {
       if (!clientId) return [];
 
-      // Fetch from all sources in parallel - include images field for Instagram
-      const [instagramRes, twitterRes, linkedinRes, libraryRes] = await Promise.all([
+      // Fetch from all sources in parallel - include images field for Instagram.
+      //
+      // TODO (2026-05-16): `twitter_posts` e `linkedin_posts` são tabelas
+      // órfãs do schema legado — nada popula elas mais. O Radar usa
+      // `viral_twitter_posts`/`viral_linkedin_posts` (global, JOIN via
+      // viral_tracked_sources), mas isso é "conteúdo de monitoramento",
+      // não "conteúdo publicado pelo cliente". Quando houver fetch de posts
+      // publicados pelo próprio cliente em Twitter/LinkedIn (ex: via
+      // Metricool), trocar as queries comentadas pra apontar pra tabela
+      // correta. Por enquanto retornamos vazio cedo pra evitar 404 do
+      // PostgREST.
+      const [instagramRes, libraryRes] = await Promise.all([
         supabase
           .from('instagram_posts')
           .select('id, caption, thumbnail_url, images, posted_at, engagement_rate, likes, comments, shares, permalink, is_favorite, post_type')
-          .eq('client_id', clientId)
-          .order('posted_at', { ascending: false }),
-        supabase
-          .from('twitter_posts')
-          .select('id, tweet_id, content, posted_at, engagement_rate, likes, retweets, replies, is_favorite')
-          .eq('client_id', clientId)
-          .order('posted_at', { ascending: false }),
-        supabase
-          .from('linkedin_posts')
-          .select('id, content, images, posted_at, engagement_rate, likes, comments, shares, post_url, is_favorite')
           .eq('client_id', clientId)
           .order('posted_at', { ascending: false }),
         supabase
@@ -62,6 +62,10 @@ export function useUnifiedContent(clientId: string) {
           .eq('client_id', clientId)
           .order('created_at', { ascending: false }),
       ]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const twitterRes = { data: [] as Array<any> };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const linkedinRes = { data: [] as Array<any> };
 
       const items: UnifiedContentItem[] = [];
 
@@ -230,7 +234,10 @@ export function useTopPerformingContent(clientId: string, limit: number = 5) {
     queryFn: async () => {
       if (!clientId) return [];
 
-      const [instagramRes, twitterRes, linkedinRes] = await Promise.all([
+      // Mesma nota de useUnifiedContent: twitter_posts/linkedin_posts órfãs
+      // pós-migração Neon. Top performing fica restrito a Instagram + library
+      // até existir feed real de Twitter/LinkedIn per-client (Metricool).
+      const [instagramRes] = await Promise.all([
         supabase
           .from('instagram_posts')
           .select('id, caption, thumbnail_url, images, posted_at, engagement_rate, likes, comments, shares, permalink')
@@ -238,21 +245,11 @@ export function useTopPerformingContent(clientId: string, limit: number = 5) {
           .not('engagement_rate', 'is', null)
           .order('engagement_rate', { ascending: false })
           .limit(limit),
-        supabase
-          .from('twitter_posts')
-          .select('id, tweet_id, content, posted_at, engagement_rate, likes, retweets, replies')
-          .eq('client_id', clientId)
-          .not('engagement_rate', 'is', null)
-          .order('engagement_rate', { ascending: false })
-          .limit(limit),
-        supabase
-          .from('linkedin_posts')
-          .select('id, content, images, posted_at, engagement_rate, likes, comments, shares, post_url')
-          .eq('client_id', clientId)
-          .not('engagement_rate', 'is', null)
-          .order('engagement_rate', { ascending: false })
-          .limit(limit),
       ]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const twitterRes = { data: [] as Array<any> };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const linkedinRes = { data: [] as Array<any> };
 
       const items: UnifiedContentItem[] = [];
 
