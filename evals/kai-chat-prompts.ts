@@ -285,6 +285,15 @@ export const EVAL_CASES: ChatEvalCase[] = [
     maxToolCalls: 3,
     tags: ['delegate', 'multi-step'],
   },
+  {
+    id: 'delegate-batch-parallel',
+    description: 'Múltiplas pesquisas independentes devem usar delegateBatch (paralelo)',
+    prompt: 'pesquisa em paralelo 3 ângulos diferentes sobre tokenização de imóveis: regulação BR, casos de uso reais, riscos. Quero ver os 3 ao mesmo tempo',
+    expectedTools: ['delegateBatch'],
+    forbiddenTools: ['publishNow', 'deleteContent'],
+    maxToolCalls: 3,
+    tags: ['delegate', 'parallel'],
+  },
 
   {
     id: 'judge-rejection-quality',

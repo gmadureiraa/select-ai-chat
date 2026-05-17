@@ -46,6 +46,7 @@ export {
 export { echoTool } from './echo.js';
 export { webSearchTool } from './webSearch.js';
 export { delegateToSubAgentTool } from './delegateToSubAgent.js';
+export { delegateBatchTool } from './delegateBatch.js';
 export { createContentTool } from './createContent.js';
 export { createViralCarouselTool } from './createViralCarousel.js';
 export { editContentTool } from './editContent.js';

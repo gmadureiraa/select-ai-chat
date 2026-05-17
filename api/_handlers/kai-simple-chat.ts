@@ -23,6 +23,7 @@ import {
   echoTool,
   webSearchTool,
   delegateToSubAgentTool,
+  delegateBatchTool,
   createContentTool,
   createViralCarouselTool,
   editContentTool,
@@ -106,6 +107,9 @@ interface RequestBody {
   message: string;
   clientId: string;
   imageUrls?: string[];
+  /** URLs de áudio (.wav, .mp3, .m4a, .opus). Gemini multimodal trata audio
+   *  como inlineData (≤18MB) ou fileData via Files API. */
+  audioUrls?: string[];
   citations?: Citation[];
   history?: HistoryMessage[];
   materialContext?: string;
@@ -1778,31 +1782,115 @@ function getInternalBaseUrl(req: VercelRequest): string {
   return 'https://kai-2-topaz.vercel.app';
 }
 
-// Image fetcher → base64 (for inline image messages to Gemini)
-// Limite inline do Gemini é ~20MB por request total. Pra arquivos maiores
-// usar Files API (não implementado — fica como fallback no futuro).
-const INLINE_IMAGE_MAX_BYTES = 18 * 1024 * 1024;
+// Media fetcher → inlineData (até 18MB) ou Files API (até 2GB).
+// Gemini aceita imagem (png/jpg/webp), áudio (wav/mp3/m4a/opus), vídeo (mp4)
+// e PDF inline OU referenciados via fileData/fileUri.
+const INLINE_MAX_BYTES = 18 * 1024 * 1024;
+const FILES_API_MAX_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
 
-async function fetchImageAsBase64(url: string): Promise<{ mimeType: string; data: string } | null> {
+type GeminiMediaPart =
+  | { inlineData: { mimeType: string; data: string } }
+  | { fileData: { mimeType: string; fileUri: string } };
+
+/**
+ * Upload pra Gemini Files API (multipart). Retorna fileUri usável como
+ * `fileData` em contents[].parts.
+ *
+ * Multipart formato (Gemini docs):
+ *   POST /upload/v1beta/files?key=KEY
+ *   header X-Goog-Upload-Protocol: multipart
+ *   body: form-data com 'metadata' (JSON {file:{displayName}}) + 'data' (binary)
+ */
+async function uploadToGeminiFiles(
+  buffer: Buffer,
+  mimeType: string,
+  apiKey: string,
+): Promise<{ fileUri: string; mimeType: string } | null> {
   try {
-    const r = await fetch(url);
-    if (!r.ok) {
-      console.warn(`[kai-simple-chat] fetchImage HTTP ${r.status}: ${url.slice(0, 100)}`);
-      return null;
-    }
-    const mime = r.headers.get('content-type') || 'image/jpeg';
-    const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.byteLength > INLINE_IMAGE_MAX_BYTES) {
+    const boundary = `----kai-form-${Date.now().toString(36)}`;
+    const meta = JSON.stringify({ file: { displayName: `upload-${Date.now()}` } });
+
+    const parts = [
+      `--${boundary}\r\nContent-Type: application/json; charset=utf-8\r\n\r\n${meta}\r\n`,
+      `--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`,
+    ];
+    const head = Buffer.from(parts[0] + parts[1], 'utf-8');
+    const tail = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf-8');
+    const body = Buffer.concat([head, buffer, tail]);
+
+    const url = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+        'X-Goog-Upload-Protocol': 'multipart',
+      },
+      body: body as unknown as BodyInit,
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
       console.warn(
-        `[kai-simple-chat] image excede limite inline (${(buf.byteLength / 1024 / 1024).toFixed(1)}MB > 18MB): ${url.slice(0, 100)} — pulando`,
+        `[kai-simple-chat] Files API upload falhou (${resp.status}): ${errText.slice(0, 200)}`,
       );
       return null;
     }
-    return { mimeType: mime, data: buf.toString('base64') };
-  } catch (e) {
-    console.error('[kai-simple-chat] Failed to fetch image:', url, e);
+    const data = await resp.json();
+    const fileUri = data?.file?.uri;
+    if (!fileUri) {
+      console.warn('[kai-simple-chat] Files API resposta sem uri:', data);
+      return null;
+    }
+    return { fileUri, mimeType: data?.file?.mimeType || mimeType };
+  } catch (err) {
+    console.warn('[kai-simple-chat] uploadToGeminiFiles erro:', err);
     return null;
   }
+}
+
+/**
+ * Baixa media (image/audio/video) e devolve a part pronta pro Gemini.
+ * - Pequeno (≤ 18MB): inlineData base64
+ * - Grande (> 18MB e ≤ 2GB): upload Files API + fileData ref
+ * - Excede 2GB ou erro: null
+ */
+async function fetchMediaForGemini(
+  url: string,
+  apiKey: string,
+  fallbackMime: string = 'image/jpeg',
+): Promise<GeminiMediaPart | null> {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) {
+      console.warn(`[kai-simple-chat] fetchMedia HTTP ${r.status}: ${url.slice(0, 100)}`);
+      return null;
+    }
+    const mime = r.headers.get('content-type') || fallbackMime;
+    const buf = Buffer.from(await r.arrayBuffer());
+
+    if (buf.byteLength > FILES_API_MAX_BYTES) {
+      console.warn(
+        `[kai-simple-chat] media excede limite Files API (${(buf.byteLength / 1024 / 1024).toFixed(1)}MB > 2GB): ${url.slice(0, 100)} — pulando`,
+      );
+      return null;
+    }
+    if (buf.byteLength > INLINE_MAX_BYTES) {
+      const uploaded = await uploadToGeminiFiles(buf, mime, apiKey);
+      if (!uploaded) return null;
+      return { fileData: { mimeType: uploaded.mimeType, fileUri: uploaded.fileUri } };
+    }
+    return { inlineData: { mimeType: mime, data: buf.toString('base64') } };
+  } catch (e) {
+    console.error('[kai-simple-chat] Failed to fetch media:', url, e);
+    return null;
+  }
+}
+
+/** Mantém shim do nome legado pra compat — alguns testes podem importar. */
+async function fetchImageAsBase64(url: string): Promise<{ mimeType: string; data: string } | null> {
+  const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '';
+  const part = await fetchMediaForGemini(url, apiKey);
+  if (!part || !('inlineData' in part)) return null;
+  return part.inlineData;
 }
 
 // ============================================
@@ -1848,6 +1936,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       message,
       clientId,
       imageUrls,
+      audioUrls,
       citations,
       history,
       materialContext,
@@ -2344,11 +2433,22 @@ adicional. O card de confirmação já injeta isso automaticamente.
       const role = msg.role === 'assistant' ? 'model' : 'user';
       const parts: any[] = [];
 
-      if (msg.role === 'user' && imageUrls && imageUrls.length > 0 && msg.content === message) {
+      const isCurrentUserMsg = msg.role === 'user' && msg.content === message;
+      const hasImages = isCurrentUserMsg && imageUrls && imageUrls.length > 0;
+      const hasAudio = isCurrentUserMsg && audioUrls && audioUrls.length > 0;
+      if (hasImages || hasAudio) {
         if (msg.content) parts.push({ text: msg.content });
-        for (const url of imageUrls) {
-          const img = await fetchImageAsBase64(url);
-          if (img) parts.push({ inlineData: img });
+        if (hasImages) {
+          for (const url of imageUrls!) {
+            const media = await fetchMediaForGemini(url, GOOGLE_API_KEY, 'image/jpeg');
+            if (media) parts.push(media);
+          }
+        }
+        if (hasAudio) {
+          for (const url of audioUrls!) {
+            const media = await fetchMediaForGemini(url, GOOGLE_API_KEY, 'audio/wav');
+            if (media) parts.push(media);
+          }
         }
       } else {
         parts.push({ text: msg.content });
@@ -2379,6 +2479,7 @@ adicional. O card de confirmação já injeta isso automaticamente.
       registry.register(echoTool);
       registry.register(webSearchTool);
       registry.register(delegateToSubAgentTool);
+      registry.register(delegateBatchTool);
       registry.register(createContentTool);
       registry.register(createViralCarouselTool);
       registry.register(editContentTool);

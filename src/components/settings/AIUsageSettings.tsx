@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, DollarSign, Zap, TrendingUp, BarChart3, Users, Database, Calendar as CalendarIcon, Gauge, AlertTriangle, ShieldAlert } from "lucide-react";
+import { Loader2, DollarSign, Zap, TrendingUp, BarChart3, Users, Database, Calendar as CalendarIcon, Gauge, AlertTriangle, ShieldAlert, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -82,6 +82,31 @@ interface RateLimitStats {
   generatedAt: string;
 }
 
+interface EvalRunRow {
+  id: string;
+  created_at: string;
+  model: string;
+  judge_model: string | null;
+  git_ref: string | null;
+  trigger: string;
+  total_cases: number;
+  passed_cases: number;
+  failed_cases: number;
+  total_duration_ms: number;
+  metadata: Record<string, unknown>;
+}
+
+interface EvalHistoryResponse {
+  runs: EvalRunRow[];
+  stats: {
+    totalRuns: number;
+    totalCases: number;
+    totalPassed: number;
+    avgPassRate: number;
+    latestPassRate: number;
+  };
+}
+
 interface UsageLog {
   edge_function: string;
   model_name: string;
@@ -148,11 +173,13 @@ export function AIUsageSettings() {
   const [allLogs, setAllLogs] = useState<UsageLog[]>([]);
   const [clientNames, setClientNames] = useState<Record<string, string>>({});
   const [rlStats, setRlStats] = useState<RateLimitStats | null>(null);
+  const [evalHistory, setEvalHistory] = useState<EvalHistoryResponse | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
     fetchUsageData();
     fetchRateLimitStats(period === '7d' ? 7 : period === '30d' ? 30 : 7);
+    fetchEvalHistory();
   }, [user?.id, period]);
 
   async function fetchRateLimitStats(days: number) {
@@ -165,6 +192,17 @@ export function AIUsageSettings() {
       setRlStats(data);
     } catch (err) {
       console.warn('[AIUsageSettings] rate-limit stats failed:', err);
+    }
+  }
+
+  async function fetchEvalHistory() {
+    try {
+      const res = await fetch(`/api/eval-history?limit=20`, { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setEvalHistory(data);
+    } catch (err) {
+      console.warn('[AIUsageSettings] eval history failed:', err);
     }
   }
 
@@ -667,6 +705,103 @@ export function AIUsageSettings() {
                 </Table>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Eval history — só se houver runs persistidos */}
+      {evalHistory && evalHistory.runs.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FlaskConical className="h-4 w-4 text-primary" />
+                  Eval Suite KAI Chat
+                </CardTitle>
+                <CardDescription>
+                  Últimos {evalHistory.runs.length} runs — pass rate médio {evalHistory.stats.avgPassRate.toFixed(0)}%
+                </CardDescription>
+              </div>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-xs",
+                  evalHistory.stats.latestPassRate >= 90
+                    ? "border-green-500/40 text-green-700 dark:text-green-400"
+                    : evalHistory.stats.latestPassRate >= 70
+                      ? "border-amber-500/40 text-amber-700 dark:text-amber-400"
+                      : "border-red-500/40 text-red-700 dark:text-red-400",
+                )}
+              >
+                último: {evalHistory.stats.latestPassRate.toFixed(0)}%
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Pass rate sparkline */}
+            <div className="flex items-end gap-0.5 h-16 mb-4">
+              {[...evalHistory.runs].reverse().map((r) => {
+                const passRate = (r.passed_cases / Math.max(1, r.total_cases)) * 100;
+                const height = Math.max(5, passRate);
+                const color =
+                  passRate >= 90
+                    ? 'bg-green-500/70'
+                    : passRate >= 70
+                      ? 'bg-amber-500/70'
+                      : 'bg-red-500/70';
+                return (
+                  <div
+                    key={r.id}
+                    className={cn('flex-1 rounded-t hover:opacity-100 opacity-70 transition-opacity min-w-[6px]', color)}
+                    style={{ height: `${height}%` }}
+                    title={`${r.created_at.slice(0, 10)} — ${r.passed_cases}/${r.total_cases} (${passRate.toFixed(0)}%) — ${r.trigger}`}
+                  />
+                );
+              })}
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Modelo</TableHead>
+                  <TableHead>Trigger</TableHead>
+                  <TableHead className="text-right">Pass</TableHead>
+                  {!isMobile && <TableHead className="text-right">Duração</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {evalHistory.runs.slice(0, 5).map((r) => {
+                  const passRate = (r.passed_cases / Math.max(1, r.total_cases)) * 100;
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell className="text-xs">{r.created_at.slice(0, 16).replace('T', ' ')}</TableCell>
+                      <TableCell className="text-xs font-mono">{r.model}</TableCell>
+                      <TableCell className="text-xs">
+                        <Badge variant="outline" className="text-[10px] h-4 px-1">{r.trigger}</Badge>
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          "text-right text-sm font-medium tabular-nums",
+                          passRate >= 90
+                            ? "text-green-700 dark:text-green-400"
+                            : passRate < 70
+                              ? "text-red-600 dark:text-red-400"
+                              : "",
+                        )}
+                      >
+                        {r.passed_cases}/{r.total_cases}
+                      </TableCell>
+                      {!isMobile && (
+                        <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+                          {(r.total_duration_ms / 1000).toFixed(1)}s
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}

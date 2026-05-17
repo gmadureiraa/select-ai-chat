@@ -1,0 +1,141 @@
+name: KAI Chat Eval
+
+# Roda o eval suite (bun run eval) em PRs que mexem no chat ou nas tools.
+# Threshold: 80% de pass rate. Falha o PR se cair abaixo.
+# Persiste resultado no banco via EVAL_INGEST_URL pra dashboard ver trend.
+
+on:
+  pull_request:
+    branches: [main, combo-viral-integration]
+    paths:
+      - 'api/_handlers/kai-simple-chat.ts'
+      - 'api/_lib/kai-chat-tools/**'
+      - 'api/_lib/shared/format-rules.ts'
+      - 'api/_lib/shared/format-standards.ts'
+      - 'api/_lib/shared/format-constants.ts'
+      - 'evals/**'
+  workflow_dispatch:
+    inputs:
+      judge:
+        description: 'Rodar com LLM-as-judge (custo extra)'
+        type: boolean
+        default: false
+
+jobs:
+  eval:
+    name: Run eval suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      EVAL_INGEST_URL: ${{ secrets.EVAL_INGEST_URL }}
+      EVAL_INGEST_TOKEN: ${{ secrets.EVAL_INGEST_TOKEN }}
+      GIT_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Verify GOOGLE_API_KEY is set
+        run: |
+          if [ -z "$GOOGLE_API_KEY" ]; then
+            echo "::error::GOOGLE_API_KEY secret não está configurado"
+            exit 1
+          fi
+
+      - name: Run eval suite
+        id: eval
+        run: |
+          set -e
+          ARGS="--persist --trigger ci"
+          if [ "${{ github.event.inputs.judge }}" = "true" ]; then
+            ARGS="$ARGS --judge"
+          fi
+          bun run evals/run.ts $ARGS | tee eval-output.txt
+
+      - name: Parse result + assert threshold
+        if: always()
+        run: |
+          # Lê last-run.json e extrai pass rate
+          if [ ! -f evals/last-run.json ]; then
+            echo "::error::evals/last-run.json não foi gerado"
+            exit 1
+          fi
+          PASS=$(jq '[.results[] | select(.pass == true)] | length' evals/last-run.json)
+          TOTAL=$(jq '.results | length' evals/last-run.json)
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "::error::Eval suite rodou 0 cases"
+            exit 1
+          fi
+          RATE=$(awk -v p="$PASS" -v t="$TOTAL" 'BEGIN { printf "%.0f", (p/t)*100 }')
+          echo "Pass rate: $PASS/$TOTAL ($RATE%)"
+          echo "passed=$PASS" >> $GITHUB_OUTPUT
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "rate=$RATE" >> $GITHUB_OUTPUT
+          if [ "$RATE" -lt 80 ]; then
+            echo "::error::Pass rate $RATE% abaixo do threshold 80%"
+            exit 1
+          fi
+
+      - name: Upload eval report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: |
+            evals/last-run.json
+            eval-output.txt
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'evals/last-run.json';
+            if (!fs.existsSync(path)) {
+              console.log('No report to comment');
+              return;
+            }
+            const report = JSON.parse(fs.readFileSync(path, 'utf-8'));
+            const passed = report.results.filter(r => r.pass).length;
+            const total = report.results.length;
+            const rate = Math.round((passed / total) * 100);
+            const failed = report.results.filter(r => !r.pass);
+            const emoji = rate >= 90 ? '✅' : rate >= 80 ? '⚠️' : '❌';
+            const lines = [
+              `## ${emoji} KAI Chat Eval — ${passed}/${total} (${rate}%)`,
+              ``,
+              `Model: \`${report.model}\` · Duration: ${(report.totalMs / 1000).toFixed(1)}s`,
+              ``,
+            ];
+            if (failed.length > 0) {
+              lines.push(`### Failed cases (${failed.length})`);
+              for (const f of failed.slice(0, 10)) {
+                lines.push(`- **${f.id}**`);
+                for (const r of f.reasons.slice(0, 3)) {
+                  lines.push(`  - ${r}`);
+                }
+              }
+              if (failed.length > 10) {
+                lines.push(`- _… +${failed.length - 10} more_`);
+              }
+            } else {
+              lines.push(`Todos os cases passaram. 🎉`);
+            }
+            lines.push(``);
+            lines.push(`<sub>Threshold: ≥80% pass rate. [Workflow](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})</sub>`);
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: lines.join('\n'),
+            });

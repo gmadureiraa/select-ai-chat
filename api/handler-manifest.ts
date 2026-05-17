@@ -140,6 +140,8 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'planning-items-delete': () => import('./_handlers/planning-items-delete.js'),
   // Observability — rate-limit dashboard (2026-05-17, Onda 3)
   'rate-limit-stats': () => import('./_handlers/rate-limit-stats.js'),
+  // Histórico de eval runs (2026-05-17, Onda 11)
+  'eval-history': () => import('./_handlers/eval-history.js'),
   // P0 handlers (2026-05-17) — substituem supabase.from().insert/update/delete
   // direto que existia nos hooks. Audit Backend Consistency identificou 11+
   // hooks bypassando assertClientAccess via PostgREST/Data API.

@@ -55,11 +55,29 @@ evals/
   last-run.json          # último resultado (gerado, não commitar idealmente)
 ```
 
-## CI integration (futuro)
+## CI integration (ativo desde 2026-05-17)
 
-Adicionar workflow GitHub Actions que roda `bun run eval` em PRs que mexem em:
+Workflow `.github/workflows/kai-chat-eval.yml` triggera em PRs que mexem em:
 - `api/_handlers/kai-simple-chat.ts`
 - `api/_lib/kai-chat-tools/**`
-- `api/_lib/shared/format-rules.ts`
+- `api/_lib/shared/format-rules.ts` / `format-standards.ts` / `format-constants.ts`
+- `evals/**`
 
-Threshold: 100% dos negative-cases (forbiddenTools) e ≥80% dos positive-cases (expectedTools).
+**Threshold:** ≥80% pass rate. Falha o PR se cair abaixo.
+
+**Persistência:** roda com `--persist --trigger ci`, posta resultado pro
+endpoint `/api/eval-history` (precisa `EVAL_INGEST_URL` + `EVAL_INGEST_TOKEN`
+nos secrets do repo). Dashboard de admin lê histórico pra mostrar trend.
+
+**Manual:** `workflow_dispatch` aceita input `judge=true` pra rodar com
+LLM-as-judge (custo extra). Útil pra release readiness.
+
+## Persistir runs em DB localmente
+
+```bash
+EVAL_INGEST_URL=http://localhost:3000/api/eval-history \
+EVAL_INGEST_TOKEN=$EVAL_INGEST_TOKEN \
+bun run eval --persist --trigger manual
+```
+
+Sem `--persist`, só salva `evals/last-run.json` local.

@@ -36,6 +36,8 @@ const argCases: string[] = [];
 let argModel = 'gemini-2.5-flash';
 let argJudge = false;
 let argJudgeModel = 'gemini-2.5-pro';
+let argPersist = false;
+let argTrigger = 'manual';
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === '--tag' && argv[i + 1]) argTags.push(argv[++i]);
@@ -43,6 +45,8 @@ for (let i = 0; i < argv.length; i++) {
   if (a === '--model' && argv[i + 1]) argModel = argv[++i];
   if (a === '--judge') argJudge = true;
   if (a === '--judge-model' && argv[i + 1]) argJudgeModel = argv[++i];
+  if (a === '--persist') argPersist = true;
+  if (a === '--trigger' && argv[i + 1]) argTrigger = argv[++i];
 }
 
 const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
@@ -88,6 +92,7 @@ function buildStubRegistry(): { registry: ToolRegistry; called: string[] } {
     Tools.echoTool,
     Tools.webSearchTool,
     Tools.delegateToSubAgentTool,
+    Tools.delegateBatchTool,
     Tools.createContentTool,
     Tools.createViralCarouselTool,
     Tools.editContentTool,
@@ -452,6 +457,58 @@ async function main() {
     ),
   );
   console.log(`📝 relatório salvo em ${reportPath}\n`);
+
+  // Persistir em DB via API se --persist (CI ou manual com flag)
+  if (argPersist) {
+    const ingestUrl = process.env.EVAL_INGEST_URL;
+    const ingestToken = process.env.EVAL_INGEST_TOKEN;
+    if (!ingestUrl || !ingestToken) {
+      console.warn('⚠️  --persist setado mas EVAL_INGEST_URL ou EVAL_INGEST_TOKEN ausente — skip');
+    } else {
+      try {
+        const gitRef =
+          process.env.GIT_COMMIT_SHA ||
+          process.env.GITHUB_SHA ||
+          process.env.VERCEL_GIT_COMMIT_SHA ||
+          null;
+        const payload = {
+          model: argModel,
+          judge_model: argJudge ? argJudgeModel : null,
+          git_ref: gitRef,
+          trigger: argTrigger,
+          total_cases: results.length,
+          passed_cases: passed,
+          failed_cases: failed,
+          total_duration_ms: totalMs,
+          results: results.map((r) => ({
+            id: r.case.id,
+            pass: r.pass,
+            reasons: r.reasons,
+            toolsCalled: r.toolsCalled,
+            durationMs: r.durationMs,
+            ...(r.judge ? { judgeScore: r.judge.weightedScore, judgeThreshold: r.judge.threshold } : {}),
+          })),
+          metadata: { tags: argTags, cases: argCases },
+        };
+        const resp = await fetch(ingestUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${ingestToken}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        if (!resp.ok) {
+          console.warn(`⚠️  persist falhou: HTTP ${resp.status}`);
+        } else {
+          const { id } = (await resp.json()) as { id?: string };
+          console.log(`🗄️  run persistido (id=${id || '?'})\n`);
+        }
+      } catch (err) {
+        console.warn('⚠️  persist erro:', err instanceof Error ? err.message : err);
+      }
+    }
+  }
 
   process.exit(failed > 0 ? 1 : 0);
 }
