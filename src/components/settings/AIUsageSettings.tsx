@@ -1,15 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, DollarSign, Zap, TrendingUp, BarChart3, Users } from "lucide-react";
+import { Loader2, DollarSign, Zap, TrendingUp, BarChart3, Users, Database, Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const USD_TO_BRL = 5.70;
+
+type Period = '7d' | '30d' | '90d' | 'all';
+
+const PERIOD_LABELS: Record<Period, { label: string; days: number | null }> = {
+  '7d': { label: '7 dias', days: 7 },
+  '30d': { label: '30 dias', days: 30 },
+  '90d': { label: '90 dias', days: 90 },
+  'all': { label: 'Tudo', days: null },
+};
 
 interface UsageByFunction {
   edge_function: string;
@@ -37,6 +47,30 @@ interface UsageByClient {
   calls: number;
   total_tokens: number;
   cost_usd: number;
+}
+
+interface DailyUsage {
+  date: string;
+  calls: number;
+  cost_usd: number;
+  tokens: number;
+}
+
+interface CacheStats {
+  total_calls_with_cache: number;
+  hits: number;
+  creates: number;
+  bypassed: number;
+}
+
+interface UsageLog {
+  edge_function: string;
+  model_name: string;
+  total_tokens: number;
+  estimated_cost_usd: number;
+  created_at: string;
+  client_id: string | null;
+  metadata: Record<string, unknown> | null;
 }
 
 const FUNCTION_LABELS: Record<string, string> = {
@@ -91,12 +125,8 @@ export function AIUsageSettings() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(true);
-  const [byFunction, setByFunction] = useState<UsageByFunction[]>([]);
-  const [byModel, setByModel] = useState<UsageByModel[]>([]);
-  const [monthly, setMonthly] = useState<MonthlyUsage[]>([]);
-  const [byClient, setByClient] = useState<UsageByClient[]>([]);
-  const [totals, setTotals] = useState({ calls: 0, tokens: 0, cost_usd: 0 });
-  const [monthTotals, setMonthTotals] = useState({ calls: 0, tokens: 0, cost_usd: 0 });
+  const [period, setPeriod] = useState<Period>('30d');
+  const [allLogs, setAllLogs] = useState<UsageLog[]>([]);
   const [clientNames, setClientNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -107,12 +137,12 @@ export function AIUsageSettings() {
   async function fetchUsageData() {
     setLoading(true);
     try {
-      // Fetch all logs and clients in parallel
       const [logsResult, clientsResult] = await Promise.all([
         supabase
           .from("ai_usage_logs")
-          .select("edge_function, model_name, total_tokens, estimated_cost_usd, created_at, client_id")
-          .order("created_at", { ascending: false }),
+          .select("edge_function, model_name, total_tokens, estimated_cost_usd, created_at, client_id, metadata")
+          .order("created_at", { ascending: false })
+          .limit(10000),
         supabase
           .from("clients")
           .select("id, name"),
@@ -124,88 +154,128 @@ export function AIUsageSettings() {
         return;
       }
 
-      // Build client name map
       const nameMap: Record<string, string> = {};
       if (clientsResult.data) {
-        for (const c of clientsResult.data) {
-          nameMap[c.id] = c.name;
-        }
+        for (const c of clientsResult.data) nameMap[c.id] = c.name;
       }
       setClientNames(nameMap);
-
-      const logs = logsResult.data;
-      const now = new Date();
-      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-      const fnMap = new Map<string, UsageByFunction>();
-      const modelMap = new Map<string, UsageByModel>();
-      const monthMap = new Map<string, MonthlyUsage>();
-      const clientMap = new Map<string | null, UsageByClient>();
-      let totalCalls = 0, totalTokens = 0, totalCost = 0;
-      let mCalls = 0, mTokens = 0, mCost = 0;
-
-      for (const log of logs) {
-        const cost = log.estimated_cost_usd || 0;
-        const tokens = log.total_tokens || 0;
-        totalCalls++;
-        totalTokens += tokens;
-        totalCost += cost;
-
-        const logDate = new Date(log.created_at);
-        if (logDate >= thisMonthStart) {
-          mCalls++;
-          mTokens += tokens;
-          mCost += cost;
-        }
-
-        // By function
-        const fn = log.edge_function;
-        const existing = fnMap.get(fn) || { edge_function: fn, calls: 0, total_tokens: 0, cost_usd: 0 };
-        existing.calls++;
-        existing.total_tokens += tokens;
-        existing.cost_usd += cost;
-        fnMap.set(fn, existing);
-
-        // By model
-        const model = log.model_name;
-        const mExisting = modelMap.get(model) || { model_name: model, calls: 0, total_tokens: 0, cost_usd: 0 };
-        mExisting.calls++;
-        mExisting.total_tokens += tokens;
-        mExisting.cost_usd += cost;
-        modelMap.set(model, mExisting);
-
-        // Monthly
-        const monthKey = `${logDate.getFullYear()}-${String(logDate.getMonth() + 1).padStart(2, "0")}`;
-        const mMonth = monthMap.get(monthKey) || { month: monthKey, calls: 0, cost_usd: 0 };
-        mMonth.calls++;
-        mMonth.cost_usd += cost;
-        monthMap.set(monthKey, mMonth);
-
-        // By client
-        const cid = log.client_id;
-        const cExisting = clientMap.get(cid) || { 
-          client_id: cid, 
-          client_name: cid ? (nameMap[cid] || "Cliente desconhecido") : "Sem cliente", 
-          calls: 0, total_tokens: 0, cost_usd: 0 
-        };
-        cExisting.calls++;
-        cExisting.total_tokens += tokens;
-        cExisting.cost_usd += cost;
-        clientMap.set(cid, cExisting);
-      }
-
-      setByFunction(Array.from(fnMap.values()).sort((a, b) => b.cost_usd - a.cost_usd));
-      setByModel(Array.from(modelMap.values()).sort((a, b) => b.cost_usd - a.cost_usd));
-      setMonthly(Array.from(monthMap.values()).sort((a, b) => a.month.localeCompare(b.month)));
-      setByClient(Array.from(clientMap.values()).sort((a, b) => b.cost_usd - a.cost_usd));
-      setTotals({ calls: totalCalls, tokens: totalTokens, cost_usd: totalCost });
-      setMonthTotals({ calls: mCalls, tokens: mTokens, cost_usd: mCost });
+      setAllLogs(logsResult.data as UsageLog[]);
     } finally {
       setLoading(false);
     }
   }
 
-  // Projection
+  const periodStart = useMemo(() => {
+    const days = PERIOD_LABELS[period].days;
+    if (days === null) return null;
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [period]);
+
+  const filteredLogs = useMemo(() => {
+    if (!periodStart) return allLogs;
+    return allLogs.filter(l => new Date(l.created_at) >= periodStart);
+  }, [allLogs, periodStart]);
+
+  // Agregações derivadas — recalcula quando period muda
+  const aggregated = useMemo(() => {
+    const fnMap = new Map<string, UsageByFunction>();
+    const modelMap = new Map<string, UsageByModel>();
+    const monthMap = new Map<string, MonthlyUsage>();
+    const dailyMap = new Map<string, DailyUsage>();
+    const clientMap = new Map<string | null, UsageByClient>();
+    const cache: CacheStats = { total_calls_with_cache: 0, hits: 0, creates: 0, bypassed: 0 };
+    let totalCalls = 0, totalTokens = 0, totalCost = 0;
+
+    for (const log of filteredLogs) {
+      const cost = log.estimated_cost_usd || 0;
+      const tokens = log.total_tokens || 0;
+      totalCalls++;
+      totalTokens += tokens;
+      totalCost += cost;
+
+      const fn = log.edge_function;
+      const existing = fnMap.get(fn) || { edge_function: fn, calls: 0, total_tokens: 0, cost_usd: 0 };
+      existing.calls++;
+      existing.total_tokens += tokens;
+      existing.cost_usd += cost;
+      fnMap.set(fn, existing);
+
+      const model = log.model_name;
+      const mExisting = modelMap.get(model) || { model_name: model, calls: 0, total_tokens: 0, cost_usd: 0 };
+      mExisting.calls++;
+      mExisting.total_tokens += tokens;
+      mExisting.cost_usd += cost;
+      modelMap.set(model, mExisting);
+
+      const logDate = new Date(log.created_at);
+      const monthKey = `${logDate.getFullYear()}-${String(logDate.getMonth() + 1).padStart(2, "0")}`;
+      const mMonth = monthMap.get(monthKey) || { month: monthKey, calls: 0, cost_usd: 0 };
+      mMonth.calls++;
+      mMonth.cost_usd += cost;
+      monthMap.set(monthKey, mMonth);
+
+      const dayKey = logDate.toISOString().slice(0, 10);
+      const day = dailyMap.get(dayKey) || { date: dayKey, calls: 0, cost_usd: 0, tokens: 0 };
+      day.calls++;
+      day.cost_usd += cost;
+      day.tokens += tokens;
+      dailyMap.set(dayKey, day);
+
+      const cid = log.client_id;
+      const cExisting = clientMap.get(cid) || {
+        client_id: cid,
+        client_name: cid ? (clientNames[cid] || "Cliente desconhecido") : "Sem cliente",
+        calls: 0, total_tokens: 0, cost_usd: 0
+      };
+      cExisting.calls++;
+      cExisting.total_tokens += tokens;
+      cExisting.cost_usd += cost;
+      clientMap.set(cid, cExisting);
+
+      // Cache hit metrics (apenas tool-loop logs novos têm essas chaves)
+      const meta = log.metadata || {};
+      const hits = Number((meta as any).cache_hits ?? 0);
+      const creates = Number((meta as any).cache_creates ?? 0);
+      const bypassed = Number((meta as any).cache_bypassed ?? 0);
+      if (hits + creates + bypassed > 0) {
+        cache.total_calls_with_cache++;
+        cache.hits += hits;
+        cache.creates += creates;
+        cache.bypassed += bypassed;
+      }
+    }
+
+    return {
+      byFunction: Array.from(fnMap.values()).sort((a, b) => b.cost_usd - a.cost_usd),
+      byModel: Array.from(modelMap.values()).sort((a, b) => b.cost_usd - a.cost_usd),
+      monthly: Array.from(monthMap.values()).sort((a, b) => a.month.localeCompare(b.month)),
+      daily: Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
+      byClient: Array.from(clientMap.values()).sort((a, b) => b.cost_usd - a.cost_usd),
+      totals: { calls: totalCalls, tokens: totalTokens, cost_usd: totalCost },
+      cache,
+    };
+  }, [filteredLogs, clientNames]);
+
+  const { byFunction, byModel, monthly, daily, byClient, totals, cache } = aggregated;
+
+  // Custos do mês atual sempre (independente do filter) pra projeção real
+  const monthTotals = useMemo(() => {
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    let calls = 0, tokens = 0, cost_usd = 0;
+    for (const log of allLogs) {
+      const d = new Date(log.created_at);
+      if (d < thisMonthStart) continue;
+      calls++;
+      tokens += log.total_tokens || 0;
+      cost_usd += log.estimated_cost_usd || 0;
+    }
+    return { calls, tokens, cost_usd };
+  }, [allLogs]);
+
   const now = new Date();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const daysPassed = now.getDate();
@@ -213,6 +283,14 @@ export function AIUsageSettings() {
   const projectedAnnual = projectedCost * 12;
 
   const maxMonthlyCost = Math.max(...monthly.map(m => m.cost_usd), 0.001);
+  const maxDailyCost = Math.max(...daily.map(d => d.cost_usd), 0.001);
+
+  // Cache hit rate (apenas considerando logs com data de cache, pra evitar dilution
+  // pelos logs antigos pré-feature)
+  const cacheTotal = cache.hits + cache.creates + cache.bypassed;
+  const cacheHitRate = cacheTotal > 0 ? (cache.hits / cacheTotal) * 100 : 0;
+  // Economia estimada — cached tokens custam 25% do input price na Gemini
+  const cacheSavingsRate = cacheTotal > 0 ? (cache.hits / cacheTotal) * 0.75 : 0;
 
   if (loading) {
     return (
@@ -222,11 +300,32 @@ export function AIUsageSettings() {
     );
   }
 
-  const monthLabel = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const hasClientData = byClient.some(c => c.client_id !== null);
 
   return (
     <div className="space-y-6">
+      {/* Period selector */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-1.5">
+          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground mr-1">Período:</span>
+          {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
+            <Button
+              key={p}
+              size="sm"
+              variant={period === p ? "default" : "outline"}
+              className="h-7 text-xs px-2.5"
+              onClick={() => setPeriod(p)}
+            >
+              {PERIOD_LABELS[p].label}
+            </Button>
+          ))}
+        </div>
+        <span className="text-[10px] text-muted-foreground">
+          {filteredLogs.length.toLocaleString("pt-BR")} logs no período
+        </span>
+      </div>
+
       {/* KPI Cards */}
       <div className={cn("grid gap-4", isMobile ? "grid-cols-2" : "grid-cols-4")}>
         <Card>
@@ -266,13 +365,106 @@ export function AIUsageSettings() {
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
               <BarChart3 className="h-3.5 w-3.5" />
-              Custo total
+              Custo no período
             </div>
             <div className="text-xl font-bold">{formatBRL(totals.cost_usd)}</div>
             <div className="text-xs text-muted-foreground">{totals.calls} chamadas • {formatTokens(totals.tokens)} tokens</div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Cache stats — só aparece se houver dados */}
+      {cacheTotal > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Database className="h-4 w-4 text-primary" />
+                  Cache do Gemini (KAI Chat)
+                </CardTitle>
+                <CardDescription>
+                  Hit rate dos últimos {cacheTotal.toLocaleString("pt-BR")} ciclos de tool-loop
+                </CardDescription>
+              </div>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-xs",
+                  cacheHitRate >= 50
+                    ? "border-green-500/40 text-green-700 dark:text-green-400"
+                    : cacheHitRate >= 25
+                      ? "border-amber-500/40 text-amber-700 dark:text-amber-400"
+                      : "border-muted-foreground/30 text-muted-foreground",
+                )}
+              >
+                {cacheHitRate.toFixed(1)}% hit
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Hits</div>
+                <div className="text-lg font-bold text-green-700 dark:text-green-400">
+                  {cache.hits.toLocaleString("pt-BR")}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Criados</div>
+                <div className="text-lg font-bold">{cache.creates.toLocaleString("pt-BR")}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Bypass</div>
+                <div className="text-lg font-bold text-muted-foreground">
+                  {cache.bypassed.toLocaleString("pt-BR")}
+                </div>
+              </div>
+            </div>
+            <div className="h-2 bg-muted rounded-full overflow-hidden flex">
+              <div className="h-full bg-green-500/70" style={{ width: `${(cache.hits / cacheTotal) * 100}%` }} />
+              <div className="h-full bg-primary/40" style={{ width: `${(cache.creates / cacheTotal) * 100}%` }} />
+              <div className="h-full bg-muted-foreground/30" style={{ width: `${(cache.bypassed / cacheTotal) * 100}%` }} />
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">
+              Economia estimada no input do system + tools: ~{(cacheSavingsRate * 100).toFixed(1)}%
+              (cached tokens custam 25% do preço normal na Gemini).
+              {cache.bypassed > 0 && " Bypass ocorre quando o conteúdo é menor que o mínimo (1024 tokens Flash / 4096 Pro)."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Daily breakdown — bar chart leve */}
+      {daily.length > 0 && period !== 'all' && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Custo Diário</CardTitle>
+            <CardDescription>Últimos {PERIOD_LABELS[period].label.toLowerCase()}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end gap-1 h-32">
+              {daily.map(d => {
+                const pct = (d.cost_usd / maxDailyCost) * 100;
+                const day = d.date.slice(8, 10);
+                return (
+                  <div
+                    key={d.date}
+                    className="flex-1 flex flex-col items-center justify-end gap-1 min-w-[8px]"
+                    title={`${d.date} — ${formatBRL(d.cost_usd)} (${d.calls} chamadas)`}
+                  >
+                    <div
+                      className="w-full bg-primary/70 hover:bg-primary rounded-t transition-colors"
+                      style={{ height: `${Math.max(pct, 2)}%` }}
+                    />
+                    <span className="text-[8px] text-muted-foreground">{day}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Monthly Evolution */}
       <Card>
