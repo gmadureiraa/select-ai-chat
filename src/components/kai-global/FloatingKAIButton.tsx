@@ -40,6 +40,15 @@ export function FloatingKAIButton({
       <Button
         onClick={onClick}
         size="icon"
+        aria-label={
+          isOpen
+            ? "Fechar assistente kAI"
+            : hasNotifications && notificationCount > 0
+              ? `Abrir assistente kAI (${notificationCount} notificações)`
+              : "Abrir assistente kAI"
+        }
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
 className={cn(
           "relative h-14 w-14 min-h-[56px] min-w-[56px] p-0 rounded-full shadow-lg transition-all duration-300",
           "bg-primary hover:bg-primary/90",
@@ -58,7 +67,7 @@ className={cn(
               exit={{ rotate: 180, opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <X className="h-6 w-6 text-primary-foreground" />
+              <X aria-hidden="true" className="h-6 w-6 text-primary-foreground" />
             </motion.div>
           ) : (
             <motion.div
@@ -68,9 +77,10 @@ className={cn(
               exit={{ rotate: -180, opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <img 
-                src={kaleidosKaiLogo} 
-                alt="kAI" 
+              <img
+                src={kaleidosKaiLogo}
+                alt=""
+                aria-hidden="true"
                 className="h-8 w-8 object-contain"
               />
             </motion.div>
@@ -84,6 +94,7 @@ className={cn(
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0 }}
+              aria-hidden="true"
               className={cn(
                 "absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center",
                 "rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground"

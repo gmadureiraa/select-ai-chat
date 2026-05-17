@@ -79,8 +79,10 @@ export const MessageRating = ({ messageId, currentRating }: MessageRatingProps) 
           )}
           onClick={() => handleRate(1)}
           disabled={isSubmitting || localRating !== null}
+          aria-label="Avaliação positiva"
+          aria-pressed={localRating === 1}
         >
-          <ThumbsUp className="h-3.5 w-3.5" />
+          <ThumbsUp className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <Button
           variant="ghost"
@@ -91,8 +93,10 @@ export const MessageRating = ({ messageId, currentRating }: MessageRatingProps) 
           )}
           onClick={() => handleRate(-1)}
           disabled={isSubmitting || localRating !== null}
+          aria-label="Avaliação negativa"
+          aria-pressed={localRating === -1}
         >
-          <ThumbsDown className="h-3.5 w-3.5" />
+          <ThumbsDown className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
       </div>
 

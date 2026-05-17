@@ -65,11 +65,12 @@ export const MessageActions = ({
             size="icon"
             className="h-7 w-7"
             onClick={handleCopy}
+            aria-label={isCopied ? "Mensagem copiada" : "Copiar mensagem"}
           >
             {isCopied ? (
-              <Check className="h-3.5 w-3.5 text-green-500" />
+              <Check className="h-3.5 w-3.5 text-green-500" aria-hidden="true" />
             ) : (
-              <Copy className="h-3.5 w-3.5" />
+              <Copy className="h-3.5 w-3.5" aria-hidden="true" />
             )}
           </Button>
         </TooltipTrigger>
@@ -88,8 +89,13 @@ export const MessageActions = ({
               className="h-7 w-7"
               onClick={handleFavorite}
               disabled={isToggling}
+              aria-label={isMessageFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+              aria-pressed={isMessageFavorite}
             >
-              <Star className={`h-3.5 w-3.5 ${isMessageFavorite ? "fill-yellow-400 text-yellow-400" : ""}`} />
+              <Star
+                aria-hidden="true"
+                className={`h-3.5 w-3.5 ${isMessageFavorite ? "fill-yellow-400 text-yellow-400" : ""}`}
+              />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
@@ -106,8 +112,9 @@ export const MessageActions = ({
               size="icon"
               className="h-7 w-7"
               onClick={onRegenerate}
+              aria-label="Regenerar resposta"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>

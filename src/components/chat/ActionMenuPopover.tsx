@@ -15,8 +15,9 @@ export const ActionMenuPopover = ({ onImageUpload, disabled }: ActionMenuPopover
       disabled={disabled}
       className="h-8 w-8 rounded-lg hover:bg-muted/40 text-muted-foreground/60 hover:text-muted-foreground"
       title="Anexar arquivo"
+      aria-label="Anexar arquivo"
     >
-      <Paperclip className="h-3.5 w-3.5" />
+      <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
     </Button>
   );
 };

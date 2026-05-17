@@ -142,7 +142,7 @@ export const ArtifactCard = memo(function ArtifactCard({
       <CardHeader className="p-3 pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Icon className="h-4 w-4 text-muted-foreground" />
+            <Icon aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
             <CardTitle className="text-sm font-medium">{title}</CardTitle>
           </div>
           <div className="flex items-center gap-1">
@@ -151,11 +151,12 @@ export const ArtifactCard = memo(function ArtifactCard({
               size="icon"
               className="h-7 w-7"
               onClick={handleCopy}
+              aria-label={copied ? "Copiado" : "Copiar conteúdo"}
             >
               {copied ? (
-                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
               ) : (
-                <Copy className="h-3.5 w-3.5" />
+                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
               )}
             </Button>
             <Button
@@ -163,11 +164,13 @@ export const ArtifactCard = memo(function ArtifactCard({
               size="icon"
               className="h-7 w-7"
               onClick={() => setIsExpanded(!isExpanded)}
+              aria-label={isExpanded ? "Recolher" : "Expandir"}
+              aria-expanded={isExpanded}
             >
               {isExpanded ? (
-                <ChevronUp className="h-3.5 w-3.5" />
+                <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
               ) : (
-                <ChevronDown className="h-3.5 w-3.5" />
+                <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
               )}
             </Button>
           </div>
