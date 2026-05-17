@@ -27,6 +27,53 @@
 
 ## 🔧 Ação manual pendente (usuário no Vercel/DB)
 
+### 0. MCP server full (NOVO onda 2026-05-16)
+
+**Contexto:** `mcp-reader.ts` legado expunha catálogo hardcoded de ~20 tools só pra discovery. Substituído por servidor MCP completo com auto-discovery (lê barrel `kai-chat-tools/index.ts` e expõe TODA tool registrada).
+
+**Novos handlers em `api/_handlers/`:**
+
+- `mcp.ts` — endpoint JSON-RPC 2.0 unificado (canônico, `/api/mcp`)
+- `mcp-tools-list.ts` — REST + JSON-RPC `tools/list`
+- `mcp-tools-call.ts` — REST + JSON-RPC `tools/call`
+- `mcp-resources-list.ts` — REST + JSON-RPC `resources/list`
+- `mcp-resources-read.ts` — REST + JSON-RPC `resources/read`
+
+**Novos libs em `api/_lib/mcp/`:**
+
+- `auth.ts` — `assertMcpAuth` aceita `KAI_MCP_TOKEN` Bearer OU JWT user
+- `registry.ts` — auto-discovery iterando exports do barrel
+- `invoke.ts` — converte resultado de tool → MCP `{content, isError, structuredContent}`
+- `buffered-emitter.ts` — `KAIStreamEmitter` request/response (não-SSE)
+- `resources.ts` — lista/lê `kai://client/<id>`, `kai://planning/<id>`, `kai://library/<id>`
+
+**Adicionar entries em `api/handler-manifest.ts`:**
+
+```ts
+'mcp': () => import('./_handlers/mcp.js'),
+'mcp-tools-list': () => import('./_handlers/mcp-tools-list.js'),
+'mcp-tools-call': () => import('./_handlers/mcp-tools-call.js'),
+'mcp-resources-list': () => import('./_handlers/mcp-resources-list.js'),
+'mcp-resources-read': () => import('./_handlers/mcp-resources-read.js'),
+```
+
+**Manter** `'mcp-reader'` no manifest (legado, backward compat por enquanto). Pode ser removido depois que clients antigos forem migrados pra `/api/mcp`.
+
+**`vercel.json` rewrite — já funciona via router catch-all:**
+
+Não precisa rewrite extra. O `vercel.json` já tem `"/api/:slug*" → "/api/router?slug=:slug*"` que cobre `/api/mcp`, `/api/mcp/tools/list`, etc. O router faz fallback kebab automaticamente (`mcp/tools/list` → `mcp-tools-list`).
+
+**Env vars novas no Vercel:**
+
+```bash
+# Token global pro MCP (gerar com: openssl rand -hex 32)
+vercel env add KAI_MCP_TOKEN production
+```
+
+`MCP_ACCESS_TOKEN` (nome legado usado pelo `mcp-reader`) continua aceito como alias.
+
+**Doc completa:** `MCP-SETUP.md` na raiz do kai-app.
+
 ### 1. Env vars no Vercel project KAI
 
 **Bloqueante pra alguns handlers funcionarem em prod:**
