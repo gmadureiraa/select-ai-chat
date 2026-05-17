@@ -34,7 +34,7 @@ export const WorkspaceRouter = () => {
     return (
       <main
         id="main-content"
-        className="min-h-screen bg-background p-6"
+        className="min-h-dvh bg-background p-6"
         aria-busy="true"
       >
         <h1 className="sr-only">Carregando workspace</h1>

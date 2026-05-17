@@ -144,7 +144,7 @@ const Login = () => {
     return (
       <main
         id="main-content"
-        className="min-h-screen bg-background flex items-center justify-center p-4"
+        className="min-h-dvh bg-background flex items-center justify-center p-4"
         aria-live="polite"
       >
         <div className="flex flex-col items-center gap-4">
@@ -158,7 +158,7 @@ const Login = () => {
   return (
     <main
       id="main-content"
-      className="min-h-screen bg-background flex items-center justify-center p-4 relative"
+      className="min-h-dvh bg-background flex items-center justify-center p-4 relative"
     >
       <div className="absolute top-4 right-4">
         <ThemeToggle />

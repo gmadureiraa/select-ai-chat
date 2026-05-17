@@ -69,7 +69,7 @@ const NoWorkspacePage = () => {
     return (
       <main
         id="main-content"
-        className="min-h-screen bg-background flex items-center justify-center p-4"
+        className="min-h-dvh bg-background flex items-center justify-center p-4"
         aria-busy="true"
       >
         <h1 className="sr-only">Verificando convites pendentes</h1>
@@ -84,7 +84,7 @@ const NoWorkspacePage = () => {
   return (
     <main
       id="main-content"
-      className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4"
+      className="min-h-dvh bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4"
     >
       <div className="w-full max-w-lg space-y-6">
         {/* Header Card */}

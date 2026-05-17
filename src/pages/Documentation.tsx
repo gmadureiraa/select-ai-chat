@@ -876,7 +876,7 @@ export default function Documentation({ embedded = false }: { embedded?: boolean
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <header className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-md sticky top-0 z-50">
         <div className="h-full px-6 flex items-center justify-between">
           <div className="flex items-center gap-4">

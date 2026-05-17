@@ -13,7 +13,7 @@ export default function Offline() {
   return (
     <main
       id="main-content"
-      className="flex min-h-screen items-center justify-center bg-background p-6"
+      className="flex min-h-dvh items-center justify-center bg-background p-6"
     >
       <div className="max-w-md text-center space-y-4">
         <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-muted">

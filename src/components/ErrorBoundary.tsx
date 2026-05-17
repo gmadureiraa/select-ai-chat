@@ -115,7 +115,7 @@ export class ErrorBoundary extends Component<Props, State> {
       <div
         role="alert"
         aria-live="assertive"
-        className="min-h-screen flex items-center justify-center bg-background p-6"
+        className="min-h-dvh flex items-center justify-center bg-background p-6"
       >
         <div className="max-w-md w-full text-center space-y-4">
           <div className="mx-auto rounded-full bg-destructive/10 p-4 w-fit">
