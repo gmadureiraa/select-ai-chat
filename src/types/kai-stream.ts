@@ -145,6 +145,34 @@ export interface KAIToolRunning {
   label?: string; // texto human-friendly "Gerando rascunho de Instagram..."
 }
 
+/**
+ * Approval request inline — emitido quando uma tool destrutiva (delete, publish,
+ * removeMember, etc) precisa de confirmação humana antes de executar de fato.
+ * UI deve abrir um modal ApprovalDialog, e se o user confirmar re-chamar a
+ * tool com `approved: true` + `callbackToken`.
+ * Espelha api/_lib/approval-flow.ts — qualquer mudança no shape precisa ser
+ * sincronizada nos dois lugares (e em api/_lib/kai-chat-tools/kai-stream.ts).
+ */
+export interface KAIApprovalRequest {
+  requiresApproval: true;
+  /** Action string — usado pra validar token na re-call. Ex: 'delete_content'. */
+  action: string;
+  preview: {
+    title: string;
+    description: string;
+    impactedItems?: Array<{ id: string; label: string }>;
+    irreversible?: boolean;
+  };
+  /** Token opaco que a UI deve devolver na re-call. Single-use, TTL 5min. */
+  callbackToken: string;
+  /** Nome da tool a re-chamar com `approved: true`. */
+  toolName?: string;
+  /** Args originais — UI faz spread + adiciona `approved: true` + `callbackToken`. */
+  toolArgs?: Record<string, unknown>;
+  /** Quando o token expira (ISO). UI pode mostrar countdown ou disable o botão. */
+  expiresAt: string;
+}
+
 /** Shape de UM evento SSE emitido pelo servidor. */
 export interface KAIStreamDelta {
   /** Texto streamado do LLM (como hoje). */
@@ -155,6 +183,8 @@ export interface KAIStreamDelta {
   tool_running?: KAIToolRunning;
   /** Card renderizável no chat — cria novo OU atualiza existente (match por id). */
   action_card?: KAIActionCard;
+  /** Tool destrutiva pediu confirmação — UI deve abrir modal de approval. */
+  approval_request?: KAIApprovalRequest;
   /** Erro irrecuperável — encerra o stream. */
   error?: string;
 }

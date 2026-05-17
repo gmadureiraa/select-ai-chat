@@ -87,6 +87,7 @@ export async function parseOpenAIStream(
  */
 import type {
   KAIActionCard,
+  KAIApprovalRequest,
   KAIToolRunning,
 } from "@/types/kai-stream";
 
@@ -98,6 +99,8 @@ export interface StreamSSECallbacks {
   onToolRunning?: (running: KAIToolRunning) => void;
   /** Card novo ou atualizado pra renderizar no chat. Match por card.id. */
   onActionCard?: (card: KAIActionCard) => void;
+  /** Tool destrutiva pediu confirmação humana — UI abre modal. */
+  onApprovalRequest?: (req: KAIApprovalRequest) => void;
   /** Erro irrecuperável vindo do servidor. Stream será encerrado. */
   onError?: (message: string) => void;
 }
@@ -124,6 +127,10 @@ function handleDelta(
 
   if (delta.action_card && typeof delta.action_card === "object") {
     callbacks.onActionCard?.(delta.action_card as KAIActionCard);
+  }
+
+  if (delta.approval_request && typeof delta.approval_request === "object") {
+    callbacks.onApprovalRequest?.(delta.approval_request as KAIApprovalRequest);
   }
 
   if (typeof delta.error === "string") {

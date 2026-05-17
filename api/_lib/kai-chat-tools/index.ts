@@ -28,6 +28,7 @@ export {
   type KAIActionCardData,
   type KAIActionCardStatus,
   type KAIActionCardType,
+  type KAIApprovalRequest,
   type KAICardAction,
   type KAIDraftCardData,
   type KAIErrorCardData,

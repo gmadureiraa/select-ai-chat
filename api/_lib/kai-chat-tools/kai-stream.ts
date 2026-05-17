@@ -123,11 +123,33 @@ export interface KAIToolRunning {
   label?: string;
 }
 
+/**
+ * Approval request inline (espelha api/_lib/approval-flow.ts). Mantido aqui
+ * pra evitar import circular dentro do módulo de stream — qualquer mudança
+ * no shape precisa ser refletida nos dois lugares (e em src/types/kai-stream.ts).
+ */
+export interface KAIApprovalRequest {
+  requiresApproval: true;
+  action: string;
+  preview: {
+    title: string;
+    description: string;
+    impactedItems?: Array<{ id: string; label: string }>;
+    irreversible?: boolean;
+  };
+  callbackToken: string;
+  toolName?: string;
+  toolArgs?: Record<string, unknown>;
+  expiresAt: string;
+}
+
 export interface KAIStreamDelta {
   content?: string;
   image?: string;
   tool_running?: KAIToolRunning;
   action_card?: KAIActionCard;
+  /** Tool pediu confirmação humana antes de seguir — UI deve abrir modal. */
+  approval_request?: KAIApprovalRequest;
   error?: string;
 }
 
@@ -143,6 +165,7 @@ export interface KAIStreamEmitter {
   image(url: string): void;
   toolRunning(running: KAIToolRunning): void;
   actionCard(card: KAIActionCard): void;
+  approvalRequest(req: KAIApprovalRequest): void;
   error(message: string): void;
   done(): void;
   heartbeat(): void;
@@ -182,6 +205,9 @@ export function createKAIEmitter(res: VercelResponse): KAIStreamEmitter {
     },
     actionCard(card: KAIActionCard) {
       send({ action_card: card });
+    },
+    approvalRequest(req: KAIApprovalRequest) {
+      send({ approval_request: req });
     },
     error(message: string) {
       send({ error: message });

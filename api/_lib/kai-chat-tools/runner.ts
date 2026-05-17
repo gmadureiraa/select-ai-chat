@@ -4,6 +4,7 @@
 import type { KAIStreamEmitter } from './kai-stream.js';
 import type { ToolExecutionContext } from './types.js';
 import { ToolRegistry } from './registry.js';
+import { isApprovalRequest } from '../approval-flow.js';
 
 export interface GeminiContent {
   role: 'user' | 'model' | 'function';
@@ -139,6 +140,35 @@ export async function runToolLoop(
 
         if (result.card) {
           emit.actionCard(result.card);
+        }
+
+        // Tool pediu approval — propaga via stream pra UI abrir o modal.
+        // O LLM continua a conversa, mas a função response avisa que ficou
+        // pendente (assim o LLM dá texto curto tipo "aguarda confirmação").
+        if (result.ok && isApprovalRequest(result.data)) {
+          const approval = result.data;
+          // Garante que toolName e toolArgs estão preenchidos pra UI
+          // conseguir re-call mesmo se a tool esqueceu de setar.
+          const enriched = {
+            ...approval,
+            toolName: approval.toolName ?? call.name,
+            toolArgs: approval.toolArgs ?? call.args,
+          };
+          emit.approvalRequest(enriched);
+          functionResponseParts.push({
+            functionResponse: {
+              name: call.name,
+              response: {
+                data: {
+                  status: 'pending_user_approval',
+                  action: approval.action,
+                  message:
+                    'Aguardando confirmação humana no modal. Não chame essa tool de novo; o usuário vai confirmar ou cancelar pela UI.',
+                },
+              },
+            },
+          });
+          continue;
         }
 
         functionResponseParts.push({
