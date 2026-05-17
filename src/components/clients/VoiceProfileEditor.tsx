@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, X, Check, Loader2, Volume2, Sparkles, Wand2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiInvoke } from '../../lib/apiInvoke';
@@ -130,12 +129,15 @@ export function VoiceProfileEditor({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from("clients")
-        .update({ voice_profile: profile as any })
-        .eq("id", clientId);
-
-      if (error) throw error;
+      // P0 fix audit 2026-05-16: troca supabase.from('clients').update por
+      // /api/client-update (auth + assertClientAccess + Zod).
+      const { error } = await apiInvoke("client-update", {
+        body: {
+          client_id: clientId,
+          voice_profile: profile as unknown as Record<string, unknown>,
+        },
+      });
+      if (error) throw new Error(error.message || "Erro ao salvar perfil de voz");
 
       onSave?.(profile);
       setHasChanges(false);
@@ -147,7 +149,7 @@ export function VoiceProfileEditor({
       console.error("Error saving voice profile:", error);
       toast({
         title: "Erro ao salvar",
-        description: "Não foi possível salvar o perfil de voz.",
+        description: error instanceof Error ? error.message : "Não foi possível salvar o perfil de voz.",
         variant: "destructive",
       });
     } finally {

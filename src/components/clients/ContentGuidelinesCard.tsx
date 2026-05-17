@@ -3,8 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Loader2, Check, Sparkles, Save } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { BookOpen, Loader2, Sparkles, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiInvoke } from '../../lib/apiInvoke';
 
@@ -45,18 +44,22 @@ export function ContentGuidelinesCard({ clientId, initialGuidelines, onUpdate }:
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from("clients")
-        .update({ content_guidelines: guidelines } as Record<string, unknown>)
-        .eq("id", clientId);
-
-      if (error) throw error;
+      // P0 fix audit 2026-05-16: troca supabase.from('clients').update por
+      // /api/client-update (auth + assertClientAccess + Zod).
+      const { error } = await apiInvoke("client-update", {
+        body: { client_id: clientId, content_guidelines: guidelines },
+      });
+      if (error) throw new Error(error.message || "Erro ao salvar guia");
 
       setHasUnsavedChanges(false);
       onUpdate?.(guidelines);
       toast({ title: "Guia salvo", description: "As diretrizes de criação foram atualizadas." });
     } catch (error) {
-      toast({ title: "Erro ao salvar", description: "Não foi possível salvar o guia.", variant: "destructive" });
+      toast({
+        title: "Erro ao salvar",
+        description: error instanceof Error ? error.message : "Não foi possível salvar o guia.",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }

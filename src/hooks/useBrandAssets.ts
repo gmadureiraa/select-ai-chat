@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { apiInvoke } from "../lib/apiInvoke";
 
 export interface BrandAssets {
   // Legacy fields for backwards compatibility
@@ -89,15 +90,19 @@ export const useBrandAssets = (clientId: string) => {
 
   const updateBrandAssets = useMutation({
     mutationFn: async (assets: BrandAssets) => {
-      const { data, error } = await supabase
-        .from("clients")
-        .update({ brand_assets: assets as any })
-        .eq("id", clientId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      // P0 fix audit 2026-05-16: troca supabase.from('clients').update por
+      // /api/client-update (handler aceita brand_assets a partir do commit
+      // 4af29cb9; aplica assertClientAccess + Zod). Mantemos o SELECT no
+      // useQuery acima — esse e read-only e ja passa pelo RLS do Neon Data
+      // API.
+      const { data, error } = await apiInvoke("client-update", {
+        body: {
+          client_id: clientId,
+          brand_assets: assets as unknown as Record<string, unknown>,
+        },
+      });
+      if (error) throw new Error(error.message || "Erro ao salvar brand assets");
+      return data?.client ?? data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brand-assets", clientId] });
@@ -106,10 +111,10 @@ export const useBrandAssets = (clientId: string) => {
         description: "As configurações de marca foram salvas.",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
-        description: "Não foi possível salvar as configurações de marca.",
+        description: error?.message || "Não foi possível salvar as configurações de marca.",
         variant: "destructive",
       });
     },

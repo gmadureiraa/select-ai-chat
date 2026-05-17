@@ -50,7 +50,7 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
     resetAnalysis 
   } = useClientAnalysis();
 
-  const { createClient } = useClients();
+  const { createClient, updateClient } = useClients();
 
   // Auto-run analysis when entering step 2
   useEffect(() => {
@@ -95,28 +95,36 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
         objectives: "",
       };
 
-      // Create client
+      // Create client (handler /api/client-create — auth + Zod + workspace check)
       const client = await createClient.mutateAsync({
         name,
         description: analysis?.executive_summary || null,
         context_notes: null,
         social_media: { ...socialMedia, website },
         tags,
-        function_templates: [],
         websites: website ? [website] : [],
       });
 
       const clientId = client.id;
 
-      // Upload avatar if set
-      if (avatarUrl) {
-        await supabase
-          .from("clients")
-          .update({ avatar_url: avatarUrl })
-          .eq("id", clientId);
+      // P0 fix audit 2026-05-16: antes esses 2 updates eram direct
+      // `supabase.from('clients').update(...)`. Agora delega ao handler
+      // /api/client-update (que aceita avatar_url + ai_analysis desde
+      // commit 4af29cb9 e roda assertClientAccess).
+      const patch: Record<string, unknown> = {};
+      if (avatarUrl) patch.avatar_url = avatarUrl;
+      if (analysis) patch.ai_analysis = JSON.parse(JSON.stringify(analysis));
+      if (Object.keys(patch).length > 0) {
+        try {
+          await updateClient.mutateAsync({ id: clientId, ...patch });
+        } catch (err) {
+          console.warn("[ClientCreationWizard] failed to save avatar/analysis:", err);
+        }
       }
 
-      // Upload documents
+      // Upload documents (continua via blobStorage + handler dedicado
+      // pra metadata em client_documents — TODO migrar pra
+      // /api/client-document-upload em proxima onda).
       for (const file of files) {
         const fileName = `${clientId}/${Date.now()}_${file.name}`;
         const { error: uploadError } = await blobStorage
@@ -124,6 +132,8 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
           .upload(fileName, file);
 
         if (!uploadError) {
+          // ainda direct — anotado em PENDING-MANIFEST.md como handler novo
+          // a criar (`client-document-create`).
           await supabase.from("client_documents").insert({
             client_id: clientId,
             name: file.name,
@@ -131,14 +141,6 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
             file_path: fileName,
           });
         }
-      }
-
-      // Save AI analysis
-      if (analysis) {
-        await supabase
-          .from("clients")
-          .update({ ai_analysis: JSON.parse(JSON.stringify(analysis)) })
-          .eq("id", clientId);
       }
 
       onComplete();
