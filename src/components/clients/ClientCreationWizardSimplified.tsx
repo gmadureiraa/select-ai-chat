@@ -10,7 +10,7 @@ import {
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { useClients } from "@/hooks/useClients";
 import { useClientAnalysis } from "@/hooks/useClientAnalysis";
-import { supabase } from "@/integrations/supabase/client";
+import { apiInvoke } from "@/lib/apiInvoke";
 import { blobStorage } from "@/integrations/storage/blob-client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -122,9 +122,9 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
         }
       }
 
-      // Upload documents (continua via blobStorage + handler dedicado
-      // pra metadata em client_documents — TODO migrar pra
-      // /api/client-document-upload em proxima onda).
+      // Upload documents: arquivo vai pro blobStorage (Vercel Blob/Supabase
+      // Storage); metadata vai pelo handler /api/client-document-create (que
+      // valida assertClientAccess + Zod). P0 fix audit 2026-05-17.
       for (const file of files) {
         const fileName = `${clientId}/${Date.now()}_${file.name}`;
         const { error: uploadError } = await blobStorage
@@ -132,14 +132,18 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
           .upload(fileName, file);
 
         if (!uploadError) {
-          // ainda direct — anotado em PENDING-MANIFEST.md como handler novo
-          // a criar (`client-document-create`).
-          await supabase.from("client_documents").insert({
-            client_id: clientId,
-            name: file.name,
-            file_type: file.type,
-            file_path: fileName,
-          });
+          try {
+            await apiInvoke("client-document-create", {
+              body: {
+                client_id: clientId,
+                name: file.name,
+                file_type: file.type || "application/octet-stream",
+                file_path: fileName,
+              },
+            });
+          } catch (err) {
+            console.warn("[ClientCreationWizard] failed to register doc:", err);
+          }
         }
       }
 

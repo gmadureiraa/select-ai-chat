@@ -21,6 +21,7 @@ import { FileText, Lightbulb, Library } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { apiInvoke } from "@/lib/apiInvoke";
 import {
   useViralContext,
   type ViralBridgeSource,
@@ -109,31 +110,31 @@ export function CrossAppActions({
     target: "carrossel" | "idea" | "library",
   ) {
     if (target === "idea") {
-      // Persiste como planning_item type='idea' no cliente atual (se houver)
-      // OU como library_idea global (escopo workspace) se não tiver cliente.
+      // Persiste como planning_item type='idea' via handler. Sem cliente,
+      // a "Biblioteca global" antiga (library_ideas) não existe como tabela
+      // no schema atual — caímos no toast informativo.
       if (clientId) {
         const workspaceId = await resolveWorkspaceId(clientId);
-        const { data: u } = await supabase.auth.getUser();
-        if (!u.user) {
-          toast.error("Sem usuário autenticado");
+        if (!workspaceId) {
+          toast.error("Cliente sem workspace — não foi possível salvar");
           return;
         }
-        // Resolve column "Ideia" pra o card aparecer no Kanban (PlanningBoard
-        // agrupa por column_id). Sem isso, o item fica órfão no DB.
-        const ideaColumnId = workspaceId
-          ? await resolveIdeaColumnId(workspaceId)
-          : null;
-        const { error } = await supabase.from("planning_items").insert({
-          client_id: clientId,
-          workspace_id: workspaceId,
-          column_id: ideaColumnId,
-          title: (topic ?? "Ideia").slice(0, 200),
-          content: briefing ?? "",
-          status: "idea",
-          content_type: "social_post" as never,
-          created_by: u.user.id,
-          metadata: { source, source_url: url, ...(metadata ?? {}) } as never,
-        } as never);
+        // P0 fix audit 2026-05-17: troca supabase.from('planning_items').insert
+        // por /api/planning-items-create (handler resolve column id 'idea',
+        // valida assertClientAccess + assertWorkspaceAccess, força created_by).
+        const ideaColumnId = await resolveIdeaColumnId(workspaceId);
+        const { error } = await apiInvoke("planning-items-create", {
+          body: {
+            client_id: clientId,
+            workspace_id: workspaceId,
+            column_id: ideaColumnId,
+            title: (topic ?? "Ideia").slice(0, 200),
+            content: briefing ?? "",
+            status: "idea",
+            content_type: "social_post",
+            metadata: { source, source_url: url, ...(metadata ?? {}) },
+          },
+        });
         if (error) {
           toast.error("Erro ao salvar ideia", { description: error.message });
         } else {
@@ -142,20 +143,9 @@ export function CrossAppActions({
           });
         }
       } else {
-        // Sem cliente — salva em library_ideas (global, fica sem cliente)
-        const { error } = await supabase.from("library_ideas" as never).insert({
-          title: (topic ?? "Ideia").slice(0, 200),
-          description: briefing ?? "",
-          source_url: url,
-          source_handle: (metadata?.author as string | undefined) ?? null,
-          tags: ["radar", source],
-          is_global: true,
-        } as never);
-        if (error) {
-          toast.error("Erro ao salvar ideia", { description: error.message });
-        } else {
-          toast.success("💡 Ideia adicionada à Biblioteca global");
-        }
+        // Sem cliente — tabela library_ideas global não existe no schema.
+        // Informar o user pra selecionar um cliente.
+        toast.info("Selecione um cliente pra salvar a ideia no planejamento.");
       }
       return;
     }
@@ -175,19 +165,9 @@ export function CrossAppActions({
       const meta = (metadata ?? {}) as Record<string, unknown>;
       const fmt = (meta.format as string | undefined) ?? "static";
       const platform = (meta.platform as string | undefined) ?? null;
-      const contentTypeMap: Record<string, string> = {
-        carousel: "carousel",
-        reel: "reel_script",
-        static: "static_image",
-        tweet: "tweet",
-        thread: "thread",
-        newsletter: "newsletter",
-        article: "blog_post",
-      };
-      const ct = contentTypeMap[fmt] ?? "social_post";
 
-      // Idempotência por source_url (best-effort): se já existe ref desse cliente
-      // com a mesma URL, mostra toast info em vez de duplicar.
+      // Idempotência por source_url (best-effort SELECT — RLS ja filtra por
+      // cliente acessível, ok deixar via PostgREST).
       if (url) {
         const { data: existing } = await supabase
           .from("client_reference_library")
@@ -202,21 +182,27 @@ export function CrossAppActions({
         }
       }
 
-      const { error } = await supabase.from("client_reference_library").insert({
-        client_id: clientId,
-        title: (topic ?? "Referência").slice(0, 200),
-        reference_type: "inspiration",
-        content: briefing ?? "",
-        source_url: url,
-        thumbnail_url: (meta.thumbnail_url as string | undefined) ?? null,
-        metadata: {
-          source,
-          format: fmt,
-          platform,
-          content_type: ct,
-          ...meta,
-        } as never,
-      } as never);
+      // P0 fix audit 2026-05-17: troca supabase.from('client_reference_library')
+      // por /api/save-to-library (destination=references). Handler valida
+      // workspace member + sanitiza metadata.
+      const allowedFormats = new Set(["carousel", "reel", "static", "tweet", "thread", "newsletter", "article", "email"]);
+      const formatHint = allowedFormats.has(fmt) ? fmt : "static";
+      const { error } = await apiInvoke("save-to-library", {
+        body: {
+          client_id: clientId,
+          title: (topic ?? "Referência").slice(0, 200),
+          content: briefing ?? "",
+          source_url: url,
+          thumbnail_url: (meta.thumbnail_url as string | undefined) ?? null,
+          destination: "references",
+          format: formatHint,
+          metadata: {
+            source,
+            platform,
+            ...meta,
+          },
+        },
+      });
       if (error) {
         toast.error("Erro ao salvar na biblioteca", { description: error.message });
       } else {

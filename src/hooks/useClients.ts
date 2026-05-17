@@ -210,19 +210,12 @@ export const useClients = () => {
 
   const deleteClient = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("clients").delete().eq("id", id);
-      if (error) throw error;
-      
-      // Verify deletion actually happened (RLS may silently block)
-      const { data: stillExists } = await supabase
-        .from("clients")
-        .select("id")
-        .eq("id", id)
-        .maybeSingle();
-      
-      if (stillExists) {
-        throw new Error("Não foi possível excluir o perfil. Verifique suas permissões.");
-      }
+      // P0 fix audit 2026-05-17: troca supabase.from('clients').delete por
+      // /api/client-delete (handler valida workspace_member ou super_admin).
+      // Antes dependia 100% de RLS — pool serverless roda como neondb_owner
+      // que tem BYPASSRLS, então leak de service-role exporia delete arbitrário.
+      const { error } = await apiInvoke("client-delete", { body: { id } });
+      if (error) throw new Error(error.message || "Erro ao excluir perfil");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients", workspace?.id] });

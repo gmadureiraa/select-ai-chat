@@ -1,9 +1,8 @@
 import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { 
-  KAIActionType, 
-  PendingAction, 
-  CSVAnalysisResult 
+import {
+  KAIActionType,
+  PendingAction,
+  CSVAnalysisResult
 } from "@/types/kaiActions";
 import { apiInvoke } from '../lib/apiInvoke';
 import { toast } from "sonner";
@@ -120,16 +119,19 @@ async function executeUploadMetrics(
 
   setProgress(80);
 
-  // Record import history
-  await supabase.from("import_history").insert({
-    client_id: clientId,
-    platform: csvData.platform,
-    records_count: csvData.preview.totalRows,
-    file_name: file.name,
-    status: "completed",
-    metadata: {
-      columns: csvData.preview.columns,
-      dateRange: csvData.preview.dateRange,
+  // Record import history via handler (P0 fix audit 2026-05-17 —
+  // assertClientAccess centralizado).
+  await apiInvoke("import-history-create", {
+    body: {
+      client_id: clientId,
+      platform: csvData.platform,
+      records_count: csvData.preview.totalRows,
+      file_name: file.name,
+      status: "completed",
+      metadata: {
+        columns: csvData.preview.columns,
+        dateRange: csvData.preview.dateRange,
+      },
     },
   });
 
@@ -150,47 +152,29 @@ async function executeCreatePlanningCard(
 ): Promise<ExecuteActionResult> {
   const { title, description, date, assignee } = action.params;
 
-  // Get first column for the workspace
-  const { data: columns, error: columnsError } = await supabase
-    .from("kanban_columns")
-    .select("id")
-    .eq("workspace_id", workspaceId)
-    .order("position", { ascending: true })
-    .limit(1);
-
-  if (columnsError) throw columnsError;
-  if (!columns || columns.length === 0) {
-    return { success: false, message: "Nenhuma coluna encontrada no planejamento" };
-  }
-
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) {
-    return { success: false, message: "Usuário não autenticado" };
-  }
-
-  const { data: card, error } = await supabase
-    .from("planning_items")
-    .insert({
+  // P0 fix audit 2026-05-17: troca insert direto por /api/planning-items-create
+  // (handler resolve coluna 'first position' no servidor + valida workspace +
+  // client access). created_by é forçado pelo auth do handler.
+  const { data, error } = await apiInvoke("planning-items-create", {
+    body: {
       title: title || "Novo card",
       description,
       client_id: clientId,
       workspace_id: workspaceId,
-      column_id: columns[0].id,
       due_date: date,
       assigned_to: assignee,
-      created_by: user.user.id,
       status: "todo",
-    })
-    .select()
-    .single();
+    },
+  });
 
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Erro ao criar card");
 
+  const card = data?.item ?? data;
   toast.success("Card criado no planejamento");
   return {
     success: true,
     message: "Card criado com sucesso",
-    data: { cardId: card.id },
+    data: { cardId: card?.id },
   };
 }
 
@@ -201,28 +185,33 @@ async function executeUploadToLibrary(
   const { title, description, url } = action.params;
   const urlData = action.preview?.data as { content?: string; thumbnailUrl?: string } | undefined;
 
-  const contentData = {
-    client_id: clientId,
-    title: title || "Novo conteúdo",
-    content: urlData?.content || description || "",
-    content_type: "instagram_post" as const,
-    content_url: url,
-    thumbnail_url: urlData?.thumbnailUrl,
-  };
+  // P0 fix audit 2026-05-17: troca insert direto por /api/save-to-library
+  // (destination='content' → escreve em client_content_library).
+  const { data, error } = await apiInvoke("save-to-library", {
+    body: {
+      client_id: clientId,
+      title: title || "Novo conteúdo",
+      content: urlData?.content || description || "",
+      source_url: url,
+      thumbnail_url: urlData?.thumbnailUrl,
+      destination: "content",
+      // format mapeia pra content_type via FORMAT_TO_CONTENT_TYPE no handler.
+      // Para URLs do Instagram queremos content_type = instagram_post; o handler
+      // mapeia 'static' → 'static_image'. Como instagram_post não está no enum
+      // do handler, deixamos default e gravamos a origem nos metadata.
+      format: "static",
+      metadata: { source: "kai-chat-upload", original_url: url },
+    },
+  });
 
-  const { data: content, error } = await supabase
-    .from("client_content_library")
-    .insert(contentData)
-    .select()
-    .single();
-
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Erro ao salvar conteúdo");
+  const content = data?.item ?? data;
 
   toast.success("Conteúdo adicionado à biblioteca");
   return {
     success: true,
     message: "Conteúdo salvo na biblioteca",
-    data: { contentId: content.id },
+    data: { contentId: content?.id },
   };
 }
 
@@ -231,34 +220,39 @@ async function executeUploadToReferences(
   clientId: string
 ): Promise<ExecuteActionResult> {
   const { title, url } = action.params;
-  const urlData = action.preview?.data as { 
-    content?: string; 
+  const urlData = action.preview?.data as {
+    content?: string;
     thumbnailUrl?: string;
     type?: string;
   } | undefined;
 
-  const referenceData = {
-    client_id: clientId,
-    title: title || "Nova referência",
-    content: urlData?.content || "",
-    source_url: url,
-    thumbnail_url: urlData?.thumbnailUrl,
-    reference_type: urlData?.type || "article",
-  };
+  // P0 fix audit 2026-05-17: troca insert direto por /api/save-to-library
+  // (destination='references'). reference_type vem do handler via format
+  // mapping; passamos `article` como hint default.
+  const formatHint = (urlData?.type as
+    | "carousel" | "reel" | "static" | "tweet" | "thread" | "newsletter" | "article" | "email"
+    | undefined) || "article";
+  const { data, error } = await apiInvoke("save-to-library", {
+    body: {
+      client_id: clientId,
+      title: title || "Nova referência",
+      content: urlData?.content || "",
+      source_url: url,
+      thumbnail_url: urlData?.thumbnailUrl,
+      destination: "references",
+      format: formatHint,
+      metadata: { source: "kai-chat-references" },
+    },
+  });
 
-  const { data: reference, error } = await supabase
-    .from("client_reference_library")
-    .insert(referenceData)
-    .select()
-    .single();
-
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Erro ao salvar referência");
+  const reference = data?.item ?? data;
 
   toast.success("Referência adicionada à biblioteca");
   return {
     success: true,
     message: "Referência salva com sucesso",
-    data: { referenceId: reference.id },
+    data: { referenceId: reference?.id },
   };
 }
 

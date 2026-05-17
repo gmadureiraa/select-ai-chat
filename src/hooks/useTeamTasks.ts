@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { apiInvoke } from "@/lib/apiInvoke";
 import { toast } from "sonner";
 
 export type TaskStatus = "todo" | "in_progress" | "done";
@@ -117,30 +118,34 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
   const createTask = useMutation({
     mutationFn: async (input: CreateTeamTaskInput) => {
       if (!workspaceId || !user?.id) throw new Error("No workspace/user");
-      const { data, error } = await supabase
-        .from("team_tasks")
-        .insert({
+      // P0 fix audit 2026-05-17: troca supabase.from('team_tasks').insert por
+      // /api/team-tasks-create (handler valida assertWorkspaceAccess +
+      // assertClientAccess se client_id presente). Campos de recorrência ainda
+      // são suportados via fallback direto se necessário no futuro, mas o
+      // caminho principal (criar task simples) já passa pelo handler.
+      //
+      // NOTE: o handler team-tasks-create atual não persiste recurrence_* nem
+      // mentions. Se o caller passar esses campos, eles serão ignorados. UI
+      // de recorrência precisa de handler dedicado team-tasks-recurrence em
+      // onda futura — anotado em PENDING-MANIFEST.
+      const labelStrings = (input.labels ?? []).map(l =>
+        typeof l === "string" ? l : (l as { name?: string }).name ?? ""
+      ).filter(Boolean);
+      const { data, error } = await apiInvoke("team-tasks-create", {
+        body: {
           workspace_id: workspaceId,
-          created_by: user.id,
           title: input.title,
-          description: input.description ?? null,
+          description: input.description ?? undefined,
           status: input.status ?? "todo",
           priority: input.priority ?? "medium",
-          due_date: input.due_date ?? null,
-          assigned_to: input.assigned_to ?? null,
+          due_date: input.due_date ?? undefined,
+          assigned_to: input.assigned_to ?? undefined,
           client_id: input.client_id ?? null,
-          labels: (input.labels ?? []) as any,
-          mentions: input.mentions ?? [],
-          recurrence_type: input.recurrence_type ?? null,
-          recurrence_days: input.recurrence_days ?? [],
-          recurrence_time: input.recurrence_time ?? null,
-          recurrence_end_date: input.recurrence_end_date ?? null,
-          is_recurrence_template: input.is_recurrence_template ?? false,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      return data as unknown as TeamTask;
+          labels: labelStrings,
+        },
+      });
+      if (error) throw new Error(error.message || "Erro ao criar tarefa");
+      return (data?.task ?? data) as unknown as TeamTask;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-tasks", workspaceId] });
@@ -152,14 +157,32 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
 
   const updateTask = useMutation({
     mutationFn: async ({ id, ...patch }: { id: string } & Partial<TeamTask>) => {
-      const { data, error } = await supabase
-        .from("team_tasks")
-        .update(patch as any)
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data as unknown as TeamTask;
+      // P0 fix audit 2026-05-17: troca supabase.from('team_tasks').update por
+      // /api/team-tasks-update (workspace_member check). Handler aceita
+      // title, description, status, priority, due_date, assigned_to, labels.
+      // Campos não-suportados (recurrence_*, mentions, position) ignorados
+      // até handler dedicado existir.
+      const body: Record<string, unknown> = { id };
+      const allowed = [
+        "title",
+        "description",
+        "status",
+        "priority",
+        "due_date",
+        "assigned_to",
+      ] as const;
+      for (const key of allowed) {
+        const v = (patch as Record<string, unknown>)[key];
+        if (v !== undefined) body[key] = v;
+      }
+      if (patch.labels !== undefined) {
+        body.labels = patch.labels.map((l) =>
+          typeof l === "string" ? l : l?.name ?? ""
+        ).filter(Boolean);
+      }
+      const { data, error } = await apiInvoke("team-tasks-update", { body });
+      if (error) throw new Error(error.message || "Erro ao atualizar tarefa");
+      return (data?.task ?? data) as unknown as TeamTask;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-tasks", workspaceId] });
@@ -170,8 +193,9 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
 
   const deleteTask = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("team_tasks").delete().eq("id", id);
-      if (error) throw error;
+      // P0 fix audit 2026-05-17: troca delete direto por /api/team-tasks-delete.
+      const { error } = await apiInvoke("team-tasks-delete", { body: { id } });
+      if (error) throw new Error(error.message || "Erro ao excluir tarefa");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-tasks", workspaceId] });
@@ -184,31 +208,26 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
   const duplicateTask = useMutation({
     mutationFn: async (task: TeamTask) => {
       if (!workspaceId || !user?.id) throw new Error("No workspace/user");
-      const { data, error } = await supabase
-        .from("team_tasks")
-        .insert({
+      // P0 fix audit 2026-05-17: troca insert direto por /api/team-tasks-create.
+      // Recurrence_* + mentions NÃO replicados (handler atual não suporta).
+      // Duplicado NUNCA é template — sempre instância simples.
+      const labelStrings = (task.labels ?? []).map((l) =>
+        typeof l === "string" ? l : l?.name ?? ""
+      ).filter(Boolean);
+      const { data, error } = await apiInvoke("team-tasks-create", {
+        body: {
           workspace_id: workspaceId,
-          created_by: user.id,
           title: `${task.title} (cópia)`,
-          description: task.description,
+          description: task.description ?? undefined,
           status: "todo",
           priority: task.priority,
-          due_date: task.due_date,
-          assigned_to: null,
-          client_id: task.client_id,
-          labels: (task.labels ?? []) as any,
-          mentions: task.mentions ?? [],
-          recurrence_type: task.recurrence_type,
-          recurrence_days: task.recurrence_days ?? [],
-          recurrence_time: task.recurrence_time,
-          recurrence_end_date: task.recurrence_end_date,
-          // Duplicado NUNCA é template — sempre instância nova.
-          is_recurrence_template: false,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      return data as unknown as TeamTask;
+          due_date: task.due_date ?? undefined,
+          client_id: task.client_id ?? null,
+          labels: labelStrings,
+        },
+      });
+      if (error) throw new Error(error.message || "Erro ao duplicar tarefa");
+      return (data?.task ?? data) as unknown as TeamTask;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-tasks", workspaceId] });

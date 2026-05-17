@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { apiInvoke } from '@/lib/apiInvoke';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { toast } from 'sonner';
 
@@ -13,6 +13,11 @@ import { toast } from 'sonner';
  * `column_type` IDs canônicos (idea/draft/review/approved/scheduled/published)
  * têm semântica em `moveToColumn` (status). Colunas custom usam `column_type
  * = 'custom'` e não trocam status automaticamente.
+ *
+ * P0 fix audit 2026-05-17: todas as mutations migradas pra handlers
+ * /api/kanban-columns-* (validam assertWorkspaceAccess). Antes faziam
+ * supabase.from(...).update/insert/delete direto, bypassando o check no
+ * pool serverless (neondb_owner BYPASSRLS).
  */
 export function usePlanningColumns() {
   const queryClient = useQueryClient();
@@ -23,11 +28,10 @@ export function usePlanningColumns() {
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
       const trimmed = name.trim();
       if (!trimmed) throw new Error('Nome não pode ficar vazio');
-      const { error } = await supabase
-        .from('kanban_columns')
-        .update({ name: trimmed })
-        .eq('id', id);
-      if (error) throw error;
+      const { error } = await apiInvoke('kanban-columns-update', {
+        body: { id, name: trimmed },
+      });
+      if (error) throw new Error(error.message || 'Erro ao renomear coluna');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kanban-columns', workspaceId] });
@@ -38,14 +42,11 @@ export function usePlanningColumns() {
 
   const reorderColumns = useMutation({
     mutationFn: async (updates: Array<{ id: string; position: number }>) => {
-      // Atualiza em paralelo (ok pra <= ~12 colunas)
-      const results = await Promise.all(
-        updates.map(u =>
-          supabase.from('kanban_columns').update({ position: u.position }).eq('id', u.id),
-        ),
-      );
-      const firstError = results.find(r => r.error);
-      if (firstError?.error) throw firstError.error;
+      // Batch update via handler (transaction-safe + 1 round-trip).
+      const { error } = await apiInvoke('kanban-columns-update', {
+        body: { updates },
+      });
+      if (error) throw new Error(error.message || 'Erro ao reordenar colunas');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kanban-columns', workspaceId] });
@@ -58,19 +59,16 @@ export function usePlanningColumns() {
       if (!workspaceId) throw new Error('Workspace não encontrado');
       const trimmed = name.trim();
       if (!trimmed) throw new Error('Nome obrigatório');
-      const { data, error } = await supabase
-        .from('kanban_columns')
-        .insert({
+      const { data, error } = await apiInvoke('kanban-columns-create', {
+        body: {
           workspace_id: workspaceId,
           name: trimmed,
           position,
           column_type: 'custom',
-          is_default: false,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
+        },
+      });
+      if (error) throw new Error(error.message || 'Erro ao criar coluna');
+      return data?.column ?? data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kanban-columns', workspaceId] });
@@ -81,29 +79,12 @@ export function usePlanningColumns() {
 
   const deleteColumn = useMutation({
     mutationFn: async (id: string) => {
-      // Pega items dessa coluna pra mover pra "idea" antes de deletar
-      const { data: orphans, error: fetchErr } = await supabase
-        .from('planning_items')
-        .select('id')
-        .eq('column_id', id);
-      if (fetchErr) throw fetchErr;
-      if (orphans && orphans.length > 0) {
-        // Pega coluna idea
-        const { data: idea } = await supabase
-          .from('kanban_columns')
-          .select('id')
-          .eq('workspace_id', workspaceId!)
-          .eq('column_type', 'idea')
-          .single();
-        if (idea?.id) {
-          await supabase
-            .from('planning_items')
-            .update({ column_id: idea.id, status: 'idea' })
-            .in('id', orphans.map(o => o.id));
-        }
-      }
-      const { error } = await supabase.from('kanban_columns').delete().eq('id', id);
-      if (error) throw error;
+      // Handler kanban-columns-delete já move planning_items órfãos pra
+      // coluna 'idea' do mesmo workspace em transaction (atomic).
+      const { error } = await apiInvoke('kanban-columns-delete', {
+        body: { id },
+      });
+      if (error) throw new Error(error.message || 'Erro ao remover coluna');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kanban-columns', workspaceId] });

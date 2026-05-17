@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { apiInvoke } from "@/lib/apiInvoke";
 import { toast } from "sonner";
 
 export interface TaskComment {
@@ -15,7 +15,6 @@ export interface TaskComment {
 
 export function useTaskComments(taskId: string | null) {
   const qc = useQueryClient();
-  const { user } = useAuth();
   const queryKey = ["task-comments", taskId];
 
   const { data: comments = [], isLoading } = useQuery({
@@ -37,16 +36,16 @@ export function useTaskComments(taskId: string | null) {
     refetchIntervalInBackground: false,
   });
 
+  // P0 fix audit 2026-05-17: mutations migradas pra /api/task-comments-* que
+  // forçam author_id pelo auth e validam workspace membership.
+
   const addComment = useMutation({
     mutationFn: async ({ content, mentions }: { content: string; mentions: string[] }) => {
-      if (!taskId || !user?.id) throw new Error("no task/user");
-      const { error } = await supabase.from("team_task_comments" as any).insert({
-        task_id: taskId,
-        author_id: user.id,
-        content,
-        mentions,
-      } as any);
-      if (error) throw error;
+      if (!taskId) throw new Error("no task");
+      const { error } = await apiInvoke("task-comments-create", {
+        body: { task_id: taskId, content, mentions },
+      });
+      if (error) throw new Error(error.message || "Erro ao comentar");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey }),
     onError: (e: Error) => toast.error("Erro ao comentar", { description: e.message }),
@@ -54,8 +53,10 @@ export function useTaskComments(taskId: string | null) {
 
   const removeComment = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("team_task_comments" as any).delete().eq("id", id);
-      if (error) throw error;
+      const { error } = await apiInvoke("task-comments-delete", {
+        body: { id },
+      });
+      if (error) throw new Error(error.message || "Erro ao remover");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey }),
   });

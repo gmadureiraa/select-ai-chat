@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { apiInvoke } from '@/lib/apiInvoke';
 import { useWorkspaceContext } from '@/contexts/WorkspaceContext';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -539,19 +540,14 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
   // Reorder items in batch (drag & drop with @dnd-kit)
   const reorderItems = useMutation({
     mutationFn: async (updates: Array<{ id: string; column_id: string; position: number; status?: PlanningStatus }>) => {
-      // Run in parallel
-      const results = await Promise.all(
-        updates.map(u => {
-          const payload: Record<string, unknown> = {
-            column_id: u.column_id,
-            position: u.position,
-          };
-          if (u.status) payload.status = u.status;
-          return supabase.from('planning_items').update(payload).eq('id', u.id);
-        })
-      );
-      const firstError = results.find(r => r.error);
-      if (firstError?.error) throw firstError.error;
+      // P0 fix audit 2026-05-17: troca N supabase.from(...).update por 1 call
+      // a /api/planning-items-reorder (batch transactional + assertClientAccess
+      // em todos os ids do batch). Reduz N round-trips → 1 e elimina race
+      // condition entre rollbacks parciais.
+      const { error } = await apiInvoke('planning-items-reorder', {
+        body: { updates },
+      });
+      if (error) throw new Error(error.message || 'Erro ao reordenar');
     },
     onMutate: async (updates) => {
       await queryClient.cancelQueries({ queryKey: ['planning-items', workspaceId] });

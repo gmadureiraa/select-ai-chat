@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from "@/integrations/supabase/client";
+import { apiInvoke } from "@/lib/apiInvoke";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -54,17 +54,23 @@ export function MessageFeedback({
     feedbackType: "approved" | "regenerated" | "saved_to_library",
   ) => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-      await supabase.from("content_feedback").insert({
-        message_id: messageId,
-        client_id: clientId,
-        user_id: userData.user.id,
-        format_type: formatType,
-        feedback_type: feedbackType,
-        original_content: content,
-        metadata: { content_length: content.length },
+      // P0 fix audit 2026-05-17: troca supabase.from('content_feedback').insert
+      // por /api/content-feedback-create (assertClientAccess + user_id forçado
+      // pelo auth do handler — evita spoofing).
+      const { error } = await apiInvoke("content-feedback-create", {
+        body: {
+          message_id: messageId,
+          client_id: clientId,
+          format_type: formatType,
+          feedback_type: feedbackType,
+          original_content: content,
+          metadata: { content_length: content.length },
+        },
       });
+      if (error) {
+        console.error("Error submitting feedback:", error);
+        return;
+      }
       setFeedbackGiven(feedbackType);
     } catch (error) {
       console.error("Error submitting feedback:", error);
