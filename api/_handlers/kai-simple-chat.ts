@@ -21,6 +21,8 @@ import {
   runToolLoop,
   createKAIEmitter,
   echoTool,
+  webSearchTool,
+  delegateToSubAgentTool,
   createContentTool,
   createViralCarouselTool,
   editContentTool,
@@ -1777,12 +1779,25 @@ function getInternalBaseUrl(req: VercelRequest): string {
 }
 
 // Image fetcher → base64 (for inline image messages to Gemini)
+// Limite inline do Gemini é ~20MB por request total. Pra arquivos maiores
+// usar Files API (não implementado — fica como fallback no futuro).
+const INLINE_IMAGE_MAX_BYTES = 18 * 1024 * 1024;
+
 async function fetchImageAsBase64(url: string): Promise<{ mimeType: string; data: string } | null> {
   try {
     const r = await fetch(url);
-    if (!r.ok) return null;
+    if (!r.ok) {
+      console.warn(`[kai-simple-chat] fetchImage HTTP ${r.status}: ${url.slice(0, 100)}`);
+      return null;
+    }
     const mime = r.headers.get('content-type') || 'image/jpeg';
     const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.byteLength > INLINE_IMAGE_MAX_BYTES) {
+      console.warn(
+        `[kai-simple-chat] image excede limite inline (${(buf.byteLength / 1024 / 1024).toFixed(1)}MB > 18MB): ${url.slice(0, 100)} — pulando`,
+      );
+      return null;
+    }
     return { mimeType: mime, data: buf.toString('base64') };
   } catch (e) {
     console.error('[kai-simple-chat] Failed to fetch image:', url, e);
@@ -2362,6 +2377,8 @@ adicional. O card de confirmação já injeta isso automaticamente.
 
       const registry = new ToolRegistry();
       registry.register(echoTool);
+      registry.register(webSearchTool);
+      registry.register(delegateToSubAgentTool);
       registry.register(createContentTool);
       registry.register(createViralCarouselTool);
       registry.register(editContentTool);
@@ -2435,18 +2452,20 @@ adicional. O card de confirmação já injeta isso automaticamente.
       };
 
       try {
-        const { finalText, toolCalls, cacheStats } = await runToolLoop({
-          apiKey: GOOGLE_API_KEY,
-          model: geminiModel,
-          orchestratorModel: 'gemini-2.5-pro',
-          systemInstruction: systemInstructionText,
-          contents: geminiContents,
-          registry,
-          emit,
-          ctx: toolCtx,
-        });
+        const { finalText, toolCalls, cacheStats, toolTraces, llmLatencyMs, toolLatencyMs } =
+          await runToolLoop({
+            apiKey: GOOGLE_API_KEY,
+            model: geminiModel,
+            orchestratorModel: 'gemini-2.5-pro',
+            systemInstruction: systemInstructionText,
+            contents: geminiContents,
+            registry,
+            emit,
+            ctx: toolCtx,
+          });
+        const errorCount = toolTraces.filter((t) => t.status === 'error').length;
         console.log(
-          `[kai-simple-chat] 🔧 tool-loop done — ${toolCalls.length} tool calls, ${finalText.length} chars de texto, cache hits=${cacheStats.hits}/creates=${cacheStats.creates}/bypassed=${cacheStats.bypassed}`,
+          `[kai-simple-chat] 🔧 tool-loop done — ${toolCalls.length} tool calls (${errorCount} err), ${finalText.length} chars, llm=${llmLatencyMs}ms tool=${toolLatencyMs}ms, cache hits=${cacheStats.hits}/creates=${cacheStats.creates}/bypassed=${cacheStats.bypassed}`,
         );
         const inputTokens = estimateTokens(JSON.stringify(geminiContents));
         const outputTokens = estimateTokens(finalText);
@@ -2462,6 +2481,18 @@ adicional. O card de confirmação já injeta isso automaticamente.
             cache_hits: cacheStats.hits,
             cache_creates: cacheStats.creates,
             cache_bypassed: cacheStats.bypassed,
+            // Tracing fields — agregados rápidos no metadata pra dashboard
+            // calcular médias sem ler tabela separada. tool_traces compacto
+            // (name, durationMs, status) por chamada — útil pra debug pontual.
+            llm_latency_ms: llmLatencyMs,
+            tool_latency_ms: toolLatencyMs,
+            tool_errors: errorCount,
+            tool_traces: toolTraces.map((t) => ({
+              n: t.name,
+              ms: t.durationMs,
+              s: t.status,
+              ...(t.errorMessage ? { e: t.errorMessage.slice(0, 120) } : {}),
+            })),
           },
         ).catch(() => {});
       } catch (err) {

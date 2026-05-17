@@ -51,12 +51,30 @@ function shouldUseOrchestrator(toolCallsSoFar: number, orchestratorModel?: strin
   return toolCallsSoFar >= 2;
 }
 
+export interface ToolTrace {
+  /** Nome da tool conforme registrado (ex: createContent). */
+  name: string;
+  /** Latência em ms da chamada do handler. */
+  durationMs: number;
+  /** Resultado bruto: ok | error | approval (pending_approval cai em ok=true). */
+  status: 'ok' | 'error' | 'approval';
+  /** Iteração do tool-loop em que ocorreu (0-indexed). */
+  iteration: number;
+  /** Erro raw se status=error. */
+  errorMessage?: string;
+}
+
 export async function runToolLoop(
   opts: RunToolLoopOptions,
 ): Promise<{
   finalText: string;
   toolCalls: Array<{ name: string; args: Record<string, unknown>; result: unknown }>;
   cacheStats: { hits: number; creates: number; bypassed: number };
+  toolTraces: ToolTrace[];
+  /** Latência total das chamadas Gemini (sem incluir tool execution). */
+  llmLatencyMs: number;
+  /** Latência total agregada dos handlers de tool. */
+  toolLatencyMs: number;
 }> {
   const {
     apiKey,
@@ -75,6 +93,9 @@ export async function runToolLoop(
   const executedTools: Array<{ name: string; args: Record<string, unknown>; result: unknown }> = [];
   let finalText = '';
   const cacheStats = { hits: 0, creates: 0, bypassed: 0 };
+  const toolTraces: ToolTrace[] = [];
+  let llmLatencyMs = 0;
+  let toolLatencyMs = 0;
 
   const toolDeclarations = registry.getDeclarations();
 
@@ -123,6 +144,7 @@ export async function runToolLoop(
       body.tools = [{ functionDeclarations: toolDeclarations }];
     }
 
+    const llmT0 = Date.now();
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -141,6 +163,7 @@ export async function runToolLoop(
       response.body.getReader(),
       emit,
     );
+    llmLatencyMs += Date.now() - llmT0;
     finalText += deltaText;
 
     if (pendingFunctionCalls.length > 0) {
@@ -155,13 +178,35 @@ export async function runToolLoop(
         });
 
         const stopHeartbeat = emit.startHeartbeat(10_000);
+        const toolT0 = Date.now();
         let result;
+        let traceStatus: ToolTrace['status'] = 'ok';
+        let traceError: string | undefined;
         try {
           result = await registry.execute(call.name, call.args, ctx);
+          if (!result.ok) {
+            traceStatus = 'error';
+            traceError = result.error;
+          } else if (isApprovalRequest(result.data)) {
+            traceStatus = 'approval';
+          }
+        } catch (err) {
+          traceStatus = 'error';
+          traceError = err instanceof Error ? err.message : String(err);
+          throw err;
         } finally {
+          const duration = Date.now() - toolT0;
+          toolLatencyMs += duration;
+          toolTraces.push({
+            name: call.name,
+            durationMs: duration,
+            status: traceStatus,
+            iteration: iter,
+            ...(traceError ? { errorMessage: traceError.slice(0, 300) } : {}),
+          });
           stopHeartbeat();
         }
-        executedTools.push({ name: call.name, args: call.args, result });
+        executedTools.push({ name: call.name, args: call.args, result: result! });
 
         if (result.card) {
           emit.actionCard(result.card);
@@ -213,7 +258,14 @@ export async function runToolLoop(
     break;
   }
 
-  return { finalText, toolCalls: executedTools, cacheStats };
+  return {
+    finalText,
+    toolCalls: executedTools,
+    cacheStats,
+    toolTraces,
+    llmLatencyMs,
+    toolLatencyMs,
+  };
 }
 
 async function parseGeminiStream(

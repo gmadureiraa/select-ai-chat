@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, DollarSign, Zap, TrendingUp, BarChart3, Users, Database, Calendar as CalendarIcon } from "lucide-react";
+import { Loader2, DollarSign, Zap, TrendingUp, BarChart3, Users, Database, Calendar as CalendarIcon, Gauge, AlertTriangle, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -61,6 +61,25 @@ interface CacheStats {
   hits: number;
   creates: number;
   bypassed: number;
+}
+
+interface ToolPerfRow {
+  name: string;
+  calls: number;
+  avgMs: number;
+  totalMs: number;
+  errors: number;
+  errorRate: number;
+}
+
+interface RateLimitStats {
+  source: 'upstash' | 'in-memory' | 'none';
+  windowDays: number;
+  totalRequests: number;
+  totalBlocked: number;
+  topIdentities: Array<{ identifier: string; success: number; blocked: number; total: number }>;
+  activeBuckets: number;
+  generatedAt: string;
 }
 
 interface UsageLog {
@@ -128,11 +147,26 @@ export function AIUsageSettings() {
   const [period, setPeriod] = useState<Period>('30d');
   const [allLogs, setAllLogs] = useState<UsageLog[]>([]);
   const [clientNames, setClientNames] = useState<Record<string, string>>({});
+  const [rlStats, setRlStats] = useState<RateLimitStats | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
     fetchUsageData();
-  }, [user?.id]);
+    fetchRateLimitStats(period === '7d' ? 7 : period === '30d' ? 30 : 7);
+  }, [user?.id, period]);
+
+  async function fetchRateLimitStats(days: number) {
+    try {
+      const res = await fetch(`/api/rate-limit-stats?days=${days}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setRlStats(data);
+    } catch (err) {
+      console.warn('[AIUsageSettings] rate-limit stats failed:', err);
+    }
+  }
 
   async function fetchUsageData() {
     setLoading(true);
@@ -186,6 +220,7 @@ export function AIUsageSettings() {
     const monthMap = new Map<string, MonthlyUsage>();
     const dailyMap = new Map<string, DailyUsage>();
     const clientMap = new Map<string | null, UsageByClient>();
+    const toolPerfMap = new Map<string, ToolPerfRow>();
     const cache: CacheStats = { total_calls_with_cache: 0, hits: 0, creates: 0, bypassed: 0 };
     let totalCalls = 0, totalTokens = 0, totalCost = 0;
 
@@ -246,6 +281,31 @@ export function AIUsageSettings() {
         cache.creates += creates;
         cache.bypassed += bypassed;
       }
+
+      // Tool traces — agregação de latência por tool
+      const traces = (meta as any).tool_traces as Array<{ n: string; ms: number; s: string }> | undefined;
+      if (Array.isArray(traces)) {
+        for (const t of traces) {
+          const row = toolPerfMap.get(t.n) || {
+            name: t.n,
+            calls: 0,
+            avgMs: 0,
+            totalMs: 0,
+            errors: 0,
+            errorRate: 0,
+          };
+          row.calls++;
+          row.totalMs += t.ms || 0;
+          if (t.s === 'error') row.errors++;
+          toolPerfMap.set(t.n, row);
+        }
+      }
+    }
+
+    // Calcula médias e taxa de erro
+    for (const row of toolPerfMap.values()) {
+      row.avgMs = row.calls > 0 ? row.totalMs / row.calls : 0;
+      row.errorRate = row.calls > 0 ? row.errors / row.calls : 0;
     }
 
     return {
@@ -254,12 +314,13 @@ export function AIUsageSettings() {
       monthly: Array.from(monthMap.values()).sort((a, b) => a.month.localeCompare(b.month)),
       daily: Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
       byClient: Array.from(clientMap.values()).sort((a, b) => b.cost_usd - a.cost_usd),
+      toolPerf: Array.from(toolPerfMap.values()).sort((a, b) => b.totalMs - a.totalMs),
       totals: { calls: totalCalls, tokens: totalTokens, cost_usd: totalCost },
       cache,
     };
   }, [filteredLogs, clientNames]);
 
-  const { byFunction, byModel, monthly, daily, byClient, totals, cache } = aggregated;
+  const { byFunction, byModel, monthly, daily, byClient, toolPerf, totals, cache } = aggregated;
 
   // Custos do mês atual sempre (independente do filter) pra projeção real
   const monthTotals = useMemo(() => {
@@ -431,6 +492,181 @@ export function AIUsageSettings() {
               (cached tokens custam 25% do preço normal na Gemini).
               {cache.bypassed > 0 && " Bypass ocorre quando o conteúdo é menor que o mínimo (1024 tokens Flash / 4096 Pro)."}
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tool performance — só aparece se há traces no metadata */}
+      {toolPerf.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Gauge className="h-4 w-4 text-primary" />
+                  Performance de Tools (KAI Chat)
+                </CardTitle>
+                <CardDescription>
+                  Latência média e taxa de erro por tool — top 10 por uso
+                </CardDescription>
+              </div>
+              {toolPerf.some(t => t.errorRate > 0.1) && (
+                <Badge variant="outline" className="border-red-500/40 text-red-700 dark:text-red-400 text-xs">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  alta taxa de erro
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tool</TableHead>
+                  <TableHead className="text-right">Chamadas</TableHead>
+                  <TableHead className="text-right">Latência média</TableHead>
+                  {!isMobile && <TableHead className="text-right">Latência total</TableHead>}
+                  <TableHead className="text-right">Erros</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {toolPerf.slice(0, 10).map((row) => (
+                  <TableRow key={row.name}>
+                    <TableCell className="font-medium text-sm font-mono">{row.name}</TableCell>
+                    <TableCell className="text-right text-sm">{row.calls}</TableCell>
+                    <TableCell
+                      className={cn(
+                        "text-right text-sm font-medium tabular-nums",
+                        row.avgMs > 3000 && "text-amber-600 dark:text-amber-400",
+                        row.avgMs > 10000 && "text-red-600 dark:text-red-400",
+                      )}
+                    >
+                      {row.avgMs >= 1000 ? `${(row.avgMs / 1000).toFixed(1)}s` : `${Math.round(row.avgMs)}ms`}
+                    </TableCell>
+                    {!isMobile && (
+                      <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+                        {(row.totalMs / 1000).toFixed(1)}s
+                      </TableCell>
+                    )}
+                    <TableCell className="text-right text-sm">
+                      {row.errors > 0 ? (
+                        <span
+                          className={cn(
+                            "font-medium",
+                            row.errorRate > 0.1
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-amber-600 dark:text-amber-400",
+                          )}
+                        >
+                          {row.errors} ({(row.errorRate * 100).toFixed(0)}%)
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <p className="text-[10px] text-muted-foreground mt-3">
+              Tools com média {'>'} 3s aparecem em âmbar, {'>'} 10s em vermelho. Taxa de erro {'>'} 10% destacada.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Rate-limit stats — só se Upstash configurado */}
+      {rlStats && rlStats.source !== 'none' && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4 text-primary" />
+                  Rate Limit (últimos {rlStats.windowDays}d)
+                </CardTitle>
+                <CardDescription>
+                  Requests permitidos vs bloqueados — fonte: <span className="font-mono">{rlStats.source}</span>
+                </CardDescription>
+              </div>
+              {rlStats.totalBlocked > 0 && (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs",
+                    rlStats.totalBlocked / Math.max(1, rlStats.totalRequests + rlStats.totalBlocked) > 0.1
+                      ? "border-red-500/40 text-red-700 dark:text-red-400"
+                      : "border-amber-500/40 text-amber-700 dark:text-amber-400",
+                  )}
+                >
+                  {rlStats.totalBlocked} bloqueios
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Permitidos</div>
+                <div className="text-lg font-bold text-green-700 dark:text-green-400 tabular-nums">
+                  {rlStats.totalRequests.toLocaleString("pt-BR")}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Bloqueados</div>
+                <div
+                  className={cn(
+                    "text-lg font-bold tabular-nums",
+                    rlStats.totalBlocked > 0
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {rlStats.totalBlocked.toLocaleString("pt-BR")}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Buckets ativos</div>
+                <div className="text-lg font-bold tabular-nums">
+                  {rlStats.activeBuckets.toLocaleString("pt-BR")}
+                </div>
+              </div>
+            </div>
+
+            {rlStats.topIdentities.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+                  Top consumidores
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Identidade</TableHead>
+                      <TableHead className="text-right">Permitidos</TableHead>
+                      <TableHead className="text-right">Bloqueados</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rlStats.topIdentities.slice(0, 5).map((t) => (
+                      <TableRow key={t.identifier}>
+                        <TableCell className="font-mono text-xs truncate max-w-[200px]" title={t.identifier}>
+                          {t.identifier}
+                        </TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">{t.success}</TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right text-sm tabular-nums",
+                            t.blocked > 0 && "text-red-600 dark:text-red-400 font-medium",
+                          )}
+                        >
+                          {t.blocked || '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

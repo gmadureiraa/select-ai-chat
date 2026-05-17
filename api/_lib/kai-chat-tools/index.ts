@@ -44,6 +44,8 @@ export {
 } from './kai-stream.js';
 
 export { echoTool } from './echo.js';
+export { webSearchTool } from './webSearch.js';
+export { delegateToSubAgentTool } from './delegateToSubAgent.js';
 export { createContentTool } from './createContent.js';
 export { createViralCarouselTool } from './createViralCarousel.js';
 export { editContentTool } from './editContent.js';

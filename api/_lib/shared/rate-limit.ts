@@ -208,7 +208,10 @@ async function getLimiter(
     const limiter = new mod.Ratelimit({
       redis,
       limiter: mod.Ratelimit.slidingWindow(limit, `${seconds} s`),
-      analytics: false,
+      // analytics=true habilita Upstash collected events (success/throttle por
+      // identifier) — consulta via getAnalytics() no dashboard de admin.
+      // Custo: 1 extra Redis write por request, marginal.
+      analytics: true,
       prefix: 'kai:rl',
     });
     limiterCache.set(cacheKey, limiter);
