@@ -116,3 +116,85 @@ Não-bloqueante.
 - `src/hooks/useNotificationPreferences.ts` — escreve na tabela `notification_preferences` (nova) em vez do JSONB legado.
 - `src/hooks/useTeamTasks.ts` — `useQuery` agora filtra `is_recurrence_template = false` por padrão (templates só aparecem em view dedicada).
 - `src/hooks/usePlanningItems.ts` — idem `usePlanningItems` filtra templates.
+
+---
+
+# Pendências da onda Clients/Brand/Voice — 2026-05-16
+
+> Adicionado pelo agente de Projetos Pessoais durante o fix Clients/Brand.
+
+## Handlers novos a criar
+
+### `client-document-create`
+- **Usado hoje em:** `src/components/clients/ClientCreationWizardSimplified.tsx`
+  (`supabase.from("client_documents").insert(...)` direto, ~linha 135)
+- **O que faz:** receber `{ client_id, name, file_type, file_path }`, validar
+  acesso ao cliente, inserir em `client_documents`.
+- **Auth:** `authedPost` + `assertClientAccess(user.id, client_id)`.
+- **Payload sugerido:**
+  ```ts
+  z.object({
+    client_id: z.string().uuid(),
+    name: z.string().min(1).max(500),
+    file_type: z.string().max(120).nullable().optional(),
+    file_path: z.string().min(1).max(2048),
+  });
+  ```
+- **Vercel:** adicionar entrada em `handler-manifest.ts` apontando pra
+  `api/_handlers/client-document-create.ts`. Sem cron.
+
+### `client-website-{create,update,delete}` (ou expandir `client-update`)
+- Hoje: `src/hooks/useClientWebsites.ts` faz tudo direto via `supabase`.
+- Sugerido: 3 handlers separados OU um payload `websites: Website[]` em
+  `/api/client-update` que faz upsert em massa numa transacao.
+
+### `client-reference-{create,update,delete}`
+- Hoje: `src/hooks/useReferenceLibrary.ts` faz INSERT/UPDATE/DELETE em
+  `client_reference_library` direto.
+- ATENCAO: hook tambem chama RPC `log_user_activity` que pode nao existir
+  no Neon (verificar antes).
+
+### `client-visual-reference-create`
+- Hoje: `src/hooks/useClientVisualReferences.ts` faz INSERT direto em
+  `client_visual_references` E auto-dispara `analyze-style` (caro). Migrar
+  pra handler que aplique feature-flag/rate-limit.
+
+## Hooks/components ainda em direct supabase (P0+P1 nao migrados)
+
+- `src/components/clients/AIContextTab.tsx` — `supabase.from("clients").select(voice_profile, content_guidelines)`.
+  Trocar por `useClientContext` (que ja retorna voice_profile) + handler novo
+  pra content_guidelines OU expandir `client-context` pra incluir.
+- `src/components/clients/ClientAnalyticsTab.tsx` — query direta em `clients`
+  (audit menciona linhas 106-114).
+- `src/components/onboarding/OnboardingFlow.tsx` — step `client` ja herdou
+  o fix via `useClients` migrado. Verificar steps adicionais.
+
+## Wizards duplicados (P1, NAO unificado nessa onda)
+
+`ClientCreationWizardSimplified` (2-step, sidebar) vs `ClientOnboardingWizard`
+(5-step, rota `/clients`). Cliente criado pelo sidebar nao ganha preferences/
+refs/social import. Decisao pendente: unificar ou separar explicitamente.
+Custo: 4-8h.
+
+## Pillars singular — DONE nesta onda
+
+- Frontend: `useClientOnboarding.ts` insere `content_pillar` (singular)
+  uma row por pilar (commit `df6ed9fc`).
+- Backfill: `migrations/0041_backfill_content_pillars_singular.sql` +
+  espelho em `supabase/migrations/20260516130000_*.sql`.
+- ⚠️ **Backend agent rodar a migration 0041 em prod** apos conferir
+  count de rows legacy:
+  ```sql
+  SELECT count(*) FROM client_preferences WHERE preference_type = 'content_pillars';
+  ```
+
+## Voice profile auth — DONE nesta onda
+
+- `api/_handlers/generate-voice-profile.ts` saiu de `anonPost` pra
+  `authedPost` + `assertClientAccess` (commit `881f33e6`). Sem alteracao
+  no manifest necessaria — o handler ja estava la.
+
+## client-update extended — DONE nesta onda
+
+- `api/_handlers/client-update.ts` agora aceita `brand_assets` e
+  `ai_analysis` (commit `4af29cb9`). Sem alteracao no manifest.
