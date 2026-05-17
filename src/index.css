@@ -35,9 +35,11 @@
     --accent: 320 30% 96%;
     --accent-foreground: 320 55% 45%;
 
-    /* Muted */
+    /* Muted
+       --muted-foreground 0 0% 38% sobre --background (320 15% 98%) = ~5.4:1
+       (passa WCAG AA 4.5:1 pra texto normal). Antes era 45% (~3.6:1 — falhava). */
     --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
+    --muted-foreground: 0 0% 38%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
