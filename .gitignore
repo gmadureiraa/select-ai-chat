@@ -35,3 +35,6 @@ dist-ssr
 # Lighthouse CI artifacts
 .lighthouseci/
 lhci-report/
+
+# Eval runs — relatório local
+evals/last-run.json
