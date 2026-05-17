@@ -15,7 +15,8 @@ export interface Client {
   avatar_url: string | null;
   social_media: Record<string, string>;
   tags: Record<string, string>;
-  function_templates: string[];
+  /** @deprecated migrado pra tabela client_templates (migration 20251129084845). */
+  function_templates?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -26,6 +27,7 @@ export interface CreateClientData {
   context_notes: string | null;
   social_media?: Record<string, string>;
   tags?: Record<string, string>;
+  /** @deprecated ignorado pelo handler /api/client-create. Use client_templates. */
   function_templates?: string[];
   websites?: string[];
 }
@@ -110,55 +112,54 @@ export const useClients = () => {
         throw new Error("Você não está em nenhum workspace");
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
+      // P0 fix audit 2026-05-16: antes esse hook fazia
+      //   supabase.from('clients').insert(insertPayload)
+      // bypassando o handler /api/client-create (que tem Zod + auth +
+      // verificacao de workspace_member). Agora delegamos ao handler.
+      //
+      // `function_templates` foi DEPRECATED — migration 20251129084845
+      // moveu pra tabela client_templates. Aceitamos no input pra nao
+      // quebrar callers legacy, mas ignoramos (handler nao escreve).
+      const { websites, function_templates: _fnTpl, ...rest } = clientData;
 
-      if (!user?.id) {
-        throw new Error("Você precisa estar logado para criar perfis");
-      }
-
-      const { websites, ...client } = clientData;
-
-      const insertPayload = {
-        name: client.name,
-        description: client.description,
-        context_notes: client.context_notes,
-        user_id: user.id,
-        social_media: client.social_media || {},
-        tags: client.tags || {},
-        function_templates: client.function_templates || [],
-        workspace_id: workspace.id,
-      };
-
-      const { data, error } = await supabase
-        .from("clients")
-        .insert(insertPayload)
-        .select()
-        .single();
+      const { data, error } = await apiInvoke("client-create", {
+        body: {
+          name: rest.name,
+          description: rest.description ?? undefined,
+          context_notes: rest.context_notes ?? undefined,
+          social_media: rest.social_media || {},
+          tags: rest.tags || {},
+          workspace_id: workspace.id,
+        },
+      });
 
       if (error) {
-        const enrichedError = new Error(
-          `${error.message} (code: ${error.code})${error.hint ? ` - Hint: ${error.hint}` : ""}`
-        );
-        (enrichedError as any).code = error.code;
-        (enrichedError as any).details = error.details;
-        (enrichedError as any).hint = error.hint;
+        const message = error.message || "Erro ao criar perfil";
+        const enrichedError = new Error(message);
+        (enrichedError as any).code = (error as any)?.code;
         throw enrichedError;
       }
-      
-      // Add websites with scraping if provided
+
+      const client = data?.client ?? data;
+      if (!client?.id) {
+        throw new Error("Cliente nao retornado pelo handler /api/client-create");
+      }
+
+      // Add websites with scraping if provided (delega pro handler scrape-website,
+      // que ja faz auth + assertClientAccess internamente).
       if (websites && websites.length > 0) {
         for (const url of websites) {
           try {
             await apiInvoke("scrape-website", {
-              body: { url, clientId: data.id },
+              body: { url, clientId: client.id },
             });
           } catch (err) {
             console.error("Error scraping website:", url, err);
           }
         }
       }
-      
-      return data;
+
+      return client as Client;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients", workspace?.id] });
@@ -179,15 +180,17 @@ export const useClients = () => {
 
   const updateClient = useMutation({
     mutationFn: async ({ id, ...client }: Partial<Client> & { id: string }) => {
-      const { data, error } = await supabase
-        .from("clients")
-        .update(client)
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      // P0 fix audit 2026-05-16: usar /api/client-update (com auth +
+      // assertClientAccess + Zod) em vez de supabase.from('clients').update
+      // direto. Handler tambem aceita brand_assets e ai_analysis (jsonb) a
+      // partir do commit 4af29cb9.
+      const payload: Record<string, unknown> = { client_id: id };
+      for (const [k, v] of Object.entries(client)) {
+        if (v !== undefined) payload[k] = v;
+      }
+      const { data, error } = await apiInvoke("client-update", { body: payload });
+      if (error) throw new Error(error.message || "Erro ao atualizar perfil");
+      return (data?.client ?? data) as Client;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients", workspace?.id] });
@@ -196,10 +199,10 @@ export const useClients = () => {
         description: "O perfil foi atualizado com sucesso.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar o perfil.",
+        description: error?.message || "Não foi possível atualizar o perfil.",
         variant: "destructive",
       });
     },
