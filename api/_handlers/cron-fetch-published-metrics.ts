@@ -134,6 +134,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const byKey = new Map(
       localPosts.map((p) => [`${p.client_id}::${p.network}::${p.post_id}`, p]),
     );
+
+    // N+1 fix: junta todos os UPDATEs num batch via UPDATE FROM VALUES.
+    type LocalBatchEntry = { itemId: string; metadata: string };
+    const localBatch: LocalBatchEntry[] = [];
+
     for (const k of itemKeys) {
       const local = byKey.get(`${k.client_id}::${k.network}::${k.post_id}`);
       if (!local) continue;
@@ -156,12 +161,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         metrics,
         metrics_synced_at: local.last_synced_at,
       };
-      await pool.query(
-        `UPDATE planning_items SET metadata = $1::jsonb, updated_at = NOW() WHERE id = $2`,
-        [JSON.stringify(newMeta), item.id],
-      );
-      localResolved++;
+      localBatch.push({ itemId: item.id, metadata: JSON.stringify(newMeta) });
       resolvedItemIds.add(item.id);
+    }
+
+    if (localBatch.length > 0) {
+      const valuesClause = localBatch
+        .map((_, i) => `($${i * 2 + 1}::uuid, $${i * 2 + 2}::jsonb)`)
+        .join(', ');
+      const params: any[] = [];
+      for (const e of localBatch) {
+        params.push(e.itemId);
+        params.push(e.metadata);
+      }
+      await pool.query(
+        `UPDATE planning_items pi
+            SET metadata = data.metadata, updated_at = NOW()
+           FROM (VALUES ${valuesClause}) AS data(id, metadata)
+          WHERE pi.id = data.id`,
+        params,
+      );
+      localResolved += localBatch.length;
     }
   }
 
@@ -285,6 +305,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const byId = new Map<string, MetricoolPostMetrics>();
     for (const p of posts) byId.set(String(p.id), p);
 
+    // N+1 fix: ao invés de 1 UPDATE por item, faz BATCH UPDATE via UPDATE ...
+    // FROM (VALUES (...)) AS data(id, metadata) — 1 round-trip pro DB.
+    // Em buckets de 25 items (cap LIMIT do scheduled-posts), isso reduz
+    // latência de 250ms (25 * 10ms RTT) → 15ms. Em produção com cap 100
+    // de planning_items pickup, fica ainda mais relevante.
+    type UpdatePayload = { id: string; metadata: string; eventEntry: any };
+    const batchUpdates: UpdatePayload[] = [];
+
     for (const item of bucket.items) {
       const remote = byId.get(String(item.external_post_id));
       if (!remote) {
@@ -298,18 +326,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         metrics,
         metrics_synced_at: metrics.last_synced_at,
       };
-      await pool.query(
-        `UPDATE planning_items SET metadata = $1::jsonb, updated_at = NOW() WHERE id = $2`,
-        [JSON.stringify(newMeta), item.id],
-      );
-      updated++;
-      events.push({
+      batchUpdates.push({
         id: item.id,
-        postId: item.external_post_id,
-        action: 'updated',
-        likes: metrics.likes,
-        comments: metrics.comments,
+        metadata: JSON.stringify(newMeta),
+        eventEntry: {
+          id: item.id,
+          postId: item.external_post_id,
+          action: 'updated',
+          likes: metrics.likes,
+          comments: metrics.comments,
+        },
       });
+    }
+
+    if (batchUpdates.length > 0) {
+      // Constrói VALUES com placeholders ($1,$2),($3,$4),...
+      const valuesClause = batchUpdates
+        .map((_, i) => `($${i * 2 + 1}::uuid, $${i * 2 + 2}::jsonb)`)
+        .join(', ');
+      const params: any[] = [];
+      for (const u of batchUpdates) {
+        params.push(u.id);
+        params.push(u.metadata);
+      }
+      await pool.query(
+        `UPDATE planning_items pi
+            SET metadata = data.metadata, updated_at = NOW()
+           FROM (VALUES ${valuesClause}) AS data(id, metadata)
+          WHERE pi.id = data.id`,
+        params,
+      );
+      updated += batchUpdates.length;
+      for (const u of batchUpdates) events.push(u.eventEntry);
     }
   }
 
