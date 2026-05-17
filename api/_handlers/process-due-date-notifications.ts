@@ -4,6 +4,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool } from '../_lib/db.js';
 import { tryAuth } from '../_lib/auth.js';
+import { assertCronAuth } from '../_lib/cron-auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
@@ -13,37 +14,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Auth: SOMENTE cron — opera global em todos os workspaces.
-  const cronSecret = process.env.CRON_SECRET;
-  const auth = req.headers.authorization;
-  const isCron =
-    req.headers['x-vercel-cron'] === '1' ||
-    (cronSecret && auth === `Bearer ${cronSecret}`);
-  if (!isCron) {
-    return jsonError(res, 403, 'Cron-only endpoint');
-  }
+  if (!assertCronAuth(req, res)) return;
 
   try {
     console.log('[process-due-date-notifications] Starting...');
-    // Mirror behaviour of original: call create_due_date_notifications() RPC.
-    // Falls back gracefully if function doesn't exist in this database.
+    const pool = getPool();
+    const ran: string[] = [];
+    const skipped: string[] = [];
+
+    // 1. Planning items (legado) — RPC create_due_date_notifications()
     try {
-      await getPool().query('SELECT create_due_date_notifications()');
+      await pool.query('SELECT create_due_date_notifications()');
+      ran.push('planning_items');
     } catch (e: any) {
-      if (e.message && /does not exist|undefined function/.test(e.message)) {
-        console.warn('[process-due-date-notifications] create_due_date_notifications() RPC not present, skipping.');
-        return res.status(200).json({
-          success: true,
-          skipped: true,
-          message: 'create_due_date_notifications RPC not present in database',
-          timestamp: new Date().toISOString(),
-        });
+      if (e?.message && /does not exist|undefined function/.test(e.message)) {
+        console.warn('[process-due-date-notifications] create_due_date_notifications() not present, skipping planning_items.');
+        skipped.push('planning_items');
+      } else {
+        throw e;
       }
-      throw e;
+    }
+
+    // 2. Team tasks — RPC create_task_due_date_notifications() (migration 0044)
+    try {
+      await pool.query('SELECT create_task_due_date_notifications()');
+      ran.push('team_tasks');
+    } catch (e: any) {
+      if (e?.message && /does not exist|undefined function/.test(e.message)) {
+        console.warn('[process-due-date-notifications] create_task_due_date_notifications() not present, skipping team_tasks.');
+        skipped.push('team_tasks');
+      } else {
+        throw e;
+      }
     }
 
     return res.status(200).json({
       success: true,
       message: 'Due date notifications processed',
+      ran,
+      skipped,
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {

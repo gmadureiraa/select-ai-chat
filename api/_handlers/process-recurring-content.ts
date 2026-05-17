@@ -4,6 +4,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
 import { tryAuth } from '../_lib/auth.js';
+import { assertCronAuth } from '../_lib/cron-auth.js';
 
 interface RecurringTemplate {
   id: string;
@@ -24,6 +25,29 @@ interface RecurringTemplate {
   assigned_to: string | null;
   generate_with_ai?: boolean;
   metadata?: Record<string, unknown>;
+}
+
+interface RecurringTaskTemplate {
+  id: string;
+  workspace_id: string;
+  client_id: string | null;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  due_date: string | null;
+  assigned_to: string | null;
+  created_by: string;
+  labels: unknown[];
+  mentions: string[];
+  recurrence_type: 'daily' | 'weekly' | 'biweekly' | 'monthly';
+  recurrence_days: string[];
+  recurrence_time: string | null;
+  recurrence_end_date: string | null;
+}
+
+function shouldCreateTaskToday(template: RecurringTaskTemplate): boolean {
+  return shouldCreateToday(template as unknown as RecurringTemplate);
 }
 
 function shouldCreateToday(template: RecurringTemplate): boolean {
@@ -78,8 +102,19 @@ async function callInternal(
 ): Promise<any> {
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authToken) headers.Authorization = `Bearer ${authToken}`;
-    else if (req.headers.authorization) headers.Authorization = String(req.headers.authorization);
+    // Auth resolution order:
+    // 1. authToken arg explícito
+    // 2. Authorization header do request original (caso manual trigger)
+    // 3. CRON_SECRET — cron NÃO tem JWT do user; sem isso AI gen sempre cai
+    //    em 401 e recurrence usa fallback `description`. Handler-alvo aceita
+    //    via Bearer ${CRON_SECRET} (isValidCronCall em handlers user-or-cron).
+    if (authToken) {
+      headers.Authorization = `Bearer ${authToken}`;
+    } else if (req.headers.authorization) {
+      headers.Authorization = String(req.headers.authorization);
+    } else if (process.env.CRON_SECRET) {
+      headers.Authorization = `Bearer ${process.env.CRON_SECRET}`;
+    }
     const r = await fetch(`${getOrigin(req)}${path}`, {
       method: 'POST',
       headers,
@@ -135,15 +170,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Auth: SOMENTE cron — esse handler materializa planning_items GLOBAIS
   // de TODOS os workspaces. Permitir trigger por user autenticado seria
-  // privilege escalation (qualquer user dispara recurring de outro client).
-  const cronSecret = process.env.CRON_SECRET;
-  const auth = req.headers.authorization;
-  const isCron =
-    req.headers['x-vercel-cron'] === '1' ||
-    (cronSecret && auth === `Bearer ${cronSecret}`);
-  if (!isCron) {
-    return jsonError(res, 403, 'Cron-only endpoint');
-  }
+  // privilege escalation. Header `x-vercel-cron` standalone NÃO é confiável.
+  if (!assertCronAuth(req, res)) return;
 
   try {
     console.log('[process-recurring-content] starting...');
@@ -276,12 +304,98 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const aiGeneratedCount = results.filter((r) => r.aiGenerated).length;
     console.log(`[process-recurring-content] done. created=${createdCount} ai=${aiGeneratedCount}`);
 
+    // -----------------------------------------------------------------
+    // Tasks recorrentes (team_tasks com is_recurrence_template=true)
+    // -----------------------------------------------------------------
+    const taskTemplates = await query<RecurringTaskTemplate>(
+      `SELECT *
+         FROM team_tasks
+        WHERE is_recurrence_template = true
+          AND recurrence_type IS NOT NULL
+          AND recurrence_type <> 'none'`,
+    ).catch((error: any) => {
+      console.warn('[process-recurring-content] recurring tasks unavailable:', error?.message);
+      return [] as RecurringTaskTemplate[];
+    });
+
+    const taskResults: Array<{
+      templateId: string;
+      created: boolean;
+      taskId?: string;
+      error?: string;
+    }> = [];
+
+    for (const template of taskTemplates) {
+      try {
+        if (!shouldCreateTaskToday(template)) {
+          taskResults.push({ templateId: template.id, created: false });
+          continue;
+        }
+        const existing = await query<{ id: string }>(
+          `SELECT id
+             FROM team_tasks
+            WHERE recurrence_parent_id = $1
+              AND created_at >= $2
+              AND created_at <= $3`,
+          [template.id, `${today}T00:00:00`, `${today}T23:59:59`],
+        );
+        if (existing.length > 0) {
+          taskResults.push({ templateId: template.id, created: false });
+          continue;
+        }
+        const countRow = await queryOne<{ c: number }>(
+          `SELECT COUNT(*)::int AS c FROM team_tasks WHERE workspace_id = $1 AND status = 'todo'`,
+          [template.workspace_id],
+        );
+        const task = await queryOne<{ id: string }>(
+          `INSERT INTO team_tasks
+             (workspace_id, client_id, title, description, status, priority, due_date,
+              assigned_to, created_by, position, labels, mentions, recurrence_parent_id,
+              is_recurrence_template)
+           VALUES ($1, $2, $3, $4, 'todo', $5, $6, $7, $8, $9, $10::jsonb, $11::uuid[], $12, false)
+           RETURNING id`,
+          [
+            template.workspace_id,
+            template.client_id,
+            template.title,
+            template.description,
+            template.priority || 'medium',
+            today,
+            template.assigned_to,
+            template.created_by,
+            (countRow?.c || 0) + 1,
+            JSON.stringify(template.labels || []),
+            template.mentions || [],
+            template.id,
+          ],
+        );
+        await query(
+          `UPDATE team_tasks SET last_recurrence_created_at = NOW(), updated_at = NOW() WHERE id = $1`,
+          [template.id],
+        ).catch(() => null);
+        taskResults.push({ templateId: template.id, created: true, taskId: task?.id });
+      } catch (taskError: any) {
+        console.error(`[process-recurring-content] task recurrence error for ${template.id}:`, taskError);
+        taskResults.push({
+          templateId: template.id,
+          created: false,
+          error: taskError?.message || 'Unknown error',
+        });
+      }
+    }
+
+    const tasksCreated = taskResults.filter((r) => r.created).length;
+    console.log(`[process-recurring-content] recurring tasks done. created=${tasksCreated}`);
+
     return res.status(200).json({
       success: true,
       templatesProcessed: templates.length,
       itemsCreated: createdCount,
       aiGenerated: aiGeneratedCount,
+      taskTemplatesProcessed: taskTemplates.length,
+      tasksCreated,
       results,
+      taskResults,
     });
   } catch (error: any) {
     console.error('[process-recurring-content] fatal:', error);

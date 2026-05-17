@@ -4,6 +4,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
 import { tryAuth } from '../_lib/auth.js';
+import { assertCronAuth } from '../_lib/cron-auth.js';
 
 const BATCH_SIZE = 50;
 
@@ -41,7 +42,11 @@ async function markAsError(id: string, error: string) {
 }
 
 function buildAppUrl(notif: Notification, workspaceSlug: string | undefined): string {
-  const baseUrl = 'https://kai-kaleidos.lovable.app';
+  // KAI já saiu do Lovable. Usar APP_URL / NEXT_PUBLIC_APP_URL / VERCEL_URL ou fallback.
+  const baseUrl =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://kai.kaleidos.com.br');
   if (!workspaceSlug) return baseUrl;
   let url = `${baseUrl}/${workspaceSlug}`;
   if (notif.entity_type === 'planning_item' && notif.entity_id) {
@@ -121,14 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Auth: SOMENTE cron — drena fila global de emails.
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.authorization;
-  const isCron =
-    req.headers['x-vercel-cron'] === '1' ||
-    (cronSecret && authHeader === `Bearer ${cronSecret}`);
-  if (!isCron) {
-    return jsonError(res, 403, 'Cron-only endpoint');
-  }
+  if (!assertCronAuth(req, res)) return;
 
   try {
     const resendApiKey = process.env.RESEND_API_KEY;
