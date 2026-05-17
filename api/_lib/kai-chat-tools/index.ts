@@ -69,3 +69,35 @@ export { addToPlanningTool } from './addToPlanning.js';
 export { getPostTranscriptionTool } from './getPostTranscription.js';
 export { getPlanningItemTool } from './getPlanningItem.js';
 export { getRecentPerformanceTool } from './getRecentPerformance.js';
+
+// READ agregadores (2026-05-16) — workspace, brand, voice, integrações,
+// auditoria, refs full, workflows, notificações, atividade, UI state.
+export { getWorkspaceMembersTool } from './getWorkspaceMembers.js';
+export { getBrandAssetsTool } from './getBrandAssets.js';
+export { getVoiceProfileTool } from './getVoiceProfile.js';
+export { getIntegrationsStatusTool } from './getIntegrationsStatus.js';
+export { getAuditLogTool } from './getAuditLog.js';
+export { getReferencesTool } from './getReferences.js';
+export { getWorkflowsTool } from './getWorkflows.js';
+export { getNotificationsTool } from './getNotifications.js';
+export { getRecentActivityTool } from './getRecentActivity.js';
+export { getUIStateTool } from './getUIState.js';
+
+// WRITE / EDIT (2026-05-16) — controle pleno tasks/workflows/members/brand/voice/refs.
+export { editTaskTool } from './editTask.js';
+export { updateWorkflowTool } from './updateWorkflow.js';
+export { addWorkspaceMemberTool } from './addWorkspaceMember.js';
+export { removeWorkspaceMemberTool } from './removeWorkspaceMember.js';
+export { updateMemberRoleTool } from './updateMemberRole.js';
+export { updateBrandAssetsTool } from './updateBrandAssets.js';
+export { updateVoiceProfileTool } from './updateVoiceProfile.js';
+export { addReferenceTool } from './addReference.js';
+export { editReferenceTool } from './editReference.js';
+export { updateClientSettingsTool } from './updateClientSettings.js';
+
+// DELETE (2026-05-16) — TODAS exigem `approved: true` (approval flow).
+export { deleteContentTool } from './deleteContent.js';
+export { deleteTaskTool } from './deleteTask.js';
+export { deletePlanningItemTool } from './deletePlanningItem.js';
+export { deleteReferenceTool } from './deleteReference.js';
+export { deleteAutomationTool } from './deleteAutomation.js';

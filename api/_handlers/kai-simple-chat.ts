@@ -44,6 +44,34 @@ import {
   getPostTranscriptionTool,
   getPlanningItemTool,
   getRecentPerformanceTool,
+  // READ agregadores (2026-05-16)
+  getWorkspaceMembersTool,
+  getBrandAssetsTool,
+  getVoiceProfileTool,
+  getIntegrationsStatusTool,
+  getAuditLogTool,
+  getReferencesTool,
+  getWorkflowsTool,
+  getNotificationsTool,
+  getRecentActivityTool,
+  getUIStateTool,
+  // WRITE / EDIT (2026-05-16)
+  editTaskTool,
+  updateWorkflowTool,
+  addWorkspaceMemberTool,
+  removeWorkspaceMemberTool,
+  updateMemberRoleTool,
+  updateBrandAssetsTool,
+  updateVoiceProfileTool,
+  addReferenceTool,
+  editReferenceTool,
+  updateClientSettingsTool,
+  // DELETE (2026-05-16)
+  deleteContentTool,
+  deleteTaskTool,
+  deletePlanningItemTool,
+  deleteReferenceTool,
+  deleteAutomationTool,
   type ToolExecutionContext,
 } from '../_lib/kai-chat-tools/index.js';
 
@@ -2179,6 +2207,55 @@ SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundante
 - "aprovações pendentes", "o que tá pra revisar" → \`listPendingApprovals\`
 - "edita esse rascunho/card" → \`getPlanningItem\` (recupera ID + content) → \`editContent\`
 
+### Heurísticas de roteamento (LEITURA DE CONTEXTO COMPLETO — 2026-05-16):
+- "quem tem acesso?", "membros do workspace", "owner/admin/viewer" → \`getWorkspaceMembers\`
+- "qual o tom?", "voice profile", "use/avoid", "pillars" → \`getVoiceProfile\` (mais específico que getClientContext)
+- "cor primária", "logo", "tipografia", "paleta", "refs visuais" → \`getBrandAssets\`
+- "tá conectado IG/LinkedIn/Metricool?", "integrações faltando" → \`getIntegrationsStatus\`
+- "lista todas refs", "quantas refs", "filtra refs por tipo" → \`getReferences\` (vs searchRefs que é por palavra-chave)
+- "ai workflows", "automações avançadas com cron" → \`getWorkflows\` (NÃO confunde com listAutomations que é planning_automations simples)
+- "minhas notificações", "tem novidade pra mim?" → \`getNotifications\`
+- "o que aconteceu essa semana?", "feed de atividade", "movimento do workspace" → \`getRecentActivity\` (7d default)
+- "auditoria", "quem acessou X" — APENAS owner/admin → \`getAuditLog\`
+- **PRONOMES CONTEXTUAIS** ("esse", "essa aba", "esse mês", "esse item") sem ID → \`getUIState\` PRIMEIRO pra resolver. Se \`available: false\`, pede pro user esclarecer.
+
+### Heurísticas de roteamento (WRITE / EDIT — 2026-05-16):
+- "muda status/prazo/título da task X" → \`editTask\`
+- "muda cron/prompt/config do workflow Y" → \`updateWorkflow\` (ai_workflows). Pra planning_automations use \`toggleAutomation\`
+- "convida fulano@x", "adiciona membro" → \`addWorkspaceMember\` (cria invite)
+- "promove pra admin", "rebaixa pra member" → \`updateMemberRole\` (só owner pode)
+- "muda cor primária pra X", "atualiza logo", "troca fonte" → \`updateBrandAssets\` (merge raso por padrão)
+- "muda tom pra informal", "adiciona pilar X", "atualiza persona" → \`updateVoiceProfile\` (merge raso)
+- "adiciona essa ref", "salva como inspiração" → \`addReference\` (alias semântico)
+- "edita essa ref", "muda título/nota/tags" → \`editReference\`
+- "salva como minha preferência X=Y" → \`updateClientSettings\` (client_preferences key/value)
+
+### Heurísticas de roteamento (DELETE — 2026-05-16, destrutivos):
+- "deleta esse carrossel/post/rascunho" → \`deleteContent\`
+- "remove esse card do kanban/planejamento" → \`deletePlanningItem\` (mesmo handler, framing diferente)
+- "deleta tarefa X" → \`deleteTask\`
+- "remove ref da library" → \`deleteReference\`
+- "apaga automação Y" → \`deleteAutomation\` (sugira \`toggleAutomation\` se for só pausar)
+- "remove fulano do workspace" → \`removeWorkspaceMember\`
+
+### REGRAS DE APROVAÇÃO (TODAS as tools destrutivas):
+Toda chamada inicial a \`delete*\` ou \`removeWorkspaceMember\` retorna
+\`requires_approval: true\` + card com status \`pending_approval\`. O usuário
+clica no botão na UI e a UI re-chama a MESMA tool com \`approved: true\` no
+payload — só então a deleção acontece. NÃO chame com \`approved: true\` no
+primeiro turno, mesmo se o user "já confirmou" no texto: a UI precisa
+mostrar o card de confirmação primeiro.
+
+Quando o resultado vier como \`{ status: 'pending_user_approval', action: ... }\`,
+NÃO tente chamar de novo. Apenas responda em texto curto, ex: "Te mostrei a
+confirmação no modal — clica em Confirmar pra eu seguir." Quando o usuário
+confirma, o re-call vem como nova mensagem do user (forceTool) — você não
+precisa fazer nada.
+
+REGRA EXTRA pra \`deleteContent\` / \`deletePlanningItem\`: se o item já tem
+\`status = 'published'\` ou \`published_at != NULL\`, o backend exige \`force: true\`
+adicional. O card de confirmação já injeta isso automaticamente.
+
 ### Princípios operacionais:
 1. **Falta dado do cliente?** → \`getClientContext\` PRIMEIRO. Não adivinhe brand voice ou guidelines.
 2. **Vai editar/agendar/publicar um post mencionado vagamente** ("esse post", "o último") → \`getPlanningItem\` com latest=true ANTES da ação, pra resolver o ID real.
@@ -2310,6 +2387,38 @@ SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundante
       registry.register(getPostTranscriptionTool);
       registry.register(getPlanningItemTool);
       registry.register(getRecentPerformanceTool);
+
+      // READ agregadores (2026-05-16) — workspace/brand/voice/integrações/auditoria/refs/workflows/notif/atividade/UI state.
+      registry.register(getWorkspaceMembersTool);
+      registry.register(getBrandAssetsTool);
+      registry.register(getVoiceProfileTool);
+      registry.register(getIntegrationsStatusTool);
+      registry.register(getAuditLogTool);
+      registry.register(getReferencesTool);
+      registry.register(getWorkflowsTool);
+      registry.register(getNotificationsTool);
+      registry.register(getRecentActivityTool);
+      registry.register(getUIStateTool);
+
+      // WRITE / EDIT (2026-05-16) — controle pleno tasks/workflows/members/brand/voice/refs.
+      registry.register(editTaskTool);
+      registry.register(updateWorkflowTool);
+      registry.register(addWorkspaceMemberTool);
+      registry.register(removeWorkspaceMemberTool);
+      registry.register(updateMemberRoleTool);
+      registry.register(updateBrandAssetsTool);
+      registry.register(updateVoiceProfileTool);
+      registry.register(addReferenceTool);
+      registry.register(editReferenceTool);
+      registry.register(updateClientSettingsTool);
+
+      // DELETE (2026-05-16) — TODAS exigem `approved: true` (approval flow).
+      // Primeira chamada retorna card pending_approval; UI re-chama com approved=true.
+      registry.register(deleteContentTool);
+      registry.register(deleteTaskTool);
+      registry.register(deletePlanningItemTool);
+      registry.register(deleteReferenceTool);
+      registry.register(deleteAutomationTool);
 
       setSseHeaders(res);
       const emit = createKAIEmitter(res);
