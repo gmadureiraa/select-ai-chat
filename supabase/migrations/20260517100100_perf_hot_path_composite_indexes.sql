@@ -74,6 +74,35 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_workspace_unread
 CREATE INDEX IF NOT EXISTS idx_workspace_members_lookup
   ON public.workspace_members(workspace_id, user_id);
 
+-- ─── 7.5. notifications anti-dup pra cron diário ───────────────────────
+-- create_due_date_notifications() e create_task_due_date_notifications()
+-- usam pattern IF NOT EXISTS + INSERT — race entre 2 crons paralelos
+-- inseria 2 notifs idênticas. Unique parcial garante 1 notif/dia/entity/type.
+-- Mesmo se a função for chamada 2x, INSERT viola unique e é skipped (RPC
+-- propaga exception mas no caller já tem `.catch(() => null)` fallback).
+--
+-- Migration usa CASE pra não quebrar caso schema existing tenha dups
+-- (cria CONCURRENTLY-safe DROP IF EXISTS antes).
+DO $$
+BEGIN
+  -- Limpa duplicatas existentes ANTES de criar unique (senão falha)
+  DELETE FROM public.notifications a
+   USING public.notifications b
+   WHERE a.ctid < b.ctid
+     AND a.entity_id = b.entity_id
+     AND a.entity_type = b.entity_type
+     AND a.type = b.type
+     AND a.user_id = b.user_id
+     AND a.created_at::date = b.created_at::date
+     AND a.type IN ('due_date', 'task_due_soon');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'dedup pre-cleanup skipped: %', SQLERRM;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_notifications_daily_due
+  ON public.notifications(entity_id, entity_type, type, user_id, (created_at::date))
+  WHERE type IN ('due_date', 'task_due_soon');
+
 -- ─── 8. planning_automation_runs — recente per automation ──────────────
 -- Frontend dashboard lista runs WHERE automation_id ORDER BY started_at DESC.
 -- Mantém idx_automation_runs_automation_id mas garante composite com started_at.
