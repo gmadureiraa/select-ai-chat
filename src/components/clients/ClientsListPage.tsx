@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Search, Pencil, Trash2, Building2 } from "lucide-react";
+import { useState, lazy, Suspense } from "react";
+import { Plus, Search, Pencil, Trash2, Building2, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,10 +14,30 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useClients, type Client } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { ClientOnboardingWizard } from "./ClientOnboardingWizard";
-import { ClientEditDialog } from "./ClientEditDialog";
-import { DeleteClientDialog } from "./DeleteClientDialog";
 import { TabHeader } from "@/components/kai/TabHeader";
+
+// 2026-05-17 — Dialogs heavy lazy. ClientOnboardingWizard sozinho tem 918
+// linhas + form state pesado; ClientEditDialog e DeleteClientDialog tb só
+// montam quando o user clica. Tira ~30-40kB do entry da página de clientes.
+const ClientOnboardingWizard = lazy(() =>
+  import("./ClientOnboardingWizard").then((m) => ({
+    default: m.ClientOnboardingWizard,
+  })),
+);
+const ClientEditDialog = lazy(() =>
+  import("./ClientEditDialog").then((m) => ({ default: m.ClientEditDialog })),
+);
+const DeleteClientDialog = lazy(() =>
+  import("./DeleteClientDialog").then((m) => ({ default: m.DeleteClientDialog })),
+);
+
+function DialogLoader() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 interface ClientsListPageProps {
   /**
@@ -165,37 +185,47 @@ export function ClientsListPage({
         </div>
       )}
 
-      {/* Create wizard */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Novo cliente</DialogTitle>
-            <DialogDescription>
-              Onboarding em 5 etapas. Você poderá ajustar tudo depois.
-            </DialogDescription>
-          </DialogHeader>
-          <ClientOnboardingWizard
-            onComplete={() => setIsCreateOpen(false)}
-            onCancel={() => setIsCreateOpen(false)}
-            redirectOnComplete={redirectOnComplete}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Create wizard — só monta o Dialog (e baixa o chunk) quando o user
+          abre. Antes era sempre renderizado com open=false, mas o
+          ClientOnboardingWizard inteiro (918 linhas) já vinha no chunk. */}
+      {isCreateOpen && (
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Novo cliente</DialogTitle>
+              <DialogDescription>
+                Onboarding em 5 etapas. Você poderá ajustar tudo depois.
+              </DialogDescription>
+            </DialogHeader>
+            <Suspense fallback={<DialogLoader />}>
+              <ClientOnboardingWizard
+                onComplete={() => setIsCreateOpen(false)}
+                onCancel={() => setIsCreateOpen(false)}
+                redirectOnComplete={redirectOnComplete}
+              />
+            </Suspense>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {editingClient && (
-        <ClientEditDialog
-          open={!!editingClient}
-          onOpenChange={(open) => !open && setEditingClient(null)}
-          client={editingClient}
-        />
+        <Suspense fallback={null}>
+          <ClientEditDialog
+            open={!!editingClient}
+            onOpenChange={(open) => !open && setEditingClient(null)}
+            client={editingClient}
+          />
+        </Suspense>
       )}
 
       {deletingClient && (
-        <DeleteClientDialog
-          open={!!deletingClient}
-          onOpenChange={(open) => !open && setDeletingClient(null)}
-          client={deletingClient}
-        />
+        <Suspense fallback={null}>
+          <DeleteClientDialog
+            open={!!deletingClient}
+            onOpenChange={(open) => !open && setDeletingClient(null)}
+            client={deletingClient}
+          />
+        </Suspense>
       )}
     </div>
   );
