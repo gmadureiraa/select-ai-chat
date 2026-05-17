@@ -255,3 +255,58 @@ registrados no manifest pra `/api/router?slug=<x>` funcionar em produção:
 Sem isso, as tools chamam `/api/router?slug=team-tasks-update` etc e o
 router não acha o handler → 404. Detalhes completos em
 `PENDING-AGENT-MERGE.md` seção "WRITE/DELETE TOOLS".
+
+---
+
+## ✅ Adicionado em `handler-manifest.ts` (P0 hooks migration agent, 2026-05-17)
+
+Os 16 novos handlers criados pra fechar o gap de `supabase.from()` direto
+nos hooks (Backend Consistency audit). JÁ registrados no manifest no
+commit `0d1aec94`:
+
+```ts
+'client-delete': () => import('./_handlers/client-delete.js'),
+'client-document-create': () => import('./_handlers/client-document-create.js'),
+'content-feedback-create': () => import('./_handlers/content-feedback-create.js'),
+'import-history-create': () => import('./_handlers/import-history-create.js'),
+'kanban-columns-create': () => import('./_handlers/kanban-columns-create.js'),
+'kanban-columns-update': () => import('./_handlers/kanban-columns-update.js'),
+'kanban-columns-delete': () => import('./_handlers/kanban-columns-delete.js'),
+'planning-items-create': () => import('./_handlers/planning-items-create.js'),
+'planning-items-reorder': () => import('./_handlers/planning-items-reorder.js'),
+'planning-comments-create': () => import('./_handlers/planning-comments-create.js'),
+'planning-comments-delete': () => import('./_handlers/planning-comments-delete.js'),
+'task-checklist-create': () => import('./_handlers/task-checklist-create.js'),
+'task-checklist-update': () => import('./_handlers/task-checklist-update.js'),
+'task-checklist-delete': () => import('./_handlers/task-checklist-delete.js'),
+'task-comments-create': () => import('./_handlers/task-comments-create.js'),
+'task-comments-delete': () => import('./_handlers/task-comments-delete.js'),
+```
+
+### Follow-ups recomendados
+
+- **team-tasks-recurrence** — handler dedicado pra criar/editar templates
+  de recorrência (recurrence_type, recurrence_days, recurrence_time,
+  recurrence_end_date, is_recurrence_template). Migrar
+  `useTeamTasks.createTask/updateTask/duplicateTask` deixou esses campos
+  silenciosamente droppados — funciona pra TaskDialog atual mas quebra
+  quando UI de recorrência for adicionada.
+
+- **team-tasks-mentions** — campo `mentions: string[]` da tabela
+  team_tasks tbm está sendo droppado nas migrações acima. Verificar se
+  algum cron/notification depende disso.
+
+- **planning_items.created_by** — `planning-items-create.ts` força
+  `created_by = user.id` no handler. Verificar se planning-items-update
+  existe (não vi no manifest) e se há outras escritas em planning_items
+  que ainda fazem supabase.from() direto. usePlanningItems tem outras
+  mutations além de reorderItems.
+
+- **library_ideas** — `CrossAppActions.tsx` fallback foi removido (tabela
+  não existe no schema). Confirmar com Gabriel se a feature "Salvar ideia
+  global sem cliente" é desejada — se sim, criar migration + handler. Por
+  ora, UI mostra toast pedindo pra selecionar cliente.
+
+- **import_history.user_id** — schema tem `DEFAULT auth.uid()`. Handler
+  novo passa user.id explícito (mais seguro). Verificar nenhum INSERT
+  legado depende do default.

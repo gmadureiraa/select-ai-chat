@@ -116,9 +116,11 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
 
       if (error) throw error;
       
-      // Initialize default columns if none exist
+      // Initialize default columns if none exist (P0 fix audit 2026-05-17:
+      // troca supabase.rpc('initialize_kanban_columns') por /api/kanban-columns-init
+      // — RPC PL/pgSQL pode não existir no Neon).
       if (!data || data.length === 0) {
-        await supabase.rpc('initialize_kanban_columns', { p_workspace_id: workspaceId });
+        await apiInvoke('kanban-columns-init', { body: { workspace_id: workspaceId } });
         const { data: newData } = await supabase
           .from('kanban_columns')
           .select('*')
@@ -252,43 +254,39 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
         is_recurrence_template?: boolean | null;
       };
 
-      const { data, error } = await supabase
-        .from('planning_items')
-        .insert({
+      // P0 fix audit 2026-05-17: troca insert direto por /api/planning-items-create
+      // (handler valida assertWorkspaceAccess + assertClientAccess, força
+      // created_by, sanitiza JSONBs). Joins client/column resolvidos client-side
+      // via cache do useClients + columns array do hook.
+      const { data, error } = await apiInvoke('planning-items-create', {
+        body: {
           workspace_id: workspaceId,
           client_id: input.client_id || null,
           column_id: targetColumnId,
           title: input.title,
-          description: input.description || null,
-          content: input.content || null,
-          platform: input.platform || null,
+          description: input.description ?? null,
+          content: input.content ?? null,
+          platform: input.platform ?? null,
           content_type: input.content_type || 'social_post',
-          due_date: input.due_date || null,
-          scheduled_at: input.scheduled_at || null,
+          due_date: input.due_date ?? null,
+          scheduled_at: input.scheduled_at ?? null,
           status: input.status || 'idea',
           priority: input.priority || 'medium',
           position: maxPosition,
-          labels: (input.labels || []) as unknown as Json,
-          assigned_to: input.assigned_to || null,
-          media_urls: (input.media_urls || []) as unknown as Json,
-          metadata: (input.metadata || {}) as unknown as Json,
-          // Recurrence — opcional, salva só se vier do dialog.
+          labels: input.labels ?? [],
+          assigned_to: input.assigned_to ?? null,
+          media_urls: input.media_urls ?? [],
+          metadata: input.metadata ?? {},
           recurrence_type: inputWithRecurrence.recurrence_type ?? null,
-          recurrence_days: (inputWithRecurrence.recurrence_days ?? null) as unknown as Json,
+          recurrence_days: inputWithRecurrence.recurrence_days ?? null,
           recurrence_time: inputWithRecurrence.recurrence_time ?? null,
           recurrence_end_date: inputWithRecurrence.recurrence_end_date ?? null,
           is_recurrence_template: inputWithRecurrence.is_recurrence_template ?? false,
-          created_by: authUser.id
-        })
-        .select(`
-          *,
-          clients:client_id (id, name, avatar_url),
-          kanban_columns:column_id (id, name, color, column_type)
-        `)
-        .single();
+        },
+      });
 
-      if (error) throw error;
-      return data;
+      if (error) throw new Error(error.message || 'Erro ao criar card');
+      return data?.item ?? data;
     },
     // Optimistic update — adiciona o item imediatamente no cache antes do
     // servidor confirmar. UI mostra o card sem flash de loading.
@@ -409,15 +407,13 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       if (updatesWithRecurrence.is_recurrence_template !== undefined)
         updateData.is_recurrence_template = updatesWithRecurrence.is_recurrence_template;
 
-      const { data, error } = await supabase
-        .from('planning_items')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      // P0 fix audit 2026-05-17: troca update direto por /api/planning-items-update
+      // (handler aceita TODOS os campos editáveis + valida workspace member).
+      const { data, error } = await apiInvoke('planning-items-update', {
+        body: { id, ...updateData },
+      });
+      if (error) throw new Error(error.message || 'Erro ao atualizar card');
+      return data?.item ?? data;
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
@@ -436,12 +432,10 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       // Snapshot the item before deletion to allow restore
       const snapshot = items.find(i => i.id === id);
 
-      const { error } = await supabase
-        .from('planning_items')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      // P0 fix audit 2026-05-17: troca delete direto por /api/planning-items-delete
+      // (handler já existia, valida workspace access).
+      const { error } = await apiInvoke('planning-items-delete', { body: { id } });
+      if (error) throw new Error(error.message || 'Erro ao excluir');
       return { id, snapshot };
     },
     onSuccess: ({ snapshot }) => {
@@ -482,9 +476,11 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
           action: {
             label: 'Desfazer',
             onClick: async () => {
-              const { error } = await supabase
-                .from('planning_items')
-                .insert(restorePayload as never);
+              // P0 fix audit 2026-05-17: restore via /api/planning-items-create
+              // preservando id original (handler aceita id opcional pra undo).
+              const { error } = await apiInvoke('planning-items-create', {
+                body: restorePayload,
+              });
               if (error) {
                 toast.error('Não foi possível restaurar: ' + error.message);
                 return;
@@ -517,16 +513,15 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       };
       const newStatus = column?.column_type ? statusMap[column.column_type] || 'idea' : 'idea';
 
-      const { error } = await supabase
-        .from('planning_items')
-        .update({ 
-          column_id: columnId, 
+      const { error } = await apiInvoke('planning-items-update', {
+        body: {
+          id: itemId,
+          column_id: columnId,
           position: newPosition,
-          status: newStatus
-        })
-        .eq('id', itemId);
-
-      if (error) throw error;
+          status: newStatus,
+        },
+      });
+      if (error) throw new Error(error.message || 'Erro ao mover');
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
@@ -586,35 +581,35 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       if (!item) throw new Error('Item não encontrado');
       if (!item.client_id) throw new Error('Item precisa ter um cliente associado');
 
-      // Create content library entry - use 'other' as safe default
-      const { data: libraryItem, error: libraryError } = await supabase
-        .from('client_content_library')
-        .insert([{
+      // P0 fix audit 2026-05-17: troca 2 mutations diretas (content_library
+      // INSERT + planning_items UPDATE) por handlers /api/save-to-library +
+      // /api/planning-items-update. Não-atomic mas cada call valida acesso.
+      const { data: libData, error: libraryError } = await apiInvoke('save-to-library', {
+        body: {
           client_id: item.client_id,
           title: item.title,
           content: item.content || item.description || '',
-          content_type: 'other' as const,
-          metadata: { 
-            from_planning: true, 
+          destination: 'content',
+          format: 'static',
+          metadata: {
+            from_planning: true,
             original_item_id: item.id,
-            platform: item.platform 
-          } as unknown as Json
-        }])
-        .select()
-        .single();
+            platform: item.platform,
+          },
+        },
+      });
+      if (libraryError) throw new Error(libraryError.message || 'Erro ao salvar na biblioteca');
+      const libraryItem = libData?.item ?? libData;
 
-      if (libraryError) throw libraryError;
-
-      // Update planning item
-      const { error: updateError } = await supabase
-        .from('planning_items')
-        .update({ 
+      const { error: updateError } = await apiInvoke('planning-items-update', {
+        body: {
+          id: itemId,
           added_to_library: true,
-          content_library_id: libraryItem.id 
-        })
-        .eq('id', itemId);
+          content_library_id: libraryItem?.id,
+        },
+      });
 
-      if (updateError) throw updateError;
+      if (updateError) throw new Error(updateError.message || 'Erro ao marcar item');
 
       return libraryItem;
     },
@@ -632,17 +627,15 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
   const scheduleItem = useMutation({
     mutationFn: async ({ itemId, scheduledAt }: { itemId: string; scheduledAt: string }) => {
       const scheduledColumn = columns.find(c => c.column_type === 'scheduled');
-      
-      const { error } = await supabase
-        .from('planning_items')
-        .update({ 
+      const { error } = await apiInvoke('planning-items-update', {
+        body: {
+          id: itemId,
           scheduled_at: scheduledAt,
           status: 'scheduled',
-          column_id: scheduledColumn?.id || null
-        })
-        .eq('id', itemId);
-
-      if (error) throw error;
+          column_id: scheduledColumn?.id ?? null,
+        },
+      });
+      if (error) throw new Error(error.message || 'Erro ao agendar');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
@@ -656,16 +649,15 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
   // Retry failed publication
   const retryPublication = useMutation({
     mutationFn: async (itemId: string) => {
-      const { error } = await supabase
-        .from('planning_items')
-        .update({ 
+      const { error } = await apiInvoke('planning-items-update', {
+        body: {
+          id: itemId,
           status: 'scheduled',
           error_message: null,
-          retry_count: 0
-        })
-        .eq('id', itemId);
-
-      if (error) throw error;
+          retry_count: 0,
+        },
+      });
+      if (error) throw new Error(error.message || 'Erro ao reagendar');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planning-items', workspaceId] });
