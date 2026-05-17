@@ -15,6 +15,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query, queryOne } from '../db.js';
+import { assertToolClientAccess, assertToolWorkspaceAccess } from './tool-access.js';
 
 interface GetRecentActivityArgs {
   workspace_id?: string;
@@ -113,9 +114,15 @@ export const getRecentActivityTool: RegisteredTool<
     const wantTaskCompleted = !types || types.includes('task_completed');
 
     try {
-      // Resolve workspace_id
+      // Resolve workspace_id.
+      // SECURITY: workspace_id explícito DEVE ser validado contra ctx.userId.
+      // Sem isso, qualquer user lia atividade de qualquer workspace conhecido
+      // (rascunhos com título, plataformas, datas).
       let workspaceId = String(args.workspace_id ?? '').trim();
-      if (!workspaceId) {
+      if (workspaceId) {
+        const guard = await assertToolWorkspaceAccess(ctx, workspaceId);
+        if (!guard.ok) return { ok: false, error: guard.error };
+      } else {
         if (!ctx.clientId) {
           return {
             ok: false,
@@ -123,17 +130,33 @@ export const getRecentActivityTool: RegisteredTool<
               'Sem workspace_id e sem clientId no contexto. Passe workspace_id ou selecione um cliente.',
           };
         }
-        const c = await queryOne<{ workspace_id: string }>(
-          `SELECT workspace_id FROM clients WHERE id = $1 LIMIT 1`,
-          [ctx.clientId],
-        );
-        if (!c?.workspace_id) {
-          return { ok: false, error: 'Cliente atual não tem workspace_id.' };
+        const guard = await assertToolClientAccess(ctx, ctx.clientId);
+        if (!guard.ok) return { ok: false, error: guard.error };
+        if (guard.workspaceId) {
+          workspaceId = guard.workspaceId;
+        } else {
+          // Service-mode bypass — pega workspace direto do cliente.
+          const c = await queryOne<{ workspace_id: string }>(
+            `SELECT workspace_id FROM clients WHERE id = $1 LIMIT 1`,
+            [ctx.clientId],
+          );
+          if (!c?.workspace_id) {
+            return { ok: false, error: 'Cliente atual não tem workspace_id.' };
+          }
+          workspaceId = String(c.workspace_id);
         }
-        workspaceId = String(c.workspace_id);
       }
 
+      // client_id como filtro → validar que pertence ao workspace E que o
+      // user tem acesso.
       const clientFilter = String(args.client_id ?? '').trim();
+      if (clientFilter) {
+        const guard = await assertToolClientAccess(ctx, clientFilter);
+        if (!guard.ok) return { ok: false, error: guard.error };
+        if (guard.workspaceId && guard.workspaceId !== workspaceId) {
+          return { ok: false, error: 'client_id filtro fora do workspace alvo.' };
+        }
+      }
 
       const events: ActivityEventOut[] = [];
 

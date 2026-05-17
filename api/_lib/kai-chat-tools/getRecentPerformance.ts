@@ -12,6 +12,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query } from '../db.js';
+import { assertToolClientAccess } from './tool-access.js';
 
 interface GetRecentPerformanceArgs {
   network?: string;
@@ -122,6 +123,15 @@ export const getRecentPerformanceTool: RegisteredTool<
     const network = String(args.network ?? 'all');
     const period = (args.period ?? '7d') as string;
     const cutoffISO = new Date(Date.now() - periodHours(period) * 3600 * 1000).toISOString();
+
+    // SECURITY: lê instagram_posts/linkedin_posts/etc filtrado por ctx.clientId.
+    // Em MCP service mode, attacker poderia setar clientId arbitrário no
+    // contexto. Validar que ctx.userId (se houver) tem acesso.
+    if (!ctx.clientId) {
+      return { ok: false, error: 'Cliente atual obrigatório.' };
+    }
+    const guard = await assertToolClientAccess(ctx, ctx.clientId);
+    if (!guard.ok) return { ok: false, error: guard.error };
 
     const targetPlatforms =
       network === 'all'

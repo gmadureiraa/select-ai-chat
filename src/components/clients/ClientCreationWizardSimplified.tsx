@@ -205,26 +205,33 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
               />
               <div className="flex-1 space-y-4">
                 <div className="space-y-2">
-                  <Label>Nome do Perfil *</Label>
+                  <Label htmlFor="client-wizard-name">Nome do Perfil *</Label>
                   <Input
+                    id="client-wizard-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Ex: Empresa XYZ"
+                    required
+                    aria-required="true"
+                    aria-invalid={!name.trim()}
                     className={cn(!name.trim() && "border-destructive/50")}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-primary" />
+                  <Label htmlFor="client-wizard-website" className="flex items-center gap-2">
+                    <Globe aria-hidden="true" className="h-4 w-4 text-primary" />
                     Website
                   </Label>
                   <Input
+                    id="client-wizard-website"
                     value={website}
                     onChange={(e) => setWebsite(e.target.value)}
                     placeholder="https://..."
+                    type="url"
+                    aria-describedby="client-wizard-website-hint"
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p id="client-wizard-website-hint" className="text-xs text-muted-foreground">
                     A IA vai extrair logo, cores e informações do site
                   </p>
                 </div>
@@ -237,12 +244,13 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
               <div className="grid grid-cols-2 gap-2">
                 {socialFields.slice(0, 4).map((field) => (
                   <div key={field.key} className="flex items-center gap-2">
-                    <field.icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <field.icon aria-hidden="true" className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <Input
                       value={socialMedia[field.key] || ""}
                       onChange={(e) => setSocialMedia({ ...socialMedia, [field.key]: e.target.value })}
                       placeholder={field.placeholder}
                       className="text-sm h-9"
+                      aria-label={field.placeholder}
                     />
                   </div>
                 ))}

@@ -25,6 +25,21 @@ export default authedPost(async ({ body, user }) => {
   const data = parsed.data;
   const pool = getPool();
 
+  // SECURITY: sanitizar metadata contra prototype pollution antes de gravar.
+  if (data.metadata) {
+    const stripPollutionKeys = (val: unknown): unknown => {
+      if (Array.isArray(val)) return val.map(stripPollutionKeys);
+      if (!val || typeof val !== 'object') return val;
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+        if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+        out[k] = stripPollutionKeys(v);
+      }
+      return out;
+    };
+    data.metadata = stripPollutionKeys(data.metadata) as Record<string, unknown>;
+  }
+
   // Verifica acesso (workspace_members do cliente dono ou super_admin)
   const access = await queryOne<{ ok: boolean }>(
     `SELECT TRUE AS ok

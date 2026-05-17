@@ -12,6 +12,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query, queryOne } from '../db.js';
+import { assertToolClientAccess } from './tool-access.js';
 
 interface GetIntegrationsStatusArgs {
   client_id?: string;
@@ -79,6 +80,12 @@ export const getIntegrationsStatusTool: RegisteredTool<
     if (!clientId) {
       return { ok: false, error: 'client_id obrigatório (nenhum cliente selecionado).' };
     }
+
+    // SECURITY: client_social_credentials guarda OAuth tokens, account IDs,
+    // expires_at — vazar isso facilita takeover de contas sociais. Exigir
+    // que o user tenha acesso ao cliente antes de listar.
+    const guard = await assertToolClientAccess(ctx, clientId);
+    if (!guard.ok) return { ok: false, error: guard.error };
 
     try {
       const c = await queryOne<{ name: string | null }>(

@@ -13,7 +13,7 @@ import { readResource } from '../_lib/mcp/resources.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
 
   if (req.method !== 'GET' && req.method !== 'POST') {
     return jsonError(res, 405, 'Method not allowed');

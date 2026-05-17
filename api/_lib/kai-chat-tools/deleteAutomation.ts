@@ -7,10 +7,12 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
+import { requireApproval, consumeApprovalToken } from '../approval-flow.js';
 
 interface DeleteAutomationArgs {
   automationId: string;
   approved?: boolean;
+  callbackToken?: string;
 }
 
 interface DeleteAutomationData {
@@ -30,6 +32,10 @@ export const deleteAutomationTool: RegisteredTool<DeleteAutomationArgs, DeleteAu
         approved: {
           type: 'boolean',
           description: 'true quando o usuário JÁ confirmou via UI. Sempre false na primeira chamada.',
+        },
+        callbackToken: {
+          type: 'string',
+          description: 'Token devolvido na 1ª chamada. OBRIGATÓRIO quando approved=true.',
         },
       },
       required: ['automationId'],
@@ -58,6 +64,17 @@ export const deleteAutomationTool: RegisteredTool<DeleteAutomationArgs, DeleteAu
     }
 
     if (!args.approved) {
+      const approval = requireApproval({
+        action: 'delete_automation',
+        preview: {
+          title: 'Deletar automação?',
+          description: `Apagar a automação "${name}" (${triggerType}) permanentemente? Pra apenas pausar, use toggleAutomation.`,
+          impactedItems: [{ id: automationId, label: name }],
+          irreversible: true,
+        },
+        toolName: 'deleteAutomation',
+        toolArgs: { automationId, approved: true },
+      });
       const card: KAIActionCard = {
         id: newActionCardId(),
         planning_item_id: null,
@@ -78,7 +95,10 @@ export const deleteAutomationTool: RegisteredTool<DeleteAutomationArgs, DeleteAu
             id: 'confirm_delete',
             label: 'Deletar',
             variant: 'danger',
-            tool_call: { name: 'deleteAutomation', args: { automationId, approved: true } },
+            tool_call: {
+              name: 'deleteAutomation',
+              args: { automationId, approved: true, callbackToken: approval.callbackToken },
+            },
           },
           {
             id: 'pause_instead',
@@ -92,7 +112,16 @@ export const deleteAutomationTool: RegisteredTool<DeleteAutomationArgs, DeleteAu
           { id: 'cancel', label: 'Cancelar', variant: 'ghost', client_action: 'edit' },
         ],
       };
-      return { ok: true, data: { automationId, requiresApproval: true }, card };
+      return { ok: true, data: approval, card };
+    }
+
+    const token = typeof args.callbackToken === 'string' ? args.callbackToken : '';
+    if (!consumeApprovalToken(token, 'delete_automation')) {
+      return {
+        ok: false,
+        error:
+          'Token de aprovação inválido, expirado ou já consumido. Chame deleteAutomation SEM approved primeiro pra gerar um novo token.',
+      };
     }
 
     const res = await fetch(`${ctx.internalBaseUrl}/api/router?slug=automations-delete`, {

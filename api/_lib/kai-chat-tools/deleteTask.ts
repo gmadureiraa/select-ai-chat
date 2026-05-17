@@ -6,10 +6,12 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
+import { requireApproval, consumeApprovalToken } from '../approval-flow.js';
 
 interface DeleteTaskArgs {
   taskId: string;
   approved?: boolean;
+  callbackToken?: string;
 }
 
 interface DeleteTaskData {
@@ -30,6 +32,10 @@ export const deleteTaskTool: RegisteredTool<DeleteTaskArgs, DeleteTaskData> = {
           type: 'boolean',
           description:
             'true quando o usuário JÁ confirmou via UI. Sempre false na primeira chamada.',
+        },
+        callbackToken: {
+          type: 'string',
+          description: 'Token devolvido na 1ª chamada. OBRIGATÓRIO quando approved=true.',
         },
       },
       required: ['taskId'],
@@ -53,6 +59,17 @@ export const deleteTaskTool: RegisteredTool<DeleteTaskArgs, DeleteTaskData> = {
     }
 
     if (!args.approved) {
+      const approval = requireApproval({
+        action: 'delete_task',
+        preview: {
+          title: 'Confirmar deleção',
+          description: `Deletar a tarefa "${title}"? Essa ação é permanente.`,
+          impactedItems: [{ id: taskId, label: title }],
+          irreversible: true,
+        },
+        toolName: 'deleteTask',
+        toolArgs: { taskId, approved: true },
+      });
       const card: KAIActionCard = {
         id: newActionCardId(),
         planning_item_id: null,
@@ -73,12 +90,24 @@ export const deleteTaskTool: RegisteredTool<DeleteTaskArgs, DeleteTaskData> = {
             id: 'confirm_delete',
             label: 'Deletar',
             variant: 'danger',
-            tool_call: { name: 'deleteTask', args: { taskId, approved: true } },
+            tool_call: {
+              name: 'deleteTask',
+              args: { taskId, approved: true, callbackToken: approval.callbackToken },
+            },
           },
           { id: 'cancel', label: 'Cancelar', variant: 'ghost', client_action: 'edit' },
         ],
       };
-      return { ok: true, data: { taskId, requiresApproval: true }, card };
+      return { ok: true, data: approval, card };
+    }
+
+    const token = typeof args.callbackToken === 'string' ? args.callbackToken : '';
+    if (!consumeApprovalToken(token, 'delete_task')) {
+      return {
+        ok: false,
+        error:
+          'Token de aprovação inválido, expirado ou já consumido. Chame deleteTask SEM approved primeiro pra gerar um novo token.',
+      };
     }
 
     const res = await fetch(`${ctx.internalBaseUrl}/api/router?slug=team-tasks-delete`, {

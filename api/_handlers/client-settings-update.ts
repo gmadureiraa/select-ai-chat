@@ -20,6 +20,18 @@ export default authedPost(async ({ body, user }) => {
   const data = parsed.data;
   const pool = getPool();
 
+  // SECURITY: bloquear chaves de prototype pollution antes de iterar.
+  // settings vira preference_type direto — se passar __proto__/constructor
+  // pode causar prejuízo em consumers que fazem `obj[type]` em loop.
+  for (const k of Object.keys(data.settings)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') {
+      throw new Error(`Chave inválida em settings: ${k}`);
+    }
+    if (k.length > 80) {
+      throw new Error(`Chave settings muito longa: ${k.slice(0, 40)}...`);
+    }
+  }
+
   // Verifica acesso ao cliente
   const access = await queryOne<{ ok: boolean }>(
     `SELECT TRUE AS ok

@@ -6,10 +6,12 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
+import { requireApproval, consumeApprovalToken } from '../approval-flow.js';
 
 interface DeleteReferenceArgs {
   referenceId: string;
   approved?: boolean;
+  callbackToken?: string;
 }
 
 interface DeleteReferenceData {
@@ -29,6 +31,10 @@ export const deleteReferenceTool: RegisteredTool<DeleteReferenceArgs, DeleteRefe
         approved: {
           type: 'boolean',
           description: 'true quando o usuário JÁ confirmou via UI. Sempre false na primeira chamada.',
+        },
+        callbackToken: {
+          type: 'string',
+          description: 'Token devolvido na 1ª chamada. OBRIGATÓRIO quando approved=true.',
         },
       },
       required: ['referenceId'],
@@ -52,6 +58,17 @@ export const deleteReferenceTool: RegisteredTool<DeleteReferenceArgs, DeleteRefe
     }
 
     if (!args.approved) {
+      const approval = requireApproval({
+        action: 'delete_reference',
+        preview: {
+          title: 'Remover reference da library?',
+          description: `Remover "${title}" da library do cliente? Essa ação é permanente.`,
+          impactedItems: [{ id: referenceId, label: title }],
+          irreversible: true,
+        },
+        toolName: 'deleteReference',
+        toolArgs: { referenceId, approved: true },
+      });
       const card: KAIActionCard = {
         id: newActionCardId(),
         planning_item_id: null,
@@ -74,12 +91,24 @@ export const deleteReferenceTool: RegisteredTool<DeleteReferenceArgs, DeleteRefe
             id: 'confirm_delete',
             label: 'Remover',
             variant: 'danger',
-            tool_call: { name: 'deleteReference', args: { referenceId, approved: true } },
+            tool_call: {
+              name: 'deleteReference',
+              args: { referenceId, approved: true, callbackToken: approval.callbackToken },
+            },
           },
           { id: 'cancel', label: 'Cancelar', variant: 'ghost', client_action: 'edit' },
         ],
       };
-      return { ok: true, data: { referenceId, requiresApproval: true }, card };
+      return { ok: true, data: approval, card };
+    }
+
+    const token = typeof args.callbackToken === 'string' ? args.callbackToken : '';
+    if (!consumeApprovalToken(token, 'delete_reference')) {
+      return {
+        ok: false,
+        error:
+          'Token de aprovação inválido, expirado ou já consumido. Chame deleteReference SEM approved primeiro pra gerar um novo token.',
+      };
     }
 
     const res = await fetch(`${ctx.internalBaseUrl}/api/router?slug=reference-delete`, {

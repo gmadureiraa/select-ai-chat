@@ -150,12 +150,27 @@ export function requireApproval(opts: RequireApprovalOptions): ApprovalRequest {
 /**
  * Valida e consome o token (single-use). Retorna `true` se o token existe,
  * está dentro do TTL e bate com `expectedAction`. Após consumir, remove do store.
+ *
+ * Validação ANTES de consume — assim um token que falhou por action mismatch
+ * (LLM tentou usar token de delete_content pra delete_task) é deletado mesmo
+ * assim, prevenindo retry com outro action.
+ *
+ * Race: Map.get + delete em Node single-threaded é atômico dentro do mesmo
+ * event loop tick (sem concorrência verdadeira). Duas requests "concorrentes"
+ * dentro da mesma instância Vercel ainda serializam por causa do event loop.
+ * MULTI-INSTÂNCIA (cold start): tokens não compartilham — não é race, é miss.
+ * Solução: se o token foi gerado numa instância e validado em outra, a
+ * segunda devolve `false` (correto). Único caveat: o store é em memória, então
+ * tokens não persistem entre cold starts. Mitigação: TTL curto (5min) +
+ * tolerância de re-trigger pelo user na UI.
  */
 export function consumeApprovalToken(token: string, expectedAction: string): boolean {
   if (!token || typeof token !== 'string') return false;
   const entry = tokenStore.get(token);
   if (!entry) return false;
-  tokenStore.delete(token); // consume always (single-use)
+  // Sempre consume — single-use, mesmo se falhar validação. Previne token
+  // reuse pra action diferente.
+  tokenStore.delete(token);
   if (entry.expiresAt < Date.now()) return false;
   if (entry.action !== expectedAction) return false;
   return true;

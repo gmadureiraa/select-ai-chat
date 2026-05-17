@@ -7,6 +7,18 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
+import { assertToolClientAccess } from './tool-access.js';
+
+function sanitizePollutionKeys<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(sanitizePollutionKeys) as unknown as T;
+  if (!value || typeof value !== 'object') return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+    out[k] = sanitizePollutionKeys(v);
+  }
+  return out as unknown as T;
+}
 
 interface UpdateVoiceProfileArgs {
   client_id?: string;
@@ -90,17 +102,26 @@ export const updateVoiceProfileTool: RegisteredTool<
       return { ok: false, error: 'client_id obrigatório (nenhum cliente selecionado)' };
     }
 
+    // SECURITY: validar acesso ANTES de mutate.
+    const guard = await assertToolClientAccess(ctx, clientId);
+    if (!guard.ok) return { ok: false, error: guard.error };
+
     const merge = args.merge ?? true;
 
+    // Sanitiza args (evita prototype pollution via __proto__/constructor).
+    const sanitizedArgs = sanitizePollutionKeys(args);
+
     // Monta voice_profile a partir dos args
-    const incoming: Record<string, unknown> = { ...(args.voice_profile ?? {}) };
-    if (args.tone !== undefined) incoming.tone = args.tone;
-    if (args.persona !== undefined) incoming.persona = args.persona;
-    if (args.pillars !== undefined) incoming.pillars = args.pillars;
-    if (args.use !== undefined) incoming.use = args.use;
-    if (args.avoid !== undefined) incoming.avoid = args.avoid;
-    if (args.examples !== undefined) incoming.examples = args.examples;
-    if (args.signature_phrases !== undefined) incoming.signature_phrases = args.signature_phrases;
+    const incoming: Record<string, unknown> = { ...(sanitizedArgs.voice_profile ?? {}) };
+    if (sanitizedArgs.tone !== undefined) incoming.tone = sanitizedArgs.tone;
+    if (sanitizedArgs.persona !== undefined) incoming.persona = sanitizedArgs.persona;
+    if (sanitizedArgs.pillars !== undefined) incoming.pillars = sanitizedArgs.pillars;
+    if (sanitizedArgs.use !== undefined) incoming.use = sanitizedArgs.use;
+    if (sanitizedArgs.avoid !== undefined) incoming.avoid = sanitizedArgs.avoid;
+    if (sanitizedArgs.examples !== undefined) incoming.examples = sanitizedArgs.examples;
+    if (sanitizedArgs.signature_phrases !== undefined) {
+      incoming.signature_phrases = sanitizedArgs.signature_phrases;
+    }
 
     if (Object.keys(incoming).length === 0) {
       return { ok: false, error: 'Passe ao menos um campo do voice_profile.' };
@@ -113,7 +134,8 @@ export const updateVoiceProfileTool: RegisteredTool<
           `SELECT voice_profile FROM clients WHERE id = $1 LIMIT 1`,
           [clientId],
         );
-        const current = rows[0]?.voice_profile ?? {};
+        // Sanitiza current também (defesa contra dados antigos poluídos).
+        const current = sanitizePollutionKeys(rows[0]?.voice_profile ?? {});
         newVoiceProfile = { ...current, ...incoming };
       } catch (err) {
         console.warn('[updateVoiceProfile] merge fetch failed, using replace:', err);

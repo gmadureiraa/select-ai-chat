@@ -8,6 +8,24 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
+import { assertToolClientAccess } from './tool-access.js';
+
+/**
+ * Remove chaves perigosas de prototype pollution (__proto__, constructor, prototype).
+ * Aplica recursivamente em objetos planos. Não toca em arrays.
+ */
+function sanitizePollutionKeys<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(sanitizePollutionKeys) as unknown as T;
+  }
+  if (!value || typeof value !== 'object') return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+    out[k] = sanitizePollutionKeys(v);
+  }
+  return out as unknown as T;
+}
 
 interface UpdateBrandAssetsArgs {
   client_id?: string;
@@ -78,25 +96,35 @@ export const updateBrandAssetsTool: RegisteredTool<
       return { ok: false, error: 'client_id obrigatório (nenhum cliente selecionado)' };
     }
 
+    // SECURITY: validar acesso ANTES de mutate.
+    const guard = await assertToolClientAccess(ctx, clientId);
+    if (!guard.ok) return { ok: false, error: guard.error };
+
     const merge = args.merge ?? true;
+
+    // SECURITY: sanitizar args contra prototype pollution. brand_assets é
+    // JSONB no Postgres (não é mais executado como JS), mas consumers (front
+    // que renderiza brand) podem fazer `assets[key]` direto → poluição via
+    // __proto__/constructor seria danosa.
+    const sanitizedArgs = sanitizePollutionKeys(args);
 
     // Monta brand_assets a partir dos args
     const incoming: Record<string, unknown> = {};
-    const colors: Record<string, string> = { ...(args.colors ?? {}) };
-    if (args.primary_color) colors.primary = args.primary_color;
-    if (args.secondary_color) colors.secondary = args.secondary_color;
-    if (args.accent_color) colors.accent = args.accent_color;
-    if (args.background_color) colors.background = args.background_color;
-    if (args.text_color) colors.text = args.text_color;
+    const colors: Record<string, string> = { ...(sanitizedArgs.colors ?? {}) };
+    if (sanitizedArgs.primary_color) colors.primary = sanitizedArgs.primary_color;
+    if (sanitizedArgs.secondary_color) colors.secondary = sanitizedArgs.secondary_color;
+    if (sanitizedArgs.accent_color) colors.accent = sanitizedArgs.accent_color;
+    if (sanitizedArgs.background_color) colors.background = sanitizedArgs.background_color;
+    if (sanitizedArgs.text_color) colors.text = sanitizedArgs.text_color;
     if (Object.keys(colors).length > 0) incoming.colors = colors;
 
-    if (args.logo_url) incoming.logo_url = args.logo_url;
-    if (args.logo_dark_url) incoming.logo_dark_url = args.logo_dark_url;
-    if (args.favicon_url) incoming.favicon_url = args.favicon_url;
+    if (sanitizedArgs.logo_url) incoming.logo_url = sanitizedArgs.logo_url;
+    if (sanitizedArgs.logo_dark_url) incoming.logo_dark_url = sanitizedArgs.logo_dark_url;
+    if (sanitizedArgs.favicon_url) incoming.favicon_url = sanitizedArgs.favicon_url;
 
-    const typography: Record<string, unknown> = { ...(args.typography ?? {}) };
-    if (args.primary_font) typography.primary_font = args.primary_font;
-    if (args.secondary_font) typography.secondary_font = args.secondary_font;
+    const typography: Record<string, unknown> = { ...(sanitizedArgs.typography ?? {}) };
+    if (sanitizedArgs.primary_font) typography.primary_font = sanitizedArgs.primary_font;
+    if (sanitizedArgs.secondary_font) typography.secondary_font = sanitizedArgs.secondary_font;
     if (Object.keys(typography).length > 0) incoming.typography = typography;
 
     if (Object.keys(incoming).length === 0) {
@@ -111,9 +139,12 @@ export const updateBrandAssetsTool: RegisteredTool<
           `SELECT brand_assets FROM clients WHERE id = $1 LIMIT 1`,
           [clientId],
         );
-        const current = rows[0]?.brand_assets ?? {};
+        // Sanitizar current também — proteção contra dados antigos
+        // potencialmente poluídos antes deste fix.
+        const current = sanitizePollutionKeys(rows[0]?.brand_assets ?? {});
         newBrandAssets = { ...current };
         for (const [k, v] of Object.entries(incoming)) {
+          if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
           if (k === 'colors' || k === 'typography') {
             const currentSub = (current as any)?.[k];
             const isObj = currentSub && typeof currentSub === 'object' && !Array.isArray(currentSub);

@@ -13,6 +13,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { queryOne, query } from '../db.js';
+import { assertToolClientAccess } from './tool-access.js';
 
 interface GetPlanningItemArgs {
   planningItemId?: string;
@@ -82,6 +83,14 @@ export const getPlanningItemTool: RegisteredTool<
         ok: false,
         error: 'Forneça planningItemId ou use latest=true.',
       };
+    }
+
+    // SECURITY: o filtro já restringe via client_id = ctx.clientId, mas em
+    // service mode + ctx.clientId arbitrário, attacker poderia ler items
+    // de qualquer cliente. Validar acesso explicitamente.
+    if (ctx.clientId) {
+      const guard = await assertToolClientAccess(ctx, ctx.clientId);
+      if (!guard.ok) return { ok: false, error: guard.error };
     }
 
     try {

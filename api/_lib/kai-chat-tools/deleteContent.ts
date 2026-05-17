@@ -11,10 +11,13 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
+import { requireApproval, consumeApprovalToken } from '../approval-flow.js';
 
 interface DeleteContentArgs {
   planningItemId: string;
   approved?: boolean;
+  /** Token gerado pela 1ª chamada (requires_approval). Obrigatório quando approved=true. */
+  callbackToken?: string;
   force?: boolean;
 }
 
@@ -37,6 +40,11 @@ export const deleteContentTool: RegisteredTool<DeleteContentArgs, DeleteContentD
           type: 'boolean',
           description:
             'true quando o usuário JÁ confirmou via UI. Sempre false na primeira chamada.',
+        },
+        callbackToken: {
+          type: 'string',
+          description:
+            'Token devolvido na 1ª chamada (campo callbackToken). OBRIGATÓRIO quando approved=true — sem ele a deleção é rejeitada.',
         },
         force: {
           type: 'boolean',
@@ -71,8 +79,23 @@ export const deleteContentTool: RegisteredTool<DeleteContentArgs, DeleteContentD
       console.warn('[deleteContent] preview fetch failed:', err);
     }
 
-    // Caso 1: ainda não aprovado
+    // Caso 1: ainda não aprovado — gera token approval e devolve preview.
     if (!args.approved) {
+      const approval = requireApproval({
+        action: 'delete_content',
+        preview: {
+          title: 'Confirmar deleção',
+          description: `Deletar "${title}"?${
+            wasPublished
+              ? '\n\nEste item JÁ FOI PUBLICADO. Deletar não remove da plataforma — só apaga o registro no KAI.'
+              : ''
+          }`,
+          impactedItems: [{ id: planningItemId, label: title }],
+          irreversible: true,
+        },
+        toolName: 'deleteContent',
+        toolArgs: { planningItemId, approved: true, force: wasPublished ? true : undefined },
+      });
       const card: KAIActionCard = {
         id: newActionCardId(),
         planning_item_id: planningItemId,
@@ -86,7 +109,7 @@ export const deleteContentTool: RegisteredTool<DeleteContentArgs, DeleteContentD
           title: 'Confirmar deleção',
           body: `Tem certeza que quer deletar "${title}"?${
             wasPublished
-              ? '\n\n⚠️ ESTE ITEM JÁ FOI PUBLICADO. Deletar não remove da plataforma — só apaga o registro no KAI.'
+              ? '\n\nESTE ITEM JÁ FOI PUBLICADO. Deletar não remove da plataforma — só apaga o registro no KAI.'
               : ''
           }`,
           briefing: planningItemId,
@@ -99,20 +122,35 @@ export const deleteContentTool: RegisteredTool<DeleteContentArgs, DeleteContentD
             variant: 'danger',
             tool_call: {
               name: 'deleteContent',
-              args: { planningItemId, approved: true, force: wasPublished ? true : undefined },
+              args: {
+                planningItemId,
+                approved: true,
+                callbackToken: approval.callbackToken,
+                force: wasPublished ? true : undefined,
+              },
             },
           },
           { id: 'cancel', label: 'Cancelar', variant: 'ghost', client_action: 'edit' },
         ],
       };
+      // Retorna o approval como data — runner detecta via isApprovalRequest()
+      // e propaga via stream pra UI abrir modal com o token correto.
+      return { ok: true, data: approval, card };
+    }
+
+    // Caso 2: aprovado — SEMPRE exigir e consumir o token (single-use, TTL 5min).
+    // Sem isso, qualquer caller (LLM, MCP, attacker) com approved=true direto
+    // bypassava o flow. Token consume é o gate real.
+    const token = typeof args.callbackToken === 'string' ? args.callbackToken : '';
+    if (!consumeApprovalToken(token, 'delete_content')) {
       return {
-        ok: true,
-        data: { planningItemId, requiresApproval: true, wasPublished },
-        card,
+        ok: false,
+        error:
+          'Token de aprovação inválido, expirado ou já consumido. Chame deleteContent SEM approved primeiro pra gerar um novo token.',
       };
     }
 
-    // Caso 2: aprovado mas publicado e sem force
+    // Caso 3: aprovado mas publicado e sem force
     if (wasPublished && !args.force) {
       return {
         ok: false,

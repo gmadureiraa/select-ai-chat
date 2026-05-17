@@ -372,8 +372,11 @@ const SERVER_INFO = {
 };
 
 function authorized(req: VercelRequest): boolean {
-  const expected = process.env.MCP_ACCESS_TOKEN;
-  if (!expected) return true; // no token configured -> open discovery
+  // SECURITY (2026-05-17): se nenhum token estiver configurado, BLOQUEAR em vez
+  // de abrir discovery. O catálogo MCP revela nomes de tools + shape de input
+  // schema — info útil pra reconnaissance + prompt injection planning.
+  const expected = process.env.MCP_ACCESS_TOKEN || process.env.KAI_MCP_TOKEN;
+  if (!expected) return false;
   const header = req.headers.authorization || '';
   const headerVal = Array.isArray(header) ? header[0] : header;
   const token = headerVal.replace(/^Bearer\s+/i, '');
@@ -382,7 +385,7 @@ function authorized(req: VercelRequest): boolean {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
 
   if (!authorized(req)) {
     return jsonError(res, 401, 'Unauthorized — provide MCP_ACCESS_TOKEN bearer');

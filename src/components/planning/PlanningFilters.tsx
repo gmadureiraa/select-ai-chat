@@ -127,9 +127,10 @@ export const PlanningFilters = forwardRef<PlanningFiltersHandle, PlanningFilters
     )}>
       {/* Busca com debounce + clear button + atalho `/` */}
       <div className={cn("relative", inSheet ? "w-full" : "flex-1 min-w-[160px] max-w-[220px]")}>
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <Search aria-hidden="true" className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
         <Input
           ref={inSheet ? mobileSearchRef : searchRef}
+          type="search"
           placeholder="Buscar (atalho: /)"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
@@ -150,7 +151,7 @@ export const PlanningFilters = forwardRef<PlanningFiltersHandle, PlanningFilters
             className="absolute right-1.5 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/60"
             aria-label="Limpar busca"
           >
-            <X className="h-3 w-3" />
+            <X aria-hidden="true" className="h-3 w-3" />
           </button>
         )}
       </div>

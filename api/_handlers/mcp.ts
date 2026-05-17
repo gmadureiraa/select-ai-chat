@@ -85,7 +85,7 @@ async function readJsonBody(req: VercelRequest): Promise<any | null> {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
 
   // GET /api/mcp — info pública (não exige auth, mas só mostra metadados)
   if (req.method === 'GET') {

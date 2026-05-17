@@ -9,10 +9,12 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
+import { requireApproval, consumeApprovalToken } from '../approval-flow.js';
 
 interface DeletePlanningItemArgs {
   itemId: string;
   approved?: boolean;
+  callbackToken?: string;
   force?: boolean;
 }
 
@@ -37,6 +39,11 @@ export const deletePlanningItemTool: RegisteredTool<
         approved: {
           type: 'boolean',
           description: 'true quando o usuário JÁ confirmou via UI. Sempre false na primeira chamada.',
+        },
+        callbackToken: {
+          type: 'string',
+          description:
+            'Token devolvido na 1ª chamada. OBRIGATÓRIO quando approved=true.',
         },
         force: {
           type: 'boolean',
@@ -70,6 +77,21 @@ export const deletePlanningItemTool: RegisteredTool<
     }
 
     if (!args.approved) {
+      const approval = requireApproval({
+        action: 'delete_planning_item',
+        preview: {
+          title: 'Confirmar deleção do item',
+          description: `Remover "${title}" do planejamento?${
+            wasPublished
+              ? '\n\nEste item já foi publicado. Remover não despublica da plataforma.'
+              : ''
+          }`,
+          impactedItems: [{ id: itemId, label: title }],
+          irreversible: true,
+        },
+        toolName: 'deletePlanningItem',
+        toolArgs: { itemId, approved: true, force: wasPublished ? true : undefined },
+      });
       const card: KAIActionCard = {
         id: newActionCardId(),
         planning_item_id: itemId,
@@ -83,7 +105,7 @@ export const deletePlanningItemTool: RegisteredTool<
           title: 'Confirmar deleção do item',
           body: `Tem certeza que quer remover "${title}" do planejamento?${
             wasPublished
-              ? '\n\n⚠️ Este item já foi publicado. Remover não despublica da plataforma.'
+              ? '\n\nEste item já foi publicado. Remover não despublica da plataforma.'
               : ''
           }`,
           briefing: itemId,
@@ -96,16 +118,27 @@ export const deletePlanningItemTool: RegisteredTool<
             variant: 'danger',
             tool_call: {
               name: 'deletePlanningItem',
-              args: { itemId, approved: true, force: wasPublished ? true : undefined },
+              args: {
+                itemId,
+                approved: true,
+                callbackToken: approval.callbackToken,
+                force: wasPublished ? true : undefined,
+              },
             },
           },
           { id: 'cancel', label: 'Cancelar', variant: 'ghost', client_action: 'edit' },
         ],
       };
+      return { ok: true, data: approval, card };
+    }
+
+    // Aprovado — exige token válido (single-use, TTL 5min).
+    const token = typeof args.callbackToken === 'string' ? args.callbackToken : '';
+    if (!consumeApprovalToken(token, 'delete_planning_item')) {
       return {
-        ok: true,
-        data: { itemId, requiresApproval: true, wasPublished },
-        card,
+        ok: false,
+        error:
+          'Token de aprovação inválido, expirado ou já consumido. Chame deletePlanningItem SEM approved primeiro pra gerar um novo token.',
       };
     }
 

@@ -13,6 +13,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { queryOne } from '../db.js';
+import { assertToolClientAccess } from './tool-access.js';
 
 interface GetVoiceProfileArgs {
   client_id?: string;
@@ -77,6 +78,11 @@ export const getVoiceProfileTool: RegisteredTool<GetVoiceProfileArgs, GetVoicePr
     if (!clientId) {
       return { ok: false, error: 'client_id obrigatório (nenhum cliente selecionado).' };
     }
+
+    // SECURITY: voice_profile contém estratégia editorial proprietária
+    // (palavras-chave, persona, do/dont). Validar acesso antes.
+    const guard = await assertToolClientAccess(ctx, clientId);
+    if (!guard.ok) return { ok: false, error: guard.error };
 
     try {
       const c = await queryOne<{
