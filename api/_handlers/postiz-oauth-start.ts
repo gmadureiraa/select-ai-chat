@@ -14,6 +14,7 @@
 // não precisamos manter mapeamento de credenciais por provider.
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import {
   getPostizConfig,
   listIntegrations,
@@ -26,6 +27,9 @@ export default authedPost(async ({ user, body, req }) => {
   const { clientId, platform } = body;
   if (!clientId || !platform) throw new Error('Missing clientId or platform');
   if (!ALLOWED_PLATFORMS.includes(platform)) throw new Error(`Plataforma não suportada: ${platform}`);
+  // P0 fix audit 2026-05-16: aceitava clientId arbitrário e criava
+  // oauth_connection_attempt naquele cliente alheio.
+  await assertClientAccess(user.id, clientId);
 
   // valida config Postiz cedo pra falhar com 503 se ausente.
   const cfg = getPostizConfig();

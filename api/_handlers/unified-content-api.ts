@@ -2,6 +2,7 @@
 // Pipeline: Writer → Validate → Repair → Review (multi-agent quality flow)
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { callLLM, isLLMConfigured, type LLMMessage } from '../_lib/llm.js';
 import {
   parseOutput,
@@ -48,6 +49,10 @@ export default authedPost(async ({ user, body }) => {
   if (!client_id || !format || !brief) {
     throw new Error('client_id, format e brief são obrigatórios');
   }
+  // P0 fix audit 2026-05-16: aceitava client_id arbitrário sem checar
+  // ownership. Qualquer user logado dispara gen pra client de outro
+  // workspace (consome tokens do dono real + persiste output cross-tenant).
+  await assertClientAccess(user.id, client_id);
 
   const {
     skip_review = false,

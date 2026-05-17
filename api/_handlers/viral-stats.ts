@@ -15,6 +15,7 @@
 
 import { authedPost } from "../_lib/handler.js";
 import { queryOne } from "../_lib/db.js";
+import { assertWorkspaceAccess, assertClientAccess } from "../_lib/access.js";
 
 interface CountResult {
   total?: number;
@@ -47,13 +48,19 @@ async function safeOne<T>(sql: string, params: any[]): Promise<T | null> {
   }
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ user, body }) => {
   const { workspace_id, client_id, range = '30d' } = body as {
     workspace_id?: string;
     client_id?: string | null;
     range?: '7d' | '30d' | '90d';
   };
   if (!workspace_id) throw new Error('workspace_id required');
+  // P0 fix audit 2026-05-16: handler aceitava qualquer workspace_id sem
+  // checar membership. Vazava counts agregados cross-tenant.
+  await assertWorkspaceAccess(user.id, workspace_id);
+  if (client_id) {
+    await assertClientAccess(user.id, client_id);
+  }
 
   const days = range === '7d' ? 7 : range === '90d' ? 90 : 30;
   // Use parameterized interval to avoid injection

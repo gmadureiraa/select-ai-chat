@@ -2,6 +2,7 @@
 // Defensive fallback: if Twitter OAuth env vars not set, returns 503.
 import { authedPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { randomBytes, createHmac, createHash } from 'node:crypto';
 
 const REQUIRED_ENV = ['TWITTER_CONSUMER_KEY', 'TWITTER_CONSUMER_SECRET'];
@@ -35,6 +36,10 @@ export default authedPost(async ({ user, body, req, res }) => {
     res.status(400).json({ error: 'clientId is required' });
     return;
   }
+  // P0 fix audit 2026-05-16: aceitava clientId arbitrário e gravava
+  // code_verifier no metadata daquele cliente alheio — atacante poderia
+  // sequestrar próximo callback OAuth.
+  await assertClientAccess(user.id, clientId);
 
   const userId = user.id;
   const TWITTER_CLIENT_ID = process.env.TWITTER_CONSUMER_KEY!;

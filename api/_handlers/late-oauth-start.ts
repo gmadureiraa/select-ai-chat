@@ -2,12 +2,16 @@
 // @deprecated 2026-05-08: use `postiz-oauth-start`. Fallback durante migração.
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne, query } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const LATE_API_BASE = 'https://getlate.dev/api';
 
 export default authedPost(async ({ user, body, req }) => {
   const { clientId, platform } = body;
   if (!clientId || !platform) throw new Error('Missing clientId or platform');
+  // P0 fix audit 2026-05-16: aceitava clientId arbitrário e criava
+  // oauth attempt em cliente alheio.
+  await assertClientAccess(user.id, clientId);
 
   const LATE_API_KEY = process.env.LATE_API_KEY;
   if (!LATE_API_KEY) throw new Error('LATE_API_KEY not configured');

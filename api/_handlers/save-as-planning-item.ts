@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { authedPost } from '../_lib/handler.js';
 import { query, queryOne, insertRow } from '../_lib/db.js';
+import { assertClientAccess, assertWorkspaceAccess } from '../_lib/access.js';
 
 const BodySchema = z.object({
   client_id: z.string().uuid(),
@@ -48,6 +49,10 @@ export default authedPost(async ({ user, body, res }) => {
     return;
   }
   const { client_id, workspace_id, source, link_to, ...rest } = parsed.data;
+  // P0 fix audit 2026-05-16: aceitava (client_id, workspace_id) arbitrários
+  // e inseria planning_item naquele workspace alheio.
+  await assertWorkspaceAccess(user.id, workspace_id);
+  await assertClientAccess(user.id, client_id);
 
   // Default content_type per source
   const defaultType =

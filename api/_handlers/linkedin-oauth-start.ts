@@ -1,6 +1,7 @@
 // Migrated from supabase/functions/linkedin-oauth-start/index.ts
 // Defensive fallback: if env vars not configured, returns 503 with clear message.
 import { authedPost } from '../_lib/handler.js';
+import { assertClientAccess } from '../_lib/access.js';
 
 const REQUIRED_ENV = ['LINKEDIN_CLIENT_ID'];
 
@@ -20,6 +21,10 @@ export default authedPost(async ({ user, body, req, res }) => {
     res.status(400).json({ error: 'clientId is required' });
     return;
   }
+  // P0 fix audit 2026-05-16: aceitava clientId arbitrário, gerando state
+  // com (userId, clientId) que callback usaria pra escrever creds. Sem
+  // assertion qualquer user pode iniciar OAuth pra cliente alheio.
+  await assertClientAccess(user.id, clientId);
 
   const linkedInClientId = process.env.LINKEDIN_CLIENT_ID!;
 
