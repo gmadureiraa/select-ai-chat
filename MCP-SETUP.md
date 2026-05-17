@@ -192,7 +192,57 @@ Em **dev** (`KAI_MCP_TOKEN` não setado), o endpoint `tools/list` fica aberto pr
 
 ---
 
-## 7. Adicionando novas tools
+## 7. Rate limiting
+
+Cada `tools/call` é classificado num bucket e tem cap de requests por minuto. Buckets isolados por `auth.mode + userId` — service-token e user JWT não compartilham pool.
+
+| Bucket | Limite | Tools que casam |
+|--------|--------|-----------------|
+| `cheap` | **60/min** | `list*`, `get*`, `search*`, `query*`, `fetch*`, `view*`, `read*`, `describe*`, `find*`, `count*`, `check*`, `ping*`, `echo*` |
+| `normal` | **20/min** | `create*` (exceto viral/content), `update*`, `edit*`, `save*`, `add*`, `set*`, `upload*`, `import*`, `schedule*`, `toggle*`, `send*`, `post*`, `publish*`, `mark*`, `move*`, etc. |
+| `expensive` | **5/min** | `generate*`, `analyze*`, `transcribe*`, `extract*`, `embed*`, `research*`, `reverse*`, `summari[sz]e*`, `caption*`, `render*`, `voice*`, `brief*`, `scrape*`, `createViralCarousel`, `createContent`, `firecrawl*` |
+| `destructive` | **3/min** | `delete*`, `remove*`, `drop*`, `destroy*`, `purge*`, `clear*`, `reset*`, `archive*`, `unlink*` |
+
+Tools desconhecidas caem em `normal`. Pra ajustar limites, mexer em `api/_lib/mcp/rate-limit-policy.ts`.
+
+**Headers de resposta** (sempre setados, mesmo em sucesso):
+- `X-RateLimit-Bucket: cheap|normal|expensive|destructive`
+- `X-RateLimit-Limit: <n>`
+- `X-RateLimit-Remaining: <n>`
+- `X-RateLimit-Reset: <epoch-seconds>`
+
+**Erro 429** (REST) ou **JSON-RPC error code -32029**:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32029,
+    "message": "Rate limit excedido pra tool \"generateContent\" (bucket=expensive, 5/min). Tente em 38s.",
+    "data": { "bucket": "expensive", "limit": 5, "retryAfterSec": 38 }
+  }
+}
+```
+
+### Backend: Upstash Redis (distribuído) ou fallback in-memory
+
+Quando `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` estão setadas, o limiter usa Upstash sliding window — funciona cross-instance e sobrevive cold starts. **Modo recomendado em produção.**
+
+Sem essas envs, fallback in-memory per-container — protege contra abuse oportunista do mesmo IP/user mas bypassa via paralelismo em containers distintos.
+
+**Setar no Vercel:**
+```bash
+# 1. Criar database Upstash via Vercel Marketplace (https://vercel.com/integrations/upstash)
+#    OU manualmente: console.upstash.com → Create Database → Redis (free tier OK).
+# 2. Pegar REST URL + Token na aba "Details" e setar:
+vercel env add UPSTASH_REDIS_REST_URL production
+vercel env add UPSTASH_REDIS_REST_TOKEN production
+vercel deploy --prod
+```
+
+---
+
+## 8. Adicionando novas tools
 
 Pra que uma tool nova apareça no MCP server **automaticamente**:
 
@@ -204,7 +254,7 @@ Não há nenhum hardcode no MCP server — o registry itera os exports do barrel
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 **`Unauthorized — provide KAI_MCP_TOKEN bearer or JWT`**
 Token não setado ou Bearer não bate. Confira `vercel env ls | grep KAI_MCP_TOKEN`.
@@ -217,3 +267,6 @@ Confira que a tool foi reexportada em `api/_lib/kai-chat-tools/index.ts` E que o
 
 **Erro `Tool "X" não existe`**
 Restart o deploy — o registry cachei tools no escopo do módulo. Cold starts pegam o estado novo automaticamente.
+
+**HTTP 429 / JSON-RPC -32029 inesperado**
+Cliente excedeu o cap do bucket (`X-RateLimit-Bucket` mostra qual). Inspecione `X-RateLimit-Reset` pra saber quando libera, ou aumente o cap em `api/_lib/mcp/rate-limit-policy.ts`. Em prod sem `UPSTASH_REDIS_REST_URL`, o limite é per-container — várias instâncias warm podem gerar caps efetivos maiores que o nominal.

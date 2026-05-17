@@ -105,17 +105,54 @@ SELECT count(*) FROM client_preferences WHERE preference_type = 'content_pillars
 
 Sem isso, clientes existentes não veem pilares nos geradores virais até serem editados manualmente.
 
-### 3. Upgrade rate-limit pra Upstash Redis (P1 — não bloqueante)
+### 3. Upgrade rate-limit pra Upstash Redis ✅ código aplicado, faltam envs
 
-Hoje `api/_lib/shared/rate-limit.ts` é in-memory — vale por container Vercel, não compartilha entre cold starts. Pra hardening real:
+`api/_lib/shared/rate-limit.ts` refatorado em 2026-05-17 — agora detecta Upstash
+e cai pra in-memory quando ausente:
+
+- Nova API async: `rateLimit({ key, limit, windowMs })` retorna
+  `{allowed, remaining, reset, retryAfterSec}`. Sliding window via
+  `@upstash/ratelimit` (prefix `kai:rl`).
+- API legada `checkRateLimit(req, { key, maxPerMinute, maxPerHour? })`
+  preservada como alias síncrono in-memory pros handlers que não querem
+  `await` (firecrawl-scrape, radar-img-proxy, scrape-newsletter, image-search,
+  fetch-rss-feed, generate-content-guidelines).
+- Deps adicionadas: `@upstash/ratelimit@2.0.8`, `@upstash/redis@1.38.0`.
+- MCP handlers (`mcp.ts` + `mcp-tools-call.ts`) agora aplicam rate-limit
+  por bucket (cheap 60/min · normal 20/min · expensive 5/min · destructive
+  3/min) — classificação em `api/_lib/mcp/rate-limit-policy.ts`.
+
+**Setar no Vercel pra ativar modo distribuído:**
 
 ```bash
+# Provisionar Upstash Redis via Vercel Marketplace (recomendado) ou direto em
+# console.upstash.com (free tier OK).
 vercel env add UPSTASH_REDIS_REST_URL production
 vercel env add UPSTASH_REDIS_REST_TOKEN production
-bun add @upstash/ratelimit @upstash/redis
+vercel env add UPSTASH_REDIS_REST_URL preview
+vercel env add UPSTASH_REDIS_REST_TOKEN preview
+vercel deploy --prod
 ```
 
-E refatorar `rate-limit.ts` pra usar Upstash quando env presente, fallback in-memory.
+**Sem essas envs:** fallback in-memory continua funcionando — protege contra
+abuse oportunista do mesmo container, mas não tem sync cross-instance. Em
+múltiplas λ warm o cap efetivo é (cap nominal × N instâncias). Pra MCP isso
+ainda é melhor do que nada porque attacker precisaria abrir N conexões TCP
+simultâneas no mesmo segundo pra burlar.
+
+**Verificar headers em prod:**
+
+```bash
+curl -i -X POST -H "Authorization: Bearer $KAI_MCP_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"listClients","arguments":{"limit":1}}' \
+  https://kai.kaleidos.com.br/api/mcp/tools/call \
+  | grep -i x-ratelimit
+# X-RateLimit-Bucket: cheap
+# X-RateLimit-Limit: 60
+# X-RateLimit-Remaining: 59
+# X-RateLimit-Reset: 1747506678
+```
 
 ### 4. Backfill opcional: instagram_posts.images legados (P2)
 
