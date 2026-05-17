@@ -67,21 +67,36 @@ const MOJIBAKE_HINTS = /Ã[¡-¿]|Ã£|Ã©|Ã§|Ãª/;
  */
 export function stripOuterCodeFence(raw: string): string {
   if (!raw) return raw;
-  const trimmed = raw.trim();
+  let trimmed = raw.trim();
 
-  // Padrão 1: ```tag\n...\n``` envolvendo tudo
-  const fullFence = /^```[a-zA-Z0-9_-]*\s*\n([\s\S]*?)\n```\s*$/;
-  const fullMatch = trimmed.match(fullFence);
-  if (fullMatch) return fullMatch[1].trim();
+  // Aplica até 3 passes pra cobrir o caso double-wrap (`\`\`\`json\n\`\`\`\n...`).
+  // Não loop infinito — bound em 3 iterações.
+  for (let pass = 0; pass < 3; pass++) {
+    const before = trimmed;
 
-  // Padrão 2: ``` no começo (sem fechar)
-  const openOnly = /^```[a-zA-Z0-9_-]*\s*\n/;
-  let result = trimmed.replace(openOnly, '');
+    // Padrão 1: ```tag\n...\n``` envolvendo tudo
+    const fullFence = /^```[a-zA-Z0-9_-]*\s*\n([\s\S]*?)\n```\s*$/;
+    const fullMatch = trimmed.match(fullFence);
+    if (fullMatch) {
+      trimmed = fullMatch[1].trim();
+      continue;
+    }
 
-  // Padrão 3: ``` no fim
-  result = result.replace(/\n```\s*$/, '');
+    // Padrão 2: ```tag\n``` (fence vazia logo no início) seguido de \n...
+    const emptyOpen = /^```[a-zA-Z0-9_-]*\s*\n```\s*\n?/;
+    trimmed = trimmed.replace(emptyOpen, '').trim();
 
-  return result.trim();
+    // Padrão 3: ``` no começo (sem fechar)
+    const openOnly = /^```[a-zA-Z0-9_-]*\s*\n/;
+    trimmed = trimmed.replace(openOnly, '');
+
+    // Padrão 4: ``` no fim
+    trimmed = trimmed.replace(/\n```\s*$/, '').trim();
+
+    if (trimmed === before) break; // converged
+  }
+
+  return trimmed;
 }
 
 /**
@@ -93,22 +108,26 @@ export function stripOuterCodeFence(raw: string): string {
 export function tryParseJsonResponse<T = unknown>(raw: string): T | null {
   const cleaned = stripOuterCodeFence(raw).trim();
   if (!cleaned) return null;
-  if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) return null;
-  try {
-    return JSON.parse(cleaned) as T;
-  } catch {
-    // Tenta achar a primeira chave { ... } válida no texto
-    const start = cleaned.indexOf('{');
-    const end = cleaned.lastIndexOf('}');
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(cleaned.slice(start, end + 1)) as T;
-      } catch {
-        return null;
-      }
+  // Tenta parse direto se começa com { ou [
+  if (cleaned.startsWith('{') || cleaned.startsWith('[')) {
+    try {
+      return JSON.parse(cleaned) as T;
+    } catch {
+      // Fallthrough pra heurística abaixo
     }
-    return null;
   }
+  // Heurística: acha primeira { e última } válidas — útil pra texto com
+  // prefixo "Aqui está o JSON: { ... }".
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start >= 0 && end > start) {
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1)) as T;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 /**
@@ -205,17 +224,29 @@ export function limitHashtags(raw: string, maxCount: number): string {
  */
 export function extractTitleFromContent(content: string, maxLen = 60): string {
   if (!content) return '';
-  // Primeira linha não-meta, não-fence, não-label
-  const firstNonMeta = content
+  // Primeiro: tira fences que envolvam o conteúdo inteiro.
+  // Depois rejeita linhas que SÃO fence interno (```js, ```json sem fechar).
+  // E rejeita linhas dentro de fence interno (heurística: até achar uma
+  // linha sem fence aberto/fechado).
+  let inFence = false;
+  const stripped = stripOuterCodeFence(content);
+  const firstNonMeta = stripped
     .split('\n')
     .map((l) => l.trim())
-    .find(
-      (l) =>
-        l &&
-        !/^```/.test(l) &&
-        !/^\*\*(?:hook|gancho|título|title|cta|legenda|caption):\*\*/i.test(l),
-    );
-  const raw = (firstNonMeta ?? content).trim();
+    .find((l) => {
+      if (/^```/.test(l)) {
+        // toggle fence state e pula a linha do fence
+        inFence = !inFence;
+        return false;
+      }
+      if (inFence) return false;
+      if (!l) return false;
+      if (/^\*\*(?:hook|gancho|título|title|cta|legenda|caption):\*\*/i.test(l)) {
+        return false;
+      }
+      return true;
+    });
+  const raw = (firstNonMeta ?? stripped).trim();
   return raw
     .replace(/^#+\s*/, '')
     .replace(/\*\*/g, '')
