@@ -123,8 +123,9 @@ export function TaskComments({ taskId, readOnly }: TaskCommentsProps) {
             onClick={handleSend}
             disabled={!text.trim() || addComment.isPending}
             className={cn("h-9 w-9 shrink-0")}
+            aria-label="Enviar comentário"
           >
-            <Send className="h-4 w-4" />
+            <Send className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
       )}

@@ -173,8 +173,9 @@ export function TasksCalendarView({
             size="icon"
             className="h-7 w-7"
             onClick={() => setMonth(subMonths(month, 1))}
+            aria-label="Mês anterior"
           >
-            <ChevronLeft className="h-3.5 w-3.5" />
+            <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
           <Button
             variant="outline"
@@ -189,8 +190,9 @@ export function TasksCalendarView({
             size="icon"
             className="h-7 w-7"
             onClick={() => setMonth(addMonths(month, 1))}
+            aria-label="Próximo mês"
           >
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         </div>
       </div>

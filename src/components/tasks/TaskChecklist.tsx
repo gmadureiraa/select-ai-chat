@@ -74,10 +74,12 @@ export function TaskChecklist({ taskId, readOnly }: TaskChecklistProps) {
             key={item.id}
             className="group flex items-center gap-2 py-1 px-1 rounded hover:bg-muted/40"
           >
-            <GripVertical className="h-3 w-3 text-muted-foreground/30 opacity-0 group-hover:opacity-100" />
+            <GripVertical aria-hidden="true" className="h-3 w-3 text-muted-foreground/30 opacity-0 group-hover:opacity-100" />
             <button
               onClick={() => toggleItem.mutate({ id: item.id, is_done: !item.is_done })}
               disabled={readOnly}
+              aria-label={item.is_done ? `Desmarcar: ${item.content}` : `Marcar como concluído: ${item.content}`}
+              aria-pressed={item.is_done}
               className={cn(
                 "h-4 w-4 shrink-0 rounded border flex items-center justify-center transition-colors",
                 item.is_done
@@ -85,7 +87,7 @@ export function TaskChecklist({ taskId, readOnly }: TaskChecklistProps) {
                   : "border-muted-foreground/40 hover:border-primary",
               )}
             >
-              {item.is_done && <Check className="h-3 w-3" />}
+              {item.is_done && <Check aria-hidden="true" className="h-3 w-3" />}
             </button>
 
             {editingId === item.id ? (
@@ -117,8 +119,9 @@ export function TaskChecklist({ taskId, readOnly }: TaskChecklistProps) {
                 onClick={() => removeItem.mutate(item.id)}
                 className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition"
                 title="Remover"
+                aria-label={`Remover: ${item.content}`}
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
             )}
           </div>

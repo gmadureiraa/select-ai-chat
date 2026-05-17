@@ -283,8 +283,9 @@ export function MediaUploader({
                 size="icon"
                 className="h-6 w-6 text-white hover:bg-white/20 cursor-move"
                 onMouseDown={(e) => e.stopPropagation()}
+                aria-label="Reordenar mídia (arraste)"
               >
-                <GripVertical className="h-4 w-4" />
+                <GripVertical className="h-4 w-4" aria-hidden="true" />
               </Button>
               <Button
                 type="button"
@@ -292,8 +293,9 @@ export function MediaUploader({
                 size="icon"
                 className="h-6 w-6 text-white hover:bg-white/20"
                 onClick={(e) => handleOpenLightbox(e, index)}
+                aria-label="Ampliar mídia"
               >
-                <Maximize2 className="h-4 w-4" />
+                <Maximize2 className="h-4 w-4" aria-hidden="true" />
               </Button>
               <Button
                 type="button"
@@ -301,8 +303,9 @@ export function MediaUploader({
                 size="icon"
                 className="h-6 w-6 text-white hover:bg-white/20"
                 onClick={(e) => handleRemove(e, item.id)}
+                aria-label="Remover mídia"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
           </div>

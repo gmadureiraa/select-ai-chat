@@ -70,8 +70,9 @@ export function PublicationStatusBadge({
                   e.stopPropagation();
                   onRetry();
                 }}
+                aria-label="Tentar publicação novamente"
               >
-                <RefreshCw className="h-3 w-3" />
+                <RefreshCw className="h-3 w-3" aria-hidden="true" />
               </Button>
             )}
           </span>
