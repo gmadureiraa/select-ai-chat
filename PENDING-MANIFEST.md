@@ -178,3 +178,27 @@ WHERE images IS NOT NULL
 ---
 
 *Atualizado 2026-05-16 — após processar todos os PENDING-MANIFEST das 6 fix waves do KAI.*
+
+---
+
+## 🔧 Adicionar em `api/handler-manifest.ts` (WRITE/DELETE tools agent, 2026-05-16)
+
+Os 15 novos chat tools (10 WRITE/EDIT + 5 DELETE) precisam destes 10 handlers
+registrados no manifest pra `/api/router?slug=<x>` funcionar em produção:
+
+```ts
+'team-tasks-update': () => import('./_handlers/team-tasks-update.js'),
+'team-tasks-delete': () => import('./_handlers/team-tasks-delete.js'),
+'planning-items-delete': () => import('./_handlers/planning-items-delete.js'),
+'automations-delete': () => import('./_handlers/automations-delete.js'),
+'workspace-members-add': () => import('./_handlers/workspace-members-add.js'),
+'workspace-members-remove': () => import('./_handlers/workspace-members-remove.js'),
+'workspace-members-update-role': () => import('./_handlers/workspace-members-update-role.js'),
+'reference-update': () => import('./_handlers/reference-update.js'),
+'reference-delete': () => import('./_handlers/reference-delete.js'),
+'client-settings-update': () => import('./_handlers/client-settings-update.js'),
+```
+
+Sem isso, as tools chamam `/api/router?slug=team-tasks-update` etc e o
+router não acha o handler → 404. Detalhes completos em
+`PENDING-AGENT-MERGE.md` seção "WRITE/DELETE TOOLS".

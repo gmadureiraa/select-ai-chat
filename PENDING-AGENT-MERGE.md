@@ -261,7 +261,186 @@ disser "tom da defiverso", chame `getVoiceProfile` em vez de perguntar.
 - Build limpa: `bunx tsc --noEmit -p .` zero erros, `bun run build` ✓ 6.22s.
 
 ### WRITE/DELETE TOOLS
-*(pending — owner deve marcar quais tools listadas acima foram entregues + aplicar approval flow)*
+
+> Owner: WRITE/DELETE tools agent. Entregues nesta sessão (2026-05-16).
+
+#### Tools criadas (15 arquivos novos em `api/_lib/kai-chat-tools/`)
+
+**WRITE / EDIT (10):**
+
+| Tool | Arquivo | Resumo |
+|---|---|---|
+| `editTask` | `editTask.ts` | Edita team_task (title/desc/status/priority/due_date/assignee/labels) |
+| `updateWorkflow` | `updateWorkflow.ts` | Edita ai_workflow (nome/cron/config jsonb/is_active) — wrapper de `ai-workflow-update` |
+| `addWorkspaceMember` | `addWorkspaceMember.ts` | Cria invite em workspace_invites (email + role + expires_in_days). NÃO envia email — UI dispara |
+| `removeWorkspaceMember` | `removeWorkspaceMember.ts` | Remove membership. **AÇÃO DESTRUTIVA** — exige `approved: true` |
+| `updateMemberRole` | `updateMemberRole.ts` | Muda role (owner/admin/member). Só owner pode. Não pode rebaixar último owner |
+| `updateBrandAssets` | `updateBrandAssets.ts` | Atualiza `clients.brand_assets` jsonb (logo/cores/typography). Merge raso por padrão |
+| `updateVoiceProfile` | `updateVoiceProfile.ts` | Atualiza `clients.voice_profile` jsonb (tone/persona/pillars/use/avoid). Merge raso |
+| `addReference` | `addReference.ts` | Alias semântico de saveToLibrary com destination='references' fixo |
+| `editReference` | `editReference.ts` | Edita row de `client_reference_library` |
+| `updateClientSettings` | `updateClientSettings.ts` | Upsert genérico em `client_preferences` (key/value bag) |
+
+**DELETE (5):**
+
+| Tool | Arquivo | Resumo |
+|---|---|---|
+| `deleteContent` | `deleteContent.ts` | Deleta planning_item. **AÇÃO DESTRUTIVA** — exige `approved`. Se já publicado, exige `force: true` |
+| `deleteTask` | `deleteTask.ts` | Deleta team_task. Exige `approved: true` |
+| `deletePlanningItem` | `deletePlanningItem.ts` | Alias semântico de deleteContent (framing "card/planejamento" vs "conteúdo") |
+| `deleteReference` | `deleteReference.ts` | Deleta row de `client_reference_library`. Exige `approved` |
+| `deleteAutomation` | `deleteAutomation.ts` | Deleta `planning_automations`. Exige `approved`. Sugere `toggleAutomation` (pausa) como alternativa no card de confirmação |
+
+#### Padrão de aprovação adotado
+
+> Não usei o `requireApproval()` helper do Approval Flow agent (`api/_lib/approval-flow.ts`)
+> porque foi entregue depois deste mapa. Cada tool destrutiva implementa o
+> padrão diretamente:
+>
+> 1. Primeira chamada (sem `approved: true`): retorna card com
+>    `status: 'pending_approval'`, `requires_approval: true` e
+>    `available_actions` contendo botão `variant: 'danger'` com
+>    `tool_call` re-chamando a si própria com `approved: true`.
+> 2. Segunda chamada (com `approved: true`): executa a ação e retorna
+>    card com `status: 'done'`.
+>
+> Se quiser unificar com o helper depois, basta substituir o bloco `if (!args.approved) { ... return { card } }` por `requireApproval({ action, preview, params })` em cada tool delete + `removeWorkspaceMember`. Os 6 arquivos afetados são: deleteContent, deleteTask, deletePlanningItem, deleteReference, deleteAutomation, removeWorkspaceMember.
+
+#### Handlers backend criados (9 novos arquivos em `api/_handlers/`)
+
+| Handler | Tabelas | Auth |
+|---|---|---|
+| `team-tasks-update.ts` | `team_tasks` UPDATE | workspace_members OR super_admin |
+| `team-tasks-delete.ts` | `team_tasks` DELETE | workspace_members OR super_admin |
+| `planning-items-delete.ts` | `planning_items` DELETE | workspace_members do client OR super_admin. Retorna `was_published` |
+| `automations-delete.ts` | `planning_automations` DELETE | workspace_members role owner/admin OR super_admin |
+| `workspace-members-add.ts` | `workspace_invites` UPSERT | owner/admin OR super_admin |
+| `workspace-members-remove.ts` | `workspace_members` DELETE | owner/admin OR super_admin. Bloqueia remover último owner |
+| `workspace-members-update-role.ts` | `workspace_members` UPDATE | só owner OR super_admin. Bloqueia rebaixar último owner |
+| `reference-update.ts` | `client_reference_library` UPDATE | workspace_members do client OR super_admin |
+| `reference-delete.ts` | `client_reference_library` DELETE | workspace_members do client OR super_admin |
+
+**`updateBrandAssets`, `updateVoiceProfile`, `editReference`(metadata)** — todos reusam o handler `client-update` / `reference-update` já existentes via fetch interno.
+
+**`updateClientSettings`** — usa novo handler `client-settings-update.ts` que faz upsert em `client_preferences`.
+
+#### 🔧 ADICIONAR EM `api/_lib/kai-chat-tools/index.ts`
+
+```ts
+// WRITE / EDIT (2026-05-16)
+export { editTaskTool } from './editTask.js';
+export { updateWorkflowTool } from './updateWorkflow.js';
+export { addWorkspaceMemberTool } from './addWorkspaceMember.js';
+export { removeWorkspaceMemberTool } from './removeWorkspaceMember.js';
+export { updateMemberRoleTool } from './updateMemberRole.js';
+export { updateBrandAssetsTool } from './updateBrandAssets.js';
+export { updateVoiceProfileTool } from './updateVoiceProfile.js';
+export { addReferenceTool } from './addReference.js';
+export { editReferenceTool } from './editReference.js';
+export { updateClientSettingsTool } from './updateClientSettings.js';
+
+// DELETE (2026-05-16)
+export { deleteContentTool } from './deleteContent.js';
+export { deleteTaskTool } from './deleteTask.js';
+export { deletePlanningItemTool } from './deletePlanningItem.js';
+export { deleteReferenceTool } from './deleteReference.js';
+export { deleteAutomationTool } from './deleteAutomation.js';
+```
+
+#### 🔧 ADICIONAR EM `api/_handlers/kai-simple-chat.ts`
+
+**1. Imports (bloco de imports nomeados de `../_lib/kai-chat-tools/index.js`):**
+
+```ts
+// WRITE / EDIT
+editTaskTool,
+updateWorkflowTool,
+addWorkspaceMemberTool,
+removeWorkspaceMemberTool,
+updateMemberRoleTool,
+updateBrandAssetsTool,
+updateVoiceProfileTool,
+addReferenceTool,
+editReferenceTool,
+updateClientSettingsTool,
+// DELETE
+deleteContentTool,
+deleteTaskTool,
+deletePlanningItemTool,
+deleteReferenceTool,
+deleteAutomationTool,
+```
+
+**2. Registry (logo depois dos READ tools agregadores ~linha 2310):**
+
+```ts
+// WRITE / EDIT tools (2026-05-16) — controle pleno sobre tasks, workflows,
+// workspace members, brand assets, voice profile e refs.
+registry.register(editTaskTool);
+registry.register(updateWorkflowTool);
+registry.register(addWorkspaceMemberTool);
+registry.register(removeWorkspaceMemberTool);
+registry.register(updateMemberRoleTool);
+registry.register(updateBrandAssetsTool);
+registry.register(updateVoiceProfileTool);
+registry.register(addReferenceTool);
+registry.register(editReferenceTool);
+registry.register(updateClientSettingsTool);
+
+// DELETE tools (2026-05-16) — TODAS exigem approved=true; primeira chamada
+// retorna card status=pending_approval com botão re-chamando approved=true.
+registry.register(deleteContentTool);
+registry.register(deleteTaskTool);
+registry.register(deletePlanningItemTool);
+registry.register(deleteReferenceTool);
+registry.register(deleteAutomationTool);
+```
+
+#### 🔧 ADICIONAR NO SYSTEM PROMPT (`systemInstructionText`, dentro do bloco "Heurísticas de roteamento")
+
+```
+### Heurísticas de roteamento (WRITE / EDIT — 2026-05-16):
+- "muda status/prazo/título da task X" → `editTask`
+- "muda cron/prompt/config do workflow Y" → `updateWorkflow` (ai_workflows). Use `toggleAutomation` pra planning_automations
+- "convida fulano@x pro workspace", "adiciona membro" → `addWorkspaceMember` (cria invite)
+- "remove o João do workspace", "kicka o membro" → `removeWorkspaceMember` (DESTRUTIVA — sempre pede aprovação)
+- "promove pra admin", "rebaixa pra member", "torna owner" → `updateMemberRole` (só owner pode)
+- "muda cor primária pra X", "atualiza logo", "troca fonte" → `updateBrandAssets` (merge raso por padrão)
+- "muda tom pra mais informal", "adiciona pilar X", "atualiza persona" → `updateVoiceProfile` (merge raso por padrão)
+- "adiciona essa ref", "salva esse post como inspiração" → `addReference` (alias mais semântico que saveToLibrary)
+- "edita essa ref", "muda título/nota/tags da ref X" → `editReference`
+- "muda default de plataforma", "liga notificações", "salva como minha preferência X=Y" → `updateClientSettings`
+
+### Heurísticas de roteamento (DELETE — 2026-05-16):
+- "deleta esse carrossel/post", "apaga esse rascunho" → `deleteContent`
+- "remove esse card", "tira do kanban/planejamento" → `deletePlanningItem` (mesmo handler, framing diferente)
+- "deleta tarefa X" → `deleteTask`
+- "remove essa ref da library" → `deleteReference`
+- "apaga automação Y" (DESTRUTIVO) → `deleteAutomation`. Pra pausar use `toggleAutomation` (recuperável)
+
+### REGRAS DE APROVAÇÃO (TODAS as tools destrutivas):
+Toda chamada inicial a `delete*` ou `removeWorkspaceMember` retorna
+`requires_approval: true` + card com status `pending_approval`. O usuário
+clica no botão na UI e a UI re-chama a MESMA tool com `approved: true` no
+payload — só então a deleção acontece. NÃO chame com `approved: true` no
+primeiro turno, mesmo se o user "já confirmou" no texto: a UI precisa
+mostrar o card de confirmação primeiro.
+
+### REGRA EXTRA pra deleteContent / deletePlanningItem:
+Se o item já tem `status = 'published'` ou `published_at IS NOT NULL`, o
+backend exige `force: true` ADICIONAL. O card de confirmação já injeta
+`force: true` automaticamente quando detecta item publicado, mas se você
+montar tool_call manualmente, lembra de incluir ambos: `approved: true` E
+`force: true`.
+```
+
+#### 📝 Notas de implementação
+
+- Padrão idêntico às tools existentes: lookup leve via `query` direto, fetch HTTP para handler real (exceto `updateBrandAssets`/`updateVoiceProfile` que ainda usam fetch HTTP pro `client-update` mas fazem merge raso lendo o estado atual via query antes).
+- Variant CSS válido é `'danger'` (não `'destructive'` — gotcha). Status válido é `'pending_approval'` (não `'pending'`).
+- 9 handlers backend novos — ver `PENDING-MANIFEST.md` pros slugs a adicionar em `handler-manifest.ts`.
+- Build limpa: `bunx tsc --noEmit -p tsconfig.json` zero erros; `bun run build` ✓ 6.13s.
+- Commits: 2 (handlers backend + tools front).
 
 ### MCP LAYER
 *(pending)*
