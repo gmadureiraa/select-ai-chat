@@ -1,18 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { User, Sun, Moon, Palette, Key, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "next-themes";
-import { TeamManagement } from "@/components/settings/TeamManagement";
-
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,14 +20,47 @@ import { useToast } from "@/hooks/use-toast";
 import { SettingsNavigation, SettingsSection } from "@/components/settings/SettingsNavigation";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import Documentation from "@/pages/Documentation";
-import { AIUsageSettings } from "@/components/settings/AIUsageSettings";
-import { WebhookSettings } from "@/components/settings/WebhookSettings";
-import { WorkspaceSettingsTab } from "@/components/workspace/WorkspaceSettingsTab";
-import { WorkspaceMembersTab } from "@/components/workspace/WorkspaceMembersTab";
-import { IntegrationsSettings } from "@/components/settings/IntegrationsSettings";
-import { AuditLogSettings } from "@/components/settings/AuditLogSettings";
-import { MCPDocsTab } from "@/components/kai/MCPDocsTab";
+
+// 2026-05-17 — sections grandes (TeamManagement, Documentation, AIUsage, Webhook,
+// Workspace settings, Members, Integrations, AuditLog, MCPDocs) viraram lazy.
+// SettingsTab inteiro era ~178kB porque eager-importava TUDO; agora só baixa
+// a section que o user navegou via SettingsNavigation. Profile/Notifications/
+// Appearance ficam eager pq são o caso comum + pequenos.
+const TeamManagement = lazy(() =>
+  import("@/components/settings/TeamManagement").then((m) => ({ default: m.TeamManagement })),
+);
+const Documentation = lazy(() => import("@/pages/Documentation"));
+const AIUsageSettings = lazy(() =>
+  import("@/components/settings/AIUsageSettings").then((m) => ({ default: m.AIUsageSettings })),
+);
+const WebhookSettings = lazy(() =>
+  import("@/components/settings/WebhookSettings").then((m) => ({ default: m.WebhookSettings })),
+);
+const WorkspaceSettingsTab = lazy(() =>
+  import("@/components/workspace/WorkspaceSettingsTab").then((m) => ({ default: m.WorkspaceSettingsTab })),
+);
+const WorkspaceMembersTab = lazy(() =>
+  import("@/components/workspace/WorkspaceMembersTab").then((m) => ({ default: m.WorkspaceMembersTab })),
+);
+const IntegrationsSettings = lazy(() =>
+  import("@/components/settings/IntegrationsSettings").then((m) => ({ default: m.IntegrationsSettings })),
+);
+const AuditLogSettings = lazy(() =>
+  import("@/components/settings/AuditLogSettings").then((m) => ({ default: m.AuditLogSettings })),
+);
+const MCPDocsTab = lazy(() =>
+  import("@/components/kai/MCPDocsTab").then((m) => ({ default: m.MCPDocsTab })),
+);
+
+function SectionSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-32 w-full" />
+    </div>
+  );
+}
 
 export function SettingsTab() {
   const { user, signOut } = useAuth();
@@ -344,38 +376,46 @@ export function SettingsTab() {
   );
 
   const renderSectionContent = () => {
-    switch (activeSection) {
-      case "profile":
-        return renderProfileSection();
-      case "workspace":
-        return isOwner ? <WorkspaceSettingsTab /> : renderProfileSection();
-      case "members":
-        return canManageTeam ? <WorkspaceMembersTab /> : renderProfileSection();
-      case "team":
-        return <TeamManagement />;
-      case "notifications":
-        return renderNotificationsSection();
-      case "appearance":
-        return renderAppearanceSection();
-      case "integrations":
-        return <IntegrationsSettings />;
-      case "audit-log":
-        return canManageTeam ? <AuditLogSettings /> : renderProfileSection();
-      case "docs":
-        return <Documentation />;
-      case "ai-usage":
-        return <AIUsageSettings />;
-      case "webhooks":
-        return <WebhookSettings />;
-      case "mcp":
-        // MCP é workspace-wide (token único compartilhado).
-        // Movido pra cá em 2026-05-09 — antes vivia como item solto no
-        // footer da sidebar principal. Faz mais sentido em Sistema porque
-        // configura como o Claude Code se conecta ao backend Kaleidos.
-        return <MCPDocsTab />;
-      default:
-        return renderProfileSection();
-    }
+    // Wrap em Suspense pra cobrir as sections lazy (TeamManagement,
+    // Documentation, AIUsageSettings, WebhookSettings, WorkspaceSettingsTab,
+    // WorkspaceMembersTab, IntegrationsSettings, AuditLogSettings, MCPDocsTab).
+    // Profile/Notifications/Appearance ficam eager e não precisam de fallback.
+    const content = (() => {
+      switch (activeSection) {
+        case "profile":
+          return renderProfileSection();
+        case "workspace":
+          return isOwner ? <WorkspaceSettingsTab /> : renderProfileSection();
+        case "members":
+          return canManageTeam ? <WorkspaceMembersTab /> : renderProfileSection();
+        case "team":
+          return <TeamManagement />;
+        case "notifications":
+          return renderNotificationsSection();
+        case "appearance":
+          return renderAppearanceSection();
+        case "integrations":
+          return <IntegrationsSettings />;
+        case "audit-log":
+          return canManageTeam ? <AuditLogSettings /> : renderProfileSection();
+        case "docs":
+          return <Documentation />;
+        case "ai-usage":
+          return <AIUsageSettings />;
+        case "webhooks":
+          return <WebhookSettings />;
+        case "mcp":
+          // MCP é workspace-wide (token único compartilhado).
+          // Movido pra cá em 2026-05-09 — antes vivia como item solto no
+          // footer da sidebar principal. Faz mais sentido em Sistema porque
+          // configura como o Claude Code se conecta ao backend Kaleidos.
+          return <MCPDocsTab />;
+        default:
+          return renderProfileSection();
+      }
+    })();
+
+    return <Suspense fallback={<SectionSkeleton />}>{content}</Suspense>;
   };
 
   return (
