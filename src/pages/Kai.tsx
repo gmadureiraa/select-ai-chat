@@ -146,7 +146,28 @@ export default function Kai() {
   const { isSuperAdmin } = useSuperAdmin();
   const selectedClient = clients?.find(c => c.id === clientId);
   
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // 2026-05-16 — fix audit P1-2: persiste estado collapsed em localStorage
+  // pra sobreviver a reloads (login, refresh, deep link). Mesmo padrão usado
+  // por `kai-theme` (next-themes em App.tsx).
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem("kai_sidebar_collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        "kai_sidebar_collapsed",
+        sidebarCollapsed ? "1" : "0",
+      );
+    } catch {
+      // localStorage indisponível (private mode em algum browser exótico) — ignora
+    }
+  }, [sidebarCollapsed]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Atalhos globais de teclado — funcionam em qualquer tab.
