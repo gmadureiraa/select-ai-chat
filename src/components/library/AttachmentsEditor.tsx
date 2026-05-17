@@ -73,8 +73,9 @@ export function AttachmentsEditor({
                     size="icon"
                     className="absolute bottom-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={() => setExpandedImage(item.url)}
+                    aria-label={`Expandir imagem: ${item.name}`}
                   >
-                    <Maximize2 className="h-3 w-3" />
+                    <Maximize2 aria-hidden="true" className="h-3 w-3" />
                   </Button>
                 </div>
               ) : (
@@ -98,8 +99,9 @@ export function AttachmentsEditor({
                   size="icon"
                   className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => onRemove(item.id)}
+                  aria-label={`Remover ${item.name}`}
                 >
-                  <X className="h-3 w-3" />
+                  <X aria-hidden="true" className="h-3 w-3" />
                 </Button>
               )}
             </div>
@@ -122,8 +124,9 @@ export function AttachmentsEditor({
                 size="icon"
                 className="absolute top-2 right-2 text-white hover:bg-white/20"
                 onClick={() => setExpandedImage(null)}
+                aria-label="Fechar visualização ampliada"
               >
-                <X className="h-5 w-5" />
+                <X aria-hidden="true" className="h-5 w-5" />
               </Button>
             </div>
           )}

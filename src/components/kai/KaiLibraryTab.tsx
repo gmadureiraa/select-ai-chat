@@ -269,8 +269,9 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
                           deleteVisualReference.mutate(ref.id);
                         }
                       }}
+                      aria-label="Excluir referência visual"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 aria-hidden="true" className="h-3 w-3" />
                     </Button>
                   )}
                 </div>

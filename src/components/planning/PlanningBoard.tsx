@@ -409,8 +409,10 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
                       size="icon"
                       onClick={() => setShowAutomations(!showAutomations)}
                       className={cn("h-9 w-9", showAutomations && 'bg-primary/10 text-primary')}
+                      aria-label="Automações"
+                      aria-pressed={showAutomations}
                     >
-                      <Zap className="h-4 w-4" />
+                      <Zap aria-hidden="true" className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Automações</TooltipContent>
@@ -422,8 +424,9 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
                       size="icon"
                       onClick={() => setShowClickUpImport(true)}
                       className="h-9 w-9"
+                      aria-label="Importar do ClickUp"
                     >
-                      <Upload className="h-4 w-4" />
+                      <Upload aria-hidden="true" className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Importar do ClickUp</TooltipContent>

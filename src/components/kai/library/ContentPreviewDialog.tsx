@@ -228,16 +228,18 @@ export function ContentPreviewDialog({
                       size="icon"
                       className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 hover:bg-background"
                       onClick={handlePrevImage}
+                      aria-label="Imagem anterior"
                     >
-                      <ChevronLeft className="h-4 w-4" />
+                      <ChevronLeft aria-hidden="true" className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="secondary"
                       size="icon"
                       className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 hover:bg-background"
                       onClick={handleNextImage}
+                      aria-label="Próxima imagem"
                     >
-                      <ChevronRight className="h-4 w-4" />
+                      <ChevronRight aria-hidden="true" className="h-4 w-4" />
                     </Button>
                     
                     {/* Image counter */}

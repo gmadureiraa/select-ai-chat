@@ -187,6 +187,7 @@ export function PendingInvitesAlert() {
                   size="icon"
                   className="h-8 w-8"
                   title="Esconder por agora"
+                  aria-label="Esconder convite por agora"
                   onClick={() =>
                     setDismissed((prev) => ({
                       ...prev,
@@ -194,7 +195,7 @@ export function PendingInvitesAlert() {
                     }))
                   }
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X aria-hidden="true" className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>

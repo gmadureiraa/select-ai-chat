@@ -406,8 +406,9 @@ export function GlobalKAIInputMinimal({
           className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
           onClick={() => fileInputRef.current?.click()}
           disabled={isProcessing || disabled || attachedFiles.length >= MAX_FILES}
+          aria-label="Anexar arquivo"
         >
-          <Paperclip className="h-4 w-4" />
+          <Paperclip aria-hidden="true" className="h-4 w-4" />
         </Button>
 
         {/* @ button for mentions */}
@@ -421,8 +422,9 @@ export function GlobalKAIInputMinimal({
             textareaRef.current?.focus();
           }}
           disabled={isProcessing || disabled}
+          aria-label="Mencionar"
         >
-          <AtSign className="h-4 w-4" />
+          <AtSign aria-hidden="true" className="h-4 w-4" />
         </Button>
 
         {/* Text input */}
@@ -451,8 +453,9 @@ export function GlobalKAIInputMinimal({
             className="h-9 w-9 shrink-0"
             onClick={onCancel}
             title="Parar geração"
+            aria-label="Parar geração"
           >
-            <Square className="h-4 w-4 fill-current" />
+            <Square aria-hidden="true" className="h-4 w-4 fill-current" />
           </Button>
         ) : (
           <Button
@@ -460,8 +463,9 @@ export function GlobalKAIInputMinimal({
             className="h-9 w-9 shrink-0"
             onClick={handleSend}
             disabled={(!message.trim() && attachedFiles.length === 0) || disabled}
+            aria-label="Enviar mensagem"
           >
-            <Send className="h-4 w-4" />
+            <Send aria-hidden="true" className="h-4 w-4" />
           </Button>
         )}
       </div>

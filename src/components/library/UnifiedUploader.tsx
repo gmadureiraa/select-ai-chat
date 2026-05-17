@@ -387,8 +387,9 @@ export function UnifiedUploader({
                 size="icon"
                 className="h-5 w-5 shrink-0"
                 onClick={() => removeItem(item.id)}
+                aria-label={`Remover ${item.name || "anexo"}`}
               >
-                <X className="h-3 w-3" />
+                <X aria-hidden="true" className="h-3 w-3" />
               </Button>
             </div>
           ))}

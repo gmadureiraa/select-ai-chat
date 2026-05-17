@@ -400,8 +400,9 @@ export function AutomationRunDetailDialog({
                             size="icon"
                             className="absolute top-2 right-2 h-7 w-7"
                             onClick={() => copyToClipboard(createdItem.content || createdItem.description || '')}
+                            aria-label="Copiar conteúdo"
                           >
-                            <Copy className="h-3.5 w-3.5" />
+                            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       )}

@@ -493,8 +493,9 @@ export const FloatingInput = ({
                   : "text-muted-foreground/60 hover:text-muted-foreground"
               )}
               title="Citar conteúdo (@)"
+              aria-label={citations.length > 0 ? `Citações ativas (${citations.length})` : "Citar conteúdo da biblioteca"}
             >
-              <AtSign className="h-3.5 w-3.5" />
+              <AtSign aria-hidden="true" className="h-3.5 w-3.5" />
             </Button>
           )}
 
@@ -506,8 +507,9 @@ export const FloatingInput = ({
             disabled={disabled || uploadingImages}
             className="h-8 w-8 rounded-lg hover:bg-muted/40 text-muted-foreground/60 hover:text-muted-foreground"
             title="Anexar imagem"
+            aria-label="Anexar imagem"
           >
-            <ImageIcon className="h-3.5 w-3.5" />
+            <ImageIcon aria-hidden="true" className="h-3.5 w-3.5" />
           </Button>
 
           {/* Send Button */}
@@ -515,17 +517,18 @@ export const FloatingInput = ({
             onClick={handleSubmit}
             disabled={isSubmitDisabled}
             size="icon"
+            aria-label={uploadingImages ? "Enviando..." : "Enviar mensagem"}
             className={cn(
               "h-8 w-8 rounded-lg transition-all",
-              isSubmitDisabled 
-                ? "bg-muted/50 text-muted-foreground/40" 
+              isSubmitDisabled
+                ? "bg-muted/50 text-muted-foreground/40"
                 : "bg-foreground hover:bg-foreground/90 text-background"
             )}
           >
             {uploadingImages ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Send className="h-3.5 w-3.5" />
+              <Send aria-hidden="true" className="h-3.5 w-3.5" />
             )}
           </Button>
         </div>
