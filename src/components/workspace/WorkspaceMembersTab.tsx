@@ -434,10 +434,12 @@ export function WorkspaceMembersTab() {
                     variant="ghost"
                     size="icon"
                     title="Reenviar email"
+                    aria-label="Reenviar convite por email"
                     onClick={() => handleResendInvite(invite)}
                     disabled={resendingInviteId === invite.id}
                   >
                     <RefreshCw
+                      aria-hidden="true"
                       className={cn(
                         "h-4 w-4",
                         resendingInviteId === invite.id && "animate-spin",
@@ -448,10 +450,11 @@ export function WorkspaceMembersTab() {
                     variant="ghost"
                     size="icon"
                     title="Cancelar convite"
+                    aria-label="Cancelar convite"
                     onClick={() => cancelInvite.mutate(invite.id)}
                     disabled={cancelInvite.isPending}
                   >
-                    <X className="h-4 w-4" />
+                    <X aria-hidden="true" className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -565,8 +568,9 @@ export function WorkspaceMembersTab() {
                           size="icon"
                           onClick={() => setMemberToRemove(member.id)}
                           title="Remover membro"
+                          aria-label="Remover membro"
                         >
-                          <X className="h-4 w-4 text-destructive" />
+                          <X aria-hidden="true" className="h-4 w-4 text-destructive" />
                         </Button>
                       )}
                     </div>

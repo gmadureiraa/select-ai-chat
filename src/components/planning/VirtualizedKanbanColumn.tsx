@@ -222,8 +222,9 @@ export const VirtualizedKanbanColumn = memo(function VirtualizedKanbanColumn({
             size="icon"
             className="h-6 w-6 text-muted-foreground hover:text-foreground"
             onClick={() => onAddCard(column.id)}
+            aria-label={`Adicionar card em ${column.title}`}
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus aria-hidden="true" className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
