@@ -241,3 +241,66 @@ mantiveram o método (POST). Mudanças foram:
    `linkedin_posts` (tabelas órfãs). Quando reativar tabelas per-client
    (provavelmente via Metricool sync), descomenta o bloco e aponta pro
    shape novo.
+
+---
+
+# Pendências da onda AI/Workflows/Chat — 2026-05-16
+
+> Adicionado pelo agente de Projetos Pessoais durante o fix AI/Workflows/Chat
+> P0. Contexto completo: `vault/01 - KALEIDOS/012 - INTERNO/02 - PROJETOS/KAI/audit-2026-05-16/ai-workflows-chat.md`.
+
+## 1. Cron pra `run-madureira-workflows-daily` (NOVO — bloqueante)
+
+**Hoje:** `cron-radar-master` (que disparava esse handler diariamente) FOI
+DELETADO no commit `e4575fce` (remove Reels Viral + Radar Viral). Restou só
+`ai-workflow-trigger` que é botão de teste manual.
+
+Resultado: os 10 workflows Madureira do agent `madureira-redes` (carrosséis IG,
+LinkedIn posts, threads X, batches TikTok, etc) NÃO disparam mais
+automaticamente. Cards de planning não nascem sozinhos no calendário do
+Madureira.
+
+**Adicionar ao `vercel.json` crons array:**
+```json
+{
+  "path": "/api/run-madureira-workflows-daily",
+  "schedule": "0 10 * * *"
+}
+```
+
+7am BR = 10 UTC. Handler já valida `x-vercel-cron` OR `Bearer ${CRON_SECRET}`
+em `run-madureira-workflows-daily.ts:447-450`.
+
+**maxDuration:** o handler roda 4 workflows × ~7-8s cada via Gemini = ~30s.
+Como hoje todo handler vai pelo `/api/router.ts` que tem `maxDuration: 60`
+(vercel.json:27), já cabe sem ajuste.
+
+⚠️ Vercel Hobby tem limite de 2 crons. Combinar com os 3 outros novos
+(process-scheduled-posts, process-push-queue, process-email-notifications)
+exige upgrade pra Pro (limite 40 crons/min granularity).
+
+## 2. Handler `analyzeViralReel` morto — tool registrada sem destino
+
+`api/_lib/kai-chat-tools/analyzeViralReel.ts` continua registrada na lista de
+tools do KAI Chat (`kai-simple-chat.ts:2270`) e aponta pra
+`/api/adapt-viral-reel` que foi DELETADO no commit `e4575fce`. Qualquer
+chamada da tool no chat retorna fetch network error.
+
+**Opções:**
+- **A.** Remover do registry (`kai-simple-chat.ts:2270`) + remover do system
+  prompt (`kai-simple-chat.ts:2153, 2163`) + deletar
+  `api/_lib/kai-chat-tools/analyzeViralReel.ts` + remover `analyzeViralReelTool`
+  do `api/_lib/kai-chat-tools/index.ts`. Limpa morto.
+- **B.** Tool vira stub que devolve mensagem "use https://reels.kaleidos.com.br
+  pra essa feature". Mantém função pra futura re-integração.
+
+Mesma decisão pra `createRadarBriefTool` (handler `generate-radar-brief`
+também deletado).
+
+Recomendação: **opção A** — código morto polui e a tool nunca vai gerar valor
+sem o handler. Backend agent decide e remove na próxima onda.
+
+## 3. handler-manifest entry pra `run-madureira-workflows-daily`
+
+Já existe (`handler-manifest.ts:111`). Sem ação necessária — só ativar o cron
+acima.
