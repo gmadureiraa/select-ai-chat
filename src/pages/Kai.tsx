@@ -372,12 +372,19 @@ export default function Kai() {
     setSearchParams(params);
   };
 
-  // Auto-select first client if none selected
+  // Auto-select first client if none selected.
+  // 2026-05-17 — audit Dt-4: setSearchParams nas deps em vez de
+  // handleClientChange (que e re-criada todo render — gera loop infinito se
+  // entrar nas deps). setSearchParams e estavel via React-Router. Mantemos
+  // a chamada direta em vez de extrair handleClientChange p/ useCallback
+  // pq evita re-render cascade.
   useEffect(() => {
     if (!clientId && clients && clients.length > 0) {
-      handleClientChange(clients[0].id);
+      const params = new URLSearchParams(searchParams);
+      params.set("client", clients[0].id);
+      setSearchParams(params);
     }
-  }, [clientId, clients]);
+  }, [clientId, clients, searchParams, setSearchParams]);
 
 
   const renderContent = () => {
