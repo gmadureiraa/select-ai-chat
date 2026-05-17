@@ -51,8 +51,8 @@ export function TabHeader({
     >
       <div className="flex items-center gap-3 min-w-0">
         {Icon && (
-          <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-            <Icon className="h-4 w-4 text-primary" />
+          <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0" aria-hidden="true">
+            <Icon aria-hidden="true" className="h-4 w-4 text-primary" />
           </div>
         )}
         <div className="min-w-0">

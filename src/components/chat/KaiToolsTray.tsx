@@ -358,13 +358,15 @@ export function KaiToolsTray({ onPickPrompt, variant = "inline", className }: Ka
             26 capacidades organizadas. Clique num exemplo pra colar no chat.
           </SheetDescription>
           <div className="relative pt-2">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/4 h-3.5 w-3.5 text-muted-foreground" />
+            <Search aria-hidden="true" className="absolute left-2.5 top-1/2 -translate-y-1/4 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por capacidade ou exemplo..."
               className="pl-8 h-9 text-sm"
               autoFocus={!isMobile}
+              type="search"
+              aria-label="Buscar ferramentas kAI"
             />
             {search && (
               <button
@@ -372,7 +374,7 @@ export function KaiToolsTray({ onPickPrompt, variant = "inline", className }: Ka
                 className="absolute right-2 top-1/2 translate-y-[-15%] p-1 rounded hover:bg-muted text-muted-foreground"
                 aria-label="Limpar busca"
               >
-                <X className="h-3 w-3" />
+                <X aria-hidden="true" className="h-3 w-3" />
               </button>
             )}
           </div>

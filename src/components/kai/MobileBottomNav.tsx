@@ -115,6 +115,7 @@ export function MobileBottomNav() {
                 )}
               >
                 <Icon
+                  aria-hidden="true"
                   className={cn("h-5 w-5", item.center && "h-6 w-6")}
                   strokeWidth={1.5}
                 />
@@ -141,7 +142,7 @@ export function MobileBottomNav() {
                     (moreActive || moreOpen) && "bg-accent text-foreground",
                   )}
                 >
-                  <MoreHorizontal className="h-5 w-5" strokeWidth={1.5} />
+                  <MoreHorizontal aria-hidden="true" className="h-5 w-5" strokeWidth={1.5} />
                 </div>
                 <span className="leading-none">Mais</span>
               </button>
@@ -160,7 +161,7 @@ export function MobileBottomNav() {
                       )}
                       aria-current={active ? "page" : undefined}
                     >
-                      <Icon className="h-4 w-4" strokeWidth={1.5} />
+                      <Icon aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
                       <span>{item.label}</span>
                     </DropdownMenuItem>
                     {/* Separador antes de "Configurações" */}

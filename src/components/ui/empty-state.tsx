@@ -11,10 +11,11 @@ interface EmptyStateProps {
   className?: string;
 }
 
-// SVG illustrations for different variants
+// SVG illustrations for different variants.
+// Todas decorativas (texto adjacente diz tudo), por isso aria-hidden.
 const illustrations = {
   default: (
-    <svg viewBox="0 0 200 200" className="w-full h-full" fill="none">
+    <svg viewBox="0 0 200 200" className="w-full h-full" fill="none" aria-hidden="true" focusable="false">
       <circle cx="100" cy="100" r="80" className="fill-muted/30" />
       <circle cx="100" cy="100" r="60" className="fill-muted/20" />
       <circle cx="100" cy="100" r="40" className="fill-muted/10" />
@@ -29,7 +30,7 @@ const illustrations = {
     </svg>
   ),
   chart: (
-    <svg viewBox="0 0 200 200" className="w-full h-full" fill="none">
+    <svg viewBox="0 0 200 200" className="w-full h-full" fill="none" aria-hidden="true" focusable="false">
       <rect x="20" y="120" width="25" height="60" rx="4" className="fill-muted/40" />
       <rect x="55" y="90" width="25" height="90" rx="4" className="fill-muted/50" />
       <rect x="90" y="60" width="25" height="120" rx="4" className="fill-primary/30" />
@@ -47,7 +48,7 @@ const illustrations = {
     </svg>
   ),
   table: (
-    <svg viewBox="0 0 200 200" className="w-full h-full" fill="none">
+    <svg viewBox="0 0 200 200" className="w-full h-full" fill="none" aria-hidden="true" focusable="false">
       <rect x="30" y="50" width="140" height="100" rx="8" className="fill-muted/20 stroke-border" strokeWidth="2" />
       <line x1="30" y1="80" x2="170" y2="80" className="stroke-border" strokeWidth="2" />
       <line x1="30" y1="110" x2="170" y2="110" className="stroke-muted/50" strokeWidth="1" strokeDasharray="4 2" />
@@ -60,7 +61,7 @@ const illustrations = {
     </svg>
   ),
   chat: (
-    <svg viewBox="0 0 200 200" className="w-full h-full" fill="none">
+    <svg viewBox="0 0 200 200" className="w-full h-full" fill="none" aria-hidden="true" focusable="false">
       <rect x="40" y="50" width="100" height="60" rx="12" className="fill-muted/30" />
       <rect x="60" y="130" width="100" height="40" rx="12" className="fill-primary/20" />
       <circle cx="60" cy="70" r="4" className="fill-muted-foreground/40" />
@@ -114,8 +115,9 @@ export function EmptyState({
           animate={{ scale: 1 }}
           transition={{ duration: 0.3, delay: 0.2, type: "spring" }}
           className="mb-4 p-3 rounded-xl bg-primary/10"
+          aria-hidden="true"
         >
-          <Icon className="h-6 w-6 text-primary" />
+          <Icon aria-hidden="true" className="h-6 w-6 text-primary" />
         </motion.div>
       )}
 
