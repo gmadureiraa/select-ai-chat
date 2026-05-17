@@ -15,9 +15,7 @@ import {
   MessageSquare,
   Home,
   Twitter,
-  Film,
   CheckSquare,
-  Radar,
   MessagesSquare,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
@@ -352,6 +350,19 @@ export function KaiSidebar({
         aria-label="Navegação principal do workspace"
         className="flex-1 px-2 space-y-1 overflow-y-auto scrollbar-hide"
       >
+        {isViewer ? (
+          <>
+            <SidebarSectionHeader title="Revisão" collapsed={collapsed} />
+            <NavItem
+              icon={<CalendarDays className="h-4 w-4" strokeWidth={1.5} />}
+              label="Planejamento"
+              active={activeTab === "planning"}
+              onClick={() => onTabChange("planning")}
+              collapsed={collapsed}
+            />
+          </>
+        ) : (
+          <>
         {/* ===== DASHBOARD ===== */}
         <NavItem
           icon={<Home className="h-4 w-4" strokeWidth={1.5} />}
@@ -407,21 +418,8 @@ export function KaiSidebar({
           collapsed={collapsed}
         />
 
-        <NavItem
-          icon={<Film className="h-4 w-4" strokeWidth={1.5} />}
-          label="Reels"
-          active={activeTab === "viral-reels-page"}
-          onClick={() => onTabChange("viral-reels-page")}
-          collapsed={collapsed}
-        />
-
-        <NavItem
-          icon={<Radar className="h-4 w-4" strokeWidth={1.5} />}
-          label="Radar"
-          active={activeTab === "viral-radar-page"}
-          onClick={() => onTabChange("viral-radar-page")}
-          collapsed={collapsed}
-        />
+        {/* 2026-05-16 — Reels e Radar removidos do KAI; vivem como apps
+            standalone em reels.kaleidos.com.br e radar.kaleidos.com.br. */}
 
         {/* Automações - Dev e admins do workspace */}
         {(hasDevAccess || canManageTeam) && (
@@ -488,6 +486,8 @@ export function KaiSidebar({
               disabled={isViewer}
               showLock={isViewer}
             />
+          </>
+        )}
           </>
         )}
       </nav>

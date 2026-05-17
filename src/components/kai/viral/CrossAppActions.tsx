@@ -17,7 +17,7 @@
 
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { FileText, Lightbulb, Video, Library } from "lucide-react";
+import { FileText, Lightbulb, Library } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -77,6 +77,7 @@ interface CrossAppActionsProps {
   /** Cliente atual — necessário pra "Salvar na biblioteca" funcionar. */
   clientId?: string | null;
   showCarrossel?: boolean;
+  /** @deprecated Reels Viral removido do KAI em 2026-05-16. Mantido pra compat. */
   showReel?: boolean;
   showIdea?: boolean;
   showLibrary?: boolean;
@@ -94,7 +95,7 @@ export function CrossAppActions({
   metadata,
   clientId,
   showCarrossel = true,
-  showReel = true,
+  showReel = false,
   showIdea = true,
   showLibrary = true,
   size = "sm",
@@ -105,7 +106,7 @@ export function CrossAppActions({
   const setPending = useViralContext((s) => s.setPendingBriefing);
 
   async function handleAction(
-    target: "carrossel" | "reels" | "idea" | "library",
+    target: "carrossel" | "idea" | "library",
   ) {
     if (target === "idea") {
       // Persiste como planning_item type='idea' no cliente atual (se houver)
@@ -232,34 +233,19 @@ export function CrossAppActions({
     //
     // Anti-loop: se source === target já (ex: clicou "→ Carrossel" dentro do
     // próprio SV), não bridgeia nem navega — só pula o briefing pra um novo
-    // create silencioso. Evita o useEffect do create-new processar o mesmo
-    // payload em loop.
-    if (
-      (target === "carrossel" && source === "sv") ||
-      (target === "reels" && source === "reels")
-    ) {
-      // Mesma tab, navegamos só pro flow de criação dentro dela.
+    // 2026-05-16: branch "reels" removido (Reels Viral saiu do KAI).
+    // Resta só "carrossel" — sempre vai pra viral-carrossel.
+    if (target === "carrossel" && source === "sv") {
       const next = new URLSearchParams(searchParams);
-      if (target === "carrossel") {
-        next.set("tab", "viral-carrossel");
-        navigate({ search: next.toString(), hash: "#/create/new" });
-      } else {
-        next.set("tab", "viral-reels-page");
-        navigate({ search: next.toString() });
-      }
+      next.set("tab", "viral-carrossel");
+      navigate({ search: next.toString(), hash: "#/create/new" });
       return;
     }
 
     setPending({ source, topic, briefing, url, metadata });
-    const tab =
-      target === "carrossel" ? "viral-carrossel" : "viral-reels-page";
     const next = new URLSearchParams(searchParams);
-    next.set("tab", tab);
-    if (target === "carrossel") {
-      navigate({ search: next.toString(), hash: "#/create/new" });
-    } else {
-      navigate({ search: next.toString() });
-    }
+    next.set("tab", "viral-carrossel");
+    navigate({ search: next.toString(), hash: "#/create/new" });
   }
 
   const wrapperClass =
@@ -273,26 +259,19 @@ export function CrossAppActions({
         <Button
           size={size}
           variant="outline"
+          className="kai-cross-action"
           onClick={() => handleAction("carrossel")}
         >
           <FileText className="h-3.5 w-3.5 mr-1" />
           Carrossel
         </Button>
       )}
-      {showReel && (
-        <Button
-          size={size}
-          variant="outline"
-          onClick={() => handleAction("reels")}
-        >
-          <Video className="h-3.5 w-3.5 mr-1" />
-          Reel
-        </Button>
-      )}
+      {/* 2026-05-16: botão "Reel" desabilitado (showReel default agora false). */}
       {showIdea && (
         <Button
           size={size}
           variant="ghost"
+          className="kai-cross-action"
           onClick={() => handleAction("idea")}
         >
           <Lightbulb className="h-3.5 w-3.5 mr-1" />
@@ -303,6 +282,7 @@ export function CrossAppActions({
         <Button
           size={size}
           variant="ghost"
+          className="kai-cross-action"
           onClick={() => handleAction("library")}
         >
           <Library className="h-3.5 w-3.5 mr-1" />

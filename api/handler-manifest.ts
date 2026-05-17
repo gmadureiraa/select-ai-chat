@@ -1,7 +1,7 @@
 // AUTO-GENERATED — do not edit manually. Regenerate via build script.
 
 export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; handler?: unknown }>> = {
-  'adapt-viral-reel': () => import('./_handlers/adapt-viral-reel.js'),
+  // 2026-05-16: 'adapt-viral-reel' removido junto com Reels Viral (saiu do KAI).
   'analyze-client-onboarding': () => import('./_handlers/analyze-client-onboarding.js'),
   'analyze-image-complete': () => import('./_handlers/analyze-image-complete.js'),
   'analyze-style': () => import('./_handlers/analyze-style.js'),
@@ -15,7 +15,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'cron-metricool-backfill-posts': () => import('./_handlers/cron-metricool-backfill-posts.js'),
   'cron-metricool-poll': () => import('./_handlers/cron-metricool-poll.js'),
   'cron-metricool-snapshot': () => import('./_handlers/cron-metricool-snapshot.js'),
-  'cron-radar-master': () => import('./_handlers/cron-radar-master.js'),
+  // 2026-05-16: 'cron-radar-master' removido junto com Radar Viral (saiu do KAI).
   'cron-scrape-instagram': () => import('./_handlers/cron-scrape-instagram.js'),
   'cron-scrape-linkedin': () => import('./_handlers/cron-scrape-linkedin.js'),
   'cron-scrape-news': () => import('./_handlers/cron-scrape-news.js'),
@@ -55,7 +55,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'generate-image': () => import('./_handlers/generate-image.js'),
   'generate-interview': () => import('./_handlers/generate-interview.js'),
   'generate-performance-insights': () => import('./_handlers/generate-performance-insights.js'),
-  'generate-radar-brief': () => import('./_handlers/generate-radar-brief.js'),
+  // 2026-05-16: 'generate-radar-brief' removido junto com Radar Viral (saiu do KAI).
   'generate-viral-carousel': () => import('./_handlers/generate-viral-carousel.js'),
   'generate-voice-profile': () => import('./_handlers/generate-voice-profile.js'),
   'get-vapid-public-key': () => import('./_handlers/get-vapid-public-key.js'),
@@ -100,17 +100,9 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'process-recurring-content': () => import('./_handlers/process-recurring-content.js'),
   'process-scheduled-posts': () => import('./_handlers/process-scheduled-posts.js'),
   'publish-viral-carousel': () => import('./_handlers/publish-viral-carousel.js'),
-  'radar-admin-stats': () => import('./_handlers/radar-admin-stats.js'),
-  'radar-brief': () => import('./_handlers/radar-brief.js'),
-  'radar-data-instagram': () => import('./_handlers/radar-data-instagram.js'),
-  'radar-data-linkedin': () => import('./_handlers/radar-data-linkedin.js'),
-  'radar-data-news': () => import('./_handlers/radar-data-news.js'),
-  'radar-data-threads': () => import('./_handlers/radar-data-threads.js'),
-  'radar-data-twitter': () => import('./_handlers/radar-data-twitter.js'),
-  'radar-data-youtube': () => import('./_handlers/radar-data-youtube.js'),
+  // 2026-05-16: handlers radar-* removidos junto com Radar Viral (saiu do KAI).
+  // Mantido só radar-img-proxy porque é usado pelo Performance v2 pra IG CDN.
   'radar-img-proxy': () => import('./_handlers/radar-img-proxy.js'),
-  'radar-last-sync': () => import('./_handlers/radar-last-sync.js'),
-  'radar-subscription': () => import('./_handlers/radar-subscription.js'),
   'research-newsletter-topic': () => import('./_handlers/research-newsletter-topic.js'),
   'resolve-youtube-channel': () => import('./_handlers/resolve-youtube-channel.js'),
   'reverse-engineer': () => import('./_handlers/reverse-engineer.js'),

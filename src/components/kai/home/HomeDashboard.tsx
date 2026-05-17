@@ -28,13 +28,11 @@ import {
   ChevronRight,
   Clock,
   Eye,
-  Film,
   Heart,
   Image as ImageIcon,
   LineChart,
   MessageCircle,
   MessageSquare,
-  Radar as RadarIcon,
   Send,
   Sparkles,
   Star,
@@ -576,20 +574,6 @@ export function HomeDashboard({
                   description="Brief curto → carrossel completo"
                   accent="bg-primary/10 text-primary"
                   onClick={() => onNavigate("viral-carrossel")}
-                />
-                <QuickActionCard
-                  icon={Film}
-                  label="Roteiro de Reels"
-                  description="Cole um link → engenharia reversa"
-                  accent="bg-purple-500/10 text-purple-400"
-                  onClick={() => onNavigate("viral-reels-page")}
-                />
-                <QuickActionCard
-                  icon={RadarIcon}
-                  label="Radar viral"
-                  description="Briefing diário de tendências"
-                  accent="bg-orange-500/10 text-orange-400"
-                  onClick={() => onNavigate("viral-radar-page")}
                 />
                 <QuickActionCard
                   icon={LineChart}

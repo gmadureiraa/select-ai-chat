@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,8 +10,8 @@ import {
   Loader2, Globe, Instagram, Twitter,
   Linkedin, Youtube, Megaphone, Check,
   Building, MessageSquare, Users, Target, FileText,
-  BarChart3, RefreshCw, Radar as RadarIcon,
-  LayoutGrid, Film
+  BarChart3, RefreshCw,
+  LayoutGrid
 } from "lucide-react";
 import { ClientEditNavigation, type ClientEditSection } from "./ClientEditNavigation";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -50,6 +50,24 @@ const socialMediaFields = [
   { key: "threads", label: "Threads", icon: Megaphone, placeholder: "@usuario" },
 ];
 
+const clientEditSections: ClientEditSection[] = [
+  "profile",
+  "digital",
+  "ai-context",
+  "references",
+  "integrations",
+  "viral",
+  "analytics",
+  "notifications",
+  "mcp",
+];
+
+function getUrlSection(value: string | null): ClientEditSection {
+  return clientEditSections.includes(value as ClientEditSection)
+    ? (value as ClientEditSection)
+    : "profile";
+}
+
 export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimplifiedProps) {
   const [name, setName] = useState(client.name);
   const [description, setDescription] = useState(client.description || "");
@@ -58,10 +76,20 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
   const [hasChanges, setHasChanges] = useState(false);
   const [identityGuide, setIdentityGuide] = useState(client.identity_guide || "");
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useIsMobile();
   // 2026-05-10 — 9 tabs horizontais viraram sidebar com 3 grupos. Default
   // 'profile' (Identidade · Sobre).
-  const [activeSection, setActiveSection] = useState<ClientEditSection>("profile");
+  const [activeSection, setActiveSection] = useState<ClientEditSection>(() =>
+    getUrlSection(searchParams.get("section")),
+  );
+
+  const handleSectionChange = (section: ClientEditSection) => {
+    setActiveSection(section);
+    const next = new URLSearchParams(searchParams);
+    next.set("section", section);
+    setSearchParams(next, { replace: true });
+  };
 
   const [socialMedia, setSocialMedia] = useState<Record<string, string>>(
     client.social_media as Record<string, string> || {}
@@ -77,6 +105,11 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
   const { documents } = useClientDocuments(client.id);
   const { data: ctx } = useClientContext(client.id);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const nextSection = getUrlSection(searchParams.get("section"));
+    setActiveSection((current) => (current === nextSection ? current : nextSection));
+  }, [searchParams]);
 
   // ──────────────────────────────────────────────────────────────────
   // Completeness score — feedback visual de quão "pronto" o cliente
@@ -281,40 +314,8 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
               </TooltipTrigger>
               <TooltipContent>Criar carrossel</TooltipContent>
             </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => {
-                    onClose();
-                    navigate(`/kaleidos?tab=viral-reels-page&client=${client.id}`);
-                  }}
-                  aria-label="Reels Viral"
-                >
-                  <Film className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Reels Viral</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => {
-                    onClose();
-                    navigate(`/kaleidos?tab=viral-radar-page&client=${client.id}`);
-                  }}
-                  aria-label="Abrir Radar"
-                >
-                  <RadarIcon className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Radar do cliente</TooltipContent>
-            </Tooltip>
+            {/* 2026-05-16: shortcuts Reels Viral e Radar Viral removidos
+                (saíram do KAI; apps standalone em reels/radar.kaleidos.com.br) */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -345,7 +346,7 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
       <div className={cn("flex", isMobile ? "flex-col gap-4" : "gap-6")}>
         <ClientEditNavigation
           activeSection={activeSection}
-          onSectionChange={setActiveSection}
+          onSectionChange={handleSectionChange}
           completion={{
             profile: tabCompletion.profile,
             digital: tabCompletion.digital,

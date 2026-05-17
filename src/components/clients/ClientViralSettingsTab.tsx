@@ -17,9 +17,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Radar as RadarIcon,
   LayoutGrid,
-  Film,
   Info,
   Check,
   X as XIcon,
@@ -27,17 +25,11 @@ import {
   Target,
   FileText,
 } from "lucide-react";
-import { ClientSourcesManager } from "@/components/kai/viral-radar-original/components/ClientSourcesManager";
 import { useClientContext } from "@/hooks/useClientContext";
 import { MetricoolHashtagsTracker } from "@/components/metricool/MetricoolHashtagsTracker";
 import { MetricoolCompetitorsPanel } from "@/components/metricool/MetricoolCompetitorsPanel";
 import { MetricoolReportsManager } from "@/components/metricool/MetricoolReportsManager";
-// 2026-05-09 — Removido `import "@/components/kai/viral-radar-original/styles/globals.css"`.
-// O top-level import vazava tokens RDV (paper, REC coral) globalmente quando
-// user abria Perfil do Cliente. O viral-radar-original/MainApp.tsx já importa
-// esse globals.css quando o tab Radar é aberto, então não precisa duplicar
-// aqui. Trade-off: ClientSourcesManager pode ficar visualmente "neutro" no
-// Perfil até o user abrir Radar Viral 1x na sessão — aceitável.
+// 2026-05-16 — Radar Viral e Reels Viral removidos do KAI por completo.
 
 interface ClientViralSettingsTabProps {
   clientId: string;
@@ -59,22 +51,14 @@ export function ClientViralSettingsTab({ clientId, clientName }: ClientViralSett
   const visualRefsCount = ctx?.visualReferences?.length ?? 0;
 
   return (
-    <Tabs defaultValue="radar" className="w-full">
-      {/* Mobile: scroll horizontal · Desktop: 6 colunas grid (alinhado
-          com ClientEditTabsSimplified que usa `grid-cols-7` no parent). */}
+    <Tabs defaultValue="carousel" className="w-full">
+      {/* Mobile: scroll horizontal · Desktop: 4 colunas grid (Radar+Reels
+          removidos 2026-05-16, viraram apps standalone fora do KAI). */}
       <div className="overflow-x-auto -mx-2 sm:mx-0 px-2 sm:px-0 scrollbar-hide">
-        <TabsList className="inline-flex w-max min-w-full sm:grid sm:grid-cols-6">
-          <TabsTrigger value="radar" className="text-xs gap-1 whitespace-nowrap">
-            <RadarIcon className="h-3.5 w-3.5" />
-            Radar
-          </TabsTrigger>
+        <TabsList className="inline-flex w-max min-w-full sm:grid sm:grid-cols-4">
           <TabsTrigger value="carousel" className="text-xs gap-1 whitespace-nowrap">
             <LayoutGrid className="h-3.5 w-3.5" />
             Carrossel
-          </TabsTrigger>
-          <TabsTrigger value="reels" className="text-xs gap-1 whitespace-nowrap">
-            <Film className="h-3.5 w-3.5" />
-            Reels
           </TabsTrigger>
           <TabsTrigger value="hashtags" className="text-xs gap-1 whitespace-nowrap">
             <Hash className="h-3.5 w-3.5" />
@@ -91,29 +75,8 @@ export function ClientViralSettingsTab({ clientId, clientName }: ClientViralSett
         </TabsList>
       </div>
 
-      {/* Radar — fontes per-client */}
-      <TabsContent value="radar" className="mt-4">
-        <Card className="overflow-hidden">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <RadarIcon className="h-4 w-4" />
-              Fontes do Radar Viral
-            </CardTitle>
-            <CardDescription>
-              Cadastre RSS, perfis de Instagram, TikTok, YouTube, X, Threads e
-              LinkedIn que o Radar deve monitorar pra este cliente. Os crons leem
-              esta lista pra montar o brief diário.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            {/* `.rdv-shell` ativa os tokens visuais (paper, REC coral, fontes)
-                do Radar — o ClientSourcesManager usa essas custom props. */}
-            <div className="rdv-shell" style={{ background: "transparent" }}>
-              <ClientSourcesManager clientId={clientId} clientName={clientName} />
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
+      {/* 2026-05-16: tab Radar removida (Radar Viral saiu do KAI; vive como
+          app standalone em radar.kaleidos.com.br). */}
 
       {/* Carrossel — sem settings exclusivos; mostra status do que tá pronto + aponta pra brand */}
       <TabsContent value="carousel" className="mt-4 space-y-3">
@@ -183,66 +146,8 @@ export function ClientViralSettingsTab({ clientId, clientName }: ClientViralSett
       </TabsContent>
 
       {/* Reels — idem */}
-      <TabsContent value="reels" className="mt-4 space-y-3">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Film className="h-4 w-4" />
-              Reels Viral
-            </CardTitle>
-            <CardDescription>
-              O Reels Viral adapta vídeos virais usando o tom, persona e refs do
-              cliente. Sem configs exclusivas do app — status atual:
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <StatusItem
-              ok={hasVoiceProfile}
-              label="Tom de voz / persona configurado"
-              detail={hasVoiceProfile ? 'OK' : 'Faltando'}
-            />
-            <StatusItem
-              ok={personaSet}
-              label="Público-alvo (dores + objetivos)"
-              detail={personaSet ? 'OK' : 'Faltando'}
-            />
-            <StatusItem
-              ok={visualRefsCount > 0}
-              label="Refs visuais / concorrentes"
-              detail={`${visualRefsCount} salvas`}
-            />
-            <StatusItem
-              ok={hasInstagramConnected}
-              label="Conta IG conectada (adapt automático)"
-              detail={hasInstagramConnected ? `@${igHandle.replace(/^@/, '')}` : 'Faltando'}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Onde ajustar cada item</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <BulletPoint
-              label="Tom de voz e persona"
-              hint="Identidade → Sobre (Tom de Voz) · Identidade → Contexto IA"
-            />
-            <BulletPoint
-              label="Público-alvo (persona, dores, objetivos)"
-              hint="Identidade → Sobre → Público-Alvo + Objetivos"
-            />
-            <BulletPoint
-              label="Concorrentes e refs visuais"
-              hint="Conteúdo → Referências → Referências Visuais"
-            />
-            <BulletPoint
-              label="Conta IG conectada (pra adapt automático)"
-              hint="Conteúdo → Integrações → Instagram"
-            />
-          </CardContent>
-        </Card>
-      </TabsContent>
+      {/* 2026-05-16: tab Reels removida (Reels Viral saiu do KAI; vive como
+          app standalone em reels.kaleidos.com.br). */}
 
       {/* Hashtags — tracking Metricool por cliente.
           Antes era tab global; agora vive aqui pra ficar acoplado ao perfil. */}

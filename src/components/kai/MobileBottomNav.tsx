@@ -4,16 +4,16 @@ import {
   Home,
   CalendarDays,
   MessageCircle,
-  Radar,
   MoreHorizontal,
   CheckSquare,
   BarChart3,
   Library,
   Twitter,
-  Film,
   Settings,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +39,7 @@ import {
 
 type NavItem = {
   id: string;
-  icon: React.ComponentType<any>;
+  icon: LucideIcon;
   label: string;
   tab: string | null;
   center?: boolean;
@@ -52,12 +52,14 @@ const PRIMARY_ITEMS: NavItem[] = [
   { id: "carrossel", icon: Twitter, label: "Carrossel", tab: "viral-carrossel" },
 ];
 
+const VIEWER_ITEMS: NavItem[] = [
+  { id: "planning", icon: CalendarDays, label: "Planejamento", tab: "planning" },
+];
+
 const MORE_ITEMS = [
   { tab: "tasks", icon: CheckSquare, label: "Tarefas" },
   { tab: "performance", icon: BarChart3, label: "Performance" },
   { tab: "library", icon: Library, label: "Biblioteca" },
-  { tab: "viral-reels-page", icon: Film, label: "Reels" },
-  { tab: "viral-radar-page", icon: Radar, label: "Radar" },
   { tab: "settings", icon: Settings, label: "Configurações" },
 ] as const;
 
@@ -66,6 +68,8 @@ export function MobileBottomNav() {
   const [params] = useSearchParams();
   const currentTab = params.get("tab") || "home";
   const [moreOpen, setMoreOpen] = useState(false);
+  const { isViewer } = useWorkspace();
+  const primaryItems = isViewer ? VIEWER_ITEMS : PRIMARY_ITEMS;
 
   const handleNavigate = (tab: string | null) => {
     const next = new URLSearchParams(params);
@@ -78,7 +82,7 @@ export function MobileBottomNav() {
     navigate(`/kaleidos?${next.toString()}`);
   };
 
-  const moreActive = MORE_ITEMS.some((item) => item.tab === currentTab);
+  const moreActive = !isViewer && MORE_ITEMS.some((item) => item.tab === currentTab);
 
   return (
     <nav
@@ -88,7 +92,7 @@ export function MobileBottomNav() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex justify-around items-center h-14">
-        {PRIMARY_ITEMS.map((item) => {
+        {primaryItems.map((item) => {
           const Icon = item.icon;
           const active = item.tab === currentTab;
           return (
@@ -120,52 +124,53 @@ export function MobileBottomNav() {
           );
         })}
 
-        {/* Mais — dropdown com tabs secundárias */}
-        <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
-          <DropdownMenuTrigger asChild>
-            <button
-              aria-label="Mais opções"
-              aria-current={moreActive ? "page" : undefined}
-              className={cn(
-                "flex flex-col items-center justify-center flex-1 h-full text-[10px] gap-0.5 transition-colors min-h-[44px]",
-                moreActive || moreOpen ? "text-foreground font-medium" : "text-muted-foreground",
-              )}
-            >
-              <div
+        {!isViewer && (
+          <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
+            <DropdownMenuTrigger asChild>
+              <button
+                aria-label="Mais opções"
+                aria-current={moreActive ? "page" : undefined}
                 className={cn(
-                  "rounded-full p-1.5 transition-colors",
-                  (moreActive || moreOpen) && "bg-accent text-foreground",
+                  "flex flex-col items-center justify-center flex-1 h-full text-[10px] gap-0.5 transition-colors min-h-[44px]",
+                  moreActive || moreOpen ? "text-foreground font-medium" : "text-muted-foreground",
                 )}
               >
-                <MoreHorizontal className="h-5 w-5" strokeWidth={1.5} />
-              </div>
-              <span className="leading-none">Mais</span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="top" className="w-56 mb-2">
-            {MORE_ITEMS.map((item, idx) => {
-              const Icon = item.icon;
-              const active = item.tab === currentTab;
-              return (
-                <div key={item.tab}>
-                  <DropdownMenuItem
-                    onClick={() => handleNavigate(item.tab)}
-                    className={cn(
-                      "flex items-center gap-2 cursor-pointer",
-                      active && "bg-accent text-foreground font-medium",
-                    )}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    <Icon className="h-4 w-4" strokeWidth={1.5} />
-                    <span>{item.label}</span>
-                  </DropdownMenuItem>
-                  {/* Separador antes de "Configurações" */}
-                  {idx === MORE_ITEMS.length - 2 && <DropdownMenuSeparator />}
+                <div
+                  className={cn(
+                    "rounded-full p-1.5 transition-colors",
+                    (moreActive || moreOpen) && "bg-accent text-foreground",
+                  )}
+                >
+                  <MoreHorizontal className="h-5 w-5" strokeWidth={1.5} />
                 </div>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                <span className="leading-none">Mais</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-56 mb-2">
+              {MORE_ITEMS.map((item, idx) => {
+                const Icon = item.icon;
+                const active = item.tab === currentTab;
+                return (
+                  <div key={item.tab}>
+                    <DropdownMenuItem
+                      onClick={() => handleNavigate(item.tab)}
+                      className={cn(
+                        "flex items-center gap-2 cursor-pointer",
+                        active && "bg-accent text-foreground font-medium",
+                      )}
+                      aria-current={active ? "page" : undefined}
+                    >
+                      <Icon className="h-4 w-4" strokeWidth={1.5} />
+                      <span>{item.label}</span>
+                    </DropdownMenuItem>
+                    {/* Separador antes de "Configurações" */}
+                    {idx === MORE_ITEMS.length - 2 && <DropdownMenuSeparator />}
+                  </div>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </nav>
   );

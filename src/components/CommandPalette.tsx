@@ -14,12 +14,10 @@ import {
   ChevronRight,
   Clipboard,
   FileText,
-  Film,
   Home,
   Library,
   MessageSquare,
   Plus,
-  Radar,
   Settings,
   Sparkles,
   Twitter,
@@ -329,14 +327,6 @@ export function CommandPalette() {
               <CommandItem onSelect={() => goTab("viral-carrossel")}>
                 <Twitter className="mr-2 h-4 w-4" aria-hidden="true" />
                 Carrossel — Sequência Viral
-              </CommandItem>
-              <CommandItem onSelect={() => goTab("viral-reels-page")}>
-                <Film className="mr-2 h-4 w-4" aria-hidden="true" />
-                Reels — Engenharia reversa
-              </CommandItem>
-              <CommandItem onSelect={() => goTab("viral-radar-page")}>
-                <Radar className="mr-2 h-4 w-4" aria-hidden="true" />
-                Radar Viral
               </CommandItem>
               <CommandItem onSelect={() => goTab("library")}>
                 <Sparkles className="mr-2 h-4 w-4" aria-hidden="true" />

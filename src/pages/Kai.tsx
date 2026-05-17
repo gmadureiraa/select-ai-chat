@@ -64,36 +64,20 @@ const KaiAssistantTab = lazy(() =>
 // 3 generadores Viral (sequence/reels/radar) que são as ports das versões atuais
 // dos repos standalone (sequencia-viral, reels-viral, radar-viral). Backup em
 // _legacy/viral-replaced-2026-05-08/.
-// 2026-05-10 — Trocado de cópia literal (viral-sv-original/ via shims Next→Vite)
-// pra LAUNCHER + new tab pro standalone viral.kaleidos.com.br.
-// Razão: a cópia acumulou bugs em cascata (params Promise/sync, RLS, scroll,
-// CSS overflow, SECURITY DEFINER triggers, schema mismatch). O standalone tá
-// 100% em prod. Launcher mostra carrosseis salvos no Neon (legacy read-only)
-// + CTA pra abrir o flow completo. Backup da cópia velha:
-// _legacy/viral-sv-original-replaced-2026-05-10/ (mover manualmente quando
-// validar que SVLauncher resolveu).
+// 2026-05-11 — Sequência Viral volta a montar nativamente dentro do KAI.
+// O SVLauncher continua no repo como fallback/documentação, mas a rota principal
+// precisa abrir o fluxo core dentro do shell: lista, criação, edição, preview e
+// export.
 const ViralSequenceTab = lazy(() =>
-  import("@/components/kai/viral/SVLauncher").then((m) => ({
-    default: m.SVLauncher,
-  })),
-);
-const ViralReelsTab = lazy(() =>
-  // 2026-05-08 — substituído pela cópia LITERAL do app standalone
-  // (`code/reels-viral/`), preservando UI/CSS/cores/fontes/layouts ~95%+.
-  // A versão antiga estilo KAI foi removida (era ViralReelsTab.legacy.tsx +
-  // pasta viral-reels-v2/, ambos órfãos desde a port).
-  import("@/components/kai/viral-reels-original/MainApp").then((m) => ({
+  import("@/components/kai/viral-sv-original/MainApp").then((m) => ({
     default: m.default,
   })),
 );
-const ViralRadarTab = lazy(() =>
-  // 2026-05-08 — substituído pela cópia LITERAL do app standalone
-  // (`code/radar-viral/`), preservando UI/CSS/cores/fontes/layouts ~95%+.
-  // A versão antiga estilo KAI foi removida (era ViralRadarTab.legacy.tsx, órfã).
-  import("@/components/kai/viral-radar-original/MainApp").then((m) => ({
-    default: m.ViralRadarTab,
-  })),
-);
+// 2026-05-16 — Reels Viral e Radar Viral removidos do KAI por completo.
+// Eram cópias dos apps standalone (`code/reels-viral/`, `code/radar-viral/`)
+// que pesavam o bundle e duplicavam superfície de bug. Continuam vivos como
+// produtos separados em reels.kaleidos.com.br e radar.kaleidos.com.br.
+// Aqui no KAI fica só Sequência Viral (carrossel), que é a feature core.
 // ViralLibraryTab removida 2026-05-08 — unificada com KaiLibraryTab (per cliente).
 // Refs/ideas/reels viáveis agora vivem em client_reference_library com format
 // + scenes (Reels Viral pattern) + slides_text (carousel pattern).
@@ -153,11 +137,12 @@ export default function Kai() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const clientId = searchParams.get("client");
+  const carouselId = searchParams.get("carouselId");
   const tab = searchParams.get("tab") || "home";
   const isMobile = useIsMobile();
   
   const { clients, isLoading: isLoadingClients } = useClients();
-  const { canManageTeam, canViewPerformance, canViewClients, canViewHome, canViewRepurpose, isViewer, isOwner } = useWorkspace();
+  const { canManageTeam, canViewPerformance, canViewClients, canViewHome, canViewRepurpose, isViewer, isOwner, isLoadingWorkspace } = useWorkspace();
   const { isSuperAdmin } = useSuperAdmin();
   const selectedClient = clients?.find(c => c.id === clientId);
   
@@ -180,6 +165,13 @@ export default function Kai() {
       // Não bloqueia Cmd+K em inputs (é o padrão universal de "command menu")
       // mas ignora Cmd+J/I em inputs (podem conflitar com atalhos do browser)
       const key = e.key.toLowerCase();
+      if (isViewer && ["k", "j", "i"].includes(key)) {
+        e.preventDefault();
+        const params = new URLSearchParams(searchParams);
+        params.set("tab", "planning");
+        setSearchParams(params);
+        return;
+      }
       if (key === "k") {
         if (inEditable) return;
         e.preventDefault();
@@ -191,19 +183,16 @@ export default function Kai() {
         const params = new URLSearchParams(searchParams);
         params.set("tab", "viral-carrossel");
         setSearchParams(params);
-      } else if (key === "i" && !inEditable) {
-        e.preventDefault();
-        const params = new URLSearchParams(searchParams);
-        params.set("tab", "viral-radar-page");
-        setSearchParams(params);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [searchParams, setSearchParams]);
+  }, [isViewer, searchParams, setSearchParams]);
 
   // Route protection: redirect to allowed tabs if trying to access unauthorized ones
   useEffect(() => {
+    if (isLoadingWorkspace) return;
+
     // 2026-05-10 — `tab=clients` deduplicado: agora vai pra rota dedicada
     // `/kaleidos/clients` (ClientsListPage). Antes montava ClientsManagementTool
     // inline aqui, gerando dois caminhos pra mesma tela. Preserva clientId via
@@ -226,18 +215,28 @@ export default function Kai() {
     let shouldRedirect = false;
     let redirectTab = "planning"; // Default redirect
 
-    // Legacy viral tab aliases — 2026-05-08 (replace-viral). Os tabs "sequence",
-    // "reels", "radar" e "viral" (Hunter) foram unificados sob nomes únicos do
-    // grupo "Viral". Redirect inline pra preservar bookmarks/links antigos.
+    // Legacy viral tab aliases — 2026-05-16. Reels e Radar foram REMOVIDOS do
+    // KAI (continuam como apps separados em reels.kaleidos.com.br e
+    // radar.kaleidos.com.br). Qualquer link antigo cai em viral-carrossel.
     const legacyViralAlias: Record<string, string> = {
       sequence: "viral-carrossel",
-      reels: "viral-reels-page",
-      radar: "viral-radar-page",
-      viral: "viral-radar-page", // Hunter (KAI-1.0) → Radar (substituto natural)
+      reels: "viral-carrossel",
+      "viral-reels-page": "viral-carrossel",
+      radar: "viral-carrossel",
+      "viral-radar-page": "viral-carrossel",
+      viral: "viral-carrossel",
     };
     if (tab in legacyViralAlias) {
       shouldRedirect = true;
       redirectTab = legacyViralAlias[tab];
+    }
+
+    // Client approval portal: external viewers only access Planning. They can
+    // comment and approve/reject review cards there, but do not see internal
+    // tools, libraries, automations, performance, viral generators, or settings.
+    if (isViewer && tab !== "planning") {
+      shouldRedirect = true;
+      redirectTab = "planning";
     }
 
     // Removed tabs - redirect if accessing them
@@ -272,15 +271,6 @@ export default function Kai() {
     if (removedClientTabs.includes(tab)) {
       shouldRedirect = true;
       redirectTab = "performance";
-    }
-    
-    // Viewer-blocked tabs
-    if (isViewer) {
-      const blockedTabs = ["home", "repurpose"];
-      if (blockedTabs.includes(tab)) {
-        shouldRedirect = true;
-        redirectTab = "planning";
-      }
     }
     
     // Home requires canViewHome
@@ -331,12 +321,12 @@ export default function Kai() {
       params.set("tab", redirectTab);
       setSearchParams(params);
     }
-  }, [tab, clientId, canViewClients, canManageTeam, canViewHome, canViewRepurpose, isViewer, isOwner, isSuperAdmin, searchParams, setSearchParams, navigate]);
+  }, [tab, clientId, canViewClients, canManageTeam, canViewHome, canViewRepurpose, isViewer, isOwner, isLoadingWorkspace, isSuperAdmin, searchParams, setSearchParams, navigate]);
 
 
   const handleTabChange = (newTab: string) => {
     const params = new URLSearchParams(searchParams);
-    params.set("tab", newTab);
+    params.set("tab", isViewer && newTab !== "planning" ? "planning" : newTab);
     setSearchParams(params);
     // Close mobile menu when tab changes
     setMobileMenuOpen(false);
@@ -370,16 +360,15 @@ export default function Kai() {
     }
 
     // Tools that don't need client (ou que precisam mas tem fallback interno).
-    // Tabs viral consolidadas no grupo único "Viral":
+    // Tab Viral única no KAI:
     //   viral-carrossel = Sequência Viral (gerador de carrossel)
-    //   viral-reels-page = Reels Viral (engenharia reversa de reel)
-    //   viral-radar-page = Radar Viral (briefing diário)
+    // 2026-05-16: Reels e Radar removidos do KAI (apps separados em
+    // reels.kaleidos.com.br e radar.kaleidos.com.br).
     // viral-library removida em 2026-05-08 — unificada com biblioteca normal
     // do cliente (client_reference_library) com scenes/slides/format.
     const toolTabs = [
       "settings", "automations", "assistant", "home",
-      // Grupo "Viral" único (globais, não precisam de cliente):
-      "viral-carrossel", "viral-reels-page", "viral-radar-page",
+      "viral-carrossel",
       // Metricool: só inbox unificado fica global (push notifications de DMs).
       "inbox",
       // 2026-05-09: removidos workspace-settings, workspace-members,
@@ -401,40 +390,15 @@ export default function Kai() {
                   key={selectedClient.id}
                   clientId={selectedClient.id}
                   client={selectedClient}
+                  carouselId={carouselId}
                 />
               </div>
             </ViralFeatureGate>
           ) : (
             <ClientRequiredEmpty message="Escolha um cliente na sidebar para gerar carrosséis com voz e estilo dele." />
           );
-        case "viral-reels-page":
-          return selectedClient ? (
-            <ViralFeatureGate feature="reels">
-              <div className="h-full overflow-hidden">
-                <ViralReelsTab
-                  key={selectedClient.id}
-                  clientId={selectedClient.id}
-                  client={selectedClient}
-                />
-              </div>
-            </ViralFeatureGate>
-          ) : (
-            <ClientRequiredEmpty message="Escolha um cliente para gerar roteiros de Reels personalizados pro nicho dele." />
-          );
-        case "viral-radar-page":
-          return selectedClient ? (
-            <ViralFeatureGate feature="radar">
-              <div className="h-full overflow-hidden">
-                <ViralRadarTab
-                  key={selectedClient.id}
-                  clientId={selectedClient.id}
-                  client={selectedClient}
-                />
-              </div>
-            </ViralFeatureGate>
-          ) : (
-            <ClientRequiredEmpty message="Escolha um cliente para ver o radar de tendências e oportunidades virais." />
-          );
+        // 2026-05-16 — cases "viral-reels-page" e "viral-radar-page" removidos.
+        // Aliases redirecionam ambos pra "viral-carrossel" no useEffect acima.
         // case "mcp" removido 2026-05-09 — agora é section dentro de Settings
         // (Settings → Sistema → MCP kAI). Tab antigo redireciona via useEffect.
         case "inbox":

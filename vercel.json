@@ -43,16 +43,8 @@
       "schedule": "0 6 * * *"
     },
     {
-      "path": "/api/cron-radar-master",
-      "schedule": "0 7 * * *"
-    },
-    {
       "path": "/api/cron-generate-daily-brief",
       "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron-postiz-poll",
-      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/cron-metricool-poll",
@@ -68,7 +60,7 @@
     },
     {
       "path": "/api/process-scheduled-posts",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/process-recurring-content",

@@ -184,37 +184,13 @@ export function usePlanningViralIntegration() {
   };
 
   /**
-   * Empurra briefing pro Reels Viral via Zustand bridge e navega.
-   * O MainApp.tsx do Reels Viral consome `pendingBriefing` no mount.
+   * 2026-05-16: `sendToReelsAdapter` removido. Reels Viral saiu do KAI;
+   * vive como app standalone em reels.kaleidos.com.br. Callers que precisem
+   * adaptar reel devem abrir o app externo direto.
    */
-  const sendToReelsAdapter = ({ item, sourceUrl }: AdaptReelArgs) => {
-    if (!item.client_id) {
-      toast.error('Selecione um cliente antes de enviar pro Reels');
-      return;
-    }
-
-    const briefing = [item.title, item.content || (item as any).description || '']
-      .filter(Boolean)
-      .join('\n\n')
-      .trim();
-
-    setPendingBriefing({
-      source: 'sv', // tag genérica — o consumer (Reels) só liga se !=='reels'
-      topic: item.title,
-      briefing: briefing.slice(0, 1000),
-      url: sourceUrl,
-      metadata: { planning_item_id: item.id, client_id: item.client_id },
-    });
-
-    const params = new URLSearchParams({
-      client: item.client_id,
-      tab: 'viral-reels-page',
-    });
-    if (sourceUrl) params.set('url', sourceUrl);
-    navigate(`/kaleidos?${params.toString()}`);
-
-    toast.info('Briefing enviado pro Reels Viral', {
-      description: 'Cole a URL de um Reel viral pra adaptar com sua mensagem',
+  const sendToReelsAdapter = (_args: AdaptReelArgs) => {
+    toast.info('Reels Viral agora é um app separado', {
+      description: 'Abre em reels.kaleidos.com.br',
     });
   };
 
