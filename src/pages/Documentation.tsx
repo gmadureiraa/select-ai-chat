@@ -845,7 +845,7 @@ export default function Documentation({ embedded = false }: { embedded?: boolean
                 className="pl-9 h-9"
               />
             </div>
-            <ScrollArea className="h-[calc(100vh-280px)]">
+            <ScrollArea className="h-[calc(100dvh-280px)]">
               <nav className="space-y-1">
                 {filteredSections.map((section) => (
                   <button
@@ -867,7 +867,7 @@ export default function Documentation({ embedded = false }: { embedded?: boolean
           </div>
         </aside>
         <div className="flex-1 min-w-0">
-          <ScrollArea className="h-[calc(100vh-200px)]">
+          <ScrollArea className="h-[calc(100dvh-200px)]">
             {activeContent}
           </ScrollArea>
         </div>
@@ -889,7 +889,7 @@ export default function Documentation({ embedded = false }: { embedded?: boolean
       </header>
 
       <div className="flex">
-        <aside className="w-64 border-r border-border/50 h-[calc(100vh-56px)] sticky top-14">
+        <aside className="w-64 border-r border-border/50 h-[calc(100dvh-56px)] sticky top-14">
           <div className="p-4">
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -900,7 +900,7 @@ export default function Documentation({ embedded = false }: { embedded?: boolean
                 className="pl-9"
               />
             </div>
-            <ScrollArea className="h-[calc(100vh-160px)]">
+            <ScrollArea className="h-[calc(100dvh-160px)]">
               <nav className="space-y-1">
                 {filteredSections.map((section) => (
                   <button

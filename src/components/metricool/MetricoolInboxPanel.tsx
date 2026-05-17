@@ -704,7 +704,7 @@ export function MetricoolInboxPanel({ clientId }: Props) {
             e ceiling de ~880, pra que o Inbox use o real estate disponível
             sem virar uma faixa estreita em telas grandes nem espremer em
             laptop pequeno. */}
-        <div className="flex h-[min(880px,max(640px,calc(100vh-13rem)))]">
+        <div className="flex h-[min(880px,max(640px,calc(100dvh-13rem)))]">
           {/* LEFT — lista */}
           <div
             className={cn(
