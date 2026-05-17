@@ -1876,6 +1876,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? authHeader.slice(7)
       : '';
 
+    // Decode optional `x-kai-ui-state` header (base64-JSON) injetado pelo front
+    // — snapshot da UI no momento do envio. Exposto pra `getUIState` tool via
+    // `ctx.uiState`. Falhas silenciosas: header ausente / inválido = null.
+    let uiState: Record<string, unknown> | null = null;
+    try {
+      const rawHeader = req.headers['x-kai-ui-state'];
+      const headerStr = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+      if (typeof headerStr === 'string' && headerStr.length > 0 && headerStr.length <= 12_000) {
+        const decoded = Buffer.from(headerStr, 'base64').toString('utf-8');
+        const parsed = JSON.parse(decoded);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          uiState = parsed as Record<string, unknown>;
+          console.log(
+            `[kai-simple-chat] uiState received — keys=${Object.keys(uiState).length}`,
+          );
+        }
+      }
+    } catch (err) {
+      console.warn(
+        '[kai-simple-chat] failed to decode x-kai-ui-state header:',
+        err instanceof Error ? err.message : err,
+      );
+    }
+
     // 3. Image Generation (legado — em toolsMode vira generateImage tool futura)
     if (imageGenRequest.isRequest && !toolsMode) {
       const imageResult = await generateImage(imageGenRequest.prompt, client.name);
@@ -2139,6 +2163,7 @@ SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundante
 - "transcreva esse post", "o que o reel diz", "o que tem no carrossel" → \`getPostTranscription\` (com postId)
 - "tem ref de X?", "buscar inspiração", "exemplos do feed" → \`searchRefs\` (refs externas) ou \`searchLibrary\` (conteúdo próprio)
 - "criar carrossel/reel/post/tweet/thread/newsletter" → \`createContent\` (texto puro) ou \`createViralCarousel\` (carrossel com slides + imagens)
+  ⚠️ \`createContent\` PRECISA de \`platform\` EXPLÍCITO ('linkedin'|'twitter'|'instagram'|'youtube'|'newsletter'|'tiktok') E \`format\` ('post'|'thread'|'carousel'|'reel'|'short'|'long'|'newsletter'|'blog'). Se o usuário não falou plataforma, PERGUNTA antes — NÃO assuma instagram.
 - "agendar pra X", "marcar pra publicação", "scheduled" → \`scheduleFor\`
 - "publicar agora", "manda" → \`publishNow\`
 - "conectar Instagram/Twitter/LinkedIn/YouTube" → \`connectAccount\`
@@ -2157,7 +2182,10 @@ SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundante
 ### Princípios operacionais:
 1. **Falta dado do cliente?** → \`getClientContext\` PRIMEIRO. Não adivinhe brand voice ou guidelines.
 2. **Vai editar/agendar/publicar um post mencionado vagamente** ("esse post", "o último") → \`getPlanningItem\` com latest=true ANTES da ação, pra resolver o ID real.
-3. **Vai criar conteúdo do zero?** → opcionalmente \`searchLibrary\` antes pra capturar tom + estrutura dos top performers.
+3. **Vai criar conteúdo do zero?** → \`createContent\` já carrega contexto completo + few-shot examples do cliente automaticamente. NÃO precisa chamar \`getClientContext\` ou \`searchLibrary\` ANTES (redundante, gasta tokens). Só chama esses dois se o user pediu explicitamente "quem é o cliente?" ou "busca refs sobre X" ANTES de criar.
+   - **Sempre confirme platform + format se ambíguo.** "cria um post" não basta — pergunta "Instagram, LinkedIn, Twitter?" antes de chamar a tool.
+   - **Briefing rico = output melhor.** Passa pro briefing TUDO que o user falou (tema, ângulo, CTA, dados, referências). NÃO resuma.
+   - **Após gerar:** o card já mostra o conteúdo. Sua resposta = 1 frase curta tipo "Rascunho pronto, dá uma olhada." NÃO reescreva o conteúdo no chat.
 4. **Recebeu URL de Reel/Post Instagram?** → \`saveToLibrary\` pra arquivar; pra adaptar reel, aponte pra https://reels.kaleidos.com.br (app standalone).
 5. **Múltiplas ações?** → encadeie tools em sequência (ex: \`createContent\` → \`addToPlanning\` → \`scheduleFor\`).
 6. **Após executar tool de ação** (publish/schedule/create/automation) → 1 frase curta de confirmação. Sem checklist, sem "feito ✅", sem reescrever o que a tool já mostrou.
@@ -2294,6 +2322,7 @@ SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundante
         accessToken,
         internalBaseUrl,
         isInternalCall: !!body.internalServiceAuth,
+        uiState,
       };
 
       try {

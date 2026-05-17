@@ -125,6 +125,40 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
       });
       void id;
     },
+    // Snapshot da UI pro tool `getUIState` (resolução de pronomes
+    // contextuais tipo "esse mesmo" / "essa aba"). Tudo opt-in: campos
+    // ausentes simplesmente não chegam no backend.
+    getUIState: () => {
+      try {
+        const url = new URL(window.location.href);
+        const params = url.searchParams;
+        const pathname = url.pathname;
+        // Deriva a aba do pathname (ex: /clients/<id>/assistant, /clients/<id>/library)
+        const tabMatch = pathname.match(/\/clients\/[^/]+\/([^/?#]+)/);
+        const tab = tabMatch?.[1] ?? null;
+        // Filtros conhecidos da URL — passa whitelist pra não vazar tokens.
+        const filterKeys = ["status", "platform", "type", "format", "view", "from", "q"];
+        const filters: Record<string, string> = {};
+        for (const k of filterKeys) {
+          const v = params.get(k);
+          if (v) filters[k] = v;
+        }
+        const itemId =
+          params.get("item") ?? params.get("itemId") ?? params.get("planning_id") ?? null;
+        const monthInView = params.get("month") ?? null;
+        return {
+          tab,
+          clientId,
+          itemId,
+          monthInView,
+          filters: Object.keys(filters).length > 0 ? filters : undefined,
+          pathname,
+        };
+      } catch (err) {
+        console.warn("[KaiAssistantTab] getUIState failed:", err);
+        return null;
+      }
+    },
   });
 
   // Content & reference libraries for citation feature in FloatingInput

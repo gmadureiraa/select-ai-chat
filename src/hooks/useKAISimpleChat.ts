@@ -28,6 +28,12 @@ interface UseKAISimpleChatOptions {
   /** F0.3b — quando true, o edge usa Gemini function calling com ToolRegistry.
       Ativado via ?tools=1 na URL pelo KaiAssistantTab. Default false (fluxo atual). */
   useTools?: boolean;
+  /** Snapshot da UI no momento do envio (aba, item aberto, mês visível,
+   *  filtros, draftDirty). Lido a cada chamada e enviado no header
+   *  `x-kai-ui-state: <base64-json>`. O backend expõe via `ctx.uiState`
+   *  pra tool `getUIState` resolver pronomes contextuais ("esse mesmo",
+   *  "essa aba"). Pode retornar null/undefined se não tiver nada útil. */
+  getUIState?: () => Record<string, unknown> | null | undefined;
 }
 
 /** Shape que o front envia pra executar uma tool direto (clique em card). */
@@ -41,6 +47,7 @@ export function useKAISimpleChat({
   conversationId: externalConversationId,
   onConversationCreated,
   useTools = false,
+  getUIState,
 }: UseKAISimpleChatOptions) {
   const [messages, setMessages] = useState<SimpleMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -228,6 +235,26 @@ export function useKAISimpleChat({
         throw new Error("Não autenticado");
       }
 
+      // Snapshot da UI atual (aba, item aberto, mês, filtros) — base64-JSON
+      // no header `x-kai-ui-state`. Falhas silenciosas: se o caller não
+      // proveu getUIState, ou se o serialize/encode der pau, simplesmente
+      // não manda o header (a tool `getUIState` retorna {available: false}).
+      const uiStateHeader: Record<string, string> = {};
+      try {
+        const snap = getUIState?.();
+        if (snap && typeof snap === "object" && Object.keys(snap).length > 0) {
+          const json = JSON.stringify(snap);
+          if (json.length <= 8_000) {
+            // btoa só aceita Latin1; UTF-8 → unicode escape → btoa.
+            uiStateHeader["x-kai-ui-state"] = btoa(
+              unescape(encodeURIComponent(json)),
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("[useKAISimpleChat] failed to serialize uiState:", err);
+      }
+
       // Migrated 2026-05-07: Supabase edge function -> Vercel Function /api/kai-simple-chat
       const response = await fetch(
         `/api/kai-simple-chat`,
@@ -236,6 +263,7 @@ export function useKAISimpleChat({
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
+            ...uiStateHeader,
           },
           body: JSON.stringify({
             message: content,
@@ -462,7 +490,7 @@ export function useKAISimpleChat({
       setIsLoading(false);
       abortControllerRef.current = null;
     }
-  }, [clientId, messages, cancelRequest, conversationId, createConversation, saveMessage]);
+  }, [clientId, messages, cancelRequest, conversationId, createConversation, saveMessage, getUIState, useTools]);
 
   /**
    * Aprova um pedido pendente — re-call a tool original com `approved: true`
