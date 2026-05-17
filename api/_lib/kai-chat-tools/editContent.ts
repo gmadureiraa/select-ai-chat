@@ -1,10 +1,31 @@
 /**
  * Tool `editContent` — edita/reescreve um rascunho via kai-content-agent.
+ *
+ * Refatorado 2026-05-16:
+ *   - Usa mesmo pipeline de sanitização do createContent (parse-llm-response).
+ *   - Fix bug do title: antes pegava `newContent.replace(/\s+/g, ' ').slice(0, 60)`
+ *     que metia o conteúdo inteiro inline como título. Agora usa
+ *     `extractTitleFromContent` que strippa markdown/labels e pega só a primeira
+ *     linha útil.
+ *   - Aplica platform-specific suffix do content-prompts (mesmo padrão do create).
+ *   - Validation pós-geração via content-validator (sem retry — edição é
+ *     instrução direta do user, ele revisa e re-edita se quiser).
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool, ToolExecutionContext } from './types.js';
 import { query } from '../db.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
+import {
+  sanitizeLLMText,
+  extractTitleFromContent,
+} from '../parse-llm-response.js';
+import {
+  getFullClientContext,
+  buildFewShotExamples,
+  buildPlatformPreferenceHint,
+} from '../shared/full-client-context.js';
+import { resolvePlatformPromptBuilder } from '../content-prompts/index.js';
+import { parseOutput, validateContent } from '../shared/content-validator.js';
 
 interface EditContentArgs {
   planningItemId: string;
@@ -14,21 +35,32 @@ interface EditContentArgs {
 interface EditContentData {
   planningItemId: string;
   content: string;
+  warnings?: string[];
+  validation?: {
+    valid: boolean;
+    violations: number;
+    warnings: number;
+  };
 }
 
-async function invokeContentAgentForEdit(
-  ctx: ToolExecutionContext,
-  clientId: string,
-  currentContent: string,
-  instruction: string,
-  format: string,
-  platform: string,
-): Promise<string> {
+interface InvokeEditArgs {
+  ctx: ToolExecutionContext;
+  clientId: string;
+  currentContent: string;
+  instruction: string;
+  format: string;
+  platform: string;
+  additionalMaterial?: string;
+}
+
+async function invokeContentAgentForEdit(args: InvokeEditArgs): Promise<string> {
+  const { ctx, clientId, currentContent, instruction, format, platform, additionalMaterial } = args;
   const editRequest =
     `Reescreva/edite o conteúdo abaixo seguindo esta instrução do usuário:\n\n` +
     `INSTRUÇÃO: ${instruction}\n\n` +
     `CONTEÚDO ATUAL:\n${currentContent}\n\n` +
-    `Devolva SOMENTE a versão reescrita, mantendo o mesmo formato e plataforma.`;
+    `Devolva SOMENTE a versão reescrita, mantendo o mesmo formato e plataforma. ` +
+    `Sem rótulos, sem markdown wrapper, sem "aqui está".`;
 
   const res = await fetch(`${ctx.internalBaseUrl}/api/kai-content-agent`, {
     method: 'POST',
@@ -39,6 +71,7 @@ async function invokeContentAgentForEdit(
       format,
       platform,
       stream: false,
+      additionalMaterial,
     }),
   });
 
@@ -50,6 +83,20 @@ async function invokeContentAgentForEdit(
   const content = typeof json?.content === 'string' ? json.content : '';
   if (!content) throw new Error('kai-content-agent retornou conteúdo vazio');
   return content;
+}
+
+function getSanitizeOptionsForPlatform(platform: string, format: string) {
+  const p = platform.toLowerCase();
+  if (p === 'linkedin' || p === 'twitter' || p === 'x') {
+    return { stripAllHashtags: true };
+  }
+  if (p === 'instagram') {
+    return { maxHashtags: 3 };
+  }
+  if (format.toLowerCase().includes('blog') || format.toLowerCase().includes('newsletter')) {
+    return { stripAllHashtags: true };
+  }
+  return { maxHashtags: 5 };
 }
 
 export const editContentTool: RegisteredTool<EditContentArgs, EditContentData> = {
@@ -102,26 +149,82 @@ export const editContentTool: RegisteredTool<EditContentArgs, EditContentData> =
       if (!item) return { ok: false, error: 'Rascunho não encontrado' };
 
       const currentContent = item.content ?? '';
-      const platform = item.platform ?? 'instagram';
+      const platform = (item.platform ?? 'instagram').toLowerCase();
       const meta = (item.metadata ?? {}) as Record<string, any>;
-      const format = meta.format ?? 'post';
+      const format = (meta.format ?? 'post').toLowerCase();
 
-      const newContent = await invokeContentAgentForEdit(
+      const clients = await query<{ name: string }>(
+        `SELECT name FROM clients WHERE id = $1`,
+        [ctx.clientId],
+      );
+      const clientName = clients[0]?.name ?? 'cliente';
+
+      // ── Contexto + prompt suffix (mesmo padrão do createContent) ──
+      const fullCtx = await getFullClientContext(ctx.clientId, instruction).catch(() => null);
+      let additionalMaterial: string | undefined;
+      try {
+        const builder = await resolvePlatformPromptBuilder(platform, format);
+        if (builder) {
+          const fewShotBlock = fullCtx ? buildFewShotExamples(fullCtx, platform) : '';
+          const platformHint = fullCtx ? buildPlatformPreferenceHint(fullCtx, platform) : '';
+          // Pra edição, briefing é a instrução. ClientName e tone são carregados
+          // via getFullClientContext (que já tem tone) — mas o builder pede
+          // explicit tone se quiser sobrescrever (passa undefined: usa default).
+          additionalMaterial = builder({
+            briefing: `Edição: ${instruction}`,
+            clientName,
+            fewShotBlock: fewShotBlock || undefined,
+            platformHint: platformHint || undefined,
+          });
+        }
+      } catch (err) {
+        console.warn('[editContent] prompt builder failed (non-fatal):', err);
+      }
+
+      const rawContent = await invokeContentAgentForEdit({
         ctx,
-        ctx.clientId,
+        clientId: ctx.clientId,
         currentContent,
         instruction,
         format,
         platform,
-      );
-      console.log(`[editContent] novo conteúdo gerado — ${newContent.length} chars`);
+        additionalMaterial,
+      });
+      console.log(`[editContent] raw content — ${rawContent.length} chars`);
 
-      const newTitle = newContent.replace(/\s+/g, ' ').trim().slice(0, 60);
+      // ── Sanitize ──
+      const sanitizeOpts = getSanitizeOptionsForPlatform(platform, format);
+      const { text: newContent, warnings } = sanitizeLLMText(rawContent, {
+        ...sanitizeOpts,
+        warnMojibake: true,
+      });
+      if (warnings.length > 0) {
+        console.warn('[editContent] sanitize warnings:', warnings);
+      }
+
+      // ── Validação (sem retry — edição é manual) ──
+      let validationResult = { valid: true, violations: 0, warnings: 0 };
+      try {
+        const parsed = parseOutput(newContent, format);
+        const validation = validateContent(parsed, format);
+        validationResult = {
+          valid: validation.valid,
+          violations: validation.violations.filter((v) => v.severity === 'error').length,
+          warnings: validation.violations.filter((v) => v.severity === 'warning').length,
+        };
+      } catch (validErr) {
+        console.warn('[editContent] validation error (non-fatal):', validErr);
+      }
+
+      // ── Title corrigido — usa extractor que strippa markdown/labels ──
+      const newTitle = extractTitleFromContent(newContent, 60);
       const nowIso = new Date().toISOString();
       const newMeta = {
         ...meta,
         last_edit_instruction: instruction,
         last_edited_at: nowIso,
+        last_edit_sanitize_warnings: warnings,
+        last_edit_validation: validationResult,
       };
       await query(
         `UPDATE planning_items
@@ -166,7 +269,16 @@ export const editContentTool: RegisteredTool<EditContentArgs, EditContentData> =
         ],
       };
 
-      return { ok: true, data: { planningItemId, content: newContent }, card };
+      return {
+        ok: true,
+        data: {
+          planningItemId,
+          content: newContent,
+          warnings: warnings.length > 0 ? warnings : undefined,
+          validation: validationResult,
+        },
+        card,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('[editContent] error:', err);

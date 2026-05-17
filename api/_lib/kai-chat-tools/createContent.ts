@@ -1,12 +1,36 @@
 /**
  * Tool `createContent` — gera rascunho via kai-content-agent + persiste em planning_items.
- * Node port: Neon SQL em vez de Supabase, fetch interno em vez de supabase.functions.invoke.
+ *
+ * Refatorado 2026-05-16 (Gabriel reportou "post LinkedIn saiu todo bugado"):
+ *   - Carrega contexto completo do cliente (cached 5min) ANTES de chamar LLM.
+ *   - Roteia pelo `content-prompts/<platform>.ts` pra prompt suffix specific
+ *     (LinkedIn ≠ Twitter ≠ Instagram ≠ Carousel ≠ Blog).
+ *   - Injeta few-shot examples (top performers do próprio cliente) no prompt.
+ *   - Sanitiza output via `sanitizeLLMText` (strip markdown fences, mojibake
+ *     warning, strip meta-prefixos "Aqui está o post:").
+ *   - Valida via `content-validator` e faz retry 1x se há violação crítica.
+ *   - Preserva contract antigo: retorna `{ planningItemId, content }` + card.
  */
 import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool, ToolExecutionContext } from './types.js';
 import { query, insertRow } from '../db.js';
 import { notifyPlanningItemTelegram } from '../telegram-planning.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
+import {
+  sanitizeLLMText,
+  extractTitleFromContent,
+} from '../parse-llm-response.js';
+import {
+  getFullClientContext,
+  buildFewShotExamples,
+  buildPlatformPreferenceHint,
+} from '../shared/full-client-context.js';
+import { resolvePlatformPromptBuilder } from '../content-prompts/index.js';
+import {
+  parseOutput,
+  validateContent,
+  buildRepairPrompt,
+} from '../shared/content-validator.js';
 
 interface CreateContentArgs {
   platform: string;
@@ -18,6 +42,15 @@ interface CreateContentArgs {
 interface CreateContentData {
   planningItemId: string;
   content: string;
+  /** Warnings não-fatais do sanitizer (ex: stripped_outer_code_fence). */
+  warnings?: string[];
+  /** Validation summary do content-validator (debug). */
+  validation?: {
+    valid: boolean;
+    violations: number;
+    warnings: number;
+    repaired: boolean;
+  };
 }
 
 function inferContentType(format: string, platform: string): string {
@@ -57,14 +90,19 @@ function parseThreadItems(text: string): Array<{ text: string; media_urls: strin
   return tweets.length >= 2 ? tweets : undefined;
 }
 
-async function invokeContentAgent(
-  ctx: ToolExecutionContext,
-  clientId: string,
-  briefing: string,
-  format: string,
-  platform: string,
-  tone?: string,
-): Promise<string> {
+interface InvokeContentAgentArgs {
+  ctx: ToolExecutionContext;
+  clientId: string;
+  briefing: string;
+  format: string;
+  platform: string;
+  /** Concatenado ao system prompt do agent via additionalMaterial. */
+  additionalMaterial?: string;
+  tone?: string;
+}
+
+async function invokeContentAgent(args: InvokeContentAgentArgs): Promise<string> {
+  const { ctx, clientId, briefing, format, platform, additionalMaterial, tone } = args;
   const effectiveRequest = tone ? `${briefing}\n\n[Tom desejado: ${tone}]` : briefing;
   const res = await fetch(`${ctx.internalBaseUrl}/api/kai-content-agent`, {
     method: 'POST',
@@ -75,6 +113,7 @@ async function invokeContentAgent(
       format,
       platform,
       stream: false,
+      additionalMaterial,
     }),
   });
 
@@ -104,6 +143,25 @@ async function resolveDraftColumnId(workspaceId: string): Promise<string | null>
     [workspaceId],
   );
   return first[0]?.id ?? null;
+}
+
+/**
+ * Decide se LinkedIn/Twitter/Instagram exigem stripAllHashtags ou não.
+ * Em LinkedIn, regra padrão é zero. Twitter, zero (algoritmo penaliza).
+ * Instagram, depende do cliente — fica a 3 max.
+ */
+function getSanitizeOptionsForPlatform(platform: string, format: string) {
+  const p = platform.toLowerCase();
+  if (p === 'linkedin' || p === 'twitter' || p === 'x') {
+    return { stripAllHashtags: true };
+  }
+  if (p === 'instagram') {
+    return { maxHashtags: 3 };
+  }
+  if (format.toLowerCase().includes('blog') || format.toLowerCase().includes('newsletter')) {
+    return { stripAllHashtags: true };
+  }
+  return { maxHashtags: 5 };
 }
 
 export const createContentTool: RegisteredTool<CreateContentArgs, CreateContentData> = {
@@ -151,8 +209,8 @@ export const createContentTool: RegisteredTool<CreateContentArgs, CreateContentD
     console.log(`[createContent] clientId=${ctx.clientId} platform=${platform} format=${format}`);
 
     try {
-      const clients = await query<{ id: string; workspace_id: string }>(
-        `SELECT id, workspace_id FROM clients WHERE id = $1`,
+      const clients = await query<{ id: string; workspace_id: string; name: string }>(
+        `SELECT id, workspace_id, name FROM clients WHERE id = $1`,
         [ctx.clientId],
       );
       const client = clients[0];
@@ -164,33 +222,138 @@ export const createContentTool: RegisteredTool<CreateContentArgs, CreateContentD
         return { ok: false, error: 'Cliente não está associado a nenhum workspace.' };
       }
 
-      const content = await invokeContentAgent(
+      // ── 1. Carrega contexto completo do cliente (cached) ──
+      // Failsoft: se DB devolve null/erro, segue sem few-shots — kai-content-agent
+      // ainda tem seu próprio loader interno.
+      const fullCtx = await getFullClientContext(ctx.clientId, briefing).catch((err) => {
+        console.warn('[createContent] full ctx failed (non-fatal):', err);
+        return null;
+      });
+
+      // ── 2. Monta additionalMaterial com platform-specific suffix ──
+      // O kai-content-agent já injeta voice/library/refs. Esse bloco adiciona
+      // regras HARD por plataforma + few-shot examples do próprio cliente.
+      let additionalMaterial: string | undefined;
+      try {
+        const builder = await resolvePlatformPromptBuilder(platform, format);
+        if (builder) {
+          const fewShotBlock = fullCtx
+            ? buildFewShotExamples(fullCtx, platform)
+            : '';
+          const platformHint = fullCtx
+            ? buildPlatformPreferenceHint(fullCtx, platform)
+            : '';
+          additionalMaterial = builder({
+            briefing,
+            tone,
+            clientName: client.name ?? 'cliente',
+            fewShotBlock: fewShotBlock || undefined,
+            platformHint: platformHint || undefined,
+          });
+        }
+      } catch (promptErr) {
+        console.warn('[createContent] prompt builder failed (non-fatal):', promptErr);
+      }
+
+      // ── 3. Chama o agente ──
+      let rawContent = await invokeContentAgent({
         ctx,
-        ctx.clientId,
+        clientId: ctx.clientId,
         briefing,
         format,
         platform,
+        additionalMaterial,
         tone,
+      });
+      console.log(`[createContent] raw content — ${rawContent.length} chars`);
+
+      // ── 4. Sanitização defensiva (strip fence, meta-prefixos, hashtags...) ──
+      const sanitizeOpts = getSanitizeOptionsForPlatform(platform, format);
+      let { text: content, warnings } = sanitizeLLMText(rawContent, {
+        ...sanitizeOpts,
+        warnMojibake: true,
+      });
+      if (warnings.length > 0) {
+        console.warn(`[createContent] sanitize warnings:`, warnings);
+      }
+
+      // ── 5. Validação com content-validator + retry 1x se inválido ──
+      let validationResult = {
+        valid: true,
+        violations: 0,
+        warnings: 0,
+        repaired: false,
+      };
+      try {
+        const parsed = parseOutput(content, format);
+        const validation = validateContent(parsed, format);
+        validationResult = {
+          valid: validation.valid,
+          violations: validation.violations.filter((v) => v.severity === 'error').length,
+          warnings: validation.violations.filter((v) => v.severity === 'warning').length,
+          repaired: false,
+        };
+
+        if (!validation.valid) {
+          console.log(
+            `[createContent] validation FAILED — ${validationResult.violations} error(s). Tentando repair.`,
+          );
+          const repairPrompt = buildRepairPrompt(validation.violations, content);
+          if (repairPrompt) {
+            // Repair = re-prompt apenas com instrução de fix (briefing original
+            // já foi processado). Mantém o mesmo platform/format pra o agent
+            // não trocar de prompt builder.
+            const repaired = await invokeContentAgent({
+              ctx,
+              clientId: ctx.clientId,
+              briefing: repairPrompt,
+              format,
+              platform,
+              tone,
+            }).catch((err) => {
+              console.warn('[createContent] repair attempt failed:', err);
+              return null;
+            });
+            if (repaired) {
+              const repairResult = sanitizeLLMText(repaired, {
+                ...sanitizeOpts,
+                warnMojibake: true,
+              });
+              // Só usa o repaired se ele de fato resolve (ou pelo menos não piora).
+              const repairedParsed = parseOutput(repairResult.text, format);
+              const repairedValidation = validateContent(repairedParsed, format);
+              if (
+                repairedValidation.violations.filter((v) => v.severity === 'error').length <
+                validationResult.violations
+              ) {
+                content = repairResult.text;
+                warnings = [...warnings, ...repairResult.warnings, 'auto_repaired'];
+                validationResult = {
+                  valid: repairedValidation.valid,
+                  violations: repairedValidation.violations.filter((v) => v.severity === 'error')
+                    .length,
+                  warnings: repairedValidation.violations.filter((v) => v.severity === 'warning')
+                    .length,
+                  repaired: true,
+                };
+                console.log(`[createContent] repair OK — agora ${validationResult.violations} errors`);
+              }
+            }
+          }
+        }
+      } catch (validErr) {
+        // Validation não é blocker — segue com o content sanitizado mesmo se a
+        // parsing/validation explodir (schema pode não existir pro format raro).
+        console.warn('[createContent] validation pipeline error (non-fatal):', validErr);
+      }
+
+      console.log(
+        `[createContent] final content — ${content.length} chars, valid=${validationResult.valid}, warnings=${warnings.length}`,
       );
-      console.log(`[createContent] content gerado — ${content.length} chars`);
 
+      // ── 6. Persiste em planning_items ──
       const columnId = await resolveDraftColumnId(workspaceId);
-
-      // Strip markdown heading + **Hook:** prefix antes de extrair título.
-      // O Gemini frequentemente devolve `# {título}\n\n**Hook:** {mesmo título}\n\n{body}`.
-      // Sem isso, title vira o cabeçalho markdown e duplica visualmente
-      // quando a biblioteca mostra title + content lado a lado.
-      const firstNonMetaLine = content
-        .split(/\n/)
-        .map((l) => l.trim())
-        .find((l) => l && !/^\*\*Hook:\*\*/i.test(l) && !/^\*\*Gancho:\*\*/i.test(l));
-      const rawTitle = (firstNonMetaLine ?? content).trim();
-      const title = rawTitle
-        .replace(/^#+\s*/, '')
-        .replace(/\*\*/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 60);
+      const title = extractTitleFromContent(content, 60);
       const contentType = inferContentType(format, platform);
       const threadTweets =
         contentType === 'thread' || format.includes('thread') || format.includes('fio')
@@ -213,6 +376,8 @@ export const createContentTool: RegisteredTool<CreateContentArgs, CreateContentD
           tone: tone ?? null,
           content_type: contentType,
           target_platforms: [platform],
+          sanitize_warnings: warnings,
+          validation: validationResult,
           ...(threadTweets ? { thread_tweets: threadTweets } : {}),
         }),
       });
@@ -261,7 +426,16 @@ export const createContentTool: RegisteredTool<CreateContentArgs, CreateContentD
         ],
       };
 
-      return { ok: true, data: { planningItemId, content }, card };
+      return {
+        ok: true,
+        data: {
+          planningItemId,
+          content,
+          warnings: warnings.length > 0 ? warnings : undefined,
+          validation: validationResult,
+        },
+        card,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('[createContent] error:', err);
