@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check, Flag, CheckCircle2, MessageSquare, XCircle, Layers, ExternalLink, Trash2, Sparkles, Film, Lightbulb } from 'lucide-react';
+import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check, Flag, CheckCircle2, MessageSquare, XCircle, Layers, ExternalLink, Trash2, Sparkles, Film, Lightbulb, Tag, X } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -185,6 +185,8 @@ export function PlanningItemDialog({
   const [assignedTo, setAssignedTo] = useState<string>('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [referenceInput, setReferenceInput] = useState('');
+  const [labels, setLabels] = useState<string[]>([]);
+  const [labelInput, setLabelInput] = useState('');
   const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfigType>({
     type: 'none',
     days: [],
@@ -225,9 +227,31 @@ export function PlanningItemDialog({
   }, [contentType]);
 
   const togglePlatform = (p: string) => {
-    setSelectedPlatforms(prev => 
+    setSelectedPlatforms(prev =>
       prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
     );
+  };
+
+  const addLabel = (raw: string) => {
+    const next = raw.trim().toLowerCase().replace(/[#,]/g, '').replace(/\s+/g, '-').slice(0, 32);
+    if (!next) return;
+    setLabels(prev => (prev.includes(next) ? prev : [...prev, next].slice(0, 12)));
+    setLabelInput('');
+  };
+
+  const removeLabel = (l: string) => {
+    setLabels(prev => prev.filter(x => x !== l));
+  };
+
+  const handleLabelKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
+      if (labelInput.trim()) {
+        e.preventDefault();
+        addLabel(labelInput);
+      }
+    } else if (e.key === 'Backspace' && !labelInput && labels.length > 0) {
+      removeLabel(labels[labels.length - 1]);
+    }
   };
 
   // Check if any selected platform can auto-publish
@@ -339,6 +363,8 @@ export function PlanningItemDialog({
         time: (effectiveItem as any).recurrence_time || null,
         endDate: (effectiveItem as any).recurrence_end_date || null,
       });
+      setLabels(Array.isArray(effectiveItem.labels) ? effectiveItem.labels : []);
+      setLabelInput('');
       
       const mediaUrls = effectiveItem.media_urls as string[] || [];
       setMediaItems(mediaUrls.map((url, i) => ({
@@ -373,6 +399,8 @@ export function PlanningItemDialog({
       setReferenceInput('');
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
       setPlatformOptions({});
+      setLabels([]);
+      setLabelInput('');
     }
   }, [effectiveItem, item, defaultColumnId, defaultDate, defaultClientId, defaultTitle, columns, open]);
 
@@ -472,6 +500,7 @@ export function PlanningItemDialog({
         media_urls: mediaItems.map(m => m.url),
         assigned_to: assignedTo || undefined,
         content_type: contentType,
+        labels,
         metadata: nextMetadata,
         recurrence_type: recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null,
         recurrence_days: recurrenceConfig.days.length > 0 ? recurrenceConfig.days : null,
@@ -1018,11 +1047,44 @@ export function PlanningItemDialog({
                     {publishablePlatforms.length} de {selectedPlatforms.length} conectada(s)
                   </p>
                 )}
-                {selectedPlatforms.includes('threads') && content.length > 500 && (
-                  <p className="text-[10px] text-amber-500 font-medium">
-                    ⚠️ Threads: {content.length}/500 caracteres
-                  </p>
-                )}
+                {(() => {
+                  // Char counter por plataforma — só pra conteúdo "normal" (não thread,
+                  // ThreadEditor faz isso por tweet).
+                  if (isTwitterThread || !content.trim()) return null;
+                  const PLATFORM_LIMITS: Record<string, number> = {
+                    twitter: 280,
+                    threads: 500,
+                    linkedin: 3000,
+                    facebook: 5000,
+                    instagram: 2200,
+                  };
+                  const len = content.length;
+                  const offenders = selectedPlatforms
+                    .map(p => ({ p, limit: PLATFORM_LIMITS[p] }))
+                    .filter(x => x.limit && len > x.limit);
+                  if (offenders.length === 0) {
+                    // Mostra menor limite ativo só pra dar ciência (não warning)
+                    const activeLimits = selectedPlatforms
+                      .map(p => PLATFORM_LIMITS[p])
+                      .filter((x): x is number => typeof x === 'number');
+                    if (activeLimits.length === 0) return null;
+                    const tightest = Math.min(...activeLimits);
+                    return (
+                      <p className="text-[10px] text-muted-foreground">
+                        {len}/{tightest} caracteres
+                      </p>
+                    );
+                  }
+                  return (
+                    <div className="space-y-0.5">
+                      {offenders.map(({ p, limit }) => (
+                        <p key={p} className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                          ⚠️ {p}: {len}/{limit} caracteres
+                        </p>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Per-platform options (Stories, Reels, Trial Reels, etc.) */}
@@ -1152,6 +1214,52 @@ export function PlanningItemDialog({
                   value={recurrenceConfig}
                   onChange={setRecurrenceConfig}
                 />
+              </div>
+
+              {/* Labels / tags */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Tag className="h-3 w-3" />
+                  Labels
+                  {labels.length > 0 && (
+                    <span className="text-[10px] opacity-60">({labels.length})</span>
+                  )}
+                </Label>
+                <div className="rounded-md border border-input bg-background px-2 py-1.5 min-h-8 flex flex-wrap items-center gap-1 focus-within:ring-2 focus-within:ring-ring focus-within:border-transparent transition-all">
+                  {labels.map(l => (
+                    <span
+                      key={l}
+                      className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-[10px] font-medium px-2 py-0.5 border border-primary/20"
+                    >
+                      <span className="opacity-60">#</span>{l}
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => removeLabel(l)}
+                          className="hover:opacity-100 opacity-60 focus-visible:outline-none focus-visible:opacity-100"
+                          aria-label={`Remover label ${l}`}
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                  {!readOnly && (
+                    <input
+                      type="text"
+                      value={labelInput}
+                      onChange={(e) => setLabelInput(e.target.value)}
+                      onKeyDown={handleLabelKeyDown}
+                      onBlur={() => labelInput.trim() && addLabel(labelInput)}
+                      placeholder={labels.length === 0 ? 'tag-1, tag-2...' : ''}
+                      className="flex-1 min-w-[60px] bg-transparent border-none outline-none text-xs placeholder:text-muted-foreground/50"
+                      maxLength={32}
+                    />
+                  )}
+                </div>
+                {labels.length === 0 && !readOnly && (
+                  <p className="text-[10px] text-muted-foreground/70">Enter ou vírgula pra adicionar</p>
+                )}
               </div>
 
               {/* Referências linkadas — só em edit mode (precisa do id pra persistir) */}

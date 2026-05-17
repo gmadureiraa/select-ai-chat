@@ -49,7 +49,7 @@ const TOOLS: Tool[] = [
   { name: "search_knowledge", category: "read", description: "Busca por keyword na knowledge base global." },
 
   // Writes
-  { name: "create_planning_item", category: "write", description: "Cria card no planning. Aceita threads (thread_items[]) com mídias por post e target_platforms (twitter+threads)." },
+  { name: "create_planning_item", category: "write", description: "Cria card no planning. Aceita threads (metadata.thread_tweets[]) com mídias por post e target_platforms (twitter+threads)." },
   { name: "update_planning_item", category: "write", description: "Atualiza qualquer campo de um card existente." },
   { name: "update_automation", category: "write", description: "Liga/desliga, edita prompt, plataformas ou agendamento de uma automação." },
   { name: "update_client", category: "write", description: "Edita perfil de voz, guidelines ou metadados do cliente." },
@@ -157,22 +157,24 @@ create_planning_item({
   title: "Thread: o que aprendemos com a FTX",
   content_type: "thread",
   platform: "twitter",
-  target_platforms: ["twitter", "threads"],
   status: "scheduled",
   scheduled_at: "2026-05-05T12:00:00Z",
-  thread_items: [
-    { text: "1/ Há 3 anos a FTX colapsava em 9 dias..." },
-    { text: "2/ A lição mais óbvia foi self-custody..." },
-    { text: "3/ Mas a menos óbvia: auditoria on-chain..." },
-    { text: "4/ Hoje, o que mudou de fato no setor:..." }
-  ]
+  metadata: {
+    target_platforms: ["twitter", "threads"],
+    thread_tweets: [
+      { id: "tweet-1", text: "1/ Há 3 anos a FTX colapsava em 9 dias...", media_urls: [] },
+      { id: "tweet-2", text: "2/ A lição mais óbvia foi self-custody...", media_urls: [] },
+      { id: "tweet-3", text: "3/ Mas a menos óbvia: auditoria on-chain...", media_urls: [] },
+      { id: "tweet-4", text: "4/ Hoje, o que mudou de fato no setor:...", media_urls: [] }
+    ]
+  }
 })
 
 # Regras importantes:
-# - Cada item da thread = 1 post separado
+# - thread_tweets vai DENTRO de metadata (não top-level)
+# - Cada item = 1 post separado, com id estável + media_urls[]
 # - X = 280 chars / Threads = 500 chars
-# - Se for pros dois, mantém ≤280
-# - media_urls: [] em cada item se quiser anexar imagens
+# - Se for pros dois (target_platforms), mantém ≤280
 # - SEM hashtags e SEM emojis (regra do projeto)`;
 
 const VIRAL_CAROUSEL_EXAMPLE = `# Gerar carrossel viral baseado em referência:
@@ -475,7 +477,7 @@ export function MCPDocsTab() {
           <Card className="p-4 bg-muted/40 border-border/50 text-xs text-muted-foreground space-y-1.5">
             <div>• <strong className="text-foreground">Sem hashtags e sem emojis</strong> em X, Threads e LinkedIn (máx 1 emoji em CTA).</div>
             <div>• <strong className="text-foreground">Threads</strong>: máx 497 chars por post; X: máx 280. Se publicar em ambos, mantém ≤280.</div>
-            <div>• <strong className="text-foreground">Carrossel/Threads</strong>: usar arrays JSON estruturados (<code>thread_items</code>), não texto único concatenado.</div>
+            <div>• <strong className="text-foreground">Threads</strong>: usar array estruturado em <code>metadata.thread_tweets</code> (cada item com <code>id</code>, <code>text</code>, <code>media_urls</code>), não texto único concatenado.</div>
             <div>• Identidade do cliente (voice profile + guidelines) sempre é injetada nas chamadas de geração via <code>generate_content</code>.</div>
             <div>• Arquivos sempre via URL pública permanente do storage (nunca base64 inline em DB).</div>
           </Card>
@@ -511,7 +513,7 @@ export function MCPDocsTab() {
               },
               {
                 code: "create_planning_item retorna erro de coluna",
-                fix: "Use o campo 'content' (nunca 'body' — coluna legada). Pra threads, use 'thread_items[]', não concatenar tudo em content.",
+                fix: "Use o campo 'content' (nunca 'body' — coluna legada). Pra threads, use 'metadata.thread_tweets[]' (não 'thread_items'), não concatenar tudo em content.",
               },
             ].map((row) => (
               <Card key={row.code} className="p-3 bg-muted/40 border-border/50">
