@@ -60,7 +60,7 @@ export function MobileHeader({ onMenuClick, clientName }: MobileHeaderProps) {
           size="icon"
           onClick={requestPermission}
           aria-label="Ativar notificações"
-          className="shrink-0 text-amber-500 hover:text-amber-600 min-h-[44px] min-w-[44px]"
+          className="shrink-0 text-warning hover:text-warning/80 min-h-[44px] min-w-[44px]"
         >
           <BellOff className="h-5 w-5" aria-hidden="true" />
         </Button>

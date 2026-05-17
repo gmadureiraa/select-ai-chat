@@ -50,17 +50,20 @@ const typeIcons: Record<Notification['type'], React.ElementType> = {
   task_comment: MessagesSquare,
 };
 
+// 2026-05-17 — semantizado. info=azul, warning=ambar, success=verde,
+// destructive=vermelho, primary=brand (pink/green). purple/cyan ficam raw
+// porque nao tem token semantico equivalente (mention/comment).
 const typeColors: Record<Notification['type'], string> = {
-  assignment: 'text-blue-500 bg-blue-500/10',
-  due_date: 'text-orange-500 bg-orange-500/10',
+  assignment: 'text-info bg-info/10',
+  due_date: 'text-warning bg-warning/10',
   mention: 'text-purple-500 bg-purple-500/10',
-  publish_reminder: 'text-green-500 bg-green-500/10',
-  publish_failed: 'text-red-500 bg-red-500/10',
-  publish_success: 'text-green-500 bg-green-500/10',
-  automation_completed: 'text-yellow-500 bg-yellow-500/10',
-  task_assigned: 'text-blue-500 bg-blue-500/10',
+  publish_reminder: 'text-success bg-success/10',
+  publish_failed: 'text-destructive bg-destructive/10',
+  publish_success: 'text-success bg-success/10',
+  automation_completed: 'text-warning bg-warning/10',
+  task_assigned: 'text-info bg-info/10',
   task_mention: 'text-purple-500 bg-purple-500/10',
-  task_due_soon: 'text-orange-500 bg-orange-500/10',
+  task_due_soon: 'text-warning bg-warning/10',
   task_comment: 'text-cyan-500 bg-cyan-500/10',
 };
 

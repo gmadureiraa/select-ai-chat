@@ -34,9 +34,9 @@ import { cn } from "@/lib/utils";
 import { format, parseISO, isPast, isToday } from "date-fns";
 
 const COLUMN_META: Record<TaskStatus, { title: string; dot: string; bar: string }> = {
-  todo:        { title: "A fazer",       dot: "bg-blue-500",    bar: "bg-blue-500/60" },
-  in_progress: { title: "Em andamento",  dot: "bg-amber-500",   bar: "bg-amber-500/60" },
-  done:        { title: "Concluído",     dot: "bg-emerald-500", bar: "bg-emerald-500/60" },
+  todo:        { title: "A fazer",       dot: "bg-info",     bar: "bg-info/60" },
+  in_progress: { title: "Em andamento",  dot: "bg-warning",  bar: "bg-warning/60" },
+  done:        { title: "Concluído",     dot: "bg-success",  bar: "bg-success/60" },
 };
 const ORDER: TaskStatus[] = ["todo", "in_progress", "done"];
 

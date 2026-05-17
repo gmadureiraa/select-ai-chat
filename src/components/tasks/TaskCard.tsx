@@ -16,17 +16,19 @@ interface TaskCardProps {
   density?: "comfortable" | "compact";
 }
 
+// 2026-05-17 — usando tokens semanticos. urgent=destructive, high=warning,
+// medium=info, low=muted-foreground (sem destaque).
 const priorityBar: Record<string, string> = {
-  urgent: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-blue-500",
+  urgent: "bg-destructive",
+  high: "bg-warning",
+  medium: "bg-info",
   low: "bg-transparent",
 };
 
 const priorityDot: Record<string, string> = {
-  urgent: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-blue-500",
+  urgent: "bg-destructive",
+  high: "bg-warning",
+  medium: "bg-info",
   low: "bg-muted-foreground/40",
 };
 
@@ -138,11 +140,11 @@ export function TaskCard({
               <span
                 className={cn(
                   "inline-flex items-center gap-1",
-                  overdue ? "text-destructive" : dueToday ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+                  overdue ? "text-destructive" : dueToday ? "text-warning" : "text-muted-foreground",
                 )}
               >
                 {overdue && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
                 )}
                 <Calendar className="h-3 w-3" />
                 {format(due, "dd MMM", { locale: ptBR })}

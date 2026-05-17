@@ -101,7 +101,7 @@ function NavItem({ icon, label, active, onClick, collapsed, disabled, showLock, 
         {badgeText && collapsed && (
           <span
             aria-label={`${badge} não lidas`}
-            className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none"
+            className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center leading-none"
           >
             {badgeText}
           </span>
@@ -114,7 +114,7 @@ function NavItem({ icon, label, active, onClick, collapsed, disabled, showLock, 
           {badgeText && (
             <span
               aria-label={`${badge} não lidas`}
-              className="ml-auto min-w-[18px] h-4 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none"
+              className="ml-auto min-w-[18px] h-4 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center leading-none"
             >
               {badgeText}
             </span>

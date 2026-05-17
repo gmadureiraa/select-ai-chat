@@ -75,10 +75,10 @@ export function NotificationSettings() {
       <CardContent className="space-y-6">
         {/* iOS Warning */}
         {isIOS && (
-          <div className="flex gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="flex gap-3 p-4 rounded-lg bg-warning/10 border border-warning/20">
+            <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-sm font-medium text-amber-500">
+              <p className="text-sm font-medium text-warning">
                 Você está no iPhone
               </p>
               <p className="text-xs text-muted-foreground">
