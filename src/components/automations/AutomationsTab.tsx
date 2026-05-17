@@ -34,8 +34,22 @@ import { usePlanningAutomations, PlanningAutomation, ScheduleConfig, RSSConfig }
 import { useAiWorkflows, AiWorkflow, describeCron, estimateNextRun } from '@/hooks/useAiWorkflows';
 import { useAiWorkflowRuns, useLatestRunsByWorkflow, AiWorkflowRun } from '@/hooks/useAiWorkflowRuns';
 import { useClients, type Client as ClientType } from '@/hooks/useClients';
-import { AutomationDialog } from '@/components/planning/AutomationDialog';
-import { AutomationHistoryDialog } from './AutomationHistoryDialog';
+import { lazy, Suspense } from 'react';
+
+// 2026-05-17 — Os 2 dialogs heavy lazy. AutomationDialog tem form complexo
+// (cron picker, RSS, schedule, etc — ~30kB). AutomationHistoryDialog
+// renderiza lista de runs com logs (~15kB). Antes vinham eager apesar de
+// só montarem quando user clica em Editar/Histórico.
+const AutomationDialog = lazy(() =>
+  import('@/components/planning/AutomationDialog').then((m) => ({
+    default: m.AutomationDialog,
+  })),
+);
+const AutomationHistoryDialog = lazy(() =>
+  import('./AutomationHistoryDialog').then((m) => ({
+    default: m.AutomationHistoryDialog,
+  })),
+);
 import { AiWorkflowEditor } from '@/components/admin/AiWorkflowEditor';
 import { AiAgentEditor } from '@/components/admin/AiAgentEditor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
