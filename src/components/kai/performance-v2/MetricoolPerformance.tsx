@@ -6,16 +6,36 @@
 //
 // Plataformas: instagram (com sub-tabs Posts/Reels/Stories), facebook, twitter,
 // linkedin, tiktok, youtube, threads.
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 // MetricoolBestTimesCard agora é renderizado DENTRO de cada plataforma
 // (último bloco de cada PlatformDashboard / InstagramDashboardV2), não global.
-import { PlatformDashboard } from './PlatformDashboard';
-import { InstagramDashboardV2 } from './InstagramDashboard';
-import { CrossPlatformComparison } from './CrossPlatformComparison';
+// 2026-05-17 — Dashboards per-tab lazy. Cada um tem charts pesados (recharts)
+// e queries próprias; só baixa quando o user navega pra aquela tab.
+// CrossPlatformComparison é a default mas ainda assim lazy — mata recharts
+// no chunk principal de Performance.
+const PlatformDashboard = lazy(() =>
+  import('./PlatformDashboard').then((m) => ({ default: m.PlatformDashboard })),
+);
+const InstagramDashboardV2 = lazy(() =>
+  import('./InstagramDashboard').then((m) => ({ default: m.InstagramDashboardV2 })),
+);
+const CrossPlatformComparison = lazy(() =>
+  import('./CrossPlatformComparison').then((m) => ({
+    default: m.CrossPlatformComparison,
+  })),
+);
+
+function DashboardLoader() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 import type { Client } from '@/hooks/useClients';
 import type { MetricoolNetwork } from '@/hooks/useMetricoolPerformance';
 import { BarChart3 } from 'lucide-react';
@@ -141,20 +161,24 @@ export function MetricoolPerformance({ clientId, client }: Props) {
         </div>
 
         <TabsContent value="comparison" className="mt-4">
-          <CrossPlatformComparison
-            clientId={clientId}
-            period={period}
-            archivedChannels={archivedChannels}
-          />
+          <Suspense fallback={<DashboardLoader />}>
+            <CrossPlatformComparison
+              clientId={clientId}
+              period={period}
+              archivedChannels={archivedChannels}
+            />
+          </Suspense>
         </TabsContent>
 
         {platforms.map((p) => (
           <TabsContent key={p.id} value={p.id} className="mt-4">
-            {p.id === 'instagram' ? (
-              <InstagramDashboardV2 clientId={clientId} period={period} />
-            ) : (
-              <PlatformDashboard clientId={clientId} network={p.id} period={period} />
-            )}
+            <Suspense fallback={<DashboardLoader />}>
+              {p.id === 'instagram' ? (
+                <InstagramDashboardV2 clientId={clientId} period={period} />
+              ) : (
+                <PlatformDashboard clientId={clientId} network={p.id} period={period} />
+              )}
+            </Suspense>
           </TabsContent>
         ))}
       </Tabs>
