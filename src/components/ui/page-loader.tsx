@@ -12,7 +12,7 @@ export function PageLoader() {
       role="status"
       aria-live="polite"
       aria-label="Carregando página"
-      className="flex h-screen w-full bg-background"
+      className="flex h-dvh w-full bg-background"
     >
       {/* Sidebar skeleton */}
       <div
@@ -42,8 +42,14 @@ export function PageLoader() {
  */
 export function TabLoader() {
   return (
-    <div className="flex items-center justify-center h-full w-full">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label="Carregando seção"
+      className="flex items-center justify-center h-full w-full"
+    >
+      <Loader2 aria-hidden="true" className="h-8 w-8 animate-spin text-primary" />
+      <span className="sr-only">Carregando…</span>
     </div>
   );
 }

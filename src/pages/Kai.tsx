@@ -537,7 +537,7 @@ export default function Kai() {
   };
 
   return (
-    <div className="flex h-screen bg-background w-full">
+    <div className="flex h-dvh bg-background w-full">
       {/* Onboarding Flow */}
       <OnboardingFlow />
       

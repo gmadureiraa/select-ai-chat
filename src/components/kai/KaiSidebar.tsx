@@ -221,8 +221,10 @@ export function KaiSidebar({
     <aside
       aria-label="Barra lateral KAI"
       className={cn(
-        "h-screen bg-sidebar flex flex-col transition-all duration-200",
-        !isMobile && "border-r border-sidebar-border",
+        // 2026-05-16 — audit Mob-2: em mobile o Sheet já dá altura, double
+        // h-screen causava 2 scrollbars. Em desktop, h-dvh evita salto iOS.
+        "bg-sidebar flex flex-col transition-all duration-200",
+        isMobile ? "h-full" : "h-dvh border-r border-sidebar-border",
         collapsed ? "w-16" : "w-60"
       )}
     >
