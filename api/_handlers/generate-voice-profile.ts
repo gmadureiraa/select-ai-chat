@@ -1,5 +1,6 @@
 // Migrated from supabase/functions/generate-voice-profile/index.ts
-import { anonPost } from '../_lib/handler.js';
+import { authedPost } from '../_lib/handler.js';
+import { assertClientAccess } from '../_lib/access.js';
 import { getPool, queryOne } from '../_lib/db.js';
 
 interface VoiceProfileSuggestion {
@@ -11,9 +12,13 @@ interface VoiceProfileSuggestion {
   analysis_summary: string;
 }
 
-export default anonPost(async ({ body }) => {
-  const { client_id } = body;
+export default authedPost(async ({ user, body }) => {
+  const { client_id } = body ?? {};
   if (!client_id) throw new Error('client_id é obrigatório');
+  // P0 fix audit 2026-05-16: handler estava em anonPost — qualquer caller
+  // anonimo conseguia passar um client_id arbitrario e ler ate 10 IG posts
+  // + 15 itens da library. Vazamento de conteudo per-tenant.
+  await assertClientAccess(user.id, client_id);
   const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
   if (!apiKey) throw new Error('API key não configurada');
 
