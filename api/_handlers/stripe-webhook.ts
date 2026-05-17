@@ -192,6 +192,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   console.log(`[stripe-webhook] received ${event.type} (id=${event.id})`);
 
+  // IDEMPOTENCY: dedup por event.id. Stripe retenta webhooks em 5xx/timeout
+  // (até 3 dias com exponential backoff). Sem isso, credit_tokens dobraria
+  // em retry transient. Migration 0044 criou `stripe_webhook_events` (PK em id).
+  // INSERT ON CONFLICT DO NOTHING — se event já processado, RETURNING vem
+  // vazio e retornamos 200 OK (Stripe não retenta mais).
+  const dedupStart = Date.now();
+  try {
+    const dedupRow = await queryOne<{ id: string }>(
+      `INSERT INTO stripe_webhook_events (id, type, livemode, payload_summary)
+       VALUES ($1, $2, $3, $4::jsonb)
+       ON CONFLICT (id) DO NOTHING
+       RETURNING id`,
+      [
+        event.id,
+        event.type,
+        !!event.livemode,
+        JSON.stringify({
+          api_version: event.api_version,
+          created: event.created,
+        }),
+      ],
+    );
+    if (!dedupRow) {
+      console.log(`[stripe-webhook] duplicate event ${event.id} ignored (already processed)`);
+      return res.status(200).json({ received: true, type: event.type, duplicate: true });
+    }
+  } catch (err: any) {
+    // Se a tabela ainda não existe (migration 0044 não rodou), faz log e segue
+    // — better than blocking webhooks. Re-rodar migration depois.
+    if (err?.code === '42P01') {
+      console.warn('[stripe-webhook] dedup table missing (migration 0044 not applied)');
+    } else {
+      console.error('[stripe-webhook] dedup insert error:', err);
+      // Continua processando — não bloqueia event legítimo por falha de dedup.
+    }
+  }
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -267,6 +304,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('[stripe-webhook] handler error:', err);
     return jsonError(res, 500, err.message || 'Internal error');
   }
+
+  // Marca duration no row de dedup (best-effort, não bloqueia resposta)
+  const durationMs = Date.now() - dedupStart;
+  getPool()
+    .query(
+      `UPDATE stripe_webhook_events SET duration_ms = $1 WHERE id = $2`,
+      [durationMs, event.id],
+    )
+    .catch(() => null);
 
   res.status(200).json({ received: true, type: event.type });
 }

@@ -19,6 +19,10 @@ const buttonVariants = cva(
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3",
+        // xs adicionado 2026-05-17 (audit Ds-5). Antes varios callers forcavam
+        // h-7/h-8 via className pra simular size mini, sobrescrevendo o icon
+        // size do Button. Padroniza em uma variant unica.
+        xs: "h-7 rounded-md px-2 text-xs gap-1.5",
         lg: "h-11 rounded-md px-8",
         icon: "h-10 w-10",
       },

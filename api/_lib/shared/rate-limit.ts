@@ -39,6 +39,11 @@ const hourBuckets = new Map<string, BucketEntry>();
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 
+// Cap absoluto pra impedir memory leak — em ataque distribuído cada IP único
+// criaria entry e nunca limparia até o GC time-based. Com cap, entries
+// antigas (LRU) são descartadas mesmo antes do TTL natural.
+const MAX_BUCKETS = 10_000;
+
 function getIp(req: VercelRequest): string {
   const fwd = req.headers['x-forwarded-for'];
   if (typeof fwd === 'string') return fwd.split(',')[0].trim();
@@ -58,7 +63,15 @@ function bump(
 ): RateLimitResult {
   const bucket = buckets.get(key);
   if (!bucket || now - bucket.windowStart > windowMs) {
+    // LRU touch — delete-then-set move pro fim, oldest entries somem primeiro
+    if (bucket) buckets.delete(key);
     buckets.set(key, { count: 1, windowStart: now });
+    // Cap absoluto — descarta oldest se passou do limite
+    while (buckets.size > MAX_BUCKETS) {
+      const oldestKey = buckets.keys().next().value;
+      if (!oldestKey) break;
+      buckets.delete(oldestKey);
+    }
     return { ok: true, remaining: limit - 1, retryAfterSec: 0 };
   }
   bucket.count += 1;

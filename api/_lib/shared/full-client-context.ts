@@ -73,6 +73,23 @@ interface CacheEntry {
 
 const CACHE = new Map<string, CacheEntry>();
 const TTL_MS = 5 * 60 * 1000;
+// Cap absoluto: container Vercel pode ficar warm horas e acumular entradas
+// pra clientes únicos. 100 clientes × ~50KB ctx = ~5MB tolerable. LRU-like
+// eviction via Map order (Map mantém insertion order, então oldest entries
+// estão no início — descartamos o primeiro key quando passa do cap).
+const MAX_ENTRIES = 100;
+
+function gcAndEnforceCap(): void {
+  const now = Date.now();
+  for (const [clientId, entry] of CACHE) {
+    if (entry.expiresAt < now) CACHE.delete(clientId);
+  }
+  while (CACHE.size > MAX_ENTRIES) {
+    const oldestKey = CACHE.keys().next().value;
+    if (!oldestKey) break;
+    CACHE.delete(oldestKey);
+  }
+}
 
 export function invalidateCachedClientContext(clientId?: string): void {
   if (!clientId) {
@@ -124,7 +141,15 @@ export async function getFullClientContext(
       platformPreferences,
       loadedAt: now,
     };
+    // LRU-touch: delete-then-set move pra final do iteration order, então
+    // entries antigos ficam no início e somem primeiro no eviction.
+    if (CACHE.has(clientId)) CACHE.delete(clientId);
     CACHE.set(clientId, { fullCtx: baseFullCtx, expiresAt: now + TTL_MS });
+    gcAndEnforceCap();
+  } else {
+    // Touch existing: move pro final pra preservar como recent.
+    CACHE.delete(clientId);
+    CACHE.set(clientId, cached);
   }
 
   // Similarity search é per-call (não cacheado) — depende do queryText.

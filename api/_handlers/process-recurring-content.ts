@@ -237,6 +237,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ? `${today}T${template.recurrence_time}`
           : null;
 
+        // ON CONFLICT DO NOTHING aproveita uq_planning_items_recurrence_per_day
+        // (migration 0044). Se outro cron já criou, RETURNING vem vazio.
         const newItem = await queryOne<any>(
           `INSERT INTO planning_items
             (workspace_id, client_id, title, description, content, column_id, platform, content_type,
@@ -245,6 +247,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'idea', $10, $11, $12, $13, $14, $15::jsonb${
              generatedImages.length > 0 ? ', $16' : ''
            })
+           ON CONFLICT (recurrence_parent_id, (DATE(created_at AT TIME ZONE 'UTC'))) WHERE recurrence_parent_id IS NOT NULL DO NOTHING
            RETURNING id`,
           generatedImages.length > 0
             ? [
@@ -296,7 +299,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           console.log(`[process-recurring-content] created ${newItem.id} (AI=${aiGenerated})`);
           results.push({ templateId: template.id, created: true, itemId: newItem.id, aiGenerated });
         } else {
-          results.push({ templateId: template.id, created: false, error: 'insert returned no id' });
+          // ON CONFLICT DO NOTHING — race perdida, outro cron já criou
+          console.log(`[process-recurring-content] race-skip: template ${template.id} já tinha item hoje`);
+          results.push({ templateId: template.id, created: false });
         }
       } catch (templateError: any) {
         console.error(`[process-recurring-content] error for template ${template.id}:`, templateError);
@@ -355,12 +360,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `SELECT COUNT(*)::int AS c FROM team_tasks WHERE workspace_id = $1 AND status = 'todo'`,
           [template.workspace_id],
         );
+        // ON CONFLICT DO NOTHING aproveita uq_team_tasks_recurrence_per_day
+        // (migration 0044) — race-safe entre crons paralelos.
         const task = await queryOne<{ id: string }>(
           `INSERT INTO team_tasks
              (workspace_id, client_id, title, description, status, priority, due_date,
               assigned_to, created_by, position, labels, mentions, recurrence_parent_id,
               is_recurrence_template)
            VALUES ($1, $2, $3, $4, 'todo', $5, $6, $7, $8, $9, $10::jsonb, $11::uuid[], $12, false)
+           ON CONFLICT (recurrence_parent_id, (DATE(created_at AT TIME ZONE 'UTC'))) WHERE recurrence_parent_id IS NOT NULL DO NOTHING
            RETURNING id`,
           [
             template.workspace_id,

@@ -329,8 +329,16 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   return (
-    <Dialog open={shouldShowOnboarding} onOpenChange={() => {}}>
-      <DialogContent 
+    <Dialog
+      open={shouldShowOnboarding}
+      // 2026-05-17 — audit A11y-3: antes era `() => {}`, e ESC entao no-op,
+      // user ficava preso se botao "Pular" nao funcionasse. Agora ESC chama
+      // handleSkip — mesma semantica do clique no X (canto sup direito).
+      onOpenChange={(open) => {
+        if (!open) handleSkip();
+      }}
+    >
+      <DialogContent
         className="max-w-lg p-0 gap-0 border-border/50 bg-card overflow-hidden"
         onInteractOutside={(e) => e.preventDefault()}
         hideCloseButton

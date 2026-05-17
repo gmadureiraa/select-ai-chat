@@ -25,7 +25,20 @@ export interface VoiceProfile {
   avoid?: string[];
 }
 
+// Cache pra kai_documentation rows (format/agent docs).
+// É data quase-estática (admin update raríssimo) e poucas entries (~30 docs
+// no total). Cap defensivo de 200 pra cobrir potential growth + aliases.
+// LRU eviction via Map insertion order.
+const DOCS_CACHE_MAX = 200;
 const docsCache: Map<string, KaiDocumentation> = new Map();
+
+function trimDocsCache(): void {
+  while (docsCache.size > DOCS_CACHE_MAX) {
+    const oldestKey = docsCache.keys().next().value;
+    if (!oldestKey) break;
+    docsCache.delete(oldestKey);
+  }
+}
 
 const FORMAT_KEY_ALIASES: Record<string, string> = {
   newsletter: 'newsletter',
@@ -97,6 +110,7 @@ async function fetchDocumentation(
       metadata: row.metadata || {},
     };
     docsCache.set(cacheKey, doc);
+    trimDocsCache();
     return doc;
   } catch (err) {
     console.error(`[KNOWLEDGE-LOADER] Error fetching ${docType}/${docKey}:`, err);
