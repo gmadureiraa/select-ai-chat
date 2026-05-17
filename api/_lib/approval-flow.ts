@@ -7,10 +7,18 @@
  * com `approved: true` + o mesmo `callbackToken`. O backend valida o token
  * (uso único, expira em 5min) e segue com a ação destrutiva real.
  *
- * MVP: store in-memory (`Map`). Funciona enquanto o approval e o re-call
- * caem na mesma instância de função Vercel (idle 5min ≈ mesma instância
- * em prática). Se virar problema (multi-region, cold starts) migra pra
- * tabela Postgres `approval_tokens` (id, action, payload jsonb, expires_at).
+ * STORE: Postgres (`approval_tokens` table, migration 0043). Antes era
+ * `Map<string, TokenEntry>` em memória — quebrava em prod multi-instância
+ * (lambda A gera token, lambda B recebe a re-call e não tem o Map →
+ * "Token inválido" mesmo o user tendo confirmado no modal).
+ *
+ * Consume é atômico via `UPDATE ... WHERE consumed_at IS NULL RETURNING id`,
+ * então duas lambdas concorrentes consumindo o mesmo token vêem apenas uma
+ * vitoriosa. Single-use real, garantido pelo Postgres.
+ *
+ * FAIL-CLOSED: se o DB tá indisponível, requireApproval e consumeApprovalToken
+ * lançam exception. Aprovação é gate de segurança — preferimos falhar a
+ * autorizar uma deleção sem prova de consentimento.
  *
  * Como usar em uma tool:
  *
@@ -21,8 +29,9 @@
  *     const token = typeof args.callbackToken === 'string' ? args.callbackToken : '';
  *
  *     if (!approved) {
- *       const approval = requireApproval({
+ *       const approval = await requireApproval({
  *         action: 'delete_content',
+ *         createdBy: ctx.userId,
  *         preview: {
  *           title: 'Deletar carrossel?',
  *           description: `O carrossel "${title}" será removido permanentemente.`,
@@ -34,7 +43,7 @@
  *       return { ok: true, data: approval };
  *     }
  *
- *     if (!consumeApprovalToken(token, 'delete_content')) {
+ *     if (!(await consumeApprovalToken(token, 'delete_content'))) {
  *       return { ok: false, error: 'Token de aprovação inválido ou expirado.' };
  *     }
  *
@@ -44,39 +53,10 @@
  *   };
  */
 
-import { randomUUID } from 'node:crypto';
+import { query, queryOne } from './db.js';
 
 const TOKEN_TTL_MS = 5 * 60 * 1000;
-const STORE_MAX_ENTRIES = 500;
-
-interface TokenEntry {
-  action: string;
-  expiresAt: number;
-  /** Opcional — guarda os args pra auditoria/log futuro. */
-  payload?: unknown;
-}
-
-const tokenStore = new Map<string, TokenEntry>();
-
-/**
- * Limpa tokens expirados. Roda no evento de criação pra evitar growth
- * desnecessário (lazy GC).
- */
-function gcExpired(): void {
-  const now = Date.now();
-  for (const [token, entry] of tokenStore) {
-    if (entry.expiresAt < now) tokenStore.delete(token);
-  }
-  // Cap absoluto — se passou do limite (raríssimo), drop the oldest entries.
-  if (tokenStore.size > STORE_MAX_ENTRIES) {
-    const excess = tokenStore.size - STORE_MAX_ENTRIES;
-    const iter = tokenStore.keys();
-    for (let i = 0; i < excess; i++) {
-      const k = iter.next().value;
-      if (k) tokenStore.delete(k);
-    }
-  }
-}
+const TOKEN_PREFIX = 'appr_';
 
 export interface ApprovalImpactedItem {
   id: string;
@@ -119,65 +99,160 @@ export interface RequireApprovalOptions {
   /** Opcional — args originais pra ecoar de volta na re-call (incluindo overrides). */
   toolName?: string;
   toolArgs?: Record<string, unknown>;
-  /** Opcional — payload arbitrário pra log/auditoria. */
+  /** Opcional — payload arbitrário pra log/auditoria (vai em `payload` jsonb). */
   payload?: unknown;
+  /** UUID do user que disparou o approval. Recomendado — habilita RLS scope
+   *  e auditoria "quem pediu pra deletar o quê". */
+  createdBy?: string;
+  /** UUID do workspace ativo. Opcional — pra auditoria cross-workspace. */
+  workspaceId?: string;
+  /** Override do TTL (ms). Default: 5min. */
+  ttlMs?: number;
+}
+
+interface ApprovalTokenRow {
+  id: string;
+  expires_at: string; // ISO from Postgres
 }
 
 /**
- * Gera um ApprovalRequest + reserva o token na store. Retorne o objeto direto
- * como `data` da tool — o runner detecta e propaga via stream.
+ * Converte UUID puro do Postgres pra string token com prefixo (mantém o
+ * formato visível ao caller — `appr_<uuid>` ajuda em log/grep e impede
+ * confusão com outros UUIDs no payload).
  */
-export function requireApproval(opts: RequireApprovalOptions): ApprovalRequest {
-  gcExpired();
-  const token = `appr_${randomUUID()}`;
-  const expiresAt = Date.now() + TOKEN_TTL_MS;
-  tokenStore.set(token, {
-    action: opts.action,
-    expiresAt,
-    payload: opts.payload,
-  });
+function tokenFromId(id: string): string {
+  return `${TOKEN_PREFIX}${id}`;
+}
+
+/**
+ * Extrai o UUID de um token com prefixo. Retorna null se o formato não bate
+ * (ex: token vazio, sem prefixo, ou UUID malformado).
+ */
+function idFromToken(token: string): string | null {
+  if (!token || typeof token !== 'string') return null;
+  if (!token.startsWith(TOKEN_PREFIX)) return null;
+  const id = token.slice(TOKEN_PREFIX.length);
+  // Sanity check: UUID v4-ish — 36 chars com hifens nas posições corretas.
+  // Não validamos versão (Postgres aceita qualquer uuid format).
+  if (id.length !== 36) return null;
+  if (!/^[0-9a-f-]+$/i.test(id)) return null;
+  return id;
+}
+
+/**
+ * Gera um ApprovalRequest + persiste o token na tabela. Retorne o objeto
+ * direto como `data` da tool — o runner detecta e propaga via stream.
+ *
+ * Throws se DATABASE_URL não tá configurado ou se o INSERT falhar. Aprovação
+ * é gate de segurança — fail-closed é o comportamento correto.
+ */
+export async function requireApproval(opts: RequireApprovalOptions): Promise<ApprovalRequest> {
+  const ttl = opts.ttlMs ?? TOKEN_TTL_MS;
+  const expiresAtMs = Date.now() + ttl;
+  const expiresAt = new Date(expiresAtMs).toISOString();
+
+  const row = await queryOne<ApprovalTokenRow>(
+    `INSERT INTO public.approval_tokens
+       (action, payload, created_by, workspace_id, expires_at)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, expires_at`,
+    [
+      opts.action,
+      JSON.stringify(opts.payload ?? {}),
+      opts.createdBy ?? null,
+      opts.workspaceId ?? null,
+      expiresAt,
+    ],
+  );
+
+  if (!row) {
+    // Postgres não devolveu o RETURNING — erro infra (network, deadlock).
+    throw new Error('[approval-flow] requireApproval: INSERT não retornou row');
+  }
+
   return {
     requiresApproval: true,
     action: opts.action,
     preview: opts.preview,
-    callbackToken: token,
+    callbackToken: tokenFromId(row.id),
     toolName: opts.toolName,
     toolArgs: opts.toolArgs,
-    expiresAt: new Date(expiresAt).toISOString(),
+    expiresAt: row.expires_at,
   };
 }
 
 /**
  * Valida e consome o token (single-use). Retorna `true` se o token existe,
- * está dentro do TTL e bate com `expectedAction`. Após consumir, remove do store.
+ * está dentro do TTL, não foi consumido ainda E bate com `expectedAction`.
  *
- * Validação ANTES de consume — assim um token que falhou por action mismatch
- * (LLM tentou usar token de delete_content pra delete_task) é deletado mesmo
- * assim, prevenindo retry com outro action.
+ * Atomic via `UPDATE ... WHERE consumed_at IS NULL RETURNING id` — duas
+ * lambdas concorrentes consumindo o mesmo token: só uma vê a row, a outra
+ * vê 0 rows = false. Race-free.
  *
- * Race: Map.get + delete em Node single-threaded é atômico dentro do mesmo
- * event loop tick (sem concorrência verdadeira). Duas requests "concorrentes"
- * dentro da mesma instância Vercel ainda serializam por causa do event loop.
- * MULTI-INSTÂNCIA (cold start): tokens não compartilham — não é race, é miss.
- * Solução: se o token foi gerado numa instância e validado em outra, a
- * segunda devolve `false` (correto). Único caveat: o store é em memória, então
- * tokens não persistem entre cold starts. Mitigação: TTL curto (5min) +
- * tolerância de re-trigger pelo user na UI.
+ * Validação `action` é dentro do WHERE — token de `delete_content` chamado
+ * como `delete_task` falha o UPDATE (0 rows). Ainda assim, fazemos um DELETE
+ * de garantia (best-effort) pra invalidar o token e prevenir replay:
+ *
+ *   1. UPDATE WHERE id=X AND action=Y AND not consumed AND not expired
+ *      → 1 row = success
+ *      → 0 rows = pode ser: action mismatch, expirado, já consumido, não existe
+ *   2. Se 0 rows mas o id existe E ainda não foi consumido, fazemos best-effort
+ *      DELETE pra evitar reuso com action diferente (mitiga injection).
+ *
+ * Retorna false se token mal-formado, DB indisponível, ou qualquer falha.
+ * NUNCA retorna true sem ter consumido a row.
  */
-export function consumeApprovalToken(token: string, expectedAction: string): boolean {
-  if (!token || typeof token !== 'string') return false;
-  const entry = tokenStore.get(token);
-  if (!entry) return false;
-  // Sempre consume — single-use, mesmo se falhar validação. Previne token
-  // reuse pra action diferente.
-  tokenStore.delete(token);
-  if (entry.expiresAt < Date.now()) return false;
-  if (entry.action !== expectedAction) return false;
-  return true;
+export async function consumeApprovalToken(
+  token: string,
+  expectedAction: string,
+): Promise<boolean> {
+  const id = idFromToken(token);
+  if (!id) return false;
+  if (!expectedAction || typeof expectedAction !== 'string') return false;
+
+  try {
+    const updated = await query<{ id: string }>(
+      `UPDATE public.approval_tokens
+          SET consumed_at = NOW()
+        WHERE id = $1
+          AND action = $2
+          AND expires_at > NOW()
+          AND consumed_at IS NULL
+        RETURNING id`,
+      [id, expectedAction],
+    );
+
+    if (updated.length === 1) return true;
+
+    // 0 rows = action mismatch, expirado, já consumido, ou não existe.
+    // Tenta invalidar o token mesmo assim (anti-injection — previne attacker
+    // que pegou um token e está tentando vários `action` strings até achar).
+    // É best-effort: se falhar tudo bem, a expiração natural cobre.
+    try {
+      await query(
+        `UPDATE public.approval_tokens
+            SET consumed_at = NOW()
+          WHERE id = $1
+            AND consumed_at IS NULL`,
+        [id],
+      );
+    } catch (gcErr) {
+      // ignore — best effort
+      console.warn('[approval-flow] gc on failed consume:', gcErr);
+    }
+
+    return false;
+  } catch (err) {
+    // DB indisponível — fail-closed (não autoriza a ação destrutiva sem
+    // ter conseguido consumir). Loga pra diagnóstico.
+    console.error('[approval-flow] consumeApprovalToken DB error:', err);
+    return false;
+  }
 }
 
 /**
  * Type guard — útil em tools/runner pra decidir se o `data` é um ApprovalRequest.
+ * Permanece sync (não toca DB).
  */
 export function isApprovalRequest(value: unknown): value is ApprovalRequest {
   return (
@@ -190,8 +265,9 @@ export function isApprovalRequest(value: unknown): value is ApprovalRequest {
 }
 
 /**
- * Para testes — não usar em prod. Limpa todos os tokens.
+ * Para testes — deleta TODOS tokens do DB. Não usar em prod (truncate).
+ * Útil em `e2e/_approval-flow-postgres.spec.ts` pra isolar runs.
  */
-export function _resetApprovalStoreForTests(): void {
-  tokenStore.clear();
+export async function _resetApprovalStoreForTests(): Promise<void> {
+  await query(`TRUNCATE TABLE public.approval_tokens`);
 }

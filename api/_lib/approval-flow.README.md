@@ -76,10 +76,12 @@ export const deleteContentTool: RegisteredTool<DeleteArgs, unknown> = {
     );
     if (!item) return { ok: false, error: 'Item não encontrado' };
 
-    // 1ª chamada — pede aprovação
+    // 1ª chamada — pede aprovação (await — persiste no Postgres)
     if (args.approved !== true) {
-      const approval = requireApproval({
+      const approval = await requireApproval({
         action: 'delete_content',
+        createdBy: ctx.userId, // scope RLS + audit
+        payload: { planningItemId: id },
         toolName: 'deleteContent',
         toolArgs: { planningItemId: id },
         preview: {
@@ -92,9 +94,9 @@ export const deleteContentTool: RegisteredTool<DeleteArgs, unknown> = {
       return { ok: true, data: approval };
     }
 
-    // 2ª chamada — valida token e executa
+    // 2ª chamada — valida token e executa (await — atomic UPDATE no Postgres)
     const token = String(args.callbackToken ?? '');
-    if (!consumeApprovalToken(token, 'delete_content')) {
+    if (!(await consumeApprovalToken(token, 'delete_content'))) {
       return { ok: false, error: 'Token de aprovação inválido ou expirado. Tente de novo.' };
     }
 
@@ -122,13 +124,22 @@ export const deleteContentTool: RegisteredTool<DeleteArgs, unknown> = {
 ## Notas técnicas
 
 - Token TTL: **5 minutos**. Após expirar, usuário precisa re-disparar a tool.
-- Token é **single-use** — `consumeApprovalToken` remove na primeira leitura.
-- Store é **in-memory** por instância de função. Funciona pra MVP (cold starts
-  curtos). Se virar problema (multi-region, alta concorrência), migrar pra
-  tabela Neon `approval_tokens` com `expires_at`.
+- Token é **single-use** — `consumeApprovalToken` marca `consumed_at = NOW()`
+  via `UPDATE ... WHERE consumed_at IS NULL RETURNING id` (atômico, race-free
+  entre lambdas).
+- Store é **Postgres** (`approval_tokens` table, migration `0043`). A versão
+  antiga in-memory quebrava em multi-instância — lambda A gerava o token,
+  lambda B recebia o consume e não tinha o Map. Resolvido na migração.
+- `requireApproval` e `consumeApprovalToken` são **async** (retornam Promise).
+  Sempre `await`.
+- DB indisponível → consume devolve `false` (fail-closed). requireApproval
+  lança exception (não autoriza sem ter persistido o token).
+- Cleanup: cron diário `cron-approval-tokens-cleanup` apaga rows com
+  `expires_at < NOW() - INTERVAL '1 day'`.
 - Validação `action`: o token só funciona se a 2ª chamada usar o mesmo `action`
   string da 1ª. Isso impede injection (não dá pra usar token de
-  `delete_content` pra executar `publish_now`).
+  `delete_content` pra executar `publish_now`). Se a action errada falha,
+  fazemos best-effort delete pra prevenir tentativas seguidas (anti-bruteforce).
 
 ## Tools que devem usar approval flow
 
