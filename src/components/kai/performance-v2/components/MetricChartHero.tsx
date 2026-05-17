@@ -65,7 +65,7 @@ export type HeroMetric =
 interface MetricDef {
   key: HeroMetric;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   color: string; // hex ou hsl()
   unit?: string;
   // Quando true, total = último valor (não soma). Útil pra followers/eng%.

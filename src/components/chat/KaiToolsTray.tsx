@@ -56,6 +56,7 @@ type ToolCategory =
   | "Automações"
   | "Tarefas"
   | "Radar"
+  | "Métricas"
   | "Publicação";
 
 interface ToolEntry {
@@ -278,6 +279,7 @@ const CATEGORY_ORDER: ToolCategory[] = [
   "Automações",
   "Tarefas",
   "Radar",
+  "Métricas",
   "Publicação",
 ];
 

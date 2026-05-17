@@ -113,7 +113,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
   const [localFilters, setLocalFilters] = useState<PlanningFilters>({});
   
   // Effective filters - use localFilters.clientId if set, otherwise use prop clientId
-  const effectiveFilters = useMemo(() => {
+  const effectiveFilters = useMemo<PlanningFilters>(() => {
     if (localFilters.clientId !== undefined) {
       if (isViewer && viewerClientIds.length > 0) {
         const allowedClientId = localFilters.clientId && viewerClientIds.includes(localFilters.clientId)

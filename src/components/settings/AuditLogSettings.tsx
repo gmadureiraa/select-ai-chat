@@ -134,7 +134,9 @@ export function AuditLogSettings() {
         .order("created_at", { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       if (filterType !== "all") {
-        q = q.eq("activity_type", filterType);
+        // Cast pra contornar tipagem rígida do Supabase enum — filterType
+        // vem do select da UI que já restringe os valores válidos.
+        q = q.eq("activity_type", filterType as never);
       }
       const { data } = await q;
       return (data || []) as AuditRow[];

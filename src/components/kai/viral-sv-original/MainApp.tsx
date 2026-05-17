@@ -226,9 +226,11 @@ interface MainAppProps {
   /** ID do cliente Kaleidos selecionado no shell (Sidebar do KAI). */
   clientId?: string | null;
   client?: { id?: string; name?: string } | null;
+  /** Quando vindo de um deep-link (?carouselId=...) abre direto esse carrossel. */
+  carouselId?: string | null;
 }
 
-export default function MainApp({ clientId = null, client = null }: MainAppProps) {
+export default function MainApp({ clientId = null, client = null, carouselId = null }: MainAppProps) {
   const route = useHashRoute();
   const ctx = useMemo<SVClientContext>(() => ({ clientId, client }), [clientId, client]);
   // Carrega contexto KAI do cliente — só pra header. Pages internas

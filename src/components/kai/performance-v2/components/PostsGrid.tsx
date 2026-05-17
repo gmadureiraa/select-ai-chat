@@ -18,36 +18,16 @@ import { PostTranscriptionDialog } from "./PostTranscriptionDialog";
 import type { TranscriptionSource } from "@/hooks/usePostTranscription";
 import { getNetworkBranding } from "@/lib/network-branding";
 import { getPostMetric, getPostTimestamp } from "@/hooks/useMetricoolPerformance";
+import type { MetricoolPost } from "@/hooks/useMetricoolPerformance";
 import { imgProxy } from "@/lib/img-proxy";
 
 const INITIAL_PAGE_SIZE = 50;
 const PAGE_SIZE_INCREMENT = 50;
 
-export interface MetricoolPost {
-  id: string | number;
-  text?: string;
-  content?: string;
-  caption?: string;
-  url?: string;
-  permalink?: string;
-  imageUrl?: string;
-  thumbnail?: string;
-  mediaUrl?: string;
-  date?: string;
-  publishedAt?: string | { dateTime?: string; timezone?: string };
-  publishedDate?: string | { dateTime?: string; timezone?: string };
-  type?: string;
-  likes?: number;
-  comments?: number;
-  shares?: number;
-  reach?: number;
-  impressions?: number;
-  views?: number;
-  videoViews?: number;
-  engagementRate?: number;
-  engagement?: number;
-  [key: string]: unknown;
-}
+// MetricoolPost agora vem do hook (single source of truth — antes havia duas
+// definições divergentes que causavam erro TS quando InstagramDashboard passava
+// posts do hook pra esse grid).
+export type { MetricoolPost };
 
 export type PostsGridSort = "recent" | "engagement" | "reach";
 

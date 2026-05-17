@@ -120,6 +120,9 @@ export async function getFullClientContext(
 
   if (cached && cached.expiresAt > now) {
     baseFullCtx = cached.fullCtx;
+    // LRU touch — move pro final do iteration order pra preservar como recent.
+    CACHE.delete(clientId);
+    CACHE.set(clientId, cached);
   } else {
     const [ctx, topPerformers] = await Promise.all([
       getClientContextServer(clientId).catch((err) => {
@@ -141,15 +144,10 @@ export async function getFullClientContext(
       platformPreferences,
       loadedAt: now,
     };
-    // LRU-touch: delete-then-set move pra final do iteration order, então
-    // entries antigos ficam no início e somem primeiro no eviction.
+    // delete-then-set garante posição correta no LRU iteration order.
     if (CACHE.has(clientId)) CACHE.delete(clientId);
     CACHE.set(clientId, { fullCtx: baseFullCtx, expiresAt: now + TTL_MS });
     gcAndEnforceCap();
-  } else {
-    // Touch existing: move pro final pra preservar como recent.
-    CACHE.delete(clientId);
-    CACHE.set(clientId, cached);
   }
 
   // Similarity search é per-call (não cacheado) — depende do queryText.

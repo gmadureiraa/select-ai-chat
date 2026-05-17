@@ -187,7 +187,7 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
                           onClick={() => handleOpenFile(doc)}
                           disabled={isDownloading === doc.id}
                           title="Abrir documento"
-                          aria-label={isDownloading === doc.id ? `Baixando ${doc.title}` : `Abrir ${doc.title}`}
+                          aria-label={isDownloading === doc.id ? `Baixando ${doc.name}` : `Abrir ${doc.name}`}
                         >
                           {isDownloading === doc.id ? (
                             <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -222,7 +222,7 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
                           className="h-8 w-8 text-destructive hover:text-destructive"
                           onClick={() => setDeleteTarget(doc)}
                           title="Remover documento"
-                          aria-label={`Remover ${doc.title}`}
+                          aria-label={`Remover ${doc.name}`}
                         >
                           <Trash2 aria-hidden="true" className="h-4 w-4" />
                         </Button>
