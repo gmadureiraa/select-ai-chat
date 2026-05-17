@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Zap, Eye, Keyboard, Upload, CalendarDays, Columns3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,22 +14,46 @@ import { PlanningFilters as FiltersComponent, type PlanningFiltersHandle } from 
 import { ViewToggle, type PlanningView } from './ViewToggle';
 import { PlanningItemCard } from './PlanningItemCard';
 import { PlanningListRow } from './PlanningListRow';
-import { PlanningItemDialog } from './PlanningItemDialog';
 import { KanbanView, type KanbanViewHandle } from './KanbanView';
 import { CalendarView } from './CalendarView';
-import { MetricoolCalendarView } from '@/components/metricool/MetricoolCalendarView';
 import { ViewSettingsPopover, useViewSettings } from './ViewSettingsPopover';
 import { EmptyState } from './EmptyState';
 import { BulkActionsToolbar } from './BulkActionsToolbar';
-import { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
-import { ColumnsCustomizeDialog } from './ColumnsCustomizeDialog';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useMemberClientAccess } from '@/hooks/useMemberClientAccess';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { PlanningAutomations } from './PlanningAutomations';
-import { ClickUpImportDialog } from './ClickUpImportDialog';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
+
+// 2026-05-17 — Dialogs e views opcionais lazy. PlanningItemDialog (form
+// pesado), MetricoolCalendarView (só ativo na view "editorial"),
+// KeyboardShortcutsDialog (só abre ao apertar "?"), ColumnsCustomizeDialog
+// (admin) e ClickUpImportDialog (importação manual) — nenhum deles é
+// usado no primeiro paint do Planning. Saem ~30-50kB do chunk principal.
+const PlanningItemDialog = lazy(() =>
+  import('./PlanningItemDialog').then((m) => ({ default: m.PlanningItemDialog })),
+);
+const MetricoolCalendarView = lazy(() =>
+  import('@/components/metricool/MetricoolCalendarView').then((m) => ({
+    default: m.MetricoolCalendarView,
+  })),
+);
+const KeyboardShortcutsDialog = lazy(() =>
+  import('./KeyboardShortcutsDialog').then((m) => ({
+    default: m.KeyboardShortcutsDialog,
+  })),
+);
+const ColumnsCustomizeDialog = lazy(() =>
+  import('./ColumnsCustomizeDialog').then((m) => ({
+    default: m.ColumnsCustomizeDialog,
+  })),
+);
+const ClickUpImportDialog = lazy(() =>
+  import('./ClickUpImportDialog').then((m) => ({
+    default: m.ClickUpImportDialog,
+  })),
+);
 
 interface PlanningBoardProps {
   clientId?: string;
@@ -582,12 +606,14 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
         {view === 'editorial' && (
           <div className="h-full overflow-y-auto">
             {effectiveFilters.clientId ? (
-              <MetricoolCalendarView
-                clientId={effectiveFilters.clientId}
-                onCreatePlanningItem={(date, eventTitle) =>
-                  handleNewCard(undefined, date, eventTitle)
-                }
-              />
+              <Suspense fallback={<div className="p-8"><Skeleton className="h-96" /></div>}>
+                <MetricoolCalendarView
+                  clientId={effectiveFilters.clientId}
+                  onCreatePlanningItem={(date, eventTitle) =>
+                    handleNewCard(undefined, date, eventTitle)
+                  }
+                />
+              </Suspense>
             ) : (
               <div className="flex items-center justify-center h-full p-8">
                 <div className="text-center max-w-md">
@@ -604,39 +630,56 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
         )}
       </div>
 
-      {/* Dialog */}
-      <PlanningItemDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        item={editingItem}
-        columns={columns}
-        defaultColumnId={defaultColumnId}
-        defaultDate={defaultDate}
-        defaultClientId={localFilters.clientId || clientId}
-        defaultTitle={defaultTitle}
-        onSave={handleCreateItem}
-        onUpdate={handleUpdateItem}
-        onDelete={isViewer ? undefined : async (id) => { await deleteItem.mutateAsync(id); }}
-      />
+      {/* Dialog — só monta quando aberto pra evitar baixar o chunk antes
+          do user clicar em criar/editar planning item. */}
+      {dialogOpen && (
+        <Suspense fallback={null}>
+          <PlanningItemDialog
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            item={editingItem}
+            columns={columns}
+            defaultColumnId={defaultColumnId}
+            defaultDate={defaultDate}
+            defaultClientId={localFilters.clientId || clientId}
+            defaultTitle={defaultTitle}
+            onSave={handleCreateItem}
+            onUpdate={handleUpdateItem}
+            onDelete={isViewer ? undefined : async (id) => { await deleteItem.mutateAsync(id); }}
+          />
+        </Suspense>
+      )}
 
       {/* ClickUp Import */}
-      <ClickUpImportDialog
-        open={showClickUpImport}
-        onOpenChange={setShowClickUpImport}
-      />
+      {showClickUpImport && (
+        <Suspense fallback={null}>
+          <ClickUpImportDialog
+            open={showClickUpImport}
+            onOpenChange={setShowClickUpImport}
+          />
+        </Suspense>
+      )}
 
       {/* Modal de atalhos de teclado */}
-      <KeyboardShortcutsDialog
-        open={showShortcutsHelp}
-        onOpenChange={setShowShortcutsHelp}
-      />
+      {showShortcutsHelp && (
+        <Suspense fallback={null}>
+          <KeyboardShortcutsDialog
+            open={showShortcutsHelp}
+            onOpenChange={setShowShortcutsHelp}
+          />
+        </Suspense>
+      )}
 
       {/* Personalizar colunas do Kanban */}
-      <ColumnsCustomizeDialog
-        open={showColumnsCustomize}
-        onOpenChange={setShowColumnsCustomize}
-        columns={columns}
-      />
+      {showColumnsCustomize && (
+        <Suspense fallback={null}>
+          <ColumnsCustomizeDialog
+            open={showColumnsCustomize}
+            onOpenChange={setShowColumnsCustomize}
+            columns={columns}
+          />
+        </Suspense>
+      )}
 
       {/* Toolbar flutuante de ações em massa */}
       {!isViewer && (
