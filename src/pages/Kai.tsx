@@ -583,7 +583,11 @@ export default function Kai() {
         id="main-content"
         className={cn(
           "flex-1 min-h-0 overflow-hidden flex flex-col",
-          isMobile && "pt-14 pb-16" // Space for mobile header (top) + bottom nav
+          // 2026-05-16 — audit Mob-8: pb-16 fixo deixava conteúdo escondido
+          // atrás do MobileBottomNav em iPhones com home indicator (nav
+          // cresce pra ~84px com safe-area, main só reservava 64px). Agora
+          // calc soma o env(safe-area-inset-bottom) — funciona em todo device.
+          isMobile && "pt-14 pb-[calc(3.5rem+env(safe-area-inset-bottom))]"
         )}
       >
         {/* Banner global de convites pendentes — aparece quando o user tem
