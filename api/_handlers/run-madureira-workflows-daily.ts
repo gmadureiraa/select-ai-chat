@@ -20,6 +20,7 @@
 // Marca run como `failed_validation` e Gabriel decide.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getPool, query, queryOne } from '../_lib/db.js';
+import { assertCronAuth } from '../_lib/cron-auth.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
 const DEFAULT_MODEL = 'gemini-2.5-flash';
@@ -444,10 +445,7 @@ async function runWorkflow(workflow: WorkflowRow, agent: AgentRow): Promise<{
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const isCron =
-    req.headers['x-vercel-cron'] === '1' ||
-    req.headers['authorization'] === `Bearer ${process.env.CRON_SECRET}`;
-  if (!isCron) return res.status(401).json({ error: 'Unauthorized' });
+  if (!assertCronAuth(req, res)) return;
 
   const now = new Date();
   const today = now.toISOString().slice(0, 10);

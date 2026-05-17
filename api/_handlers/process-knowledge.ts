@@ -13,8 +13,11 @@ import { getPool, queryOne } from '../_lib/db.js';
 import { callLLM } from '../_lib/llm.js';
 import { assertWorkspaceAccess } from '../_lib/access.js';
 import { generateEmbedding, toVectorLiteral } from '../_lib/shared/embeddings.js';
+import { assertSafeUrl } from '../_lib/url-guard.js';
 
 async function scrapeUrl(url: string) {
+  // SSRF guard: bloqueia IPs privados, cloud metadata, DB ports.
+  await assertSafeUrl(url);
   const r = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',

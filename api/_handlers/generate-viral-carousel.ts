@@ -10,6 +10,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { tryAuth } from '../_lib/auth.js';
 import { assertClientAccess } from '../_lib/access.js';
+import { isValidCronCall } from '../_lib/cron-auth.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
 import { put } from '@vercel/blob';
 import { logAIUsage, estimateTokens } from '../_lib/shared/ai-usage.js';
@@ -365,12 +366,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return jsonError(res, 400, 'clientId e briefing são obrigatórios');
     }
 
-    // Auth: cron OR authed user OR explicit userId override (internal calls)
-    const cronSecret = process.env.CRON_SECRET;
-    const authHeader = req.headers.authorization;
-    const isCron =
-      req.headers['x-vercel-cron'] === '1' ||
-      (cronSecret && authHeader === `Bearer ${cronSecret}`);
+    // Auth: cron (Bearer CRON_SECRET) OR authed user OR explicit userId override (internal calls).
+    // Header `x-vercel-cron` standalone NÃO é confiável.
+    const isCron = isValidCronCall(req);
     const isInternalCall = req.headers['x-internal-call'] === 'true';
 
     let userId: string | null = providedUserId ?? null;

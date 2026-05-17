@@ -5,6 +5,7 @@ import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool } from '../_lib/db.js';
 import { tryAuth, type AuthUser } from '../_lib/auth.js';
 import { assertClientAccess } from '../_lib/access.js';
+import { isValidCronCall } from '../_lib/cron-auth.js';
 
 function detectLinkedInTarget(input: string): { url: string; type: 'person' | 'company' } {
   const cleaned = input.trim();
@@ -23,12 +24,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(res);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
 
-  // Auth: cron OR authed user
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.authorization;
-  const isCron =
-    req.headers['x-vercel-cron'] === '1' ||
-    (cronSecret && authHeader === `Bearer ${cronSecret}`);
+  // Auth: cron (Bearer CRON_SECRET) OR authed user.
+  // Header `x-vercel-cron` standalone NÃO é confiável.
+  const isCron = isValidCronCall(req);
   let authedUser: AuthUser | null = null;
   if (!isCron) {
     authedUser = await tryAuth(req);

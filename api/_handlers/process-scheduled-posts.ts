@@ -5,6 +5,7 @@ import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
 import { publishMetricoolForClient } from './metricool-post.js';
 import { normalizePublicationError } from '../_lib/publication-errors.js';
+import { assertCronAuth } from '../_lib/cron-auth.js';
 
 const SUPPORTED_PLATFORMS = ['twitter', 'linkedin', 'instagram', 'tiktok', 'youtube', 'facebook', 'threads', 'pinterest', 'bluesky'];
 const DEFAULT_MAX_LAG_MINUTES = 360;
@@ -108,17 +109,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return jsonError(res, 405, 'Method not allowed');
   }
 
-  // Auth: SOMENTE vercel cron OR CRON_SECRET. Não permite trigger por user
-  // autenticado — isso permitiria QUALQUER user logado disparar publicação
-  // de scheduled posts globais (de outros workspaces). Cron-only é seguro.
-  const cronSecret = process.env.CRON_SECRET;
-  const auth = req.headers.authorization;
-  const isCron =
-    req.headers['x-vercel-cron'] === '1' ||
-    (cronSecret && auth === `Bearer ${cronSecret}`);
-  if (!isCron) {
-    return jsonError(res, 403, 'Cron-only endpoint');
-  }
+  // Auth: SOMENTE cron via Authorization: Bearer $CRON_SECRET.
+  // Não permite trigger por user autenticado — isso permitiria QUALQUER user
+  // logado disparar publicação de scheduled posts globais (de outros workspaces).
+  // Header `x-vercel-cron` standalone NÃO é confiável (forjável).
+  if (!assertCronAuth(req, res)) return;
 
   try {
     const body = req.body && typeof req.body === 'object'

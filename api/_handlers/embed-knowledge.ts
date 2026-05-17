@@ -3,8 +3,7 @@
 // (text-embedding-3-small, 1536 dims) e atualiza a coluna.
 //
 // Auth: super_admin OR cron secret
-//   - x-vercel-cron header
-//   - Authorization: Bearer $CRON_SECRET
+//   - Authorization: Bearer $CRON_SECRET (scheduler Vercel anexa automaticamente)
 //   - User autenticado e presente em public.super_admins
 //
 // Body (POST JSON, opcional):
@@ -19,6 +18,7 @@ import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { tryAuth } from '../_lib/auth.js';
 import { query, queryOne, getPool } from '../_lib/db.js';
 import { generateEmbeddings, toVectorLiteral } from '../_lib/shared/embeddings.js';
+import { isValidCronCall } from '../_lib/cron-auth.js';
 
 interface BodyShape {
   workspaceId?: string;
@@ -35,11 +35,8 @@ interface KnowledgeRow {
 }
 
 async function isAuthorized(req: VercelRequest): Promise<{ ok: boolean; reason?: string }> {
-  const cronSecret = process.env.CRON_SECRET;
-  const isCron =
-    req.headers['x-vercel-cron'] === '1' ||
-    (cronSecret && req.headers.authorization === `Bearer ${cronSecret}`);
-  if (isCron) return { ok: true, reason: 'cron' };
+  // Cron via Bearer CRON_SECRET. Header `x-vercel-cron` standalone NÃO conta.
+  if (isValidCronCall(req)) return { ok: true, reason: 'cron' };
 
   // Tentar JWT autenticado + super_admin
   const user = await tryAuth(req);

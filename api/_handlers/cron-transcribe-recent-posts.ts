@@ -4,6 +4,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight } from '../_lib/cors.js';
 import { query } from '../_lib/db.js';
+import { assertCronAuth } from '../_lib/cron-auth.js';
 
 const MAX_PER_RUN = 20;
 const LOOKBACK_DAYS = 7;
@@ -18,13 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
   applyCors(res);
 
-  const authHeader = req.headers.authorization;
-  const isVercelCron = !!req.headers['x-vercel-cron'];
-  const isManualCron =
-    authHeader === `Bearer ${process.env.CRON_SECRET}` && !!process.env.CRON_SECRET;
-  if (!isVercelCron && !isManualCron) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  if (!assertCronAuth(req, res)) return;
 
   const startedAt = Date.now();
   const cutoff = new Date(Date.now() - LOOKBACK_DAYS * 86400000).toISOString();

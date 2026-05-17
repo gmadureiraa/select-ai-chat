@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authedPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
 import { assertClientAccess } from '../_lib/access.js';
+import { assertSafeUrl } from '../_lib/url-guard.js';
 
 const BodySchema = z.object({
   url: z.string().url('URL must be a valid http(s) URL'),
@@ -18,6 +19,8 @@ export default authedPost(async ({ body, user }) => {
   }
   const { url, clientId } = parsed.data;
   await assertClientAccess(user.id, clientId);
+  // SSRF guard: bloqueia IPs privados, cloud metadata, DB ports.
+  await assertSafeUrl(url);
 
   console.log('Scraping website:', url);
 

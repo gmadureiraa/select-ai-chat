@@ -18,6 +18,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
+import { assertCronAuth } from '../_lib/cron-auth.js';
 import { query, queryOne } from '../_lib/db.js';
 import {
   getClientContextServer,
@@ -455,13 +456,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return jsonError(res, 405, 'Method not allowed');
   }
 
-  const cronSecret = process.env.CRON_SECRET;
-  const isCron =
-    req.headers['x-vercel-cron'] === '1' ||
-    (cronSecret && req.headers.authorization === `Bearer ${cronSecret}`);
-  if (!isCron) {
-    return jsonError(res, 401, 'Unauthorized');
-  }
+  // Cron auth: Authorization: Bearer $CRON_SECRET (Vercel scheduler anexa
+  // automaticamente). Header `x-vercel-cron` standalone NÃO é confiável.
+  if (!assertCronAuth(req, res)) return;
 
   const t0 = Date.now();
   const dry = String(req.query.dry || '') === 'true';

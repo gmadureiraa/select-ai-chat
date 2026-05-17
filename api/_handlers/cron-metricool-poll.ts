@@ -10,15 +10,13 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight } from '../_lib/cors.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
 import { getMetricoolConfig, listScheduledPosts } from '../_lib/integrations/metricool.js';
+import { assertCronAuth } from '../_lib/cron-auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
   applyCors(res);
 
-  const authHeader = req.headers.authorization;
-  const isVercelCron = !!req.headers['x-vercel-cron'];
-  const isManualCron = authHeader === `Bearer ${process.env.CRON_SECRET}` && !!process.env.CRON_SECRET;
-  if (!isVercelCron && !isManualCron) return res.status(401).json({ error: 'Unauthorized' });
+  if (!assertCronAuth(req, res)) return;
 
   let cfg;
   try {

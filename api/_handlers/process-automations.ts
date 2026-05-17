@@ -19,6 +19,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, query, queryOne, insertRow } from '../_lib/db.js';
 import { tryAuth } from '../_lib/auth.js';
+import { isValidCronCall } from '../_lib/cron-auth.js';
 import {
   FORMAT_MAP,
   PLATFORM_MAP,
@@ -556,12 +557,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(res);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
 
-  // Auth: cron service-role OR authenticated user
-  const cronSecret = process.env.CRON_SECRET;
-  const auth = req.headers.authorization;
-  const isCron =
-    (req.headers['x-vercel-cron'] === '1') ||
-    (cronSecret && auth === `Bearer ${cronSecret}`);
+  // Auth: cron (Bearer CRON_SECRET) OR authenticated user.
+  // Header `x-vercel-cron` standalone NÃO é confiável (era forjável).
+  const isCron = isValidCronCall(req);
   let user = null;
   if (!isCron) {
     user = await tryAuth(req);

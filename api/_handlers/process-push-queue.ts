@@ -5,6 +5,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { tryAuth } from '../_lib/auth.js';
 import { getPool, query } from '../_lib/db.js';
+import { assertCronAuth } from '../_lib/cron-auth.js';
 import {
   sendWebPush,
   type PushSubscription,
@@ -30,14 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Auth: SOMENTE cron — drena fila global de push notifications.
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.authorization;
-  const isCron =
-    req.headers['x-vercel-cron'] === '1' ||
-    (cronSecret && authHeader === `Bearer ${cronSecret}`);
-  if (!isCron) {
-    return jsonError(res, 403, 'Cron-only endpoint');
-  }
+  if (!assertCronAuth(req, res)) return;
 
   try {
     const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;

@@ -58,7 +58,6 @@ export default authedPost(async ({ body, user, req }) => {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${cronSecret}`,
-        'x-vercel-cron': '1',
       },
       signal: controller.signal,
     });
