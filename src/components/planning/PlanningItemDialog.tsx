@@ -194,11 +194,11 @@ export function PlanningItemDialog({
   const { generateContent, isGenerating: isGeneratingContent, isFetchingReference } = usePlanningContentGeneration();
   const { canAutoPublish, getPlatformStatus } = useClientPlatformStatus(selectedClientId);
   const lateConnection = useLateConnection({ clientId: selectedClientId });
-  // Cross-feature: gerar carrossel viral / mandar pro Reels Viral a partir do card
+  // Cross-feature: gerar carrossel viral a partir do card
+  // (sendToReelsAdapter removido em 2026-05-16 junto com Reels Viral)
   const {
     generateCarouselFromPlanning,
     isGeneratingCarousel,
-    sendToReelsAdapter,
   } = usePlanningViralIntegration();
   // Auto-suggest cliente baseado em título + biblioteca de refs (ver hook)
   const clientSuggestion = useClientSuggestion(title, selectedClientId);
@@ -649,7 +649,7 @@ export function PlanningItemDialog({
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground mb-2.5">
-                      Use o briefing deste card pra gerar um carrossel pronto, ou abrir o Reels Viral pra adaptar um Reel de referência.
+                      Use o briefing deste card pra gerar um carrossel pronto.
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       <Button
@@ -678,27 +678,9 @@ export function PlanningItemDialog({
                         )}
                         Gerar Carrossel
                       </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 gap-1.5 text-xs focus-visible:ring-2 focus-visible:ring-ring"
-                        disabled={!selectedClientId || !title.trim()}
-                        onClick={() => {
-                          if (!effectiveItem) return;
-                          const liveItem = {
-                            ...effectiveItem,
-                            title: title.trim() || effectiveItem.title,
-                            content: content.trim() || effectiveItem.content,
-                            client_id: selectedClientId || effectiveItem.client_id,
-                          };
-                          sendToReelsAdapter({ item: liveItem });
-                          onOpenChange(false);
-                        }}
-                      >
-                        <Film className="h-3 w-3" />
-                        Adaptar Reel
-                      </Button>
+                      {/* 2026-05-16: botão "Adaptar Reel" removido (Reels Viral
+                          saiu do KAI; vive como app standalone em
+                          reels.kaleidos.com.br). */}
                     </div>
                   </div>
                 )}

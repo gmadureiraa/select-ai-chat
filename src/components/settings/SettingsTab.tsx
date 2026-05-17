@@ -26,7 +26,6 @@ import { AIUsageSettings } from "@/components/settings/AIUsageSettings";
 import { WebhookSettings } from "@/components/settings/WebhookSettings";
 import { WorkspaceSettingsTab } from "@/components/workspace/WorkspaceSettingsTab";
 import { WorkspaceMembersTab } from "@/components/workspace/WorkspaceMembersTab";
-import { RadarSourcesManager } from "@/components/admin/RadarSourcesManager";
 import { IntegrationsSettings } from "@/components/settings/IntegrationsSettings";
 import { AuditLogSettings } from "@/components/settings/AuditLogSettings";
 import { MCPDocsTab } from "@/components/kai/MCPDocsTab";
@@ -58,7 +57,6 @@ export function SettingsTab() {
     "team",
     "notifications",
     "appearance",
-    "radar-sources",
     "integrations",
     "audit-log",
     "docs",
@@ -359,8 +357,6 @@ export function SettingsTab() {
         return renderNotificationsSection();
       case "appearance":
         return renderAppearanceSection();
-      case "radar-sources":
-        return isSuperAdmin ? <RadarSourcesManager /> : renderProfileSection();
       case "integrations":
         return <IntegrationsSettings />;
       case "audit-log":
@@ -398,7 +394,6 @@ export function SettingsTab() {
           showTeam={canManageTeam}
           showWorkspace={isOwner}
           showMembers={canManageTeam}
-          showRadarSources={isSuperAdmin}
           showAuditLog={canManageTeam}
         />
         

@@ -251,7 +251,6 @@ function useSetupChecklist(opts: {
   hasClients: boolean;
   hasPlanningItems: boolean;
   metricoolPostsCount: number;
-  hasRadarSources: boolean;
 }): { items: SetupItem[]; pct: number } {
   return useMemo(() => {
     const items: SetupItem[] = [
@@ -274,12 +273,9 @@ function useSetupChecklist(opts: {
         done: opts.hasPlanningItems,
         cta: { label: "Planejamento", tab: "planning" },
       },
-      {
-        key: "radar",
-        label: "Cadastrar fontes do Radar Viral",
-        done: opts.hasRadarSources,
-        cta: { label: "Configurar", tab: "settings" },
-      },
+      // 2026-05-16: item "Cadastrar fontes do Radar Viral" removido junto
+      // com o Radar Viral (que saiu do KAI; vive como app standalone em
+      // radar.kaleidos.com.br).
     ];
     const completed = items.filter((i) => i.done).length;
     const pct = Math.round((completed / items.length) * 100);
@@ -288,7 +284,6 @@ function useSetupChecklist(opts: {
     opts.hasClients,
     opts.hasPlanningItems,
     opts.metricoolPostsCount,
-    opts.hasRadarSources,
   ]);
 }
 
@@ -363,31 +358,14 @@ export function HomeDashboard({
     staleTime: 60_000,
   });
 
-  // ── Radar setup proxy: usa contagem de viral_radar_briefs (cliente recebeu
-  //    pelo menos 1 brief) como sinal de que o radar está configurado.
-  //    `radar_sources` real é gerenciada via Settings → Radar Sources, mas
-  //    aqui só queremos saber se o user já interagiu com o sistema. ──
-  const { data: radarBriefsCount = 0 } = useQuery({
-    queryKey: ["dashboard-radar-briefs-count", workspaceId],
-    queryFn: async () => {
-      const clientIds = (clients ?? []).map((c) => c.id);
-      if (clientIds.length === 0) return 0;
-      const { count } = await supabase
-        .from("viral_radar_briefs")
-        .select("id", { count: "exact", head: true })
-        .in("client_id", clientIds);
-      return count ?? 0;
-    },
-    enabled: !!workspaceId && (clients?.length ?? 0) > 0,
-    staleTime: 5 * 60_000,
-  });
+  // 2026-05-16: query `radarBriefsCount` removida junto com Radar Viral
+  // (saiu do KAI; vive em radar.kaleidos.com.br).
 
   // Setup checklist
   const { items: setupItems, pct: setupPct } = useSetupChecklist({
     hasClients,
     hasPlanningItems: (stats?.totalPlanningItems ?? 0) > 0,
     metricoolPostsCount: stats?.metricoolPostsLast30d ?? 0,
-    hasRadarSources: radarBriefsCount > 0,
   });
 
   // Pendências breakdown

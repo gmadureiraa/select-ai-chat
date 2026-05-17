@@ -9,7 +9,6 @@ import {
   Activity,
   Webhook,
   Briefcase,
-  Radar,
   Plug,
   ScrollText,
   Terminal,
@@ -23,7 +22,6 @@ export type SettingsSection =
   | "team"
   | "notifications"
   | "appearance"
-  | "radar-sources"
   | "integrations"
   | "audit-log"
   | "docs"
@@ -37,6 +35,7 @@ interface SettingsNavigationProps {
   showTeam?: boolean;
   showWorkspace?: boolean;
   showMembers?: boolean;
+  /** @deprecated Radar Viral removido do KAI em 2026-05-16. */
   showRadarSources?: boolean;
   showAuditLog?: boolean;
 }
@@ -50,7 +49,7 @@ type Section = {
   id: SettingsSection;
   label: string;
   icon: React.ElementType;
-  requiresPermission?: "team" | "workspace" | "members" | "radar-sources" | "audit-log";
+  requiresPermission?: "team" | "workspace" | "members" | "audit-log";
   group: "account" | "workspace" | "system";
 };
 
@@ -67,7 +66,6 @@ const sections: Section[] = [
   // Sistema — integrações, observabilidade, dev
   { id: "integrations", label: "Integrações", icon: Plug, group: "system" },
   { id: "mcp", label: "MCP kAI", icon: Terminal, group: "system" },
-  { id: "radar-sources", label: "Fontes do Radar", icon: Radar, requiresPermission: "radar-sources", group: "system" },
   { id: "ai-usage", label: "Uso de IA", icon: Activity, group: "system" },
   { id: "webhooks", label: "Webhooks", icon: Webhook, group: "system" },
   { id: "docs", label: "Documentação", icon: BookOpen, group: "system" },
@@ -93,7 +91,6 @@ export function SettingsNavigation({
     if (section.requiresPermission === "team" && !showTeam) return false;
     if (section.requiresPermission === "workspace" && !showWorkspace) return false;
     if (section.requiresPermission === "members" && !showMembers) return false;
-    if (section.requiresPermission === "radar-sources" && !showRadarSources) return false;
     if (section.requiresPermission === "audit-log" && !showAuditLog) return false;
     return true;
   });

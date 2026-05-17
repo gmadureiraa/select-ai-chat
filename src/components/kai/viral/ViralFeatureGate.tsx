@@ -2,6 +2,10 @@
  * ViralFeatureGate — wrapper que bloqueia o conteúdo quando o user não tem
  * permissão pra usar a feature (plano não tem flag, ou role é viewer).
  *
+ * 2026-05-16: features `reels` e `radar` removidas (saíram do KAI; viraram
+ * apps standalone em reels.kaleidos.com.br e radar.kaleidos.com.br).
+ * Resta só `sequencia` (carrossel).
+ *
  * Uso no Kai.tsx:
  *
  *   case "viral-carrossel":
@@ -15,9 +19,9 @@
  * envolver com Suspense pra mostrar fallback.
  */
 import { useViralAccess } from "@/hooks/useViralAccess";
-import { UpgradePrompt, type UpgradeFeature } from "./UpgradePrompt";
+import { UpgradePrompt } from "./UpgradePrompt";
 
-type ViralFeatureKey = "sequencia" | "reels" | "radar";
+type ViralFeatureKey = "sequencia";
 
 interface ViralFeatureGateProps {
   feature: ViralFeatureKey;
@@ -26,35 +30,15 @@ interface ViralFeatureGateProps {
   showOnLoading?: boolean;
 }
 
-const FEATURE_TO_UPGRADE_KEY: Record<ViralFeatureKey, UpgradeFeature> = {
-  sequencia: "viral_carousel",
-  reels: "viral_reels",
-  radar: "viral_radar",
-};
-
-export function ViralFeatureGate({ feature, children, showOnLoading = false }: ViralFeatureGateProps) {
+export function ViralFeatureGate({ feature: _feature, children, showOnLoading = false }: ViralFeatureGateProps) {
   const access = useViralAccess();
 
   if (access.isLoading && !showOnLoading) return null;
 
-  const allowed =
-    feature === "sequencia"
-      ? access.canUseSequencia
-      : feature === "reels"
-      ? access.canUseReels
-      : access.canUseRadar;
-
-  const reason =
-    feature === "sequencia"
-      ? access.reasonSequencia
-      : feature === "reels"
-      ? access.reasonReels
-      : access.reasonRadar;
-
-  if (!allowed) {
+  if (!access.canUseSequencia) {
     return (
       <div className="flex items-center justify-center h-full p-8">
-        <UpgradePrompt feature={FEATURE_TO_UPGRADE_KEY[feature]} reason={reason} />
+        <UpgradePrompt feature="viral_carousel" reason={access.reasonSequencia} />
       </div>
     );
   }

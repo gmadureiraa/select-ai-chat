@@ -232,22 +232,15 @@ const TOOLS: ToolEntry[] = [
     category: "Tarefas",
   },
 
-  // ── Radar ───────────────────────────────────────────────────────────────
-  {
-    id: "createRadarBrief",
-    name: "Briefing de Radar",
-    description: "Cria briefing diário com hooks virais do Radar Viral.",
-    example: "Monta briefing do Radar pra hoje, foco em IA + marketing.",
-    icon: Radar,
-    category: "Radar",
-  },
+  // ── Métricas ────────────────────────────────────────────────────────────
+  // 2026-05-16: tool "createRadarBrief" removida junto com Radar Viral.
   {
     id: "getMetrics",
     name: "Métricas do cliente",
     description: "Performance dos posts publicados nos últimos 30 dias.",
     example: "Como tá a performance do cliente atual no último mês?",
     icon: BarChart3,
-    category: "Radar",
+    category: "Métricas",
   },
   {
     id: "getRecentPerformance",
@@ -255,7 +248,7 @@ const TOOLS: ToolEntry[] = [
     description: "Atalho rápido pra performance da semana (sem chart, mais rápido).",
     example: "Como tá a performance dessa semana?",
     icon: Activity,
-    category: "Radar",
+    category: "Métricas",
   },
 
   // ── Publicação ──────────────────────────────────────────────────────────

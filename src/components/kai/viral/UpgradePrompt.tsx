@@ -2,8 +2,11 @@
  * UpgradePrompt — card mostrado quando o user tenta acessar uma feature
  * bloqueada pelo plano (Free não tem viral_carousel, etc) ou viewer tenta criar.
  *
+ * 2026-05-16: viral_reels e viral_radar removidos (saíram do KAI; apps
+ * standalone em reels.kaleidos.com.br e radar.kaleidos.com.br).
+ *
  * Variants:
- *   - feature='viral_carousel'|'viral_reels'|'viral_radar' → upgrade plano
+ *   - feature='viral_carousel' → upgrade plano
  *   - feature='tokens' → tokens mensais esgotados
  *   - feature='clients' → atingiu max_clients do plano
  *
@@ -17,8 +20,6 @@ import { Lock, Sparkles, ArrowRight, AlertCircle, Users, Coins } from "lucide-re
 
 export type UpgradeFeature =
   | "viral_carousel"
-  | "viral_reels"
-  | "viral_radar"
   | "tokens"
   | "clients";
 
@@ -32,16 +33,12 @@ interface UpgradePromptProps {
 
 const FEATURE_NAMES: Record<UpgradeFeature, string> = {
   viral_carousel: "Sequência Viral",
-  viral_reels: "Reels Viral",
-  viral_radar: "Radar Viral",
   tokens: "créditos mensais",
   clients: "limite de clientes",
 };
 
 const FEATURE_ICONS: Record<UpgradeFeature, React.ComponentType<{ className?: string }>> = {
   viral_carousel: Lock,
-  viral_reels: Lock,
-  viral_radar: Lock,
   tokens: Coins,
   clients: Users,
 };
@@ -49,10 +46,6 @@ const FEATURE_ICONS: Record<UpgradeFeature, React.ComponentType<{ className?: st
 const FEATURE_DEFAULT_MSG: Record<UpgradeFeature, string> = {
   viral_carousel:
     "Esta feature está disponível em planos pagos. Faça upgrade pra desbloquear Sequência Viral e gerar carrosséis ilimitados.",
-  viral_reels:
-    "Esta feature está disponível em planos pagos. Faça upgrade pra desbloquear Reels Viral e fazer engenharia reversa de reels virais.",
-  viral_radar:
-    "Esta feature está disponível no plano Pro+. Faça upgrade pra ver tendências e oportunidades virais em tempo real.",
   tokens:
     "Você atingiu o limite mensal de créditos do seu plano. Faça upgrade ou aguarde o reset mensal pra continuar gerando conteúdo.",
   clients:
