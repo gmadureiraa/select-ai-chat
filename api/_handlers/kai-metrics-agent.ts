@@ -1,10 +1,12 @@
 // Migrated from supabase/functions/kai-metrics-agent/index.ts
-// NOTE: response is streamed (SSE) — uses res.write directly
+// 2026-05-16 — Lovable Gateway morto; trocado por streamLLMToSse + Gemini 2.5 Flash.
+// Response is streamed (SSE) — uses res.write directly.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, queryOne } from '../_lib/db.js';
 import { tryAuth } from '../_lib/auth.js';
 import { assertClientAccess } from '../_lib/access.js';
+import { streamLLMToSse, isLLMConfigured } from '../_lib/llm.js';
 
 function buildMetricsContext(metrics: any[], posts: any[], clientName?: string): string {
   if (metrics.length === 0 && posts.length === 0) return 'Não há dados de métricas disponíveis para este cliente.';
@@ -59,10 +61,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const body = req.body && typeof req.body === 'object' ? req.body : (req.body ? JSON.parse(req.body) : {});
     const { clientId, question, period, platform } = body;
     if (!clientId) return jsonError(res, 400, 'clientId é obrigatório');
+    if (!question) return jsonError(res, 400, 'question é obrigatório');
     try {
       await assertClientAccess(user.id, clientId);
     } catch (e: any) {
       return jsonError(res, e?.status || 403, e?.message || 'forbidden');
+    }
+    if (!isLLMConfigured()) {
+      return jsonError(res, 500, 'Nenhum provider LLM configurado (GOOGLE_AI_STUDIO_API_KEY ou OPENAI_API_KEY).');
     }
 
     const pool = getPool();
@@ -75,8 +81,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const client = await queryOne<any>(`SELECT name FROM clients WHERE id = $1`, [clientId]);
 
     const metricsContext = buildMetricsContext(metrics, posts, client?.name);
-    const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
-    if (!LOVABLE_API_KEY) return jsonError(res, 500, 'LOVABLE_API_KEY não configurada');
 
     const systemPrompt = `Você é um especialista em análise de métricas de redes sociais.
 Responda de forma clara e acionável, com insights específicos baseados nos dados fornecidos.
@@ -93,31 +97,21 @@ REGRAS CRÍTICAS PARA MÉTRICAS:
 
 ${metricsContext}`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: question }],
-        stream: true,
-      }),
-    });
-    if (!aiResponse.ok || !aiResponse.body) {
-      const t = await aiResponse.text();
-      console.error('AI error:', t);
-      return jsonError(res, 500, 'Erro ao processar análise');
-    }
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    void period; // reservado pra futuras agregações
 
-    const reader = aiResponse.body.getReader();
-    const decoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(decoder.decode(value, { stream: true }));
-    }
+    await streamLLMToSse(
+      res,
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: question },
+      ],
+      {
+        model: 'gemini-2.5-flash',
+        temperature: 0.4,
+        maxTokens: 2048,
+        usageContext: { userId: user.id, edgeFunction: 'kai-metrics-agent', clientId, metadata: { platform: platform || null } },
+      },
+    );
     res.end();
   } catch (e: any) {
     console.error('Metrics agent error:', e);

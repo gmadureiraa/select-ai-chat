@@ -1,9 +1,11 @@
 // Migrated from supabase/functions/kai-planning-agent/index.ts
+// 2026-05-16 — Lovable Gateway morto; trocado por streamLLMToSse + Gemini 2.5 Flash.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { handlePreflight, applyCors, jsonError } from '../_lib/cors.js';
 import { verifyAuth } from '../_lib/auth.js';
 import { queryOne, query } from '../_lib/db.js';
 import { assertClientAccess } from '../_lib/access.js';
+import { streamLLMToSse, isLLMConfigured } from '../_lib/llm.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
@@ -22,6 +24,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { clientId, workspaceId, userId, request, action, quantity } = body;
     if (!clientId || !workspaceId || !userId) return jsonError(res, 400, 'clientId, workspaceId e userId são obrigatórios');
     await assertClientAccess(authedUser.id, clientId);
+    if (!isLLMConfigured()) {
+      return jsonError(res, 500, 'Nenhum provider LLM configurado (GOOGLE_AI_STUDIO_API_KEY ou OPENAI_API_KEY).');
+    }
 
     const client = await queryOne<any>(`SELECT name, description, identity_guide FROM clients WHERE id = $1`, [clientId]);
     const topPosts = await query<any>(
@@ -62,37 +67,24 @@ Se for para criar no planejamento, responda com JSON:
 }
 \`\`\``;
 
-    const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
-    if (!LOVABLE_API_KEY) return jsonError(res, 500, 'LOVABLE_API_KEY não configurada');
-
-    const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: request || '' },
-        ],
-        stream: true,
-      }),
-    });
-    if (!aiRes.ok || !aiRes.body) {
-      const errText = await aiRes.text().catch(() => '');
-      console.error('[kai-planning-agent] AI error:', aiRes.status, errText);
-      return jsonError(res, 500, 'Erro ao gerar planejamento');
-    }
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.status(200);
-    const reader = aiRes.body.getReader();
-    const decoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(decoder.decode(value));
-    }
+    await streamLLMToSse(
+      res,
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: request || '' },
+      ],
+      {
+        model: 'gemini-2.5-flash',
+        temperature: 0.7,
+        maxTokens: 4096,
+        usageContext: {
+          userId: authedUser.id,
+          edgeFunction: 'kai-planning-agent',
+          clientId,
+          metadata: { action: action || null, requested_quantity: quantity || null, target_user_id: userId, workspace_id: workspaceId },
+        },
+      },
+    );
     res.end();
   } catch (e: any) {
     console.error('[kai-planning-agent] error:', e);
