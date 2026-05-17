@@ -37,8 +37,13 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
   const { verifyAccounts, isVerifying } = useClientPlatformStatus(clientId);
 
   // Metricool blogId atual (lookup da 1ª credential que tenha)
-  const currentMetricoolBlogId =
-    credentials?.find((c: any) => c.metadata?.metricool_blog_id)?.metadata?.metricool_blog_id || null;
+  const currentMetricoolBlogId: string | null = (() => {
+    const cred = credentials?.find(
+      (c) => typeof c.metadata?.metricool_blog_id === "string",
+    );
+    const v = cred?.metadata?.metricool_blog_id;
+    return typeof v === "string" ? v : null;
+  })();
 
   const handleSyncWithLate = async () => {
     try {

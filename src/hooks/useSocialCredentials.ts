@@ -14,6 +14,16 @@ export interface SocialCredential {
   validation_error: string | null;
   account_name: string | null;
   account_id: string | null;
+  /**
+   * Stored as JSONB no Neon — espelha o que os handlers backend leem
+   * (`late-disconnect-account`, `metricool-map-brand` etc). Pode conter:
+   *   - `late_account_id`, `late_profile_id` (legacy Late)
+   *   - `postiz_account_id`
+   *   - `metricool_blog_id` (Metricool mapping)
+   *   - `avatar_url` quando provider expõe
+   * Frontend usa pra ler `metricool_blog_id` no SocialIntegrationsTab.
+   */
+  metadata?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -37,7 +47,7 @@ export function useSocialCredentials(clientId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('client_social_credentials')
-        .select('id, client_id, platform, is_valid, last_validated_at, validation_error, account_name, account_id, created_at, updated_at')
+        .select('id, client_id, platform, is_valid, last_validated_at, validation_error, account_name, account_id, metadata, created_at, updated_at')
         .eq('client_id', clientId);
 
       if (error) throw error;
