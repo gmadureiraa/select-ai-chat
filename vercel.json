@@ -85,6 +85,10 @@
     {
       "path": "/api/run-madureira-workflows-daily",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron-approval-tokens-cleanup",
+      "schedule": "0 3 * * *"
     }
   ],
   "headers": [

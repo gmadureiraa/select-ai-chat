@@ -90,6 +90,22 @@ vercel env add GOOGLE_AI_STUDIO_API_KEY production
 vercel env rm LOVABLE_API_KEY production
 ```
 
+### 1b. Migration 0043 — approval_tokens (NOVO 2026-05-17)
+
+**Contexto:** `api/_lib/approval-flow.ts` migrou de `Map<string, ApprovalToken>` in-memory pra tabela Postgres `approval_tokens`. Multi-instância Vercel quebrava o flow antigo (lambda A gera token → lambda B recebe consume → Map vazio → "Token inválido"). Detalhes completos no header da migration `migrations/0043_approval_tokens.sql`.
+
+**Rodar uma vez em prod (Neon DB):**
+```sql
+-- migrations/0043_approval_tokens.sql
+-- mirror: supabase/migrations/20260517110000_approval_tokens.sql
+```
+
+Sem isso, todas as tools com approval flow (deleteContent, deleteTask, deleteAutomation, deleteReference, deletePlanningItem) vão falhar em prod assim que o deploy entrar — `requireApproval` faz INSERT na tabela.
+
+**Novo cron diário** já está em `vercel.json` (`/api/cron-approval-tokens-cleanup` às `0 3 * * *`). Não requer ação manual além de aplicar a migration.
+
+**Smoke test:** `e2e/_approval-flow-postgres.spec.ts` (skipa sem `DATABASE_URL`). Roda local: `DATABASE_URL=... bunx playwright test e2e/_approval-flow-postgres.spec.ts`.
+
 ### 2. Migration de backfill — content_pillars
 
 **Antes de rodar, contar rows legacy:**
