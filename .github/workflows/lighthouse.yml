@@ -50,5 +50,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lighthouse-reports
-          path: .lighthouseci/
+          # `.lighthouseci` começa com `.`, e upload-artifact@v4 ignora
+          # arquivos/pastas hidden por default. Sem `include-hidden-files: true`
+          # o upload sai vazio com `##[warning] No files were found`.
+          path: .lighthouseci/**
+          include-hidden-files: true
+          if-no-files-found: warn
           retention-days: 14
