@@ -9,7 +9,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { WorkspaceRouter } from "@/components/WorkspaceRouter";
@@ -63,6 +63,15 @@ function GlobalAddons() {
   );
 }
 
+// Redireciona pra /kaleidos preservando search + hash. Service Worker (sw.js)
+// abre push notifications em URLs tipo `/${workspaceSlug}?tab=planning&openItem=X`,
+// e antes esse redirect dropava todos os query params — o user caía em /kaleidos
+// "limpo" e perdia a ação intent (audit 2026-05-16/frontend-ux-mobile.md P0-2).
+function RedirectToKaleidos() {
+  const { search, hash } = useLocation();
+  return <Navigate to={`/kaleidos${search}${hash}`} replace />;
+}
+
 const App = () => (
   <ErrorBoundary>
     <ThemeProvider
@@ -87,8 +96,8 @@ const App = () => (
                     <Route path="/register" element={<Navigate to="/signup" replace />} />
                     <Route path="/signup" element={<SimpleSignup />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
-                    {/* Root redirects to Kaleidos */}
-                    <Route path="/" element={<Navigate to="/kaleidos" replace />} />
+                    {/* Root redirects to Kaleidos (preserva query string e hash) */}
+                    <Route path="/" element={<RedirectToKaleidos />} />
 
                     {/* Main app route - fixed to /kaleidos */}
                     <Route path="/kaleidos" element={<WorkspaceRouter />}>
@@ -99,9 +108,11 @@ const App = () => (
                     {/* No workspace page */}
                     <Route path="/no-workspace" element={<NoWorkspacePage />} />
 
-                    {/* Catch any other workspace slug and redirect to kaleidos */}
-                    <Route path="/:slug" element={<Navigate to="/kaleidos" replace />} />
-                    <Route path="/:slug/*" element={<Navigate to="/kaleidos" replace />} />
+                    {/* Catch any other workspace slug e redireciona pra kaleidos.
+                        Preserva search/hash pra push notifications (sw.js) e
+                        deep links de Login funcionarem. */}
+                    <Route path="/:slug" element={<RedirectToKaleidos />} />
+                    <Route path="/:slug/*" element={<RedirectToKaleidos />} />
 
                     {/* Export temp */}
                     <Route path="/export-madureira" element={<ExportMadureira />} />

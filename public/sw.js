@@ -1,7 +1,7 @@
 // KAI - Service Worker for Push Notifications & PWA Caching
 // IMPORTANT: cache version bump is required to prevent clients from mixing old/new JS chunks
 // (which can cause invalid hook calls like: "Cannot read properties of null (reading 'useRef')").
-const CACHE_NAME = 'kai-v2-20260128';
+const CACHE_NAME = 'kai-v2-20260516';
 const OFFLINE_URL = '/';
 
 // Assets to cache for offline use
@@ -180,28 +180,36 @@ self.addEventListener('push', (event) => {
 });
 
 // Notification click handler
+//
+// 2026-05-16 — fix audit P0:
+// - URLs antes usavam `/${workspaceSlug}?tab=...` mas o React Router força
+//   qualquer :slug ≠ kaleidos pra /kaleidos. Resultado: search params eram
+//   perdidos no <Navigate> e o user caía no Home em vez do item. App.tsx
+//   agora preserva query string nesse redirect; aqui sempre usamos /kaleidos
+//   diretamente pra evitar a dupla-volta.
+// - `clients` global colidia com domain term "clients". Trocado pra
+//   `self.clients` (explícito) e variável local renomeada pra `windowList`.
 self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification clicked:', event.notification.tag);
   event.notification.close();
-  
+
   const notificationData = event.notification.data;
-  let targetUrl = '/';
-  
+  let targetUrl = '/kaleidos';
+
   // Build navigation URL based on notification type
   if (notificationData) {
     const entityType = notificationData.entity_type;
     const entityId = notificationData.entity_id;
-    const workspaceSlug = notificationData.workspace_slug;
-    
+
     if (entityType === 'planning_item' && entityId) {
-      targetUrl = workspaceSlug 
-        ? `/${workspaceSlug}?tab=planning&openItem=${entityId}`
-        : `/?tab=planning&openItem=${entityId}`;
+      targetUrl = `/kaleidos?tab=planning&openItem=${encodeURIComponent(entityId)}`;
+    } else if (entityType === 'team_task' && entityId) {
+      targetUrl = `/kaleidos?tab=tasks&openTask=${encodeURIComponent(entityId)}`;
     } else if (notificationData.url) {
       targetUrl = notificationData.url;
     }
   }
-  
+
   // Handle action clicks
   if (event.action) {
     console.log('[SW] Action clicked:', event.action);
@@ -209,20 +217,22 @@ self.addEventListener('notificationclick', (event) => {
       targetUrl = notificationData.url;
     }
   }
-  
+
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowList) => {
       // Try to focus existing window
-      for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.focus();
-          client.navigate(targetUrl);
+      for (const win of windowList) {
+        if (win.url.includes(self.location.origin) && 'focus' in win) {
+          win.focus();
+          if ('navigate' in win) {
+            win.navigate(targetUrl);
+          }
           return;
         }
       }
       // Open new window if none exists
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
       }
     })
   );
