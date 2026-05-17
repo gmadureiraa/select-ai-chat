@@ -37,6 +37,20 @@ extend: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        // Status semanticos — 2026-05-17. Use `bg-warning`, `text-success`,
+        // `border-info` etc. em vez de cores raw `bg-amber-500`/`text-emerald-500`.
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+        },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
@@ -72,11 +86,10 @@ extend: {
             fg: "hsl(var(--chat-ai-fg))",
           },
         },
-        // kAI brand colors (Kaleidos)
-        kai: {
-          pink: "hsl(320, 55%, 61%)",
-          green: "hsl(150, 100%, 50%)",
-        },
+        // 2026-05-17 — kai.pink / kai.green removidos (audit Ds-2).
+        // Eram duplicacao literal do --primary (pink em light, green em dark)
+        // e nao tinham uso no codebase (`bg-kai-pink` zero matches). Quem
+        // precisa do accent da marca usa `bg-primary` / `text-primary`.
         // Chart colors
         chart: {
           1: "hsl(var(--chart-1))",

@@ -42,6 +42,15 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
+    /* Status colors — fora do core shadcn pra evitar conflito com primary.
+       Usar via classes `bg-warning/10 text-warning`, `bg-success`, `bg-info`. */
+    --warning: 38 92% 50%;          /* amber-500 equivalente em HSL */
+    --warning-foreground: 0 0% 100%;
+    --success: 142 70% 45%;          /* emerald-600 equivalente */
+    --success-foreground: 0 0% 100%;
+    --info: 217 90% 60%;             /* blue-500 equivalente */
+    --info-foreground: 0 0% 100%;
+
     /* Borders - Pink tint */
     --border: 320 10% 90%;
     --input: 320 10% 90%;
@@ -128,6 +137,15 @@
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
+
+    /* Status colors (dark) — saturação um toque mais baixa pra não estourar
+       em fundo escuro. Mesmas semânticas que o light theme. */
+    --warning: 42 95% 60%;
+    --warning-foreground: 0 0% 0%;
+    --success: 150 80% 55%;
+    --success-foreground: 0 0% 0%;
+    --info: 217 95% 65%;
+    --info-foreground: 0 0% 0%;
 
     /* Borders - Green tint */
     --border: 150 10% 15%;
