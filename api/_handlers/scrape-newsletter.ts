@@ -1,5 +1,13 @@
 // Migrated from supabase/functions/scrape-newsletter/index.ts
-import { anonPost } from '../_lib/handler.js';
+//
+// 2026-05-16 hardening:
+//   - migrou de anonPost pra authedPost (estava aberto pra mundo gastando
+//     Firecrawl).
+//   - rate-limit por IP.
+//   - SSRF guard.
+import { authedPost } from '../_lib/handler.js';
+import { checkRateLimit, maybeGc } from '../_lib/shared/rate-limit.js';
+import { assertSafeUrl } from '../_lib/url-guard.js';
 
 interface NewsletterImage {
   url: string;
@@ -307,9 +315,18 @@ async function scrapeWithRegex(url: string): Promise<NewsletterData> {
   };
 }
 
-export default anonPost(async ({ body }) => {
+export default authedPost(async ({ body, req, res }) => {
+  maybeGc();
+  const rl = checkRateLimit(req, { key: 'scrape-newsletter', maxPerMinute: 6, maxPerHour: 60 });
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfterSec));
+    res.status(429).json({ error: 'Too many requests', retryAfterSec: rl.retryAfterSec });
+    return;
+  }
+
   const { url } = body || {};
   if (!url) throw new Error('URL is required');
+  await assertSafeUrl(url);
 
   console.log('[scrape-newsletter] Processing:', url);
 

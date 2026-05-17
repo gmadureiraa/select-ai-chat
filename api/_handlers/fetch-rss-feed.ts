@@ -1,5 +1,12 @@
 // Migrated from supabase/functions/fetch-rss-feed/index.ts
-import { anonPost } from '../_lib/handler.js';
+//
+// 2026-05-16 hardening:
+//   - migrou de anonPost pra authedPost (era SSRF gratuito).
+//   - rate-limit por IP.
+//   - SSRF guard via assertSafeUrl.
+import { authedPost } from '../_lib/handler.js';
+import { checkRateLimit, maybeGc } from '../_lib/shared/rate-limit.js';
+import { assertSafeUrl } from '../_lib/url-guard.js';
 
 interface RSSItem {
   guid: string;
@@ -106,9 +113,18 @@ function parseRSSFeed(xml: string): { title: string; items: RSSItem[] } {
   return { title: channelTitle, items };
 }
 
-export default anonPost(async ({ body }) => {
+export default authedPost(async ({ body, req, res }) => {
+  maybeGc();
+  const rl = checkRateLimit(req, { key: 'fetch-rss-feed', maxPerMinute: 12, maxPerHour: 200 });
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfterSec));
+    res.status(429).json({ error: 'Too many requests', retryAfterSec: rl.retryAfterSec });
+    return;
+  }
+
   const { rssUrl, limit = 20 } = body;
   if (!rssUrl) throw new Error('RSS URL is required');
+  await assertSafeUrl(rssUrl);
   console.log(`Fetching RSS feed: ${rssUrl}`);
   const r = await fetch(rssUrl, {
     headers: {

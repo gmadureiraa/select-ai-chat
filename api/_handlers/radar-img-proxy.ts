@@ -6,6 +6,7 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { applyCors, handlePreflight } from "../_lib/cors.js";
+import { checkRateLimit, maybeGc } from "../_lib/shared/rate-limit.js";
 
 const ALLOWED_HOSTS = [
   "cdninstagram.com",
@@ -20,6 +21,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Rate-limit por IP (Performance v2 precisa servir thumbs IG sem auth,
+  // mas não pode virar proxy aberto pra atacante puxar volumes infinitos).
+  maybeGc();
+  const rl = checkRateLimit(req, {
+    key: "radar-img-proxy",
+    maxPerMinute: 120,
+    maxPerHour: 1200,
+  });
+  if (!rl.ok) {
+    res.setHeader("Retry-After", String(rl.retryAfterSec));
+    return res
+      .status(429)
+      .json({ error: "Too many requests", retryAfterSec: rl.retryAfterSec });
   }
 
   const urlParam = req.query.url;

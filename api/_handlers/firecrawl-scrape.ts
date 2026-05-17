@@ -1,7 +1,23 @@
 // Migrated from supabase/functions/firecrawl-scrape/index.ts
-import { anonPost } from '../_lib/handler.js';
+//
+// 2026-05-16 hardening:
+//   - migrou de anonPost pra authedPost (estava aberto pra mundo gastando
+//     Firecrawl).
+//   - rate-limit por IP (cap defensivo dentro do mesmo container Vercel).
+//   - SSRF guard via assertSafeUrl (DNS rebinding + IPs privados bloqueados).
+import { authedPost } from '../_lib/handler.js';
+import { checkRateLimit, maybeGc } from '../_lib/shared/rate-limit.js';
+import { assertSafeUrl } from '../_lib/url-guard.js';
 
-export default anonPost(async ({ body }) => {
+export default authedPost(async ({ body, req, res }) => {
+  maybeGc();
+  const rl = checkRateLimit(req, { key: 'firecrawl-scrape', maxPerMinute: 6, maxPerHour: 60 });
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfterSec));
+    res.status(429).json({ error: 'Too many requests', retryAfterSec: rl.retryAfterSec });
+    return;
+  }
+
   const { url, options } = body;
   if (!url) throw new Error('URL is required');
 
@@ -12,6 +28,8 @@ export default anonPost(async ({ body }) => {
   if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
     formattedUrl = `https://${formattedUrl}`;
   }
+  // SSRF guard: bloqueia IPs privados, metadata cloud, ports DB
+  await assertSafeUrl(formattedUrl);
 
   const r = await fetch('https://api.firecrawl.dev/v1/scrape', {
     method: 'POST',

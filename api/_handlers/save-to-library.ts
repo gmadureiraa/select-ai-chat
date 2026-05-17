@@ -32,6 +32,21 @@ const FORMAT_TO_CONTENT_TYPE: Record<string, string> = {
   email: 'newsletter',
 };
 
+// reference_type é texto livre na tabela client_reference_library; o
+// ViralLibraryPanel filtra por esses buckets (inspiration / carousel /
+// reel / etc). Mapeamos `format` → reference_type quando destination=references,
+// caindo em 'inspiration' como default.
+const FORMAT_TO_REFERENCE_TYPE: Record<string, string> = {
+  carousel: 'carousel',
+  reel: 'reel',
+  static: 'static',
+  tweet: 'tweet',
+  thread: 'thread',
+  newsletter: 'newsletter',
+  article: 'article',
+  email: 'newsletter',
+};
+
 export default authedPost(async ({ body, user }) => {
   const parsed = BodySchema.safeParse(body ?? {});
   if (!parsed.success) {
@@ -86,14 +101,16 @@ export default authedPost(async ({ body, user }) => {
   }
 
   // destination = references
+  const referenceType = FORMAT_TO_REFERENCE_TYPE[fmt] ?? 'inspiration';
   const r = await pool.query(
     `INSERT INTO client_reference_library
        (client_id, title, reference_type, content, source_url, thumbnail_url, metadata)
-     VALUES ($1, $2, 'inspiration', $3, $4, $5, $6::jsonb)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
      RETURNING id, title, reference_type, created_at`,
     [
       data.client_id,
       data.title,
+      referenceType,
       data.content ?? '',
       data.source_url ?? null,
       data.thumbnail_url ?? null,

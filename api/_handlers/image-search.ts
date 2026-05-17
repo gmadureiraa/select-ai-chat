@@ -1,5 +1,10 @@
 // Migrated from supabase/functions/image-search/index.ts
-import { anonPost } from '../_lib/handler.js';
+//
+// 2026-05-16: migrou de anonPost pra authedPost + rate-limit. O handler era
+// chamado pelo adapter `images.ts` (que também era anônimo) e podia drenar
+// quota Pexels.
+import { authedPost } from '../_lib/handler.js';
+import { checkRateLimit, maybeGc } from '../_lib/shared/rate-limit.js';
 
 interface NormalizedImage {
   id: string;
@@ -52,7 +57,14 @@ async function searchPexels(query: string, perPage: number): Promise<NormalizedI
   }));
 }
 
-export default anonPost(async ({ body }) => {
+export default authedPost(async ({ body, req, res }) => {
+  maybeGc();
+  const rl = checkRateLimit(req, { key: 'image-search', maxPerMinute: 30, maxPerHour: 300 });
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfterSec));
+    res.status(429).json({ error: 'Too many requests', retryAfterSec: rl.retryAfterSec });
+    return;
+  }
   const query = (body?.query ?? '').trim();
   if (!query) throw new Error('query é obrigatória');
   const perPage = Math.min(Math.max(body?.perPage ?? 12, 1), 24);
