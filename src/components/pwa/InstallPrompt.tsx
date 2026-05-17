@@ -97,7 +97,14 @@ export function InstallPrompt() {
     <div
       role="dialog"
       aria-label="Instalar KAI"
-      className="fixed bottom-4 right-4 z-50 max-w-sm rounded-lg border bg-card p-4 shadow-lg animate-in fade-in slide-in-from-bottom-4"
+      // 2026-05-17 — audit P1-4: em mobile o card colidia com
+      // MobileBottomNav (h-14 + safe-area) e com FloatingKAIButton.
+      // Empurrado pra acima do bottom nav (bottom-20) + respeita safe-area.
+      // Em desktop fica no canto inferior direito como antes.
+      className="fixed right-4 bottom-20 md:bottom-4 z-50 max-w-sm rounded-lg border bg-card p-4 shadow-lg animate-in fade-in slide-in-from-bottom-4"
+      style={{
+        marginBottom: "env(safe-area-inset-bottom)",
+      }}
     >
       <div className="flex items-start gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
