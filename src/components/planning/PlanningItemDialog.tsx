@@ -42,7 +42,7 @@ import { PlanningItemReferencesPanel } from './PlanningItemReferencesPanel';
 import { MentionableInput } from './MentionableInput';
 import { RecurrenceConfig } from './RecurrenceConfig';
 import { PlatformOptionsPanel, PlatformOptionsState } from './PlatformOptionsPanel';
-import { CONTENT_TYPE_OPTIONS, CONTENT_TO_PLATFORM, ContentTypeKey, ALL_PUBLISH_PLATFORMS } from '@/types/contentTypes';
+import { CONTENT_TYPE_OPTIONS, CONTENT_TO_PLATFORM, ContentTypeKey, ALL_PUBLISH_PLATFORMS, VALID_PLATFORMS_FOR_CONTENT, isPlatformValidForContent } from '@/types/contentTypes';
 import type { PlanningItem, CreatePlanningItemInput, PlanningPlatform, PlanningPriority, KanbanColumn } from '@/hooks/usePlanningItems';
 import type { RecurrenceConfig as RecurrenceConfigType } from '@/types/recurrence';
 
@@ -171,7 +171,10 @@ export function PlanningItemDialog({
   const [content, setContent] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [columnId, setColumnId] = useState<string>('');
-  const [contentType, setContentType] = useState<ContentTypeKey>('tweet');
+  // 2026-05-17 fix: NÃO usar 'tweet' como default — causava edit de carrossel
+  // virar tweet quando hidratação caía no fallback. Vazio agora; submit bloqueia
+  // se o user salvar sem escolher formato.
+  const [contentType, setContentType] = useState<ContentTypeKey | ''>('');
   const [priority, setPriority] = useState<PlanningPriority>('medium');
   
   const [scheduledAt, setScheduledAt] = useState<Date | undefined>();
@@ -203,11 +206,14 @@ export function PlanningItemDialog({
   // Auto-suggest cliente baseado em título + biblioteca de refs (ver hook)
   const clientSuggestion = useClientSuggestion(title, selectedClientId);
 
-  // Derive platform from content type (used as default suggestion)
-  const platform = CONTENT_TO_PLATFORM[contentType] as PlanningPlatform;
-  
+  // Derive platform from content type (used as default suggestion).
+  // 2026-05-17 fix: contentType pode ser '' agora — devolve undefined em vez de
+  // mapear pra twitter por engano.
+  const platform = (contentType ? CONTENT_TO_PLATFORM[contentType] : undefined) as PlanningPlatform | undefined;
+
   // Auto-set default platform when content type changes
   useEffect(() => {
+    if (!contentType) return;
     if (selectedPlatforms.length === 0) {
       // Thread: paridade automática X + Threads
       if (contentType === 'thread') {
@@ -286,19 +292,45 @@ export function PlanningItemDialog({
       setAssignedTo(effectiveItem.assigned_to || '');
       
       const metadata = effectiveItem.metadata as any || {};
-      // Try to get content_type, fallback to mapping from platform
-      const savedContentType = metadata.content_type || effectiveItem.content_type;
-      if (savedContentType && CONTENT_TO_PLATFORM[savedContentType as ContentTypeKey]) {
-        setContentType(savedContentType as ContentTypeKey);
-      } else {
-        setContentType('tweet');
+      // 2026-05-17 fix: PRIORIZAR effectiveItem.content_type (coluna top-level
+      // do DB, source of truth) ANTES de metadata.content_type. Antes o fallback
+      // ia direto pra 'tweet' quando metadata estava vazio, corrompendo carrosséis.
+      // Não força default arbitrário — se nada existir, deixa vazio e bloqueia
+      // save até user escolher.
+      const topLevelContentType = effectiveItem.content_type;
+      const metaContentType = metadata.content_type;
+      const candidate =
+        (topLevelContentType && CONTENT_TO_PLATFORM[topLevelContentType as ContentTypeKey]
+          ? topLevelContentType
+          : metaContentType && CONTENT_TO_PLATFORM[metaContentType as ContentTypeKey]
+            ? metaContentType
+            : '') as ContentTypeKey | '';
+      // Log divergência pra debug — se top-level e metadata discordam, alguma
+      // origem (automação? import?) gravou inconsistente.
+      if (
+        topLevelContentType &&
+        metaContentType &&
+        topLevelContentType !== metaContentType
+      ) {
+        console.warn(
+          '[PlanningItemDialog] content_type mismatch top-level vs metadata',
+          { id: effectiveItem.id, topLevel: topLevelContentType, metadata: metaContentType },
+        );
       }
+      setContentType(candidate);
 
-      // Restore selected platforms from metadata or derive from content type
-      if (metadata.target_platforms?.length > 0) {
+      // Restore selected platforms — prioriza top-level platform (source of truth),
+      // depois metadata.target_platforms, depois deriva do content_type.
+      // 2026-05-17 fix: antes metadata.target_platforms ganhava sempre, mas se
+      // o user editou só firstComment e metadata vinha vazio do legacy import,
+      // selectedPlatforms ficava [] e o save gravava platform=twitter (default
+      // do contentType='tweet'). Agora respeita top-level platform.
+      if (Array.isArray(metadata.target_platforms) && metadata.target_platforms.length > 0) {
         setSelectedPlatforms(metadata.target_platforms);
       } else if (effectiveItem.platform) {
         setSelectedPlatforms([effectiveItem.platform]);
+      } else {
+        setSelectedPlatforms([]);
       }
       
       setRecurrenceConfig({
@@ -327,7 +359,9 @@ export function PlanningItemDialog({
       setContent('');
       setSelectedClientId(defaultClientId || '');
       setColumnId(defaultColumnId || columns[0]?.id || '');
-      setContentType('tweet');
+      // 2026-05-17 fix: vazio em vez de 'tweet' — força user a escolher formato
+      // antes de salvar (validação no submit).
+      setContentType('');
       setPriority('medium');
       setScheduledAt(defaultDate || undefined);
       setScheduledTime('09:00');
@@ -346,6 +380,34 @@ export function PlanningItemDialog({
     e.preventDefault();
     if (!title.trim()) return;
 
+    // 2026-05-17 fix: validação dura antes de salvar — bloqueia gravar tipo
+    // 'tweet' default quando user editou só firstComment de carrossel IG.
+    if (!contentType) {
+      toast.error('Escolha um formato antes de salvar');
+      return;
+    }
+    // Cross-field: platform precisa ser compatível com content_type.
+    // Pra cards multi-plataforma, basta UMA das selectedPlatforms ser válida.
+    const platformsToCheck = selectedPlatforms.length > 0
+      ? selectedPlatforms
+      : platform
+        ? [platform]
+        : [];
+    if (platformsToCheck.length === 0) {
+      toast.error('Selecione pelo menos uma plataforma de publicação');
+      return;
+    }
+    const hasValidPlatform = platformsToCheck.some((p) =>
+      isPlatformValidForContent(contentType, p),
+    );
+    if (!hasValidPlatform) {
+      const allowed = VALID_PLATFORMS_FOR_CONTENT[contentType].join(', ');
+      toast.error(
+        `Formato "${contentType}" não pode ser publicado em ${platformsToCheck.join(', ')}. Plataformas válidas: ${allowed}`,
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       let finalContent = content;
@@ -360,11 +422,14 @@ export function PlanningItemDialog({
         finalScheduledAt = setMinutes(setHours(scheduledAt, hours), minutes);
       }
 
-      // IMPORTANT: If scheduling is set, auto-move to "scheduled" column
+      // IMPORTANT: If scheduling is set AND item was NOT already published,
+      // auto-move to "scheduled" column. NUNCA rebaixar status de 'published'
+      // pra 'scheduled' só pq o user reabriu o dialog (item já saiu).
       let targetColumnId = columnId;
       let targetStatus: 'idea' | 'draft' | 'review' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'failed' = 'idea';
-      
-      if (finalScheduledAt && columns.length > 0) {
+      const currentStatus = effectiveItem?.status;
+
+      if (finalScheduledAt && columns.length > 0 && currentStatus !== 'published') {
         const scheduledColumn = columns.find(c => c.column_type === 'scheduled');
         if (scheduledColumn) {
           targetColumnId = scheduledColumn.id;
@@ -372,25 +437,42 @@ export function PlanningItemDialog({
         }
       }
 
+      // 2026-05-17 fix: derivar platform da PRIMEIRA selectedPlatforms quando
+      // existir (multi-plataforma) — antes usava CONTENT_TO_PLATFORM que sempre
+      // mapeava pra plataforma "principal" do tipo, ignorando seleção do user.
+      // Ex: carousel + selectedPlatforms=['instagram'] → platform=instagram (não
+      // o que CONTENT_TO_PLATFORM diz).
+      const resolvedPlatform = (selectedPlatforms[0] as PlanningPlatform | undefined) ?? platform;
+
+      // 2026-05-17 fix: MERGE metadata em vez de sobrescrever — antes campos
+      // tipo campanha, cta_keyword, manychat_trigger eram apagados toda vez
+      // que o user editava qualquer coisa no dialog.
+      const existingMetadata = (effectiveItem?.metadata as Record<string, unknown>) || {};
+      const nextMetadata: Record<string, unknown> = {
+        ...existingMetadata,
+        content_type: contentType,
+        target_platforms: selectedPlatforms,
+        platform_options: platformOptions,
+      };
+      if (isTwitterThread) {
+        nextMetadata.thread_tweets = threadTweets;
+      }
+
       const data: CreatePlanningItemInput & Record<string, any> = {
         title: title.trim(),
         content: finalContent.trim() || undefined,
         client_id: selectedClientId || undefined,
         column_id: targetColumnId || undefined,
-        platform: platform || undefined,
+        platform: resolvedPlatform || undefined,
         priority,
-        status: finalScheduledAt ? targetStatus : undefined,
+        // Só seta status se realmente mudou (agendou). undefined = handler não toca.
+        status: finalScheduledAt && currentStatus !== 'published' ? targetStatus : undefined,
         due_date: finalScheduledAt ? format(finalScheduledAt, 'yyyy-MM-dd') : undefined,
         scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
         media_urls: mediaItems.map(m => m.url),
         assigned_to: assignedTo || undefined,
         content_type: contentType,
-        metadata: {
-          content_type: contentType,
-          target_platforms: selectedPlatforms,
-          ...(isTwitterThread && { thread_tweets: threadTweets }),
-          platform_options: platformOptions,
-        },
+        metadata: nextMetadata,
         recurrence_type: recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null,
         recurrence_days: recurrenceConfig.days.length > 0 ? recurrenceConfig.days : null,
         recurrence_time: recurrenceConfig.time || null,
@@ -485,8 +567,16 @@ export function PlanningItemDialog({
     // If item is not saved yet, save it first
     let itemId = effectiveItem?.id;
     if (!itemId) {
+      // 2026-05-17 fix: bloqueia auto-save de "publicar agora" sem formato
+      // escolhido — antes contentType vinha como 'tweet' default e
+      // contaminava o card recém-criado.
+      if (!contentType) {
+        toast.error('Escolha um formato antes de publicar');
+        return;
+      }
       toast.info('Salvando card antes de publicar...');
       try {
+        const existingMetadata = (effectiveItem as PlanningItem | undefined)?.metadata as Record<string, unknown> | undefined;
         const saveData: CreatePlanningItemInput = {
           title: title.trim() || 'Conteúdo sem título',
           content: finalContent.trim(),
@@ -495,8 +585,10 @@ export function PlanningItemDialog({
           platform: selectedPlatforms[0] as PlanningPlatform,
           priority,
           status: 'publishing',
+          content_type: contentType,
           media_urls: mediaItems.map(m => m.url),
           metadata: {
+            ...(existingMetadata ?? {}),
             content_type: contentType,
             target_platforms: selectedPlatforms,
             ...(isTwitterThread && { thread_tweets: threadTweets }),
@@ -866,9 +958,9 @@ export function PlanningItemDialog({
                   <FileText className="h-3 w-3" />
                   Formato
                 </Label>
-                <Select value={contentType} onValueChange={(v) => setContentType(v as ContentTypeKey)}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Formato" />
+                <Select value={contentType || undefined} onValueChange={(v) => setContentType(v as ContentTypeKey)}>
+                  <SelectTrigger className={cn("h-8 text-sm", !contentType && "border-amber-500/60 text-amber-700 dark:text-amber-400")}>
+                    <SelectValue placeholder="Escolher formato..." />
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(groupedContentTypes).map(([category, items]) => (
@@ -1193,7 +1285,7 @@ export function PlanningItemDialog({
       onOpenChange={setShowImageModal}
       content={isTwitterThread ? threadTweets.map(t => t.text).join('\n\n') : content}
       platform={platform || 'instagram'}
-      contentType={contentType}
+      contentType={contentType || 'static_image'}
       onGenerate={handleGenerateImage}
       isGenerating={isGeneratingImage}
     />

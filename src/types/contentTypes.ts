@@ -93,6 +93,42 @@ export const CONTENT_TO_PLATFORM: Record<ContentTypeKey, string> = {
   other: 'other',
 };
 
+// Plataformas válidas para cada content_type. Usado pra validar cross-field
+// no PlanningItemDialog e impedir gravar combinações tipo platform=instagram +
+// content_type=tweet (bug 2026-05-17 corrompeu carrossel @ogmadureira).
+// Pelo menos uma das plataformas listadas precisa estar em selectedPlatforms,
+// caso contrário o submit bloqueia.
+export const VALID_PLATFORMS_FOR_CONTENT: Record<ContentTypeKey, ReadonlyArray<string>> = {
+  tweet: ['twitter'],
+  thread: ['twitter', 'threads'],
+  x_article: ['twitter'],
+  linkedin_post: ['linkedin'],
+  carousel: ['instagram', 'linkedin', 'tiktok', 'threads', 'facebook'],
+  viral_carousel: ['instagram', 'linkedin', 'tiktok', 'threads', 'facebook'],
+  stories: ['instagram', 'facebook'],
+  static_image: ['instagram', 'facebook', 'linkedin', 'threads'],
+  instagram_post: ['instagram'],
+  short_video: ['tiktok', 'instagram', 'youtube', 'facebook'],
+  long_video: ['youtube', 'facebook'],
+  newsletter: ['newsletter'],
+  blog_post: ['blog'],
+  email_marketing: ['newsletter'],
+  case_study: ['blog', 'newsletter'],
+  report: ['blog', 'newsletter'],
+  document: ['blog', 'newsletter'],
+  other: ['twitter', 'linkedin', 'instagram', 'threads', 'tiktok', 'youtube', 'facebook', 'newsletter', 'blog'],
+};
+
+/**
+ * Valida se um content_type pode ser publicado em uma plataforma específica.
+ */
+export function isPlatformValidForContent(
+  contentType: ContentTypeKey,
+  platform: string,
+): boolean {
+  return VALID_PLATFORMS_FOR_CONTENT[contentType]?.includes(platform) ?? false;
+}
+
 // Mapeamento de tipos antigos para novos (para migração de dados existentes)
 export const LEGACY_TYPE_MAPPING: Record<string, ContentTypeKey> = {
   reel_script: "short_video",
