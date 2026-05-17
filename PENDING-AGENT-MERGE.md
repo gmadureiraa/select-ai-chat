@@ -148,7 +148,117 @@ Necessário:
 ## (Outros agentes preenchem abaixo)
 
 ### READ TOOLS
-*(pending)*
+
+> Owner: READ tools agent. Entregues nos commits `889dfa5a`, `c9591c6b`, `6faf3f30`.
+
+#### Tools criadas (10 arquivos novos em `api/_lib/kai-chat-tools/`)
+
+| Tool | Arquivo | Resumo |
+|---|---|---|
+| `getWorkspaceMembers` | `getWorkspaceMembers.ts` | Membros + roles + profiles (filter por role/workspace) |
+| `getBrandAssets` | `getBrandAssets.ts` | `clients.brand_assets` JSONB + `client_visual_references` (logos, paletas, style examples) |
+| `getVoiceProfile` | `getVoiceProfile.ts` | `voice_profile` estruturado (tone/persona/use/avoid/pillars) + identity_guide + content_guidelines |
+| `getIntegrationsStatus` | `getIntegrationsStatus.ts` | `client_social_credentials` (Metricool/Postiz/OAuth) + plataformas faltando |
+| `getAuditLog` | `getAuditLog.ts` | `social_credentials_audit_log` — só owner/admin/super-admin |
+| `getReferences` | `getReferences.ts` | Lista full paginada de refs com filtros (vs searchRefs que é keyword) |
+| `getWorkflows` | `getWorkflows.ts` | `ai_workflows` + agente + last run status (NÃO confunde com `listAutomations` que é `planning_automations`) |
+| `getNotifications` | `getNotifications.ts` | `notifications` filtrado pelo user (default unread) |
+| `getRecentActivity` | `getRecentActivity.ts` | Feed misto: planning criados/publicados + tasks criadas/completadas (workspace-scoped, 7d default) |
+| `getUIState` | `getUIState.ts` | Espelha `ctx.uiState` (snapshot do header `x-kai-ui-state`) |
+
+#### Mudanças cross-cutting já aplicadas
+
+1. **`api/_lib/kai-chat-tools/types.ts`** — `ToolExecutionContext` ganhou campo opcional `uiState?: Record<string, unknown> | null` (commit `889dfa5a`).
+2. **`api/_handlers/kai-simple-chat.ts`** — decodificação do header `x-kai-ui-state` (base64-JSON, cap 12KB) e passa pro `toolCtx.uiState` (commit `6faf3f30`). **Apenas no bloco de request-handling — registry/system prompt intactos.**
+3. **`src/hooks/useKAISimpleChat.ts`** — accept `getUIState?: () => Record<string, unknown> | null`, encodes em base64 e adiciona header (commit `6faf3f30`).
+4. **`src/components/kai/KaiAssistantTab.tsx`** — passa `getUIState` que captura tab/itemId/monthInView/filters da URL (commit `6faf3f30`).
+
+#### 🔧 ADICIONAR EM `api/_lib/kai-chat-tools/index.ts`
+
+```ts
+// Adicionar ao bloco de exports nomeados (depois dos existentes):
+export { getWorkspaceMembersTool } from './getWorkspaceMembers.js';
+export { getBrandAssetsTool } from './getBrandAssets.js';
+export { getVoiceProfileTool } from './getVoiceProfile.js';
+export { getIntegrationsStatusTool } from './getIntegrationsStatus.js';
+export { getAuditLogTool } from './getAuditLog.js';
+export { getReferencesTool } from './getReferences.js';
+export { getWorkflowsTool } from './getWorkflows.js';
+export { getNotificationsTool } from './getNotifications.js';
+export { getRecentActivityTool } from './getRecentActivity.js';
+export { getUIStateTool } from './getUIState.js';
+```
+
+#### 🔧 ADICIONAR EM `api/_handlers/kai-simple-chat.ts`
+
+**1. Imports (bloco de imports nomeados de `../_lib/kai-chat-tools/index.js`):**
+
+```ts
+getWorkspaceMembersTool,
+getBrandAssetsTool,
+getVoiceProfileTool,
+getIntegrationsStatusTool,
+getAuditLogTool,
+getReferencesTool,
+getWorkflowsTool,
+getNotificationsTool,
+getRecentActivityTool,
+getUIStateTool,
+```
+
+**2. Registry (logo depois do `registry.register(getRecentPerformanceTool)` ~linha 2308):**
+
+```ts
+// READ tools agregadores (2026-05-16) — workspace, brand, voice, integrações,
+// auditoria, refs, workflows, notificações, atividade e UI state.
+registry.register(getWorkspaceMembersTool);
+registry.register(getBrandAssetsTool);
+registry.register(getVoiceProfileTool);
+registry.register(getIntegrationsStatusTool);
+registry.register(getAuditLogTool);
+registry.register(getReferencesTool);
+registry.register(getWorkflowsTool);
+registry.register(getNotificationsTool);
+registry.register(getRecentActivityTool);
+registry.register(getUIStateTool);
+```
+
+#### 🔧 ADICIONAR NO SYSTEM PROMPT (`systemInstructionText`)
+
+Bloco recomendado pra adicionar no system prompt (entre o bloco de tools de
+content/planning e o bloco de approval flow):
+
+```
+**LEITURA DE CONTEXTO COMPLETO (READ tools):**
+
+Antes de gerar conteúdo, agendar, publicar ou tomar decisão que dependa de
+identidade do cliente / workspace, use as tools de leitura corretas:
+
+- `getClientContext` — quando precisar de overview (nome, descrição, guidelines, social).
+- `getVoiceProfile` — pra TOM DE VOZ específico (use/avoid/persona/pillars). Sempre antes de gerar texto novo se a conversa não trouxe a voz.
+- `getBrandAssets` — pra cor, logo, tipografia, paleta, refs visuais. Antes de gerar imagem/capa.
+- `getIntegrationsStatus` — pra saber que contas estão conectadas antes de propor publicação. Se IG/LinkedIn não tá ligado, oferecer `connectAccount`.
+- `getWorkspaceMembers` — quem tem acesso? Quem é owner/admin? Necessário antes de mencionar/atribuir alguém.
+- `getReferences` — lista full paginada de refs salvas (com filtros). Use pra "todas as refs", "lista", "quantas".
+- `searchRefs` / `searchLibrary` — busca por TERMO. Use só quando o user pediu uma referência específica por palavra-chave.
+- `getWorkflows` — automações avançadas (ai_workflows) que rodam em cron. NÃO confunde com `listAutomations` (essa é planning_automations, simples).
+- `getNotifications` — só do user logado. "O que tem de novo pra mim?".
+- `getRecentActivity` — feed de atividade do workspace (planning criado/publicado, tasks criadas/completadas) nos últimos 7d. Use pra "o que aconteceu?", "essa semana".
+- `getAuditLog` — eventos de uso de credenciais. APENAS owners/admins. Use pra "quem acessou", "auditoria".
+- `getUIState` — resolve PRONOMES CONTEXTUAIS. Quando o user disser "esse mesmo", "essa aba", "esse item", "esse mês" SEM dar ID/nome explícito, chame `getUIState` primeiro pra saber qual tab/item/mês o user tá olhando. Se `available: false`, peça pro user esclarecer.
+
+REGRA: nunca peça pro user dados que você pode buscar via tool. Se o user
+disser "tom da defiverso", chame `getVoiceProfile` em vez de perguntar.
+```
+
+#### 📝 Notas de implementação
+
+- Todas as tools READ usam `query` / `queryOne` direto (Neon) — nenhuma faz fetch HTTP de outro handler. Mais rápido, sem cold-start em cascata.
+- Workspace resolution pattern: quando `workspace_id` não vier, fazem lookup via `clients.workspace_id` do `ctx.clientId` (igual `listAutomations`).
+- `getAuditLog` faz check explícito de role (owner/admin/super_admin) ANTES da query — devolve erro claro pro LLM, não 500 da RLS.
+- `getUIState` returns `{ available: false, ... }` quando o header não veio — comportamento esperado pra bot Telegram / dev-test-flows / chamadas via curl.
+- O cap de 12KB no header e 8KB no encode client-side evita DoS de tokens longos no Gemini.
+- Build limpa: `bunx tsc --noEmit -p .` zero erros, `bun run build` ✓ 6.22s.
 
 ### WRITE/DELETE TOOLS
 *(pending — owner deve marcar quais tools listadas acima foram entregues + aplicar approval flow)*
