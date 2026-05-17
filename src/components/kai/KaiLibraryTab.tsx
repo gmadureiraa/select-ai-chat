@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { Library, Link2, Plus, Search, Image as ImageIcon, Layers, BookOpen, FileBarChart, Trash2, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,13 +10,34 @@ import { useClientVisualReferences } from "@/hooks/useClientVisualReferences";
 import { useUnifiedContent } from "@/hooks/useUnifiedContent";
 import { useContentLibrary } from "@/hooks/useContentLibrary";
 import { useWorkspace } from "@/hooks/useWorkspace";
-import { ReferenceDialog } from "@/components/references/ReferenceDialog";
-import { ReferenceViewDialog } from "@/components/references/ReferenceViewDialog";
 import { ClientReferencesManager } from "@/components/clients/ClientReferencesManager";
 import { UnifiedContentGrid } from "@/components/kai/library/UnifiedContentGrid";
 import { CaseStudyGrid } from "@/components/kai/library/CaseStudyGrid";
-import { AddContentDialog } from "@/components/kai/library/AddContentDialog";
-import { VisualReferenceUploader } from "@/components/kai/library/VisualReferenceUploader";
+
+// 2026-05-17 — 4 dialogs lazy. ReferenceDialog/ReferenceViewDialog vêm com
+// editor RichContent (react-markdown + tiptap-like). AddContentDialog tem
+// preview + form. VisualReferenceUploader carrega lib de upload + crop.
+// Tudo só monta quando o user clica/abre — antes ficavam eager no chunk.
+const ReferenceDialog = lazy(() =>
+  import("@/components/references/ReferenceDialog").then((m) => ({
+    default: m.ReferenceDialog,
+  })),
+);
+const ReferenceViewDialog = lazy(() =>
+  import("@/components/references/ReferenceViewDialog").then((m) => ({
+    default: m.ReferenceViewDialog,
+  })),
+);
+const AddContentDialog = lazy(() =>
+  import("@/components/kai/library/AddContentDialog").then((m) => ({
+    default: m.AddContentDialog,
+  })),
+);
+const VisualReferenceUploader = lazy(() =>
+  import("@/components/kai/library/VisualReferenceUploader").then((m) => ({
+    default: m.VisualReferenceUploader,
+  })),
+);
 import { Client } from "@/hooks/useClients";
 import { toast } from "sonner";
 import { TabHeader } from "@/components/kai/TabHeader";
@@ -121,16 +142,18 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         actions={
           <>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                type="search"
                 placeholder="Buscar na biblioteca..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 w-full sm:w-56 lg:w-64 h-9"
+                aria-label="Buscar na biblioteca"
               />
             </div>
             <Button onClick={handleAddButtonClick} className="shrink-0 h-9 kai-btn-rec">
-              <Plus className="h-4 w-4 mr-1.5" />
+              <Plus aria-hidden="true" className="h-4 w-4 mr-1.5" />
               <span className="hidden sm:inline">Adicionar</span>
               <span className="sm:hidden">Novo</span>
             </Button>
@@ -281,41 +304,58 @@ export const KaiLibraryTab = ({ clientId, client }: KaiLibraryTabProps) => {
         </TabsContent>
       </Tabs>
 
-      {/* Dialogs */}
-      <ReferenceDialog
-        open={referenceDialogOpen}
-        onClose={() => {
-          setReferenceDialogOpen(false);
-          setSelectedReference(null);
-        }}
-        onSave={handleSaveReference}
-        reference={selectedReference || undefined}
-        clientId={clientId}
-      />
+      {/* Dialogs — todos conditional render + Suspense pra que os chunks
+          só baixem quando o user precisa abrir cada um. */}
+      {referenceDialogOpen && (
+        <Suspense fallback={null}>
+          <ReferenceDialog
+            open={referenceDialogOpen}
+            onClose={() => {
+              setReferenceDialogOpen(false);
+              setSelectedReference(null);
+            }}
+            onSave={handleSaveReference}
+            reference={selectedReference || undefined}
+            clientId={clientId}
+          />
+        </Suspense>
+      )}
 
-      <ReferenceViewDialog
-        open={referenceViewOpen}
-        onClose={() => {
-          setReferenceViewOpen(false);
-          setSelectedReference(null);
-        }}
-        reference={selectedReference || undefined}
-      />
+      {referenceViewOpen && (
+        <Suspense fallback={null}>
+          <ReferenceViewDialog
+            open={referenceViewOpen}
+            onClose={() => {
+              setReferenceViewOpen(false);
+              setSelectedReference(null);
+            }}
+            reference={selectedReference || undefined}
+          />
+        </Suspense>
+      )}
 
       {/* Add Content Dialog */}
-      <AddContentDialog
-        open={showAddContentDialog}
-        onOpenChange={setShowAddContentDialog}
-        clientId={clientId}
-        defaultContentType={addContentType}
-      />
+      {showAddContentDialog && (
+        <Suspense fallback={null}>
+          <AddContentDialog
+            open={showAddContentDialog}
+            onOpenChange={setShowAddContentDialog}
+            clientId={clientId}
+            defaultContentType={addContentType}
+          />
+        </Suspense>
+      )}
 
       {/* Visual Reference Uploader */}
-      <VisualReferenceUploader
-        clientId={clientId}
-        open={visualUploaderOpen}
-        onOpenChange={setVisualUploaderOpen}
-      />
+      {visualUploaderOpen && (
+        <Suspense fallback={null}>
+          <VisualReferenceUploader
+            clientId={clientId}
+            open={visualUploaderOpen}
+            onOpenChange={setVisualUploaderOpen}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };
