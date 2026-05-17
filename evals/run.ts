@@ -34,11 +34,15 @@ const argv = process.argv.slice(2);
 const argTags: string[] = [];
 const argCases: string[] = [];
 let argModel = 'gemini-2.5-flash';
+let argJudge = false;
+let argJudgeModel = 'gemini-2.5-pro';
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === '--tag' && argv[i + 1]) argTags.push(argv[++i]);
   if (a === '--case' && argv[i + 1]) argCases.push(argv[++i]);
   if (a === '--model' && argv[i + 1]) argModel = argv[++i];
+  if (a === '--judge') argJudge = true;
+  if (a === '--judge-model' && argv[i + 1]) argJudgeModel = argv[++i];
 }
 
 const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
@@ -82,6 +86,8 @@ function buildStubRegistry(): { registry: ToolRegistry; called: string[] } {
   // Registra todas as tools usadas pelo handler real, em wrapper-stub
   const toolList = [
     Tools.echoTool,
+    Tools.webSearchTool,
+    Tools.delegateToSubAgentTool,
     Tools.createContentTool,
     Tools.createViralCarouselTool,
     Tools.editContentTool,
@@ -167,6 +173,20 @@ const systemInstruction = [
 // ───────────────────────────────────────────────────────────────────
 // Runner
 // ───────────────────────────────────────────────────────────────────
+interface JudgeScore {
+  criterion: string;
+  weight: number;
+  score: number;
+  reasoning: string;
+}
+
+interface JudgeResult {
+  weightedScore: number;
+  threshold: number;
+  pass: boolean;
+  scores: JudgeScore[];
+}
+
 interface CaseResult {
   case: ChatEvalCase;
   pass: boolean;
@@ -174,6 +194,87 @@ interface CaseResult {
   toolsCalled: string[];
   finalText: string;
   durationMs: number;
+  judge?: JudgeResult;
+}
+
+async function runJudge(
+  caseDef: ChatEvalCase,
+  finalText: string,
+  toolsCalled: string[],
+): Promise<JudgeResult | null> {
+  if (!caseDef.judge) return null;
+  const { criteria, threshold = 7 } = caseDef.judge;
+
+  const judgePrompt = `Você é um juiz avaliando se um agente de IA cumpriu critérios específicos.
+
+Pedido original do usuário:
+"""
+${caseDef.prompt}
+"""
+
+Resposta do agente:
+"""
+${finalText || '(sem texto — só tool calls)'}
+"""
+
+Tools chamadas pelo agente: ${toolsCalled.length > 0 ? toolsCalled.join(', ') : '(nenhuma)'}
+
+Avalie cada critério abaixo de 0 a 10. Seja rigoroso — só dá 10 se cumpre perfeitamente.
+
+Critérios:
+${criteria.map((c, i) => `${i + 1}. ${c.criterion}`).join('\n')}
+
+Responda em JSON puro (sem markdown), formato:
+{"scores":[{"criterion":"<copia exato>","score":<0-10>,"reasoning":"<1 frase>"}]}`;
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${argJudgeModel}:generateContent?key=${apiKey}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: judgePrompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 1500,
+          responseMimeType: 'application/json',
+        },
+      }),
+    });
+    if (!resp.ok) {
+      console.warn(`[judge] HTTP ${resp.status} — pulando avaliação`);
+      return null;
+    }
+    const data = await resp.json();
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const parsed = JSON.parse(raw);
+    const rawScores = parsed.scores as Array<{ criterion: string; score: number; reasoning: string }>;
+
+    const scores: JudgeScore[] = criteria.map((c) => {
+      const found = rawScores.find((s) => s.criterion.toLowerCase().trim() === c.criterion.toLowerCase().trim());
+      return {
+        criterion: c.criterion,
+        weight: c.weight ?? 5,
+        score: found ? Math.max(0, Math.min(10, Number(found.score))) : 0,
+        reasoning: found?.reasoning || '(juiz não retornou)',
+      };
+    });
+
+    const totalWeight = scores.reduce((a, s) => a + s.weight, 0);
+    const weightedScore = totalWeight > 0
+      ? scores.reduce((a, s) => a + (s.score * s.weight), 0) / totalWeight
+      : 0;
+
+    return {
+      weightedScore,
+      threshold,
+      pass: weightedScore >= threshold,
+      scores,
+    };
+  } catch (err) {
+    console.warn('[judge] erro avaliando:', err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 async function runCase(c: ChatEvalCase): Promise<CaseResult> {
@@ -252,6 +353,20 @@ async function runCase(c: ChatEvalCase): Promise<CaseResult> {
     }
   }
 
+  // LLM-as-judge — só roda se case tem judge config E --judge foi passado (custo extra)
+  let judge: JudgeResult | undefined;
+  if (c.judge && argJudge) {
+    const judgeResult = await runJudge(c, finalText, called);
+    if (judgeResult) {
+      judge = judgeResult;
+      if (!judgeResult.pass) {
+        reasons.push(
+          `judge score ${judgeResult.weightedScore.toFixed(1)}/10 abaixo do threshold ${judgeResult.threshold}`,
+        );
+      }
+    }
+  }
+
   return {
     case: c,
     pass: reasons.length === 0,
@@ -259,6 +374,7 @@ async function runCase(c: ChatEvalCase): Promise<CaseResult> {
     toolsCalled: called,
     finalText,
     durationMs: Date.now() - t0,
+    judge,
   };
 }
 
@@ -284,15 +400,22 @@ async function main() {
     process.stdout.write(`  ${c.id.padEnd(34)} `);
     const r = await runCase(c);
     results.push(r);
+    const judgeSuffix = r.judge ? ` · judge ${r.judge.weightedScore.toFixed(1)}/10` : '';
     if (r.pass) {
-      console.log(`✓  (${r.durationMs}ms, ${r.toolsCalled.length} tools)`);
+      console.log(`✓  (${r.durationMs}ms, ${r.toolsCalled.length} tools${judgeSuffix})`);
     } else {
-      console.log(`✗  (${r.durationMs}ms)`);
+      console.log(`✗  (${r.durationMs}ms${judgeSuffix})`);
       for (const reason of r.reasons) {
         console.log(`     · ${reason}`);
       }
       if (r.toolsCalled.length > 0) {
         console.log(`     tools chamadas: [${r.toolsCalled.join(', ')}]`);
+      }
+      if (r.judge) {
+        for (const s of r.judge.scores) {
+          const marker = s.score >= 7 ? '·' : s.score >= 4 ? '⚠' : '✗';
+          console.log(`     ${marker} ${s.criterion}: ${s.score}/10 — ${s.reasoning}`);
+        }
       }
     }
   }
@@ -321,6 +444,7 @@ async function main() {
           toolsCalled: r.toolsCalled,
           durationMs: r.durationMs,
           finalTextSnippet: r.finalText.slice(0, 200),
+          ...(r.judge ? { judge: r.judge } : {}),
         })),
       },
       null,

@@ -17,18 +17,27 @@ bun run eval --case create-tweet --case metrics-recent
 
 # Trocar modelo
 bun run eval --model gemini-2.5-flash-lite
+
+# LLM-as-judge (custo extra: 1 chamada Gemini Pro por case com `judge` definido)
+bun run eval:judge
+bun run eval --judge --judge-model gemini-2.5-pro
 ```
 
 Requer `GOOGLE_API_KEY` (ou `GEMINI_API_KEY`) no `.env`.
 
 ## O que valida
 
+### Assertions baratas (sempre rodam)
 - **`expectedTools`** — lista de tools que DEVEM ser chamadas
 - **`forbiddenTools`** — tools que NÃO devem ser chamadas (regression de segurança)
 - **`maxToolCalls`** — limite superior (custo)
 - **`expectedText` / `forbiddenText`** — substrings no output final
 
-**NÃO valida:** qualidade do texto gerado, formato, voice match. Isso fica pra V2 com LLM-as-judge.
+### LLM-as-judge (opcional, `--judge`)
+Cases com `judge: {criteria, threshold}` rodam um modelo juiz (Gemini 2.5 Pro
+default) que dá score 0-10 por critério. Score final é média ponderada (`weight`).
+Falha se < threshold (default 7). 4 cases V2 cobrem: PT-BR sem emoji, post
+LinkedIn sem hashtag, tweet < 280 chars, recusa educada de comando destrutivo.
 
 ## Quando adicionar caso
 

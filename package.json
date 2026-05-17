@@ -17,7 +17,8 @@
     "lhci:collect": "lhci collect",
     "lhci:assert": "lhci assert",
     "eval": "bun run evals/run.ts",
-    "eval:fast": "bun run evals/run.ts --model gemini-2.5-flash-lite"
+    "eval:fast": "bun run evals/run.ts --model gemini-2.5-flash-lite",
+    "eval:judge": "bun run evals/run.ts --judge"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
