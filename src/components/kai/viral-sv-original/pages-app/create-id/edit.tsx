@@ -12,6 +12,7 @@ import {
 } from "@sv/components/app/templates";
 import { useAuth } from "@sv/lib/auth-context";
 import { useKaiContext } from "@sv/lib/use-kai-context";
+import { buildSVPreviewProfile } from "@sv/lib/client-profile";
 import { useDraft, useAutoSaveDraft, useSaveDraft } from "@sv/lib/create/use-draft";
 import { useImages } from "@sv/lib/create/use-images";
 import { resolveVariant, resolveLayers } from "@sv/lib/create/render-defaults";
@@ -24,6 +25,8 @@ import type {
   SlideLayers,
   SlideVariant,
 } from "@sv/lib/create/types";
+import { useSVClient } from "../../MainApp";
+import { apiInvoke } from "@/lib/apiInvoke";
 
 /**
  * Tela 03 — Editor. 3 colunas (variantes/layers · canvas · branding) no
@@ -228,25 +231,6 @@ function fontsForTemplate(templateId: string | null | undefined): typeof FONT_OP
   return FONT_OPTS.filter((f) => ids.includes(f.id));
 }
 
-function buildPreviewProfile(profile: {
-  name: string;
-  twitter_handle?: string;
-  instagram_handle?: string;
-  avatar_url?: string;
-} | null) {
-  if (!profile) return { name: "Seu nome", handle: "@seuhandle", photoUrl: "" };
-  const handle = profile.twitter_handle
-    ? `@${profile.twitter_handle}`
-    : profile.instagram_handle
-      ? `@${profile.instagram_handle}`
-      : "@seuhandle";
-  return {
-    name: profile.name || "Seu nome",
-    handle,
-    photoUrl: profile.avatar_url || "",
-  };
-}
-
 /**
  * Decide cor de texto contrastante pra um thumb com `bgColor` custom.
  * Calcula luminância perceptual (ITU BT.601) do hex.
@@ -291,6 +275,7 @@ export default function EditPage(props: {
   const searchParams = useSearchParams();
   const { user, profile, session } = useAuth();
   const kaiCtx = useKaiContext();
+  const { client } = useSVClient();
   const { draft, loading, error } = useDraft(id);
 
   // Ref do textarea do corpo pra aplicar negrito no range selecionado.
@@ -443,27 +428,24 @@ export default function EditPage(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, initialTemplate]);
 
-  // Effect separado pra kicker/handle — pode atualizar se profile muda
+  // Effect separado pra kicker/handle — pode atualizar se cliente/profile muda
   // sem risco de sobrescrever os slides editados.
   useEffect(() => {
-    if (!profile) return;
-    setKicker(profile.name || "Seu nome");
-    setHandle(
-      profile.twitter_handle
-        ? `@${profile.twitter_handle}`
-        : profile.instagram_handle
-          ? `@${profile.instagram_handle}`
-          : "@seuhandle"
-    );
-  }, [profile]);
+    const nextProfile = buildSVPreviewProfile(client, profile);
+    setKicker(nextProfile.name);
+    setHandle(nextProfile.handle);
+  }, [client, profile]);
 
   const previewProfile = useMemo(
-    () => ({
-      name: kicker || "Seu nome",
-      handle: handle || "@seuhandle",
-      photoUrl: profile?.avatar_url || "",
-    }),
-    [kicker, handle, profile?.avatar_url]
+    () => {
+      const base = buildSVPreviewProfile(client, profile);
+      return {
+        ...base,
+        name: kicker || base.name,
+        handle: handle || base.handle,
+      };
+    },
+    [client, profile, kicker, handle]
   );
 
   // ─── Auto-fill de imagens faltantes ───────────────────────────────
@@ -681,6 +663,108 @@ export default function EditPage(props: {
       console.warn("[edit] flush before preview falhou:", err);
     }
     router.push(`/app/create/${id}/preview`);
+  }
+
+  // Salva direto no calendário (planning_item) sem exigir export PNG/PDF.
+  // Útil pra preparar carrossel pra revisão sem passar pelo preview/render.
+  // Anexa todos os slides como metadata.viral_carousel_slides — a UI do
+  // Planning já sabe renderizar carrossel a partir disso (PlanningItemCard).
+  const [savingToPlanning, setSavingToPlanning] = useState(false);
+  async function saveToPlanning() {
+    if (!id || !user?.id) {
+      toast.error("Sessão inválida.");
+      return;
+    }
+    const targetClient = kaiCtx.clientId;
+    if (!targetClient) {
+      toast.error("Selecione um cliente na sidebar antes de salvar no calendário.");
+      return;
+    }
+    setSavingToPlanning(true);
+    try {
+      // Flush primeiro pra garantir que o DB tem o estado atual antes do
+      // planning_item ser linkado por viral_carousel_id.
+      await flushDraft(id, {
+        title,
+        slides,
+        slideStyle,
+        status: "draft",
+        visualTemplate: templateId,
+        accentOverride: accentTouched ? accent : undefined,
+        displayFont: fontTouched ? familyFromFontId(fontId) : undefined,
+        textScale: scaleTouched ? textScale : undefined,
+        workspaceId: kaiCtx.workspaceId,
+        clientId: kaiCtx.clientId,
+      });
+
+      const slidesText = slides
+        .map((s, i) => {
+          const heading = (s.heading ?? "").trim();
+          const body = (s.body ?? "").trim();
+          return [`Slide ${i + 1}`, heading, body].filter(Boolean).join("\n");
+        })
+        .join("\n\n");
+
+      const { error } = await apiInvoke<{
+        ok: boolean;
+        planning_item?: { id?: string };
+        error?: string;
+      }>("save-as-planning-item", {
+        body: {
+          client_id: targetClient,
+          source: "sv",
+          title: (title || "Carrossel sem título").slice(0, 200),
+          content: slidesText.slice(0, 10000),
+          content_type: "carousel",
+          platform: "instagram",
+          status: "review",
+          metadata: {
+            content_type: "viral_carousel",
+            viral_carousel_id: id,
+            viral_carousel_slides: slides,
+            visualTemplate: templateId,
+            slideCount: slides.length,
+            // Não marcamos media_ready_for_publish:true aqui — sem PNG/PDF
+            // renderizado, o user precisa abrir o preview pra exportar antes
+            // de publicar. Calendário mostra o card "esperando render".
+          },
+          link_to: {
+            viral_carousel_id: id,
+          },
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Falha ao salvar no calendário.");
+      }
+
+      toast.success("Salvo no calendário pra revisão.", {
+        description: "Abra o preview pra exportar PNG/PDF e publicar.",
+        action: {
+          label: "Abrir calendário",
+          onClick: () => {
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.set("tab", "planning");
+              if (targetClient) url.searchParams.set("client", targetClient);
+              url.hash = "";
+              window.history.pushState({}, "", url.toString());
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            } catch {
+              /* ignore */
+            }
+          },
+        },
+        duration: 7000,
+      });
+    } catch (err) {
+      console.error("[saveToPlanning] failed:", err);
+      toast.error(
+        err instanceof Error ? err.message : "Falha ao salvar no calendário."
+      );
+    } finally {
+      setSavingToPlanning(false);
+    }
   }
 
   function updateSlide(index: number, patch: Partial<CreateSlide>) {
@@ -1767,8 +1851,145 @@ export default function EditPage(props: {
     </div>
   );
 
+  // ─── Template picker inline ────────────────────────────────────────
+  // Mostra TODOS os 12 templates como botões compactos com a paleta de cores
+  // do template. Click troca o `templateId` em tempo real (canvas/thumbs
+  // re-renderizam usando o novo `TemplateRenderer`). Admin vê os 3 client-only
+  // (Madureira/DSEC/Defiverso). Auto-save já salva `visualTemplate` no banco.
+  const TemplateChooser = (() => {
+    const email = user?.email?.toLowerCase().trim() || "";
+    const isAdmin = ADMIN_EMAILS.includes(email);
+    const ADMIN_ONLY_VISUALS: Partial<Record<TemplateId, true>> = {
+      madureira: true,
+      "madureira-reflection": true,
+      "dsec-dark": true,
+      "defiverso-carrossel": true,
+    };
+    const visibleTemplates = TEMPLATES_META.filter(
+      (m) => isAdmin || !ADMIN_ONLY_VISUALS[m.id]
+    );
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h4
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9.5,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+              fontWeight: 700,
+            }}
+          >
+            Template visual
+          </h4>
+          {selectedMeta && (
+            <span
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 9,
+                letterSpacing: "0.14em",
+                color: "var(--sv-ink)",
+                fontWeight: 700,
+                textTransform: "uppercase",
+              }}
+            >
+              {selectedMeta.name}
+            </span>
+          )}
+        </div>
+        <div
+          className="grid gap-1.5"
+          style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}
+        >
+          {visibleTemplates.map((m) => {
+            const on = templateId === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                title={m.name}
+                onClick={() => setTemplateId(m.id)}
+                style={{
+                  position: "relative",
+                  padding: 0,
+                  border: on
+                    ? "2px solid var(--sv-green, #7CF067)"
+                    : "1.5px solid var(--sv-ink)",
+                  cursor: "pointer",
+                  background: "var(--sv-white)",
+                  aspectRatio: "1/1",
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                  boxShadow: on ? "2px 2px 0 0 var(--sv-ink)" : "none",
+                  transition: "all 0.12s",
+                }}
+                aria-pressed={on}
+                aria-label={`Trocar pro template ${m.name}`}
+              >
+                {/* Mini swatch da paleta — 3 faixas horizontais */}
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  {m.palette.map((c, i) => (
+                    <div
+                      key={i}
+                      style={{ flex: 1, background: c }}
+                    />
+                  ))}
+                </div>
+                <div
+                  style={{
+                    background: "var(--sv-ink)",
+                    color: "var(--sv-paper)",
+                    fontFamily: "var(--sv-mono)",
+                    fontSize: 7,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    padding: "2px 0",
+                    textAlign: "center",
+                    lineHeight: 1.1,
+                    fontWeight: 700,
+                  }}
+                >
+                  {m.name.slice(0, 7)}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <p
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 8.5,
+            letterSpacing: "0.08em",
+            color: "var(--sv-muted)",
+            margin: 0,
+            lineHeight: 1.4,
+          }}
+        >
+          Clique pra trocar — preview e thumbs atualizam na hora.
+        </p>
+      </div>
+    );
+  })();
+
   const BrandingCol = (
     <div className="flex flex-col gap-4">
+      {TemplateChooser}
+      <div
+        style={{
+          height: 1,
+          background: "var(--sv-ink)",
+          opacity: 0.15,
+          margin: "2px 0",
+        }}
+      />
       {/*
         Branding (nome + handle + accent) nao editaveis aqui. Eles sao
         propriedades do BRAND do user (settings). Nem mostramos card de
@@ -2191,6 +2412,21 @@ export default function EditPage(props: {
             onClick={() => router.push(`/app/create/${id}/templates`)}
           >
             Trocar template
+          </button>
+          <button
+            type="button"
+            className="sv-btn sv-btn-outline"
+            style={{
+              padding: "7px 12px",
+              fontSize: 9,
+              opacity: savingToPlanning ? 0.5 : 1,
+              cursor: savingToPlanning ? "wait" : "pointer",
+            }}
+            disabled={savingToPlanning}
+            onClick={() => void saveToPlanning()}
+            title="Cria card no calendário com os slides em revisão (sem renderizar PNG/PDF)"
+          >
+            {savingToPlanning ? "Salvando…" : "📅 Salvar no calendário"}
           </button>
           <button
             type="button"

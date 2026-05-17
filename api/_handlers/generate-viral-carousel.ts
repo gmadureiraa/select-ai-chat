@@ -53,6 +53,33 @@ interface RequestBody {
   coverImageAttribution?: string | null;
   /** Optional override for owner user_id. Used when called with cron/service auth. */
   userId?: string;
+  /**
+   * Optional visual template ID — defaults to 'twitter' (mais comum). Caller
+   * pode passar qualquer um dos 12 templates suportados (manifesto, futurista,
+   * twitter, bohdan, etc — ver `TemplateId` em components/app/templates/types).
+   * Quando trocado depois no editor, o auto-save grava no style_meta.visual_template.
+   */
+  visualTemplate?: string;
+}
+
+const VALID_VISUAL_TEMPLATES = new Set([
+  'manifesto',
+  'futurista',
+  'autoral',
+  'twitter',
+  'ambitious',
+  'blank',
+  'bohdan',
+  'paper-mono',
+  'madureira',
+  'madureira-reflection',
+  'dsec-dark',
+  'defiverso-carrossel',
+]);
+
+function normalizeVisualTemplate(raw: unknown): string {
+  if (typeof raw !== 'string') return 'twitter';
+  return VALID_VISUAL_TEMPLATES.has(raw) ? raw : 'twitter';
 }
 
 async function buildPrompt(
@@ -330,7 +357,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       coverImageUrl,
       coverImageAttribution,
       userId: providedUserId,
+      visualTemplate: requestedVisualTemplate,
     } = requestBody;
+    const visualTemplate = normalizeVisualTemplate(requestedVisualTemplate);
 
     if (!clientId || !briefing) {
       return jsonError(res, 400, 'clientId e briefing são obrigatórios');
@@ -513,11 +542,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (persistAs === 'carousel' || persistAs === 'both') {
+      // `template` na tabela viral_carousels é o "design_template" (estratégia
+       //   de conteúdo) — mantemos 'manifesto' (default narrativo). O visual
+       //   real do render é gravado em `style_meta.visual_template` pra que o
+       //   editor leia corretamente quando user abrir o carrossel.
+       // Migration 0038: view `carousels` faz merge `template` + `style_meta`
+       //   no campo `style`, então frontend recebe os dois corretamente.
+      const styleMeta = {
+        slideStyle: 'white',
+        visual_template: visualTemplate,
+      };
       const carRes = await pool.query<{ id: string }>(
         `INSERT INTO viral_carousels
           (client_id, workspace_id, user_id, title, briefing, tone, template,
-           profile, slides, status, source, planning_item_id)
-         VALUES ($1, $2, $3, $4, $5, $6, 'twitter', $7::jsonb, $8::jsonb, 'draft', $9, $10)
+           profile, slides, status, source, planning_item_id, style_meta)
+         VALUES ($1, $2, $3, $4, $5, $6, 'manifesto', $7::jsonb, $8::jsonb, 'draft', $9, $10, $11::jsonb)
          RETURNING id`,
         [
           clientId,
@@ -530,6 +569,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           JSON.stringify(slides),
           source,
           planningItemId ?? null,
+          JSON.stringify(styleMeta),
         ]
       );
       carouselId = carRes.rows[0]?.id;

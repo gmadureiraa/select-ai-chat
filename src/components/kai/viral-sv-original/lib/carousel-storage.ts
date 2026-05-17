@@ -8,6 +8,11 @@ import {
 } from "@sv/lib/carousel-templates";
 import type { TemplateId as VisualTemplateId } from "@sv/components/app/templates/types";
 
+// Mantém em sincronia com `TemplateId` em
+// `src/components/kai/viral-sv-original/components/app/templates/types.ts`.
+// Quando um template novo é adicionado lá, precisa entrar aqui também — senão
+// `normalizeVisualTemplate` retorna undefined e o storage descarta a escolha
+// do usuário, caindo no default "manifesto".
 const VISUAL_TEMPLATE_IDS = [
   "manifesto",
   "futurista",
@@ -16,6 +21,11 @@ const VISUAL_TEMPLATE_IDS = [
   "ambitious",
   "blank",
   "bohdan",
+  "paper-mono",
+  "madureira",
+  "madureira-reflection",
+  "dsec-dark",
+  "defiverso-carrossel",
 ] as const;
 
 function normalizeVisualTemplate(raw: unknown): VisualTemplateId | undefined {
@@ -514,7 +524,6 @@ export async function upsertUserCarousel(
       .from("carousels")
       .select("style")
       .eq("id", payload.id)
-      .eq("user_id", userId)
       .maybeSingle();
 
     // Se payload.id veio mas o carrossel NÃO existe no DB (onboarding
@@ -627,7 +636,6 @@ export async function upsertUserCarousel(
       .from("carousels")
       .update(updatePayload)
       .eq("id", payload.id)
-      .eq("user_id", userId)
       .select(CAROUSEL_DETAIL_FIELDS)
       .single();
 
@@ -639,7 +647,6 @@ export async function upsertUserCarousel(
         .from("carousels")
         .update(fallbackPayload)
         .eq("id", payload.id)
-        .eq("user_id", userId)
         .select(CAROUSEL_DETAIL_FIELDS_FALLBACK)
         .single();
       data = (retry.data as unknown) as typeof data;

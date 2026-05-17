@@ -55,19 +55,23 @@ function fillVariants<T extends { variant?: SlideVariant }>(slides: T[]): T[] {
  * usando os slides do rascunho. Baseado em `v-templates` do handoff.
  */
 
-// 5 templates disponíveis — Futurista (id interno "manifesto"), Twitter,
-// Ambitious (motivacional @anajords), Blank (editorial @blankschoolbr) e
-// Bohdan (design-forward @jeremybohdan). Autoral + Futurista antigo (dark
-// tech) escondidos mas ainda renderizáveis se o user tem draft salvo.
-// Ordem 28/04 — Twitter primeiro (único público pra user comum).
+// 12 templates disponíveis — picker mostra todos pra admin, outros vêem só
+// os non-COMING_SOON (Twitter público padrão). Ordem por relevância: Twitter
+// primeiro (mais usado), depois Manifesto/Futurista (editorial), depois
+// os de cliente específicos (Madureira/DSEC/Defiverso) e os experimentais.
 const TEMPLATE_ORDER: TemplateId[] = [
   "twitter",
   "manifesto",
+  "futurista",
   "ambitious",
   "blank",
   "bohdan",
   "paper-mono",
+  "autoral",
+  "madureira",
   "madureira-reflection",
+  "dsec-dark",
+  "defiverso-carrossel",
 ];
 
 const TEMPLATE_DESC: Record<TemplateId, string> = {
@@ -88,9 +92,15 @@ const TEMPLATE_DESC: Record<TemplateId, string> = {
 /**
  * Templates que SÓ aparecem pra admin. User comum nem vê no picker.
  * Diferente de COMING_SOON (que aparece com badge mas não pode selecionar).
+ *
+ * Templates por cliente (madureira/dsec/defiverso) são admin-only por padrão
+ * — evita user genérico usar o visual de um cliente específico Kaleidos.
  */
 const ADMIN_ONLY_TEMPLATES: Partial<Record<TemplateId, true>> = {
   "madureira-reflection": true,
+  madureira: true,
+  "dsec-dark": true,
+  "defiverso-carrossel": true,
 };
 
 const TEMPLATE_NAME_OVERRIDE: Partial<Record<TemplateId, string>> = {
@@ -112,6 +122,8 @@ const COMING_SOON_BASE: Partial<Record<TemplateId, true>> = {
   blank: true,
   bohdan: true,
   "paper-mono": true,
+  futurista: true,
+  autoral: true,
 };
 
 export default function TemplatesPage(props: {
