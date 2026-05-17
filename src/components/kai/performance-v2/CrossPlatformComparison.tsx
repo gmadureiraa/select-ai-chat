@@ -135,7 +135,11 @@ function ComparisonRow({ row, maxPosts, maxReach, maxEng }: {
           </div>
           {/* Mini sparkline 30d de followers (snapshots locais) */}
           {row.followersSeries.length >= 2 && (
-            <div className="h-5 mt-0.5 max-w-[140px]">
+            <div
+              className="h-5 mt-0.5 max-w-[140px]"
+              role="img"
+              aria-label={`Tendência de seguidores nos últimos 30 dias: ${row.followersChange > 0 ? "+" : ""}${row.followersChange}`}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={row.followersSeries}

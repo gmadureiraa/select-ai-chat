@@ -102,7 +102,11 @@ export function FollowersSparkline({
         </span>
       </div>
 
-      <div style={{ height, width: "100%" }}>
+      <div
+        style={{ height, width: "100%" }}
+        role="img"
+        aria-label={`Evolução de seguidores: ${ptBR.format(first)} em ${formatDateLabel(safeData[0]?.date)} → ${ptBR.format(last)} em ${formatDateLabel(safeData[safeData.length - 1]?.date)} (${ptBRSigned.format(delta)})`}
+      >
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={safeData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
             <Tooltip
