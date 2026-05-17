@@ -1,25 +1,19 @@
 // ClientAnalyticsTab — analytics per-cliente plugado em ClientEditTabsSimplified.
 // Mostra:
 //   1. Stats virais do cliente (carrosséis, reels, briefs, planning) — 30d
-//   2. Gráfico de criação de conteúdo por mês (último 6 meses) usando recharts
+//   2. Gráfico de criação de conteúdo por mês (último 6 meses) — SVG custom
 //   3. Top 10 conteúdo do cliente por engagement (client_top_content view)
 //   4. Tokens consumidos por feature (carousel/reel/brief/outros) — token_transactions
 //   5. Últimos 5 eventos relevantes do cliente em user_activities
 //
 // Tudo usa apenas as tabelas que já existem (workspace_tokens, viral_*,
 // planning_items, client_content_library, token_transactions, user_activities).
+//
+// 2026-05-17 — Migrado de Recharts → SVG primitive custom (svg-primitives).
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { VerticalBarChart } from "@/components/kai/performance-v2/components/charts/svg-primitives";
 import {
   Activity,
   TrendingUp,
@@ -286,41 +280,14 @@ export function ClientAnalyticsTab({ clientId }: ClientAnalyticsTabProps) {
               Sem itens criados nos últimos 6 meses
             </p>
           ) : (
-            <div className="h-[180px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={monthlyChartData}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
-                    width={28}
-                  />
-                  <RechartsTooltip
-                    contentStyle={{
-                      background: "hsl(var(--popover))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 6,
-                      fontSize: 12,
-                    }}
-                    labelClassName="text-foreground"
-                  />
-                  <Bar
-                    dataKey="count"
-                    fill="hsl(var(--primary))"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <VerticalBarChart
+              data={monthlyChartData.map((m) => ({ label: m.label, value: m.count }))}
+              color="hsl(var(--primary))"
+              height={180}
+              formatValue={(v) => String(Math.round(v))}
+              topRadius={4}
+              ariaLabel="Criação de itens por mês — últimos 6 meses"
+            />
           )}
         </CardContent>
       </Card>

@@ -1,5 +1,5 @@
 // network-branding.ts — fonte única de verdade da estética visual de cada
-// rede social no KAI 2.0. Centraliza icon, cores, gradientes, hex (recharts),
+// rede social no KAI 2.0. Centraliza icon, cores, gradientes, hex (SVG charts),
 // metric primária e features (reels/stories/etc).
 //
 // Uso:
@@ -51,7 +51,7 @@ export interface NetworkBranding {
   bgGradient: string;
   /** Cor sólida (variante simples sem gradient — chip pequeno). */
   bgSolid: string;
-  /** Cor sólida em hex puro pra recharts/SVG. */
+  /** Cor sólida em hex puro pra SVG primitives. */
   primaryHex: string;
   /** Cor secundária (gradient-end ou tom auxiliar). */
   secondaryHex: string;

@@ -54,7 +54,6 @@ export default defineConfig(({ mode }) => ({
     // TUDO que entry chunk pode dynamic-importar, inflando first-paint mesmo
     // com lazy() (browser baixa em parallel mesmo que código nunca rode).
     // Filter remove chunks heavy que só viram úteis em rota/feature específica:
-    //   - chart-vendor (406kB recharts) — só em Performance tab + ClientAnalytics
     //   - export-pdf-vendor (617kB jspdf+html2canvas) — só em export PDF
     //   - export-zip-vendor (97kB jszip) — só em download multiplo
     //   - markdown-vendor (117kB react-markdown) — chat/library
@@ -63,12 +62,13 @@ export default defineConfig(({ mode }) => ({
     //   - supabase-vendor (170kB) — fetchs após login
     // Continua sendo carregado on-demand (Vite gera o <link modulepreload> só
     // quando o chunk-de-quem-dinamically-importa for fetched).
+    // 2026-05-17 — chart-vendor (recharts) REMOVIDO — substituído por SVG
+    // primitives custom (~10kB). Não há mais chunk pesado pra charts.
     modulePreload: {
       polyfill: false,
       resolveDependencies(filename, deps, { hostType }) {
         if (hostType !== 'html') return deps;
         const HEAVY_LAZY = [
-          'chart-vendor',
           'export-pdf-vendor',
           'export-zip-vendor',
           'export-html-vendor',
@@ -127,7 +127,9 @@ export default defineConfig(({ mode }) => ({
           "auth-vendor": ["@neondatabase/auth"],
           // 2026-05-10 — form-vendor removida (react-hook-form + @hookform/resolvers
           // não estão sendo usados no app — bundle audit). zod fica no chunk default.
-          "chart-vendor": ["recharts"],
+          // 2026-05-17 — chart-vendor (recharts) removido — substituído por
+          // SVG primitives custom em performance-v2/components/charts/svg-primitives.tsx
+          // (~10kB total, era 406kB raw).
           // Bibliotecas pesadas usadas só em features específicas (export PDF/imagem,
           // upload XLSX, animações). Ficam em chunks próprios pra não inflar o initial.
           //

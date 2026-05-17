@@ -13,10 +13,9 @@ import { RefreshCw, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 // MetricoolBestTimesCard agora é renderizado DENTRO de cada plataforma
 // (último bloco de cada PlatformDashboard / InstagramDashboardV2), não global.
-// 2026-05-17 — Dashboards per-tab lazy. Cada um tem charts pesados (recharts)
-// e queries próprias; só baixa quando o user navega pra aquela tab.
-// CrossPlatformComparison é a default mas ainda assim lazy — mata recharts
-// no chunk principal de Performance.
+// 2026-05-17 — Dashboards per-tab lazy. Cada um tem charts (SVG primitives custom,
+// ~10kB) e queries próprias; só baixa quando o user navega pra aquela tab.
+// CrossPlatformComparison é a default mas ainda assim lazy — mantém initial bundle baixo.
 const PlatformDashboard = lazy(() =>
   import('./PlatformDashboard').then((m) => ({ default: m.PlatformDashboard })),
 );

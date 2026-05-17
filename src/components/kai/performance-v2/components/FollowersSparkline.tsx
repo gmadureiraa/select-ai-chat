@@ -1,8 +1,12 @@
+// FollowersSparkline — sparkline simples de followers ao longo do tempo.
+//
+// 2026-05-17 — Migrado de Recharts → SVG primitive custom (svg-primitives).
+// Bundle: ~406kB recharts removidos do chart-vendor. API preservada.
 import * as React from "react";
-import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { Sparkline } from "./charts/svg-primitives";
 
 export interface FollowersSparklinePoint {
   date: string;
@@ -22,33 +26,9 @@ const ptBRSigned = new Intl.NumberFormat("pt-BR", { signDisplay: "exceptZero" })
 
 function formatDateLabel(raw: string): string {
   if (!raw) return "";
-  // Try to parse as ISO; fall back to raw string
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return raw;
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-}
-
-interface SparklineTooltipPayload {
-  payload?: FollowersSparklinePoint;
-  value?: number;
-}
-
-function SparklineTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: SparklineTooltipPayload[];
-}) {
-  if (!active || !payload || payload.length === 0) return null;
-  const point = payload[0]?.payload;
-  if (!point) return null;
-  return (
-    <div className="rounded-md border bg-popover px-2 py-1 text-xs shadow-sm">
-      <div className="font-medium">{ptBR.format(point.value)}</div>
-      <div className="text-muted-foreground">{formatDateLabel(point.date)}</div>
-    </div>
-  );
 }
 
 export function FollowersSparkline({
@@ -93,6 +73,8 @@ export function FollowersSparkline({
         ? "text-red-600 dark:text-red-400"
         : "text-muted-foreground";
 
+  const sparkData = safeData.map((p) => ({ value: p.value, label: p.date }));
+
   return (
     <div className={cn("space-y-1", className)}>
       <div className="flex items-baseline justify-between gap-2">
@@ -107,23 +89,14 @@ export function FollowersSparkline({
         role="img"
         aria-label={`Evolução de seguidores: ${ptBR.format(first)} em ${formatDateLabel(safeData[0]?.date)} → ${ptBR.format(last)} em ${formatDateLabel(safeData[safeData.length - 1]?.date)} (${ptBRSigned.format(delta)})`}
       >
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={safeData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
-            <Tooltip
-              cursor={{ stroke: color, strokeOpacity: 0.2 }}
-              content={<SparklineTooltip />}
-            />
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke={color}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 3 }}
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        <Sparkline
+          data={sparkData}
+          color={color}
+          strokeWidth={2}
+          withTooltip
+          formatValue={(v) => ptBR.format(v)}
+          formatLabel={formatDateLabel}
+        />
       </div>
     </div>
   );

@@ -16,16 +16,7 @@
 // com seletor + total agregado + delta vs período anterior, gradient suave,
 // tooltip rico em pt-BR.
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ResponsiveContainer,
-  ComposedChart,
-  Area,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from 'recharts';
+import { AreaLineChart, type ChartPoint } from './charts/svg-primitives';
 import { Card, CardContent, CardHeader, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -484,13 +475,20 @@ export function MetricChartHero({
   );
 
   const hasData = series.some((s) => s.value > 0);
-  const maxVal = Math.max(
-    ...series.map((s) => s.value),
-    ...series.map((s) => (typeof s.previousValue === 'number' ? s.previousValue : 0)),
-    1,
-  );
-  const gradientId = `hero-gradient-${selected}`;
   const compareDisabled = selected === 'followers';
+
+  // Adapta `series` (shortDate/date/value/previousValue) → ChartPoint[] que
+  // o AreaLineChart entende (label/value/previousValue). Mantém memoizado pra
+  // evitar churn em re-renders externos.
+  const chartPoints: ChartPoint[] = useMemo(
+    () =>
+      series.map((s) => ({
+        label: s.shortDate,
+        value: s.value,
+        previousValue: s.previousValue,
+      })),
+    [series],
+  );
 
   if (loading) {
     return (
@@ -662,99 +660,27 @@ export function MetricChartHero({
             Sem dados de {def.label.toLowerCase()} nesse período.
           </div>
         ) : (
-          <div className="h-[320px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={series} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={def.color} stopOpacity={0.32} />
-                    <stop offset="55%" stopColor={def.color} stopOpacity={0.1} />
-                    <stop offset="100%" stopColor={def.color} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="hsl(var(--border))"
-                  strokeOpacity={0.5}
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="shortDate"
-                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  interval="preserveStartEnd"
-                  minTickGap={20}
-                />
-                <YAxis
-                  domain={[0, maxVal * 1.15]}
-                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={48}
-                  tickFormatter={(v) =>
-                    def.isPercent
-                      ? `${Number(v).toFixed(0)}%`
-                      : v >= 1_000_000
-                        ? `${(v / 1_000_000).toFixed(1)}M`
-                        : v >= 1000
-                          ? `${(v / 1000).toFixed(0)}k`
-                          : String(v)
-                  }
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    fontSize: 12,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                  }}
-                  labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: 4 }}
-                  formatter={(value: number, name: string) => [
-                    def.isPercent ? `${value.toFixed(2)}%` : fmtFull(value),
-                    name === 'previousValue' ? `${def.label} (anterior)` : def.label,
-                  ]}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke={def.color}
-                  strokeWidth={2.4}
-                  fill={`url(#${gradientId})`}
-                  dot={
-                    series.length <= 30
-                      ? {
-                          r: 2.5,
-                          fill: def.color,
-                          stroke: 'hsl(var(--background))',
-                          strokeWidth: 2,
-                        }
-                      : false
-                  }
-                  activeDot={{
-                    r: 5,
-                    stroke: def.color,
-                    strokeWidth: 2,
-                    fill: 'hsl(var(--background))',
-                  }}
-                />
-                {compareEnabled && !compareDisabled && (
-                  <Line
-                    type="monotone"
-                    dataKey="previousValue"
-                    stroke={def.color}
-                    strokeWidth={1.6}
-                    strokeOpacity={0.55}
-                    strokeDasharray="5 4"
-                    dot={false}
-                    activeDot={{ r: 3.5, stroke: def.color, strokeWidth: 1.5, fill: 'hsl(var(--background))' }}
-                    isAnimationActive={false}
-                  />
-                )}
-              </ComposedChart>
-            </ResponsiveContainer>
+          <div className="w-full">
+            <AreaLineChart
+              data={chartPoints}
+              color={def.color}
+              showCompare={compareEnabled && !compareDisabled}
+              showDots="auto"
+              height={320}
+              metricLabel={def.label}
+              compareLabel={`${def.label} (anterior)`}
+              formatY={(v) =>
+                def.isPercent
+                  ? `${Number(v).toFixed(0)}%`
+                  : v >= 1_000_000
+                    ? `${(v / 1_000_000).toFixed(1)}M`
+                    : v >= 1000
+                      ? `${(v / 1000).toFixed(0)}k`
+                      : String(Math.round(v))
+              }
+              formatTooltip={(v) => (def.isPercent ? `${v.toFixed(2)}%` : fmtFull(v))}
+              ariaLabel={`Gráfico de ${def.label.toLowerCase()} ao longo dos últimos ${period} dias`}
+            />
           </div>
         )}
 

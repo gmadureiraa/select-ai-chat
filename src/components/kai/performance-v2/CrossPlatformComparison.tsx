@@ -10,7 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Line, LineChart, ResponsiveContainer } from 'recharts';
+import { Sparkline } from './components/charts/svg-primitives';
 import {
   TrendingUp,
   Heart,
@@ -140,21 +140,11 @@ function ComparisonRow({ row, maxPosts, maxReach, maxEng }: {
               role="img"
               aria-label={`Tendência de seguidores nos últimos 30 dias: ${row.followersChange > 0 ? "+" : ""}${row.followersChange}`}
             >
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={row.followersSeries}
-                  margin={{ top: 1, right: 0, left: 0, bottom: 1 }}
-                >
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke={branding.primaryHex}
-                    strokeWidth={1.4}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <Sparkline
+                data={row.followersSeries}
+                color={branding.primaryHex}
+                strokeWidth={1.4}
+              />
             </div>
           )}
         </div>
