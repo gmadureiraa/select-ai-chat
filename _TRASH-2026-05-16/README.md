@@ -37,13 +37,103 @@ Optei por **mover** em vez de **deletar** porque:
 2. Git histórico já preserva tudo, mas mover mantém o arquivo acessível sem `git log` digging
 3. Reduz visualmente o noise no tree/sidebar do editor
 
-## Próxima limpeza (não fiz nessa rodada por risco)
+## Update 2026-05-17 — Wave Backend Consistency
 
-Esses são candidatos a próxima onda, mas ainda têm references ativas — precisam refator antes de remover:
+### `postiz-deprecated/` (10 arquivos movidos pra trash)
 
-- `api/_handlers/late-*.ts` (8 arquivos) — integração Late deprecated. Ainda usada em `WebhookSettings.tsx`, `connectAccount.ts`, `publishNow.ts`, `scheduleFor.ts`, `mcp-reader.ts`, `process-automations.ts`. **Remover só após substituir caminhos por Metricool.**
-- `api/_handlers/postiz-*.ts` (8 arquivos) — integração Postiz deprecated. Mesma situação que Late.
-- `api/_handlers/cron-postiz-poll.ts` — sem entry no manifest, mas ligado ao Postiz acima.
-- `api/_handlers/fetch-late-metrics.ts` — sem entry no manifest, ligado a Late.
+Toda a integração Postiz foi arquivada:
 
-Estimativa pra remover esses 18 handlers + refators upstream: 4-6h.
+- `postiz-analytics.ts`
+- `postiz-integrations.ts`
+- `postiz-oauth-callback.ts`
+- `postiz-oauth-start.ts`
+- `postiz-post.ts`
+- `postiz-schedule.ts`
+- `postiz-summary.ts`
+- `postiz-webhook.ts`
+- `cron-postiz-poll.ts`
+- `postiz.ts` (lib de integração `_lib/integrations/postiz.ts`)
+
+**Por quê:** todos os 9 handlers Postiz estavam **órfãos no manifest** (inacessíveis via HTTP), e o callsite principal (`publish-viral-carousel.ts`) só usava Postiz quando `POSTIZ_API_KEY` estava set — com fallback automático pra Late. A integração nunca foi totalmente ativada em produção.
+
+**Refactor concluído nessa rodada (commit 5594270b):**
+
+1. `publish-viral-carousel.ts` — removido import `postiz-post.js` + flag `usePostiz`. Late é o único provider agora.
+2. `src/hooks/useLateConnection.ts` — `apiInvoke('postiz-oauth-start')` → `'late-oauth-start'`; `apiInvoke('postiz-post')` → `'late-post'`.
+3. `src/hooks/useClientPlatformStatus.ts` — `apiInvoke('postiz-integrations', { mode: 'verify' })` → `'late-verify-accounts'`.
+4. `src/components/settings/WebhookSettings.tsx` — `WEBHOOK_URL` agora aponta pra `/api/late-webhook`.
+
+**Refs residuais (intencional, todos defensivos):**
+
+- `getIntegrationsStatus.ts` lê `metadata.postiz_integration_id` do DB pra compat backward.
+- `useSocialCredentials.ts`, `useClientPlatformStatus.ts` aceitam `postiz_account_id` legacy.
+- Comentários em hooks/components.
+
+Esses não fazem chamada HTTP — apenas leem dados legados do DB. Quando todos os clientes tiverem migrado credenciais pra `late_account_id`, podem ser removidos.
+
+### Manifest sync (commit 5594270b)
+
+- **Adicionados** ao manifest (9 handlers Late.ai + fetch-late-metrics) — antes inacessíveis via HTTP:
+  - `late-analytics`, `late-disconnect-account`, `late-oauth-callback`, `late-oauth-start`, `late-post`, `late-verify-accounts`, `late-webhook`, `late-webhook-reprocess`, `late-webhook-test`, `fetch-late-metrics`.
+- **Removidos** (3 entries fantasma — apontavam pra arquivos inexistentes):
+  - `automation-webhook` (handler nunca criado),
+  - `get-integrations-status` (única chamada era `IntegrationsSettings.tsx` herdada da era Supabase Edge Functions — UI vai precisar migrar pra tool `getIntegrationsStatusTool` do KAI agent ou criar handler dedicado),
+  - `viral-library` (unificada com biblioteca normal em 2026-05-08).
+
+**Resultado:** manifest 100% sincronizado com filesystem (zero órfãos, zero phantoms).
+
+## Pendências de refactor maior (não-bloqueantes)
+
+### Hooks com `supabase.from()` direto (bypass de handlers)
+
+11 hooks fazem queries diretas ao Supabase em vez de chamarem handlers backend:
+
+| Hook | Calls |
+|---|---|
+| `useBrandAssets.ts` | 1 |
+| `useClientContext.ts` | 1 |
+| `useClientContextGenerator.ts` | 7 |
+| `useClients.ts` | 3 |
+| `useKAIExecuteAction.ts` | 1 |
+| `usePlanningColumns.ts` | 2 |
+| `usePlanningComments.ts` | 1 |
+| `usePlanningItems.ts` | 1 |
+| `useTaskChecklist.ts` | 2 |
+| `useTaskComments.ts` | 2 |
+| `useTeamTasks.ts` | 1 |
+| **TOTAL** | **24 calls** |
+
+Migrar tudo pra usar handlers backend (ou tools do `kai-chat-tools/`) demanda:
+
+1. Criar handlers pra cada operação (alguns já existem como tools, ex. `getBrandAssetsTool`).
+2. Atualizar hooks pra usar `apiInvoke()`.
+3. Testar paginação, filtros, RLS path-through, etc.
+
+Estimativa: 6-10h focadas.
+
+### Response shape inconsistente
+
+Os 188 handlers usam 3 padrões mistos:
+
+- `{ ok: true, ... }` — 9 ocorrências
+- `{ success: true, ... }` — 15 ocorrências
+- `{ ...data }` plain (sem flag) — ~119 ocorrências
+
+Padronização sugerida (escolher 1):
+
+- **Manter `{ ok: true | false, data?, error? }`** — alinha com convenção REST + força error path explícito.
+- OU manter status code HTTP como source of truth e shapes inline (atual maioria).
+
+Refactor opcional, baixa prioridade.
+
+### Late integration cleanup (futuro, quando migrar pra Metricool full)
+
+Conforme convenção do repo, Metricool é o caminho a longo prazo (já tem 14 handlers em manifest + cron-metricool-poll/snapshot/backfill-posts). Quando o migration target estiver claro:
+
+1. Substituir `apiInvoke('late-*')` por `apiInvoke('metricool-*')` em hooks.
+2. Atualizar `connectAccount.ts`, `publishNow.ts`, `scheduleFor.ts` (kai-chat-tools).
+3. Atualizar callInternalHandler em `telegram-poll.ts` (calls 2x `late-post`).
+4. Atualizar `process-automations.ts` (1 call `late-post`).
+5. Mover `late-*` pra `_TRASH-2026-05-17/late-deprecated/`.
+
+Estimativa: 4-6h.
