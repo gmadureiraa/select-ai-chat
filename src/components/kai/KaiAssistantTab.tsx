@@ -11,6 +11,7 @@ import { EnhancedMessageBubble } from "@/components/chat/EnhancedMessageBubble";
 import { PipelineProgress } from "@/components/chat/PipelineProgress";
 import { QuickSuggestions } from "@/components/chat/QuickSuggestions";
 import { KaiToolsTray } from "@/components/chat/KaiToolsTray";
+import { ApprovalDialog } from "@/components/chat/ApprovalDialog";
 import type { ChatMode } from "@/components/chat/ModeSelector";
 import { Client } from "@/hooks/useClients";
 import KaleidosLogo from "@/assets/kaleidos-logo.svg";
@@ -108,6 +109,9 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     sendMessage: baseSendMessage,
     clearHistory,
     conversationId,
+    pendingApproval,
+    confirmApproval,
+    cancelApproval,
   } = useKAISimpleChat({
     clientId,
     conversationId: latestConversationId ?? null,
@@ -468,6 +472,13 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
         </div>
       </div>
       
+      {/* Approval Dialog — tool destrutiva pediu confirmação humana */}
+      <ApprovalDialog
+        request={pendingApproval}
+        onConfirm={confirmApproval}
+        onCancel={cancelApproval}
+      />
+
       {/* Planning Dialog */}
       <PlanningItemDialog
         open={planningDialogOpen}

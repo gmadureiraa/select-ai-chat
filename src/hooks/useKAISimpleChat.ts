@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { streamSSEToCallback } from "@/lib/parseOpenAIStream";
 import { toast } from "sonner";
-import type { KAIActionCard } from "@/types/kai-stream";
+import type { KAIActionCard, KAIApprovalRequest } from "@/types/kai-stream";
 
 export interface SimpleMessage {
   id: string;
@@ -45,6 +45,8 @@ export function useKAISimpleChat({
   const [messages, setMessages] = useState<SimpleMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(externalConversationId || null);
+  /** Approval request pendente — quando truthy, UI deve abrir ApprovalDialog. */
+  const [pendingApproval, setPendingApproval] = useState<KAIApprovalRequest | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isLoadingMessagesRef = useRef(false);
 
@@ -330,6 +332,10 @@ export function useKAISimpleChat({
             // Tracking de tools longas pra reconciliação em caso de timeout.
             runningTools.set(running.id, { name: running.name, startedAt: Date.now() });
           },
+          onApprovalRequest: (req) => {
+            console.log("[KAI] approval request:", req.action, "token=", req.callbackToken.slice(0, 14));
+            setPendingApproval(req);
+          },
           onError: (errorMsg) => {
             console.error("[KAI] stream error:", errorMsg);
             toast.error(errorMsg);
@@ -458,6 +464,37 @@ export function useKAISimpleChat({
     }
   }, [clientId, messages, cancelRequest, conversationId, createConversation, saveMessage]);
 
+  /**
+   * Aprova um pedido pendente — re-call a tool original com `approved: true`
+   * + `callbackToken`. UI deve fechar o modal antes (setPendingApproval(null)).
+   * Mensagem human-readable no chat pra não ficar evento órfão.
+   */
+  const confirmApproval = useCallback(
+    async (req: KAIApprovalRequest) => {
+      if (!req.toolName) {
+        toast.error("Pedido de aprovação sem nome de ferramenta — não dá pra re-call");
+        return;
+      }
+      setPendingApproval(null);
+      const mergedArgs = {
+        ...(req.toolArgs ?? {}),
+        approved: true,
+        callbackToken: req.callbackToken,
+      };
+      const humanMsg = `Confirmado: ${req.preview.title.replace(/\?$/, "")}.`;
+      await sendMessage(humanMsg, undefined, undefined, {
+        name: req.toolName,
+        args: mergedArgs,
+      });
+    },
+    [sendMessage],
+  );
+
+  /** Cancela o approval sem chamar o backend — token expira sozinho em 5min. */
+  const cancelApproval = useCallback(() => {
+    setPendingApproval(null);
+  }, []);
+
   return {
     messages,
     isLoading,
@@ -466,5 +503,8 @@ export function useKAISimpleChat({
     cancelRequest,
     conversationId,
     loadMessages,
+    pendingApproval,
+    confirmApproval,
+    cancelApproval,
   };
 }
