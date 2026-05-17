@@ -139,11 +139,20 @@ export function useClientOnboarding() {
           });
         }
         if (data.pillars && data.pillars.length > 0) {
-          prefsRows.push({
-            client_id: clientId,
-            preference_type: "content_pillars",
-            preference_value: data.pillars.join(", "),
-          });
+          // Persiste uma row por pilar com type `content_pillar` (singular).
+          // Esse e o nome canonico lido em useClientContext.ts e em
+          // api/_lib/shared/client-context.ts. Versao antiga gravava como
+          // `content_pillars` (plural) em CSV e nunca era lida — fix do bug
+          // P0 do audit 2026-05-16.
+          for (const pillar of data.pillars) {
+            const v = String(pillar).trim();
+            if (!v) continue;
+            prefsRows.push({
+              client_id: clientId,
+              preference_type: "content_pillar",
+              preference_value: v,
+            });
+          }
         }
         if (data.brandDo) {
           prefsRows.push({
