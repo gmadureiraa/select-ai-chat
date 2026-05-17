@@ -1,6 +1,6 @@
 // Metricool Public API client wrapper.
 //
-// Substitui (ou complementa) Postiz como provider de scheduling/publish/analytics.
+// Provider canônico do KAI para scheduling, publish e analytics.
 // Doc: https://help.metricool.com/en/article/basic-guide-for-api-integration-abukgf/
 // Swagger: https://app.metricool.com/api/swagger.json
 //
@@ -22,11 +22,16 @@ export interface MetricoolConfig {
 }
 
 export function getMetricoolConfig(): MetricoolConfig {
-  const userToken = process.env.METRICOOL_USER_TOKEN;
-  const userId = process.env.METRICOOL_USER_ID;
+  // Defensive: env vars em prod podem chegar com `\n` trailing (vide ../env.ts).
+  // Sanitiza antes de usar em URLs / headers HTTP.
+  const userToken = process.env.METRICOOL_USER_TOKEN?.replace(/\\n/g, '').trim();
+  const userId = process.env.METRICOOL_USER_ID?.replace(/\\n/g, '').trim();
   if (!userToken) throw new Error('METRICOOL_USER_TOKEN not configured');
   if (!userId) throw new Error('METRICOOL_USER_ID not configured');
-  const apiUrl = (process.env.METRICOOL_API_URL || METRICOOL_DEFAULT_BASE).replace(/\/$/, '');
+  const apiUrl = (process.env.METRICOOL_API_URL || METRICOOL_DEFAULT_BASE)
+    .replace(/\\n/g, '')
+    .trim()
+    .replace(/\/$/, '');
   return { apiUrl, userToken, userId };
 }
 
@@ -65,6 +70,58 @@ export interface MetricoolDateTimeInfo {
   timezone: string; // IANA (Europe/Madrid, America/Sao_Paulo)
 }
 
+export type MetricoolDateTimeInput = Date | string;
+
+const METRICOOL_LOCAL_DATE_TIME_RE =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?$/;
+
+function getDateTimePart(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes): string {
+  return parts.find((part) => part.type === type)?.value || '';
+}
+
+/**
+ * Metricool expects a local wall-clock datetime plus a separate IANA timezone.
+ * Do not send `toISOString().slice(0, 19)` here: that converts Sao Paulo "now"
+ * into UTC wall-clock and Metricool will schedule it hours in the future.
+ */
+export function formatMetricoolDateTime(
+  value: MetricoolDateTimeInput,
+  timezone = 'America/Sao_Paulo',
+): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (METRICOOL_LOCAL_DATE_TIME_RE.test(trimmed)) {
+      const withoutMillis = trimmed.replace(/\.\d+$/, '');
+      return withoutMillis.length === 16 ? `${withoutMillis}:00` : withoutMillis;
+    }
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Data inválida para Metricool: ${String(value)}`);
+  }
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+
+  const year = getDateTimePart(parts, 'year');
+  const month = getDateTimePart(parts, 'month');
+  const day = getDateTimePart(parts, 'day');
+  const hour = getDateTimePart(parts, 'hour');
+  const minute = getDateTimePart(parts, 'minute');
+  const second = getDateTimePart(parts, 'second');
+
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+}
+
 export interface MetricoolProviderStatus {
   network: string; // facebook | instagram | twitter | linkedin | tiktok | youtube | threads | pinterest | bluesky | gmb
   id?: string;
@@ -94,7 +151,9 @@ export interface MetricoolInstagramData {
 }
 
 export interface MetricoolTwitterData {
-  type?: 'TWEET' | 'THREAD';
+  // Metricool scheduler API accepts lowercase Twitter post types.
+  // A single tweet is `post`; polls use `poll`.
+  type?: 'post' | 'poll';
   replySettings?: 'EVERYONE' | 'MENTIONED_USERS' | 'FOLLOWING' | 'VERIFIED';
   poll?: { options: string[]; durationMinutes: number };
 }
@@ -287,7 +346,13 @@ async function metricoolFetch<T>(
       const j = JSON.parse(text);
       if (j?.error) msg = typeof j.error === 'string' ? j.error : JSON.stringify(j.error);
       else if (j?.message) msg = j.message;
-    } catch {}
+      else if (text) msg = `Metricool ${r.status}: ${JSON.stringify(j).slice(0, 500)}`;
+    } catch {
+      // Non-JSON error bodies are handled by the plain-text fallback below.
+    }
+    if (msg === `Metricool ${r.status}` && text) {
+      msg = `Metricool ${r.status}: ${text.slice(0, 500)}`;
+    }
     const err = new Error(msg) as Error & { status?: number; body?: string };
     err.status = r.status;
     err.body = text;
@@ -389,11 +454,12 @@ export async function createScheduledPost(
   blogId: string | number,
   body: MetricoolScheduledPostBody,
 ): Promise<{ id: number; providers: MetricoolProviderStatus[] }> {
-  return metricoolFetch(cfg, '/v2/scheduler/posts', {
+  const data = await metricoolFetch<any>(cfg, '/v2/scheduler/posts', {
     blogId,
     method: 'POST',
     body,
   });
+  return data?.data || data;
 }
 
 export async function updateScheduledPost(
@@ -402,11 +468,12 @@ export async function updateScheduledPost(
   postId: number | string,
   patch: Partial<MetricoolScheduledPostBody>,
 ): Promise<any> {
-  return metricoolFetch(cfg, `/v2/scheduler/posts/${postId}`, {
+  const data = await metricoolFetch<any>(cfg, `/v2/scheduler/posts/${postId}`, {
     blogId,
     method: 'PUT',
     body: patch,
   });
+  return data?.data || data;
 }
 
 export async function deleteScheduledPost(
@@ -425,18 +492,25 @@ export async function getScheduledPost(
   blogId: string | number,
   postId: number | string,
 ): Promise<any> {
-  return metricoolFetch(cfg, `/v2/scheduler/posts/${postId}`, { blogId });
+  const data = await metricoolFetch<any>(cfg, `/v2/scheduler/posts/${postId}`, { blogId });
+  return data?.data || data;
 }
 
 export async function listScheduledPosts(
   cfg: MetricoolConfig,
   blogId: string | number,
-  startDate: string,
-  endDate: string,
+  startDate: MetricoolDateTimeInput,
+  endDate: MetricoolDateTimeInput,
+  timezone = 'America/Sao_Paulo',
 ): Promise<any[]> {
   const data = await metricoolFetch<any>(cfg, '/v2/scheduler/posts', {
     blogId,
-    search: { startDate, endDate },
+    search: {
+      start: formatMetricoolDateTime(startDate, timezone),
+      end: formatMetricoolDateTime(endDate, timezone),
+      timezone,
+      extendedRange: true,
+    },
   });
   if (Array.isArray(data)) return data;
   return data?.posts || data?.data || [];
@@ -1599,8 +1673,30 @@ export interface NormalizedPostMetrics {
 function pickNumberFrom(...vals: Array<unknown>): number {
   for (const v of vals) {
     if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string' && v.trim() !== '') {
+      const num = Number(v);
+      if (Number.isFinite(num)) return num;
+    }
   }
   return 0;
+}
+
+function sumNumberFrom(...vals: Array<unknown>): number | undefined {
+  let hasValue = false;
+  let total = 0;
+  for (const value of vals) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      hasValue = true;
+      total += value;
+    } else if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        hasValue = true;
+        total += parsed;
+      }
+    }
+  }
+  return hasValue ? total : undefined;
 }
 
 /**
@@ -1611,14 +1707,48 @@ export function normalizeMetrics(
   m: MetricoolPostMetrics | Record<string, unknown>,
 ): NormalizedPostMetrics {
   const r = m as Record<string, unknown>;
-  const likes = pickNumberFrom(r.likes, r.likeCount, r.reactions);
-  const comments = pickNumberFrom(r.comments, r.commentCount, r.replies);
-  const shares = pickNumberFrom(r.shares, r.shareCount, r.retweets, r.reposts);
+  const likes = pickNumberFrom(
+    r.likes,
+    r.likeCount,
+    r.reactions,
+    r.totalLikes,
+    sumNumberFrom(r.organicLikes, r.promotedLikes),
+  );
+  const comments = pickNumberFrom(
+    r.comments,
+    r.commentCount,
+    r.replies,
+    r.totalReplies,
+    sumNumberFrom(r.organicReplies, r.promotedReplies),
+  );
+  const shares = pickNumberFrom(
+    r.shares,
+    r.shareCount,
+    r.retweets,
+    r.reposts,
+    r.totalRetweets,
+    sumNumberFrom(r.organicRetweets, r.promotedRetweets, r.quotes, r.totalQuotes),
+  );
   const reach = pickNumberFrom(r.reach, r.uniqueReach);
-  const impressions = pickNumberFrom(r.impressions, r.views);
-  const video_views = pickNumberFrom(r.videoViews, r.plays, r.videoPlays);
-  const saves = pickNumberFrom(r.saves, r.saved, r.bookmarkCount);
-  let eng_rate = pickNumberFrom(r.engagementRate, r.engagement_rate);
+  const impressions = pickNumberFrom(
+    r.impressionsTotal,
+    r.impressions,
+    r.totalImpressions,
+    sumNumberFrom(r.organicImpressions, r.promotedImpressions),
+    r.views,
+    r.viewCount,
+  );
+  const video_views = pickNumberFrom(
+    r.videoViews,
+    r.totalVideoViews,
+    sumNumberFrom(r.organicVideoViews, r.promotedVideoViews),
+    r.plays,
+    r.videoPlays,
+    r.viewCount,
+    r.views,
+  );
+  const saves = pickNumberFrom(r.saves, r.saved, r.savedCount, r.bookmarkCount);
+  let eng_rate = pickNumberFrom(r.engagement, r.engagementRate, r.engagement_rate);
   if (!eng_rate) {
     // Gap #7 — usa reach quando >0, senão fallback pra impressions.
     const denominator = reach > 0 ? reach : impressions;
@@ -1691,7 +1821,7 @@ export function buildFacebookData(contentType?: string, title?: string): Metrico
 /** Constrói body completo pra POST /v2/scheduler/posts. */
 export interface BuildPostInput {
   text: string;
-  publicationDate: string; // ISO 8601 com timezone
+  publicationDate: MetricoolDateTimeInput;
   timezone?: string; // default 'America/Sao_Paulo'
   platforms: string[]; // ['instagram', 'twitter']
   mediaUrls?: string[];
@@ -1700,6 +1830,12 @@ export interface BuildPostInput {
   contentType?: string; // 'post' | 'reel' | 'story' | 'carousel'
   draft?: boolean;
   videoThumbnailUrl?: string;
+  videoCoverMilliseconds?: number;
+  instagramAutoPublish?: boolean;
+  instagramShowReelOnFeed?: boolean;
+  instagramShareTrialAutomatically?: boolean;
+  instagramAudioName?: string;
+  instagramCollaborators?: string[];
   igTags?: any[];
   ytTitle?: string;
   ytCategory?: number;
@@ -1710,13 +1846,15 @@ export interface BuildPostInput {
 
 export function buildScheduledPostBody(input: BuildPostInput): MetricoolScheduledPostBody {
   const tz = input.timezone || 'America/Sao_Paulo';
+  const publicationDate = formatMetricoolDateTime(input.publicationDate, tz);
+  const creationDate = formatMetricoolDateTime(new Date(), tz);
   const providers: MetricoolProviderStatus[] = input.platforms.map((p) => ({
     network: METRICOOL_PLATFORM_MAP[p] || p,
   }));
 
   const body: MetricoolScheduledPostBody = {
-    publicationDate: { dateTime: input.publicationDate, timezone: tz },
-    creationDate: { dateTime: new Date().toISOString().slice(0, 19), timezone: tz },
+    publicationDate: { dateTime: publicationDate, timezone: tz },
+    creationDate: { dateTime: creationDate, timezone: tz },
     text: input.text,
     providers,
     autoPublish: !input.draft,
@@ -1727,18 +1865,28 @@ export function buildScheduledPostBody(input: BuildPostInput): MetricoolSchedule
     ...(input.mediaUrls?.length ? { media: input.mediaUrls } : {}),
     ...(input.mediaAltText?.length ? { mediaAltText: input.mediaAltText } : {}),
     ...(input.videoThumbnailUrl ? { videoThumbnailUrl: input.videoThumbnailUrl } : {}),
+    ...(typeof input.videoCoverMilliseconds === 'number'
+      ? { videoCoverMilliseconds: input.videoCoverMilliseconds }
+      : {}),
   };
 
   // Platform-specific data
   if (input.platforms.includes('instagram')) {
-    body.instagramData = buildInstagramData(input.contentType, { tags: input.igTags });
+    body.instagramData = buildInstagramData(input.contentType, {
+      autoPublish: input.instagramAutoPublish,
+      showReelOnFeed: input.instagramShowReelOnFeed,
+      shareTrialAutomatically: input.instagramShareTrialAutomatically,
+      audioName: input.instagramAudioName,
+      collaborators: input.instagramCollaborators,
+      tags: input.igTags,
+    });
   }
   if (input.platforms.includes('facebook')) {
     body.facebookData = buildFacebookData(input.contentType);
   }
   if (input.platforms.includes('twitter') || input.platforms.includes('x')) {
     body.twitterData = {
-      type: 'TWEET',
+      type: input.twitterPoll ? 'poll' : 'post',
       ...(input.twitterReplySettings ? { replySettings: input.twitterReplySettings } : {}),
       ...(input.twitterPoll ? { poll: input.twitterPoll } : {}),
     };

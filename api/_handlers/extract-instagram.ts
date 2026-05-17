@@ -25,7 +25,9 @@ export default authedPost(async ({ body, user }) => {
   }
   const { url, clientId, uploadToStorage } = parsed.data;
   if (clientId) await assertClientAccess(user.id, clientId);
-  const apifyApiKey = process.env.APIFY_API_KEY_INSTAGRAM || process.env.APIFY_API_KEY;
+  const apifyApiKey = (process.env.APIFY_API_KEY_INSTAGRAM || process.env.APIFY_API_KEY || '')
+    .replace(/\\n/g, '')
+    .trim();
   if (!apifyApiKey) throw new Error('APIFY_API_KEY_INSTAGRAM not configured');
 
   console.log('Extracting Instagram post:', url);

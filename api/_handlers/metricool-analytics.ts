@@ -7,6 +7,7 @@ import { authedPost } from '../_lib/handler.js';
 import { assertClientAccess } from '../_lib/access.js';
 import {
   getMetricoolConfig,
+  formatMetricoolDateTime,
   resolveBlogId,
   getNetworkPosts,
   getInstagramReels,
@@ -18,6 +19,40 @@ import {
   getBrandSummary,
   type MetricoolAnalyticsNetwork,
 } from '../_lib/integrations/metricool.js';
+
+// Garante que cada post tem `id` populado (espelha normalizeMetricoolPost do client).
+// Metricool retorna `postId` / `reelId` / `videoId` / `storyId`, NUNCA `id` puro —
+// sem isso o frontend usa `String(post.id)` e tudo vira "undefined" como React key.
+function normalizePostId(p: any): any {
+  if (!p || typeof p !== 'object') return p;
+  if (p.id != null && p.id !== '') return p;
+  const candidate =
+    p.postId ??
+    p.reelId ??
+    p.videoId ??
+    p.storyId ??
+    p.tweetId ??
+    p.urn ??
+    p.url ??
+    p.permalink ??
+    null;
+  if (candidate != null) return { ...p, id: String(candidate) };
+  // Stories IG: Metricool não retorna id/url — só businessId + publishedAt.
+  // Sintetiza fingerprint pra evitar React-key collision no frontend.
+  const pubAt =
+    (p.publishedAt && typeof p.publishedAt === 'object' && p.publishedAt.dateTime) ||
+    p.publishedAt ||
+    p.date ||
+    '';
+  const fp = `${pubAt}-${p.businessId ?? p.mediaId ?? ''}-${(p.content ?? p.text ?? p.caption ?? '').slice(0, 30)}`;
+  if (fp.length > 5) return { ...p, id: fp };
+  return p;
+}
+
+function normalizeArr(arr: unknown): any[] {
+  if (!Array.isArray(arr)) return [];
+  return arr.map(normalizePostId);
+}
 
 export default authedPost(async ({ body, user }) => {
   const { clientId, mode = 'posts', blogId: directBlogId, ...rest } = body;
@@ -31,24 +66,24 @@ export default authedPost(async ({ body, user }) => {
   if (!blogId) throw new Error('Cliente sem blog Metricool mapeado');
 
   const now = new Date();
-  const from = (rest.from as string) || new Date(now.getTime() - 30 * 86400_000).toISOString().slice(0, 19);
-  const to = (rest.to as string) || now.toISOString().slice(0, 19);
+  const from = (rest.from as string) || formatMetricoolDateTime(new Date(now.getTime() - 30 * 86400_000));
+  const to = (rest.to as string) || formatMetricoolDateTime(now);
 
   switch (mode) {
     case 'posts': {
       if (!rest.network) throw new Error('network obrigatório');
       const posts = await getNetworkPosts(cfg, blogId, rest.network as MetricoolAnalyticsNetwork, from, to);
-      return { ok: true, network: rest.network, posts, from, to };
+      return { ok: true, network: rest.network, posts: normalizeArr(posts), from, to };
     }
     case 'reels': {
       const network = rest.network || 'instagram';
       const fetcher = network === 'facebook' ? getFacebookReels : getInstagramReels;
-      return { ok: true, network, reels: await fetcher(cfg, blogId, from, to), from, to };
+      return { ok: true, network, reels: normalizeArr(await fetcher(cfg, blogId, from, to)), from, to };
     }
     case 'stories': {
       const network = rest.network || 'instagram';
       const fetcher = network === 'facebook' ? getFacebookStories : getInstagramStories;
-      return { ok: true, network, stories: await fetcher(cfg, blogId, from, to), from, to };
+      return { ok: true, network, stories: normalizeArr(await fetcher(cfg, blogId, from, to)), from, to };
     }
     case 'timeline': {
       if (!rest.network || !rest.metric) {

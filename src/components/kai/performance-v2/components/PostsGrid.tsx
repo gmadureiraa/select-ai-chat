@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { PostTranscriptionDialog } from "./PostTranscriptionDialog";
 import type { TranscriptionSource } from "@/hooks/usePostTranscription";
 import { getNetworkBranding } from "@/lib/network-branding";
+import { getPostMetric, getPostTimestamp } from "@/hooks/useMetricoolPerformance";
+import { imgProxy } from "@/lib/img-proxy";
 
 const INITIAL_PAGE_SIZE = 50;
 const PAGE_SIZE_INCREMENT = 50;
@@ -32,7 +34,8 @@ export interface MetricoolPost {
   thumbnail?: string;
   mediaUrl?: string;
   date?: string;
-  publishedAt?: string;
+  publishedAt?: string | { dateTime?: string; timezone?: string };
+  publishedDate?: string | { dateTime?: string; timezone?: string };
   type?: string;
   likes?: number;
   comments?: number;
@@ -42,6 +45,8 @@ export interface MetricoolPost {
   views?: number;
   videoViews?: number;
   engagementRate?: number;
+  engagement?: number;
+  [key: string]: unknown;
 }
 
 export type PostsGridSort = "recent" | "engagement" | "reach";
@@ -88,27 +93,42 @@ export function getPostCaption(post: MetricoolPost): string {
 }
 
 export function getPostThumbnail(post: MetricoolPost): string | undefined {
-  return post.imageUrl || post.thumbnail || post.mediaUrl || undefined;
+  return (
+    post.imageUrl ||
+    post.thumbnail ||
+    post.mediaUrl ||
+    (post.thumbnailUrl as string | undefined) ||
+    (post.coverImageUrl as string | undefined) ||
+    undefined
+  );
 }
 
 export function getPostUrl(post: MetricoolPost): string | undefined {
-  return post.url || post.permalink || undefined;
+  return (
+    post.url ||
+    post.permalink ||
+    (post.shareUrl as string | undefined) ||
+    (post.watchUrl as string | undefined) ||
+    undefined
+  );
 }
 
 export function getPostDate(post: MetricoolPost): number {
-  const raw = post.publishedAt || post.date;
-  if (!raw) return 0;
-  const t = new Date(raw).getTime();
-  return Number.isNaN(t) ? 0 : t;
+  return getPostTimestamp(post as any);
 }
 
 export function getPostViews(post: MetricoolPost): number {
-  return post.views ?? post.videoViews ?? post.impressions ?? 0;
+  return getPostMetric(post as any, "views");
 }
 
 export function getPostEngagementScore(post: MetricoolPost): number {
-  if (typeof post.engagementRate === "number") return post.engagementRate;
-  return (post.likes ?? 0) + (post.comments ?? 0) + (post.shares ?? 0);
+  const engagement = getPostMetric(post as any, "engagement");
+  if (engagement > 0) return engagement;
+  return (
+    getPostMetric(post as any, "likes") +
+    getPostMetric(post as any, "comments") +
+    getPostMetric(post as any, "shares")
+  );
 }
 
 function sortPosts(posts: MetricoolPost[], by: PostsGridSort): MetricoolPost[] {
@@ -276,7 +296,7 @@ export function PostsGrid({
           const caption = getPostCaption(post);
           const thumb = getPostThumbnail(post);
           const url = getPostUrl(post);
-          const eng = post.engagementRate ?? null;
+          const eng = getPostMetric(post as any, "engagement") || null;
           const showEngBadge = typeof eng === "number" && (eng > 5 || eng < 2);
           const engVariant = (eng ?? 0) > 5 ? "approved" : "secondary";
 
@@ -317,7 +337,7 @@ export function PostsGrid({
               <div className="relative aspect-square bg-muted overflow-hidden">
                 {thumb ? (
                   <img
-                    src={thumb}
+                    src={imgProxy(thumb)}
                     alt=""
                     loading="lazy"
                     className="h-full w-full object-cover"
@@ -358,18 +378,18 @@ export function PostsGrid({
                 <div className="flex items-center justify-between text-xs text-muted-foreground tabular-nums">
                   <span className="inline-flex items-center gap-1" title="Curtidas">
                     <Heart className="h-3.5 w-3.5" />
-                    {fmtNum(post.likes)}
+                    {fmtNum(getPostMetric(post as any, "likes"))}
                   </span>
                   <span className="inline-flex items-center gap-1" title="Comentários">
                     <MessageCircle className="h-3.5 w-3.5" />
-                    {fmtNum(post.comments)}
+                    {fmtNum(getPostMetric(post as any, "comments"))}
                   </span>
                   <span
                     className={cn("inline-flex items-center gap-1", branding.textColor)}
                     title={sharesLabel}
                   >
                     <Repeat2 className="h-3.5 w-3.5" />
-                    {fmtNum(post.shares)}
+                    {fmtNum(getPostMetric(post as any, "shares"))}
                   </span>
                   <span className="inline-flex items-center gap-1" title="Visualizações">
                     <Eye className="h-3.5 w-3.5" />
@@ -452,8 +472,8 @@ function ListView({
         const thumb = getPostThumbnail(post);
         const url = getPostUrl(post);
         const interactive = Boolean(onClick) || Boolean(url);
-        const date = post.publishedAt || post.date;
-        const eng = post.engagementRate ?? null;
+        const timestamp = getPostDate(post);
+        const eng = getPostMetric(post as any, "engagement") || null;
 
         const handleClick = () => {
           if (onClick) {
@@ -520,23 +540,23 @@ function ListView({
               <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground tabular-nums">
                 <span className="inline-flex items-center gap-1" title="Curtidas">
                   <Heart className="h-3 w-3" />
-                  {fmtNum(post.likes)}
+                  {fmtNum(getPostMetric(post as any, "likes"))}
                 </span>
                 <span className="inline-flex items-center gap-1" title="Comentários">
                   <MessageCircle className="h-3 w-3" />
-                  {fmtNum(post.comments)}
+                  {fmtNum(getPostMetric(post as any, "comments"))}
                 </span>
                 <span className="inline-flex items-center gap-1" title={sharesLabel}>
                   <Repeat2 className="h-3 w-3" />
-                  {fmtNum(post.shares)}
+                  {fmtNum(getPostMetric(post as any, "shares"))}
                 </span>
                 <span className="inline-flex items-center gap-1" title="Visualizações">
                   <Eye className="h-3 w-3" />
                   {fmtNum(getPostViews(post))}
                 </span>
-                {date && (
+                {timestamp > 0 && (
                   <span className="hidden sm:inline">
-                    · {new Date(date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                    · {new Date(timestamp).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
                   </span>
                 )}
               </div>

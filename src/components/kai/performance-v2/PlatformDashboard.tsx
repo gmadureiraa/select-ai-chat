@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Heart, MessageCircle, Eye, TrendingUp, Users, FileText } from 'lucide-react';
 import {
   useMetricoolPosts,
+  useLinkedInPostsHybrid,
   useMetricoolBrandSummary,
   type MetricoolNetwork,
   aggregatePostsMetrics,
@@ -34,7 +35,18 @@ interface Props {
 }
 
 export function PlatformDashboard({ clientId, network, period }: Props) {
-  const { data: posts = [], isLoading: isLoadingPosts } = useMetricoolPosts(clientId, network, period);
+  // LinkedIn personal profiles não retornam posts pela Metricool API — usa
+  // strategy hybrida (cache local + scrape Apify on-demand). Pra outras
+  // redes (twitter, threads, tiktok, etc.) vai direto na Metricool.
+  const metricoolQuery = useMetricoolPosts(clientId, network, period);
+  const linkedinHybrid = useLinkedInPostsHybrid(
+    network === 'linkedin' ? clientId : '',
+    period,
+  );
+  const isLinkedIn = network === 'linkedin';
+  const posts = (isLinkedIn ? linkedinHybrid.data : metricoolQuery.data) ?? [];
+  const isLoadingPosts = isLinkedIn ? linkedinHybrid.isLoading : metricoolQuery.isLoading;
+
   const { data: summary, isLoading: isLoadingSummary, dataUpdatedAt } = useMetricoolBrandSummary(clientId, period);
   const { data: snapshotResp } = useHistoricalSnapshots(clientId, network, period);
 

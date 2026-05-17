@@ -15,8 +15,10 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { getNetworkBranding } from "@/lib/network-branding";
+import { imgProxy } from "@/lib/img-proxy";
 import { PostTranscriptionDialog } from "./PostTranscriptionDialog";
 import type { TranscriptionSource } from "@/hooks/usePostTranscription";
+import { getPostMetric } from "@/hooks/useMetricoolPerformance";
 
 import {
   getPostCaption,
@@ -75,11 +77,11 @@ function fmtNum(n: number | undefined): string {
 function metricValue(post: MetricoolPost, metric: LeaderboardMetric): number {
   switch (metric) {
     case "likes":
-      return post.likes ?? 0;
+      return getPostMetric(post as any, "likes");
     case "comments":
-      return post.comments ?? 0;
+      return getPostMetric(post as any, "comments");
     case "reach":
-      return post.reach ?? getPostViews(post);
+      return getPostMetric(post as any, "reach") || getPostViews(post);
     case "engagement":
     default:
       return getPostEngagementScore(post);
@@ -313,7 +315,7 @@ export function PostsLeaderboard({
                   <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted">
                     {thumb ? (
                       <img
-                        src={thumb}
+                        src={imgProxy(thumb)}
                         alt=""
                         loading="lazy"
                         className="h-full w-full object-cover"
@@ -337,11 +339,11 @@ export function PostsLeaderboard({
                     <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground tabular-nums">
                       <span className="inline-flex items-center gap-1">
                         <Heart className="h-3 w-3" />
-                        {fmtNum(post.likes)}
+                        {fmtNum(getPostMetric(post as any, "likes"))}
                       </span>
                       <span className="inline-flex items-center gap-1">
                         <MessageCircle className="h-3 w-3" />
-                        {fmtNum(post.comments)}
+                        {fmtNum(getPostMetric(post as any, "comments"))}
                       </span>
                       <span className="inline-flex items-center gap-1">
                         <Eye className="h-3 w-3" />

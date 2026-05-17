@@ -8,7 +8,9 @@ export default authedPost(async ({ body, user }) => {
   if (!clientId || !username) throw new Error('clientId and username are required');
   await assertClientAccess(user.id, clientId);
 
-  const apifyApiKey = process.env.APIFY_API_KEY || process.env.APIFY_API_TOKEN;
+  const apifyApiKey = (process.env.APIFY_API_KEY || process.env.APIFY_API_TOKEN || '')
+    .replace(/\\n/g, '')
+    .trim();
   if (!apifyApiKey) throw new Error('APIFY_API_KEY not configured');
 
   const actorId = 'apify~instagram-profile-scraper';

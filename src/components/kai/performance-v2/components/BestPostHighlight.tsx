@@ -6,12 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Heart, MessageCircle, Eye, Trophy, ExternalLink, Image as ImageIcon, FileText, ListChecks } from 'lucide-react';
 import { useOpenPlanningFromPost } from '@/hooks/useOpenPlanningFromPost';
-import { type MetricoolPost, getPostMetric, topPostsByMetric } from '@/hooks/useMetricoolPerformance';
+import { type MetricoolPost, getPostMetric, getPostTimestamp, topPostsByMetric } from '@/hooks/useMetricoolPerformance';
 import { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PostTranscriptionDialog } from './PostTranscriptionDialog';
 import type { TranscriptionSource } from '@/hooks/usePostTranscription';
 import { getNetworkBranding } from '@/lib/network-branding';
+import { imgProxy } from '@/lib/img-proxy';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -79,7 +80,7 @@ export function BestPostHighlight({ posts, loading, network, clientId, transcrip
   const thumb = getThumb(top);
   const url = getUrl(top);
   const score = getPostMetric(top, effectiveMetric);
-  const date = top.date || top.publishedAt || top.publishDate;
+  const timestamp = getPostTimestamp(top);
 
   // Border + trophy + stat card "primário" (métrica selecionada) tintados com
   // a cor da rede — single source via getNetworkBranding.
@@ -113,7 +114,15 @@ export function BestPostHighlight({ posts, loading, network, clientId, transcrip
           <div className="md:col-span-1">
             {thumb ? (
               <div className="relative aspect-square rounded-md overflow-hidden bg-muted">
-                <img src={thumb} alt="" className="w-full h-full object-cover" loading="lazy" />
+                <img
+                  src={imgProxy(thumb)}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
+                />
                 <Badge className="absolute top-2 right-2 bg-amber-500 hover:bg-amber-500 gap-1">
                   <Trophy className="h-3 w-3" /> #1
                 </Badge>
@@ -128,9 +137,9 @@ export function BestPostHighlight({ posts, loading, network, clientId, transcrip
           <div className="md:col-span-2 space-y-3">
             <div>
               <p className="text-sm leading-relaxed line-clamp-4">{caption || '(sem legenda)'}</p>
-              {date && (
+              {timestamp > 0 && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Publicado em {new Date(date as string).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  Publicado em {new Date(timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </p>
               )}
             </div>
@@ -151,10 +160,12 @@ export function BestPostHighlight({ posts, loading, network, clientId, transcrip
                 </div>
               </div>
               <div className="rounded-md border p-2">
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Alcance</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  {noReach ? 'Impressões' : 'Alcance'}
+                </div>
                 <div className="text-lg font-bold tabular-nums flex items-center gap-1">
                   <Eye className="h-3.5 w-3.5 text-emerald-500" />
-                  {fmt(getPostMetric(top, 'reach'))}
+                  {fmt(getPostMetric(top, noReach ? 'impressions' : 'reach'))}
                 </div>
               </div>
               <div

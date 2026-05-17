@@ -180,7 +180,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return jsonError(res, 405, 'Method not allowed');
   }
 
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = process.env.CRON_SECRET?.replace(/\\n/g, '').trim();
   const isCron =
     req.headers['x-vercel-cron'] === '1' ||
     (cronSecret && req.headers.authorization === `Bearer ${cronSecret}`);
@@ -190,7 +190,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const t0 = Date.now();
   const dry = String(req.query.dry || '') === 'true';
-  const enabled = process.env.RADAR_IG_CRON_ENABLED === '1';
+  const enabled = process.env.RADAR_IG_CRON_ENABLED?.replace(/\\n/g, '').trim() === '1';
 
   // Per-client mode: ?client_id=<uuid> — só fontes daquele client.
   // Sem client_id, escaneia TODAS as fontes IG com client_id setado (legacy global mode).
@@ -264,7 +264,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const apifyKey = process.env.APIFY_API_KEY_INSTAGRAM || process.env.APIFY_API_KEY;
+  const apifyKey = (process.env.APIFY_API_KEY_INSTAGRAM || process.env.APIFY_API_KEY || '')
+    .replace(/\\n/g, '')
+    .trim();
   if (!apifyKey) {
     return jsonError(res, 500, 'APIFY_API_KEY not configured');
   }
