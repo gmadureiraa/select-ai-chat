@@ -100,7 +100,7 @@ export const ArtifactCard = memo(function ArtifactCard({
             <thead>
               <tr className="border-b border-border">
                 {tableData.headers.map((h, i) => (
-                  <th key={i} className="px-2 py-1.5 text-left font-medium text-muted-foreground">
+                  <th key={i} scope="col" className="px-2 py-1.5 text-left font-medium text-muted-foreground">
                     {h}
                   </th>
                 ))}
