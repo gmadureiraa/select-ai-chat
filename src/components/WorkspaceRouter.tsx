@@ -18,13 +18,20 @@ export const WorkspaceRouter = () => {
   const { setSlug, workspace, isLoading, error } = useWorkspaceContext();
   const { user, loading: authLoading } = useAuth();
 
-  useEffect(() => {
-    // Always set to kaleidos
-    setSlug(KALEIDOS_SLUG);
-  }, [setSlug]);
+  // 2026-05-17 — audit P1-6: o effect setSlug rodava SEMPRE (mesmo com slug
+  // invalido pre-redirect). Hoje so dispara quando o slug e KALEIDOS, evita
+  // 1 ciclo de setState desnecessario antes do Navigate.
+  const slugInvalid = !!slug && slug !== KALEIDOS_SLUG;
 
-  // If trying to access a different workspace, redirect to kaleidos
-  if (slug && slug !== KALEIDOS_SLUG) {
+  useEffect(() => {
+    if (slugInvalid) return;
+    setSlug(KALEIDOS_SLUG);
+  }, [setSlug, slugInvalid]);
+
+  // If trying to access a different workspace, redirect to kaleidos.
+  // Esse return fica DEPOIS dos hooks pra obedecer Rules of Hooks (todos
+  // os hooks acima sao chamados em toda render, ordem estavel).
+  if (slugInvalid) {
     return <Navigate to="/kaleidos" replace />;
   }
 
