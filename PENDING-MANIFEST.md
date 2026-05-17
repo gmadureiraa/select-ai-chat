@@ -198,3 +198,46 @@ Custo: 4-8h.
 
 - `api/_handlers/client-update.ts` agora aceita `brand_assets` e
   `ai_analysis` (commit `4af29cb9`). Sem alteracao no manifest.
+
+---
+
+# Pendências da onda Library/References — 2026-05-16
+
+> Adicionado pelo agente de Projetos Pessoais após o fix wave Library/Refs
+> (commits `df9e4b3c` e `7d74ef92`).
+
+## Sem mudanças necessárias no `vercel.json` ou `handler-manifest.ts`
+
+Todos os endpoints fixados nesta onda já estavam declarados no manifest e
+mantiveram o método (POST). Mudanças foram:
+- 3 handlers passaram de `anonPost` pra `authedPost` (firecrawl-scrape,
+  scrape-newsletter, fetch-rss-feed). Auth agora é obrigatória — Vercel
+  não precisa de nada, mas qualquer caller frontend que estivesse chamando
+  sem token (não deve existir, mas vale grep) vai começar a receber 401.
+- `image-search` também migrou pra `authedPost` (era usado pelo adapter
+  `images.ts` que ainda é o entry point sem auth direta — mas `images.ts`
+  só repassa pra image-search/generate-image, ambos agora authed).
+- `radar-img-proxy` continua aberto (sem JWT) porque Performance v2 renderiza
+  thumbs IG sem login, mas ganhou rate-limit por IP.
+
+## Observações pro Backend agent
+
+1. **Rate-limit é in-memory.** Vale por container/invocation Vercel, não
+   compartilha entre cold starts. Pra hardening real precisa Upstash Redis
+   (REDIS_URL no env + lib `@upstash/ratelimit`). Tracking pendente.
+
+2. **process-knowledge agora requer `OPENAI_API_KEY`** pra embedding (1536
+   dims) e `GOOGLE_AI_STUDIO_API_KEY` pra summary (via callLLM). Removi
+   dependência do deprecated `LOVABLE_API_KEY`. Verificar que ambas estão
+   no Vercel env do projeto.
+
+3. **batch-transcribe / cron-transcribe** agora ignoram `images` legados
+   (paths Supabase Storage). Se houver linhas órfãs em `instagram_posts`
+   com `images: ['client-files/xxx.jpg']` sem `thumbnail_url`, vão pular
+   transcrição. Pode rodar backfill `UPDATE ... SET images = NULL WHERE
+   ...` se quiser limpar.
+
+4. **useUnifiedContent**: removi as queries em `twitter_posts` e
+   `linkedin_posts` (tabelas órfãs). Quando reativar tabelas per-client
+   (provavelmente via Metricool sync), descomenta o bloco e aponta pro
+   shape novo.
