@@ -59,22 +59,24 @@
     <meta name="twitter:description" content="Plataforma de IA para criação de conteúdo estratégico" />
     <meta name="twitter:image" content="https://kai-2-topaz.vercel.app/og-image.svg" />
     
-    <!-- Kaleidos Font -->
+    <!-- Fonts — consolidados em UMA requisição combinada pra cortar 5 round trips
+         pro Google Fonts (eram ~150-250ms render-blocking cada em 4G).
+         Inter é a UI principal do KAI. As outras (Plus Jakarta, Instrument Serif,
+         JetBrains Mono, DM Serif, Playfair, Outfit, Source Sans 3, Literata, Geist Mono)
+         são usadas só dentro do viral-sv-original (templates de carrossel) — mas
+         como o CSS é load uma vez e o browser cacheia, vale unificar.
+         display=swap pra texto aparecer instantâneo com fallback. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-    <!-- Sequência Viral fonts (Plus Jakarta Sans + Instrument Serif italic + JetBrains Mono +
-         editorial fonts: DM Serif Display, Playfair Display, Outfit, Source Sans 3, Literata).
-         Usadas pelo viral-sv-original (templates de carrossel, dashboard, editor). -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Playfair+Display:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&family=Literata:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- Radar Viral mono — Geist Mono (faltava no set Sequência Viral). Plus Jakarta
-         e Instrument Serif já carregados acima. Mantém visual idêntico ao app prod. -->
-    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=DM+Serif+Display&family=Playfair+Display:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&family=Literata:wght@400;500;600;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=DM+Serif+Display&family=Playfair+Display:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&family=Literata:wght@400;500;600;700&display=swap"
+    />
 
     <!-- DNS prefetch + preconnect pra endpoints críticos (Neon + Vercel Blob) -->
     <link rel="dns-prefetch" href="https://ep-sparkling-moon-acbufmuw-pooler.sa-east-1.aws.neon.tech">

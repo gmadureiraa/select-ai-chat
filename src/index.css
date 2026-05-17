@@ -303,3 +303,31 @@
     box-shadow: 3px 3px 0 0 rgba(255, 61, 46, 0.1);
   }
 }
+
+/* ============================================================
+   ACCESSIBILITY — prefers-reduced-motion
+   ------------------------------------------------------------
+   WCAG 2.3.3 (Animation from Interactions) — usuários com
+   vestibular disorders, motion sickness ou ADHD configuram OS
+   pra reduzir animações. Aqui zeramos transition/animation
+   duration globalmente, mas preservamos animações essenciais
+   (loading spinners) pra UX não quebrar.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Preserva spinners — Loader2 (lucide) + qualquer .animate-spin do Tailwind.
+     Loading feedback é semântico, não decorativo: zerar ele faria parecer
+     que a UI travou. Mantém o spin em 1s lento mas perceptível. */
+  .animate-spin {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

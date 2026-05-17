@@ -47,16 +47,26 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     chunkSizeWarningLimit: 1500,
+    // Target moderno corta polyfills core-js (jspdf/html2canvas trazem ~50kB
+    // de core-js — vira inútil em browsers modernos que rodam ESM nativo).
+    target: "es2020",
     rollupOptions: {
       output: {
         manualChunks: {
           "react-vendor": ["react", "react-dom", "react-router-dom"],
-          "ui-vendor": [
+          // Radix dividido: o "core" Dialog/Tooltip/Popover/DropdownMenu/Tabs
+          // entra no shell (sidebar, modais comuns), o restante vai pra
+          // chunk separado que só baixa quando a feature pede (Toast, Slider,
+          // Switch, Checkbox, Radio, Accordion, Collapsible, Select, Avatar etc).
+          "ui-vendor-core": [
             "@radix-ui/react-dialog",
             "@radix-ui/react-dropdown-menu",
             "@radix-ui/react-popover",
             "@radix-ui/react-tabs",
             "@radix-ui/react-tooltip",
+            "@radix-ui/react-slot",
+          ],
+          "ui-vendor-extra": [
             "@radix-ui/react-select",
             "@radix-ui/react-toast",
             "@radix-ui/react-accordion",
@@ -65,9 +75,25 @@ export default defineConfig(({ mode }) => ({
             "@radix-ui/react-radio-group",
             "@radix-ui/react-switch",
             "@radix-ui/react-slider",
+            "@radix-ui/react-avatar",
+            "@radix-ui/react-progress",
+            "@radix-ui/react-scroll-area",
+            "@radix-ui/react-separator",
+            "@radix-ui/react-toggle",
+            "@radix-ui/react-toggle-group",
+            "@radix-ui/react-hover-card",
+            "@radix-ui/react-alert-dialog",
+            "@radix-ui/react-label",
           ],
-          "data-vendor": ["@tanstack/react-query", "@supabase/supabase-js"],
+          // 2026-05-17 — supabase-js (~150kB) separado de tanstack-query (~50kB).
+          // Antes "data-vendor" = 248kB. Agora ambos chunks menores podem ser
+          // baixados em paralelo no http/2, e supabase-vendor não bloqueia
+          // updates de @tanstack/react-query.
+          "query-vendor": ["@tanstack/react-query"],
+          "supabase-vendor": ["@supabase/supabase-js"],
           // 2026-05-10 — @neondatabase/auth-ui removida (órfã, 60MB no node_modules).
+          // 2026-05-17 — Neon auth tem peer-deps client-only (~320kB raw). Lazy
+          // automaticamente porque só useAuth e signIn/Up batem nele.
           "auth-vendor": ["@neondatabase/auth"],
           // 2026-05-10 — form-vendor removida (react-hook-form + @hookform/resolvers
           // não estão sendo usados no app — bundle audit). zod fica no chunk default.
@@ -95,6 +121,19 @@ export default defineConfig(({ mode }) => ({
           "motion-vendor": ["framer-motion"],
           "dnd-vendor": ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
           "icons-vendor": ["lucide-react"],
+          // 2026-05-17 — markdown-vendor isola react-markdown + transitivos
+          // (micromark, mdast, hast, etc — ~80-100kB raw). Antes virava parte
+          // do chunk de quem importava (chat, library, planning). Agora chunk
+          // único, cacheável independente, e split-friendly se algum lazy
+          // boundary não precisar.
+          "markdown-vendor": ["react-markdown"],
+          // 2026-05-17 — date-fns chunk próprio. App importa ~10 helpers
+          // diferentes + pt-BR locale; antes ficavam soltos em múltiplos chunks
+          // duplicando helpers. Vendor único = dedupe automático.
+          "date-vendor": ["date-fns", "date-fns/locale"],
+          // 2026-05-17 — zustand é o menor (5kB) mas vendoring evita
+          // re-render dele em chunks de feature.
+          "state-vendor": ["zustand"],
         },
       },
     },

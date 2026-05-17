@@ -1,11 +1,12 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 // Sidebar/header ficam eager — sempre visíveis, viram parte do "shell" do app.
 import { KaiSidebar } from "@/components/kai/KaiSidebar";
 import { MobileHeader } from "@/components/kai/MobileHeader";
 import { MobileBottomNav } from "@/components/kai/MobileBottomNav";
 import { PendingInvitesAlert } from "@/components/workspace/PendingInvitesAlert";
+import { SkipLink } from "@/components/ui/skip-link";
 
 // Onboarding e prompt de notificação só são visíveis em conditional flow
 // (primeiro acesso e quando o user permitiria push). Lazy tira ~15-20kB
@@ -546,8 +547,17 @@ export default function Kai() {
     }
   };
 
+  // Respeita prefers-reduced-motion: zera duração das transições de tab.
+  // Acessibilidade WCAG 2.3.3 — usuários sensíveis a movimento não devem
+  // ter animações forçadas.
+  const prefersReducedMotion = useReducedMotion();
+
   return (
     <div className="flex h-dvh bg-background w-full">
+      {/* Skip link — primeiro elemento focável. Tab no carregamento mostra o
+          link "Pular para o conteúdo principal" que pula sidebar/header. */}
+      <SkipLink />
+
       {/* Onboarding Flow + Notification Permission Prompt — lazy, Suspense null.
           Não competem com o first paint do shell (sidebar/header). */}
       <Suspense fallback={null}>
@@ -614,10 +624,10 @@ export default function Kai() {
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={tab}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -2 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
+                  animate={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 1, y: 0 }}
+                  exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: -2 }}
+                  transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15, ease: "easeOut" }}
                   className="h-full min-h-0"
                 >
                   {renderContent()}
