@@ -77,8 +77,10 @@ export const deletePlanningItemTool: RegisteredTool<
     }
 
     if (!args.approved) {
-      const approval = requireApproval({
+      const approval = await requireApproval({
         action: 'delete_planning_item',
+        createdBy: ctx.userId,
+        payload: { itemId, wasPublished },
         preview: {
           title: 'Confirmar deleção do item',
           description: `Remover "${title}" do planejamento?${
@@ -134,7 +136,7 @@ export const deletePlanningItemTool: RegisteredTool<
 
     // Aprovado — exige token válido (single-use, TTL 5min).
     const token = typeof args.callbackToken === 'string' ? args.callbackToken : '';
-    if (!consumeApprovalToken(token, 'delete_planning_item')) {
+    if (!(await consumeApprovalToken(token, 'delete_planning_item'))) {
       return {
         ok: false,
         error:

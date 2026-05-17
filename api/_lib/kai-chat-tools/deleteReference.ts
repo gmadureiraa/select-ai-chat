@@ -58,8 +58,10 @@ export const deleteReferenceTool: RegisteredTool<DeleteReferenceArgs, DeleteRefe
     }
 
     if (!args.approved) {
-      const approval = requireApproval({
+      const approval = await requireApproval({
         action: 'delete_reference',
+        createdBy: ctx.userId,
+        payload: { referenceId },
         preview: {
           title: 'Remover reference da library?',
           description: `Remover "${title}" da library do cliente? Essa ação é permanente.`,
@@ -103,7 +105,7 @@ export const deleteReferenceTool: RegisteredTool<DeleteReferenceArgs, DeleteRefe
     }
 
     const token = typeof args.callbackToken === 'string' ? args.callbackToken : '';
-    if (!consumeApprovalToken(token, 'delete_reference')) {
+    if (!(await consumeApprovalToken(token, 'delete_reference'))) {
       return {
         ok: false,
         error:

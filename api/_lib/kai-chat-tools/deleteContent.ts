@@ -81,8 +81,10 @@ export const deleteContentTool: RegisteredTool<DeleteContentArgs, DeleteContentD
 
     // Caso 1: ainda não aprovado — gera token approval e devolve preview.
     if (!args.approved) {
-      const approval = requireApproval({
+      const approval = await requireApproval({
         action: 'delete_content',
+        createdBy: ctx.userId,
+        payload: { planningItemId, wasPublished },
         preview: {
           title: 'Confirmar deleção',
           description: `Deletar "${title}"?${
@@ -142,7 +144,7 @@ export const deleteContentTool: RegisteredTool<DeleteContentArgs, DeleteContentD
     // Sem isso, qualquer caller (LLM, MCP, attacker) com approved=true direto
     // bypassava o flow. Token consume é o gate real.
     const token = typeof args.callbackToken === 'string' ? args.callbackToken : '';
-    if (!consumeApprovalToken(token, 'delete_content')) {
+    if (!(await consumeApprovalToken(token, 'delete_content'))) {
       return {
         ok: false,
         error:

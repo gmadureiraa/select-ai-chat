@@ -64,8 +64,10 @@ export const deleteAutomationTool: RegisteredTool<DeleteAutomationArgs, DeleteAu
     }
 
     if (!args.approved) {
-      const approval = requireApproval({
+      const approval = await requireApproval({
         action: 'delete_automation',
+        createdBy: ctx.userId,
+        payload: { automationId, triggerType },
         preview: {
           title: 'Deletar automação?',
           description: `Apagar a automação "${name}" (${triggerType}) permanentemente? Pra apenas pausar, use toggleAutomation.`,
@@ -116,7 +118,7 @@ export const deleteAutomationTool: RegisteredTool<DeleteAutomationArgs, DeleteAu
     }
 
     const token = typeof args.callbackToken === 'string' ? args.callbackToken : '';
-    if (!consumeApprovalToken(token, 'delete_automation')) {
+    if (!(await consumeApprovalToken(token, 'delete_automation'))) {
       return {
         ok: false,
         error:

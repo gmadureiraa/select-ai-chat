@@ -59,8 +59,10 @@ export const deleteTaskTool: RegisteredTool<DeleteTaskArgs, DeleteTaskData> = {
     }
 
     if (!args.approved) {
-      const approval = requireApproval({
+      const approval = await requireApproval({
         action: 'delete_task',
+        createdBy: ctx.userId,
+        payload: { taskId },
         preview: {
           title: 'Confirmar deleção',
           description: `Deletar a tarefa "${title}"? Essa ação é permanente.`,
@@ -102,7 +104,7 @@ export const deleteTaskTool: RegisteredTool<DeleteTaskArgs, DeleteTaskData> = {
     }
 
     const token = typeof args.callbackToken === 'string' ? args.callbackToken : '';
-    if (!consumeApprovalToken(token, 'delete_task')) {
+    if (!(await consumeApprovalToken(token, 'delete_task'))) {
       return {
         ok: false,
         error:
