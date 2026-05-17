@@ -346,7 +346,9 @@ Artifacts ficam em `.lighthouseci/` (já no `.gitignore`).
 
 ### Histórico
 
-- **2026-05-17** — Gate instalado. Baseline: /login + /signup = a11y 100, perf 89.
+- **2026-05-17** — Gate instalado. Baseline CI (ubuntu-latest):
+  - `/login`: perf 89 · a11y 100 · bp 95 · seo 100
+  - `/signup`: perf 94 · a11y 100 · bp 95 · seo 100
 
 ---
 
