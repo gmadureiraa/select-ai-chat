@@ -304,9 +304,49 @@ Não há suíte de unit tests configurada hoje — adicionar Vitest se necessár
 bun run build                                    # vite build
 bunx tsc --noEmit -p tsconfig.app.json           # type-check (0 erros esperados)
 bun run lint                                     # eslint
+bun run lhci                                     # Lighthouse gate (ver seção abaixo)
 ```
 
-Se algum dos 3 falhar, **não pushar**.
+Se algum dos 4 falhar, **não pushar**.
+
+---
+
+## Lighthouse CI — gate de PRs (a11y ≥ 95, perf ≥ 70)
+
+Todo PR pra `main` ou `combo-viral-integration` roda Lighthouse (desktop) contra `/login` e `/signup` via `.github/workflows/lighthouse.yml`.
+
+### Thresholds (definidos em `.lighthouserc.json`)
+
+| Categoria       | Mínimo | Severidade |
+|-----------------|--------|------------|
+| Accessibility   | 0.95   | **error**  |
+| Performance     | 0.70   | warn       |
+| Best Practices  | 0.90   | warn       |
+| SEO             | 0.85   | warn       |
+
+**Accessibility é o único gate bloqueante.** O resto avisa mas não trava o merge (regressão ainda fica visível no log do workflow + artifact). A meta é manter a11y ≥ 95 e perf ≥ 70 sem regressões — alteramos os thresholds só com decisão deliberada e nota nesse arquivo.
+
+### Rodar local antes do PR
+
+```bash
+bun run build
+bun run lhci
+```
+
+O `lhci autorun` sobe `bunx vite preview --port 4173 --strictPort`, mede /login + /signup uma vez, valida assertions e sobe os reports em armazenamento público temporário do Google (link sai no stdout).
+
+Artifacts ficam em `.lighthouseci/` (já no `.gitignore`).
+
+### O que fazer quando o gate falha
+
+1. Abrir o relatório HTML em `.lighthouseci/lhr-*.html` (ou o link na saída do CI).
+2. Aba "Accessibility" lista os audits que pontuaram baixo (contraste, aria-labels, alt em img, foco visível, etc.).
+3. Corrigir e re-rodar `bun run lhci`.
+4. Se a regressão for inevitável (ex: nova dep com a11y ruim), abrir issue + ajustar threshold com explicação no commit message.
+
+### Histórico
+
+- **2026-05-17** — Gate instalado. Baseline: /login + /signup = a11y 100, perf 89.
 
 ---
 

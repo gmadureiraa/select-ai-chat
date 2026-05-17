@@ -1,0 +1,54 @@
+name: Lighthouse CI
+
+# Gate de a11y/perf nos PRs.
+# Falha o PR se accessibility < 0.95.
+# Avisa (não bloqueia) se performance < 0.70, best-practices < 0.90, seo < 0.85.
+# Config em .lighthouserc.json — sobe /login e /signup atrás de `vite preview`.
+
+on:
+  pull_request:
+    branches: [main, combo-viral-integration]
+  push:
+    branches: [combo-viral-integration]
+
+jobs:
+  lighthouse:
+    name: Lighthouse desktop audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+        env:
+          # Build precisa de pelo menos as VITE_* públicas pra não quebrar.
+          # Valores dummy: o lighthouse mede só /login + /signup, que não
+          # batem em Supabase/Neon de verdade durante o paint inicial.
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder-anon-key
+          VITE_NEON_AUTH_STACK_PROJECT_ID: placeholder
+          VITE_NEON_AUTH_STACK_PUBLISHABLE_CLIENT_KEY: placeholder
+
+      - name: Run Lighthouse CI
+        run: bunx @lhci/cli autorun --config=./.lighthouserc.json
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 14

@@ -31,3 +31,7 @@ dist-ssr
 .env.production.local
 .env.vercel-temp
 *.tsbuildinfo
+
+# Lighthouse CI artifacts
+.lighthouseci/
+lhci-report/
