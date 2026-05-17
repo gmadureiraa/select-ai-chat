@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 export type TaskStatus = "todo" | "in_progress" | "done";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
+export type TaskRecurrenceType = "none" | "daily" | "weekly" | "biweekly" | "monthly";
 
 export interface TaskLabel {
   name: string;
@@ -26,6 +27,14 @@ export interface TeamTask {
   completed_at: string | null;
   position: number;
   labels: TaskLabel[];
+  mentions?: string[];
+  recurrence_type: TaskRecurrenceType | null;
+  recurrence_days: string[];
+  recurrence_time: string | null;
+  recurrence_end_date: string | null;
+  recurrence_parent_id: string | null;
+  is_recurrence_template: boolean;
+  last_recurrence_created_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -35,6 +44,13 @@ export interface TeamTaskFilters {
   assignedTo?: string;
   clientId?: string | null;
   onlyMine?: boolean;
+  /**
+   * Inclui templates de recorrência (cards "matrix" que o cron usa pra
+   * materializar instâncias diárias). Por padrão NÃO aparecem no board
+   * pra evitar visual duplicado (template + instância).
+   * Set true em telas de gestão de recorrências.
+   */
+  includeRecurrenceTemplates?: boolean;
 }
 
 export interface CreateTeamTaskInput {
@@ -46,6 +62,12 @@ export interface CreateTeamTaskInput {
   assigned_to?: string | null;
   client_id?: string | null;
   labels?: TaskLabel[];
+  mentions?: string[];
+  recurrence_type?: TaskRecurrenceType | null;
+  recurrence_days?: string[];
+  recurrence_time?: string | null;
+  recurrence_end_date?: string | null;
+  is_recurrence_template?: boolean;
 }
 
 export function useTeamTasks(filters: TeamTaskFilters = {}) {
@@ -67,6 +89,11 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
         .order("position", { ascending: true })
         .order("created_at", { ascending: false });
 
+      // Templates de recorrência são "blueprints" do cron — NÃO devem aparecer
+      // no kanban junto com as instâncias geradas. Filtrar fora por padrão.
+      if (!filters.includeRecurrenceTemplates) {
+        q = q.or("is_recurrence_template.is.null,is_recurrence_template.eq.false");
+      }
       if (filters.status) q = q.eq("status", filters.status);
       if (filters.assignedTo) q = q.eq("assigned_to", filters.assignedTo);
       if (filters.onlyMine && user?.id) q = q.eq("assigned_to", user.id);
@@ -103,6 +130,12 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
           assigned_to: input.assigned_to ?? null,
           client_id: input.client_id ?? null,
           labels: (input.labels ?? []) as any,
+          mentions: input.mentions ?? [],
+          recurrence_type: input.recurrence_type ?? null,
+          recurrence_days: input.recurrence_days ?? [],
+          recurrence_time: input.recurrence_time ?? null,
+          recurrence_end_date: input.recurrence_end_date ?? null,
+          is_recurrence_template: input.is_recurrence_template ?? false,
         })
         .select()
         .single();
@@ -164,6 +197,13 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
           assigned_to: null,
           client_id: task.client_id,
           labels: (task.labels ?? []) as any,
+          mentions: task.mentions ?? [],
+          recurrence_type: task.recurrence_type,
+          recurrence_days: task.recurrence_days ?? [],
+          recurrence_time: task.recurrence_time,
+          recurrence_end_date: task.recurrence_end_date,
+          // Duplicado NUNCA é template — sempre instância nova.
+          is_recurrence_template: false,
         })
         .select()
         .single();

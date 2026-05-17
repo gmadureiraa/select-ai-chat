@@ -68,6 +68,12 @@ export interface PlanningFilters {
    * undefined → sem filtro
    */
   metrics?: 'with' | 'without';
+  /**
+   * Inclui templates de recorrência (planning_items com is_recurrence_template=true).
+   * Por padrão NÃO aparecem no board/calendário pra evitar visual duplicado
+   * (template + instâncias geradas pelo cron). Set true em tela dedicada.
+   */
+  includeRecurrenceTemplates?: boolean;
 }
 
 export interface CreatePlanningItemInput {
@@ -147,6 +153,12 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
           )
           .eq('workspace_id', workspaceId)
           .order('position', { ascending: true });
+        // Templates de recorrência são "blueprints" pro cron — não devem
+        // aparecer no board/calendário (audit 2026-05-16, bug #15). Filtra
+        // por padrão; UI dedicada de gestão de recorrência passa includeRecurrenceTemplates=true.
+        if (!filters.includeRecurrenceTemplates) {
+          q = q.or('is_recurrence_template.is.null,is_recurrence_template.eq.false');
+        }
         if (filters.clientId) q = q.eq('client_id', filters.clientId);
         if (filters.platform) q = q.eq('platform', filters.platform);
         if (filters.status) q = q.eq('status', filters.status);

@@ -5,14 +5,20 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useEffect, useRef } from 'react';
 
-export type NotificationType = 
-  | 'assignment' 
-  | 'due_date' 
-  | 'mention' 
-  | 'publish_reminder' 
+export type NotificationType =
+  // Legado / planning items
+  | 'assignment'
+  | 'due_date'
+  | 'mention'
+  | 'publish_reminder'
   | 'publish_failed'
   | 'publish_success'
-  | 'automation_completed';
+  | 'automation_completed'
+  // Team tasks (migration 20260504144016 — enum estendido)
+  | 'task_assigned'
+  | 'task_mention'
+  | 'task_due_soon'
+  | 'task_comment';
 
 export interface Notification {
   id: string;

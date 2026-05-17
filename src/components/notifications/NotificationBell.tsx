@@ -1,5 +1,19 @@
 import { useState } from 'react';
-import { Bell, Check, CheckCheck, Calendar, UserPlus, Clock, MessageSquare, AlertTriangle, Zap } from 'lucide-react';
+import {
+  Bell,
+  Check,
+  CheckCheck,
+  Calendar,
+  UserPlus,
+  Clock,
+  MessageSquare,
+  AlertTriangle,
+  Zap,
+  CheckSquare,
+  AtSign,
+  AlarmClock,
+  MessagesSquare,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -17,7 +31,11 @@ import { useWorkspace } from '@/hooks/useWorkspace';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PushNotificationToggle } from './PushNotificationToggle';
 
+// Cobertura COMPLETA do enum `notifications.type` (DB constraint em migration
+// 20260504144016). Drift entre front e back crasha o sino — vide audit
+// 2026-05-16, bug #7. Manter em sync com `NotificationType` em useNotifications.ts.
 const typeIcons: Record<Notification['type'], React.ElementType> = {
+  // Legado / planning
   assignment: UserPlus,
   due_date: Calendar,
   mention: MessageSquare,
@@ -25,6 +43,11 @@ const typeIcons: Record<Notification['type'], React.ElementType> = {
   publish_failed: AlertTriangle,
   publish_success: Check,
   automation_completed: Zap,
+  // Team tasks
+  task_assigned: CheckSquare,
+  task_mention: AtSign,
+  task_due_soon: AlarmClock,
+  task_comment: MessagesSquare,
 };
 
 const typeColors: Record<Notification['type'], string> = {
@@ -35,7 +58,16 @@ const typeColors: Record<Notification['type'], string> = {
   publish_failed: 'text-red-500 bg-red-500/10',
   publish_success: 'text-green-500 bg-green-500/10',
   automation_completed: 'text-yellow-500 bg-yellow-500/10',
+  task_assigned: 'text-blue-500 bg-blue-500/10',
+  task_mention: 'text-purple-500 bg-purple-500/10',
+  task_due_soon: 'text-orange-500 bg-orange-500/10',
+  task_comment: 'text-cyan-500 bg-cyan-500/10',
 };
+
+// Fallback defensivo caso o backend introduza um tipo novo antes do frontend.
+// Sem isso, undefined no <Icon /> crasha o React.
+const FALLBACK_ICON = Bell;
+const FALLBACK_COLOR = 'text-muted-foreground bg-muted/50';
 
 function NotificationList({ 
   notifications, 
@@ -86,7 +118,8 @@ function NotificationList({
         ) : (
           <div className="divide-y">
             {notifications.map((notification) => {
-              const Icon = typeIcons[notification.type];
+              const Icon = typeIcons[notification.type] ?? FALLBACK_ICON;
+              const color = typeColors[notification.type] ?? FALLBACK_COLOR;
               return (
                 <button
                   key={notification.id}
@@ -96,7 +129,7 @@ function NotificationList({
                   )}
                   onClick={() => onNotificationClick(notification)}
                 >
-                  <div className={cn('p-2 rounded-full shrink-0', typeColors[notification.type])}>
+                  <div className={cn('p-2 rounded-full shrink-0', color)}>
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
