@@ -50,6 +50,36 @@ export default defineConfig(({ mode }) => ({
     // Target moderno corta polyfills core-js (jspdf/html2canvas trazem ~50kB
     // de core-js — vira inútil em browsers modernos que rodam ESM nativo).
     target: "es2020",
+    // 2026-05-17 — controla modulepreload na HTML. Por default Vite preloada
+    // TUDO que entry chunk pode dynamic-importar, inflando first-paint mesmo
+    // com lazy() (browser baixa em parallel mesmo que código nunca rode).
+    // Filter remove chunks heavy que só viram úteis em rota/feature específica:
+    //   - chart-vendor (406kB recharts) — só em Performance tab + ClientAnalytics
+    //   - export-pdf-vendor (617kB jspdf+html2canvas) — só em export PDF
+    //   - export-zip-vendor (97kB jszip) — só em download multiplo
+    //   - markdown-vendor (117kB react-markdown) — chat/library
+    //   - motion-vendor (114kB framer-motion) — usado mas não no first paint
+    //   - auth-vendor (315kB neon-auth) — só Login/Signup/session
+    //   - supabase-vendor (170kB) — fetchs após login
+    // Continua sendo carregado on-demand (Vite gera o <link modulepreload> só
+    // quando o chunk-de-quem-dinamically-importa for fetched).
+    modulePreload: {
+      polyfill: false,
+      resolveDependencies(filename, deps, { hostType }) {
+        if (hostType !== 'html') return deps;
+        const HEAVY_LAZY = [
+          'chart-vendor',
+          'export-pdf-vendor',
+          'export-zip-vendor',
+          'export-html-vendor',
+          'markdown-vendor',
+          'motion-vendor',
+        ];
+        return deps.filter((dep) => {
+          return !HEAVY_LAZY.some((heavy) => dep.includes(heavy));
+        });
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks: {
