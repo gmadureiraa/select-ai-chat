@@ -4,10 +4,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
- * TeamIndicator (ex-WorkspaceSwitcher) - Sistema interno Kaleidos
- * 
+ * WorkspaceIndicator (export name `WorkspaceSwitcher` preservado por
+ * compatibilidade de imports) - Sistema interno Kaleidos.
+ *
  * Exibe apenas informações do workspace Kaleidos.
  * Sem dropdown, sem opção de trocar - apenas indicador visual.
+ *
+ * 2026-05-17 — audit Inc-3: o nome `WorkspaceSwitcher` mentia (não troca
+ * workspace). Mantemos o export por compat mas o JSDoc + o uso real
+ * deixa claro que é um indicador estático. Rename completo do simbolo
+ * (incluindo o import em KaiSidebar) fica pra um codemod futuro pra
+ * evitar churn de blame em vários arquivos.
  */
 
 interface WorkspaceSwitcherProps {

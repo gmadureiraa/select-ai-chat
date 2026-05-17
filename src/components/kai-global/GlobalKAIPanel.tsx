@@ -162,7 +162,9 @@ export function GlobalKAIPanel({
                 "fixed right-0 top-0 z-[70]",
                 // Wider panel for better readability
                 "w-full sm:w-[480px] md:w-[540px] lg:w-[600px]",
-                "h-screen max-h-screen",
+                // 2026-05-17 — h-screen (100vh) saltava em iOS Safari quando a
+                // URL bar recolhia. h-dvh (dynamic viewport) acompanha o chrome.
+                "h-dvh max-h-dvh",
                 "bg-background border-l border-border/50",
                 "flex flex-col",
                 // Subtle shadow for depth
