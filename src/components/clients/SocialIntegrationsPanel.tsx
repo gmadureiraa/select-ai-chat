@@ -328,11 +328,12 @@ export function SocialIntegrationsPanel({ clientId }: SocialIntegrationsPanelPro
                           onClick={() => handleDisconnect(platform)}
                           disabled={isConnecting}
                           className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          aria-label={`Desconectar ${platform}`}
                         >
                           {isConnecting ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
                           ) : (
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
                           )}
                         </Button>
                       </TooltipTrigger>

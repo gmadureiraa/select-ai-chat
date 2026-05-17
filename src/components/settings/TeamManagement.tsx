@@ -494,16 +494,18 @@ export function TeamManagement() {
                           title="Reenviar email"
                           onClick={() => handleResendInvite(invite)}
                           disabled={resendingInviteId === invite.id}
+                          aria-label="Reenviar convite por email"
                         >
-                          <RefreshCw className={`h-4 w-4 ${resendingInviteId === invite.id ? "animate-spin" : ""}`} />
+                          <RefreshCw aria-hidden="true" className={`h-4 w-4 ${resendingInviteId === invite.id ? "animate-spin" : ""}`} />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => cancelInvite.mutate(invite.id)}
                           disabled={cancelInvite.isPending}
+                          aria-label="Cancelar convite"
                         >
-                          <X className="h-4 w-4" />
+                          <X aria-hidden="true" className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -723,8 +725,9 @@ export function TeamManagement() {
                             variant="ghost"
                             size="icon"
                             onClick={() => setMemberToRemove(member.id)}
+                            aria-label="Remover membro"
                           >
-                            <X className="h-4 w-4 text-destructive" />
+                            <X aria-hidden="true" className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
                       </div>

@@ -254,8 +254,9 @@ export function GlobalKAIPanel({
                     className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg"
                     onClick={onNewConversation}
                     title="Nova conversa"
+                    aria-label="Nova conversa"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus aria-hidden="true" className="h-4 w-4" />
                   </Button>
 
                   {/* Conversation history dropdown */}
@@ -267,8 +268,10 @@ export function GlobalKAIPanel({
                           size="icon"
                           className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg"
                           title="Histórico de conversas"
+                          aria-label="Histórico de conversas"
+                          aria-haspopup="menu"
                         >
-                          <History className="h-4 w-4" />
+                          <History aria-hidden="true" className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
@@ -319,8 +322,9 @@ export function GlobalKAIPanel({
                     onClick={handleExport}
                     disabled={messages.length === 0}
                     title="Exportar conversa"
+                    aria-label="Exportar conversa"
                   >
-                    <Download className="h-4 w-4" />
+                    <Download aria-hidden="true" className="h-4 w-4" />
                   </Button>
 
                   {/* Delete conversation button */}
@@ -331,12 +335,13 @@ export function GlobalKAIPanel({
                     onClick={() => setShowDeleteDialog(true)}
                     disabled={messages.length === 0}
                     title="Apagar conversa"
+                    aria-label="Apagar conversa"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 aria-hidden="true" className="h-4 w-4" />
                   </Button>
 
                   {/* Divider */}
-                  <div className="h-6 w-px bg-border/50 mx-1.5" />
+                  <div className="h-6 w-px bg-border/50 mx-1.5" aria-hidden="true" />
 
                   {/* Close button */}
                   <Button
@@ -344,8 +349,9 @@ export function GlobalKAIPanel({
                     size="icon"
                     className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg"
                     onClick={onClose}
+                    aria-label="Fechar painel kAI"
                   >
-                    <X className="h-4 w-4" />
+                    <X aria-hidden="true" className="h-4 w-4" />
                   </Button>
                 </div>
               </div>

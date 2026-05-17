@@ -183,8 +183,9 @@ export function ReferenceGalleryDialog({ reference, open, onOpenChange }: Props)
                       onClick={handlePrev}
                       disabled={imgIdx === 0}
                       className="absolute left-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-background/90 hover:bg-background border"
+                      aria-label="Slide anterior"
                     >
-                      <ChevronLeft className="h-5 w-5" />
+                      <ChevronLeft aria-hidden="true" className="h-5 w-5" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -192,8 +193,9 @@ export function ReferenceGalleryDialog({ reference, open, onOpenChange }: Props)
                       onClick={handleNext}
                       disabled={imgIdx === allImages.length - 1}
                       className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-background/90 hover:bg-background border"
+                      aria-label="Próximo slide"
                     >
-                      <ChevronRight className="h-5 w-5" />
+                      <ChevronRight aria-hidden="true" className="h-5 w-5" />
                     </Button>
                     <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-background/90 rounded-full px-3 py-1 border text-xs font-medium">
                       <span>
