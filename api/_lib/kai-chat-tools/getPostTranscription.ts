@@ -14,6 +14,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query, queryOne } from '../db.js';
+import { assertToolClientAccess } from './tool-access.js';
 
 interface GetPostTranscriptionArgs {
   postId?: string;
@@ -85,6 +86,15 @@ export const getPostTranscriptionTool: RegisteredTool<
     if (!postId) {
       return { ok: false, error: 'postId é obrigatório' };
     }
+
+    // SECURITY: validar acesso ao cliente do contexto. Em service mode
+    // attacker poderia setar clientId arbitrário pra ler transcrições alheias
+    // ou disparar geração custosa (Gemini Vision).
+    if (!ctx.clientId) {
+      return { ok: false, error: 'Cliente atual obrigatório.' };
+    }
+    const guard = await assertToolClientAccess(ctx, ctx.clientId);
+    if (!guard.ok) return { ok: false, error: guard.error };
 
     console.log(
       `[getPostTranscription] clientId=${ctx.clientId} postId=${postId} source=${source} generate=${generate}`,

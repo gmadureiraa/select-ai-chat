@@ -3,6 +3,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query } from '../db.js';
+import { assertToolClientAccess } from './tool-access.js';
 
 interface SearchLibraryArgs {
   query: string;
@@ -82,6 +83,14 @@ export const searchLibraryTool: RegisteredTool<SearchLibraryArgs, SearchLibraryD
       typeof args.limit === 'number' && args.limit > 0 ? Math.floor(args.limit) : DEFAULT_LIMIT;
     const limit = Math.min(rawLimit, MAX_LIMIT);
     const includeReferences = args.includeReferences !== false;
+
+    // SECURITY: filtra por ctx.clientId. Em service mode MCP com clientId
+    // arbitrário, attacker poderia ler library de qualquer cliente.
+    if (!ctx.clientId) {
+      return { ok: false, error: 'Cliente atual obrigatório.' };
+    }
+    const guard = await assertToolClientAccess(ctx, ctx.clientId);
+    if (!guard.ok) return { ok: false, error: guard.error };
 
     const pattern = `%${escapeIlike(queryStr)}%`;
 

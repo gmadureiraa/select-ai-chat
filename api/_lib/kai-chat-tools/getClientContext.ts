@@ -3,6 +3,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query, queryOne } from '../db.js';
+import { assertToolClientAccess } from './tool-access.js';
 
 interface GetClientContextArgs {
   [key: string]: unknown;
@@ -62,6 +63,14 @@ export const getClientContextTool: RegisteredTool<GetClientContextArgs, GetClien
   },
 
   handler: async (_args, ctx) => {
+    // SECURITY: contexto inclui identity_guide + context_notes + social_media,
+    // tudo proprietário. Validar acesso antes.
+    if (!ctx.clientId) {
+      return { ok: false, error: 'Cliente atual obrigatório.' };
+    }
+    const guard = await assertToolClientAccess(ctx, ctx.clientId);
+    if (!guard.ok) return { ok: false, error: guard.error };
+
     console.log(`[getClientContext] clientId=${ctx.clientId}`);
     try {
       const clients = await query<{

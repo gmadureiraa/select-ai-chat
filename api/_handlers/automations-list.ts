@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { authedPost } from '../_lib/handler.js';
 import { query, queryOne } from '../_lib/db.js';
+import { assertWorkspaceAccess, assertClientAccess } from '../_lib/access.js';
 
 const BodySchema = z.object({
   status: z.enum(['active', 'paused', 'all']).optional(),
@@ -19,9 +20,14 @@ export default authedPost(async ({ body, user }) => {
   }
   const data = parsed.data;
 
-  // Resolve workspace
+  // Resolve workspace.
+  // SECURITY: workspace_id explícito DEVE ser validado contra membership do user.
+  // Sem isso, qualquer user logado podia listar automations + prompt templates
+  // + cron schedules de qualquer workspace conhecido (info-leak estratégia).
   let workspaceId = data.workspace_id ?? null;
-  if (!workspaceId) {
+  if (workspaceId) {
+    await assertWorkspaceAccess(user.id, workspaceId);
+  } else {
     const w = await queryOne<{ workspace_id: string }>(
       `SELECT workspace_id FROM workspace_members
         WHERE user_id = $1
@@ -33,6 +39,14 @@ export default authedPost(async ({ body, user }) => {
   }
   if (!workspaceId) {
     throw new Error('Sem workspace associado ao user');
+  }
+
+  // client_id filter precisa estar no mesmo workspace.
+  if (data.client_id) {
+    const access = await assertClientAccess(user.id, data.client_id);
+    if (access.workspaceId !== workspaceId) {
+      throw new Error('client_id filtro fora do workspace alvo');
+    }
   }
 
   const where: string[] = ['workspace_id = $1'];
