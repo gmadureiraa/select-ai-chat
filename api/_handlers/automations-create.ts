@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertWorkspaceAccess, assertClientAccess } from '../_lib/access.js';
 
 const ScheduleSchema = z
   .object({
@@ -65,21 +66,30 @@ export default authedPost(async ({ body, user }) => {
   const data = parsed.data;
   const pool = getPool();
 
-  // Resolve workspace
+  // Resolve workspace.
+  // SECURITY: workspace_id explícito DEVE ser validado (assertWorkspaceAccess).
+  // Sem isso, qualquer user logado podia criar planning_automation em workspace
+  // alheio, drenando custos/triggando crons cross-tenant.
   let workspaceId = data.workspace_id ?? null;
-  if (!workspaceId) {
-    if (data.client_id) {
-      const c = await queryOne<{ workspace_id: string }>(
-        `SELECT workspace_id FROM clients WHERE id = $1 LIMIT 1`,
-        [data.client_id],
-      );
-      workspaceId = c?.workspace_id ?? null;
-    }
+  if (workspaceId) {
+    // Automation requer role admin/owner (mesmo padrão do toggle/delete).
+    await assertWorkspaceAccess(user.id, workspaceId, ['owner', 'admin']);
   }
+
+  // client_id explícito → checa acesso e deriva workspace dele.
+  if (data.client_id) {
+    const access = await assertClientAccess(user.id, data.client_id);
+    if (workspaceId && access.workspaceId !== workspaceId) {
+      throw new Error('client_id não pertence ao workspace alvo');
+    }
+    workspaceId = workspaceId ?? access.workspaceId;
+  }
+
+  // Fallback: usa workspace mais recente do user (precisa ser admin/owner).
   if (!workspaceId) {
     const w = await queryOne<{ workspace_id: string }>(
       `SELECT workspace_id FROM workspace_members
-        WHERE user_id = $1
+        WHERE user_id = $1 AND role IN ('owner', 'admin')
         ORDER BY created_at DESC
         LIMIT 1`,
       [user.id],
@@ -87,7 +97,18 @@ export default authedPost(async ({ body, user }) => {
     workspaceId = w?.workspace_id ?? null;
   }
   if (!workspaceId) {
-    throw new Error('Sem workspace associado pra criar automation');
+    throw new Error('Sem workspace associado pra criar automation (precisa ser admin/owner)');
+  }
+
+  // target_column_id deve estar no workspace alvo (evita IDOR cross-workspace).
+  if (data.target_column_id) {
+    const col = await queryOne<{ workspace_id: string }>(
+      `SELECT workspace_id FROM kanban_columns WHERE id = $1 LIMIT 1`,
+      [data.target_column_id],
+    );
+    if (!col || col.workspace_id !== workspaceId) {
+      throw new Error('target_column_id não pertence ao workspace');
+    }
   }
 
   // Resolve target column (default = is_default true OR primeira coluna)

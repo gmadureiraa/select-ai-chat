@@ -1,6 +1,4 @@
 import { lazy, Suspense } from "react";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { SkipLink } from "@/components/ui/skip-link";
@@ -15,9 +13,25 @@ import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { WorkspaceRouter } from "@/components/WorkspaceRouter";
 import { GlobalKAIProvider } from "@/contexts/GlobalKAIContext";
 import { GlobalKAIAssistant } from "@/components/kai-global";
-import { InstallPrompt } from "@/components/pwa/InstallPrompt";
-import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
-import { CommandPalette } from "@/components/CommandPalette";
+
+// Telemetry + addons globais — lazy. Não fazem parte do first paint e os
+// chunks `@vercel/analytics`, `@vercel/speed-insights`, `cmdk`,
+// PWA install/offline prompts vinham eager somando ~40-50kB raw no entry.
+const Analytics = lazy(() =>
+  import("@vercel/analytics/react").then((m) => ({ default: m.Analytics })),
+);
+const SpeedInsights = lazy(() =>
+  import("@vercel/speed-insights/react").then((m) => ({ default: m.SpeedInsights })),
+);
+const InstallPrompt = lazy(() =>
+  import("@/components/pwa/InstallPrompt").then((m) => ({ default: m.InstallPrompt })),
+);
+const OfflineIndicator = lazy(() =>
+  import("@/components/pwa/OfflineIndicator").then((m) => ({ default: m.OfflineIndicator })),
+);
+const CommandPalette = lazy(() =>
+  import("@/components/CommandPalette").then((m) => ({ default: m.CommandPalette })),
+);
 
 // Lazy-loaded pages — separa o bundle das rotas e diminui o index.js inicial.
 // Cada rota vira um chunk independente carregado sob demanda.
@@ -53,12 +67,21 @@ const queryClient = new QueryClient({
 });
 
 function GlobalAddons() {
+  // Cada addon vive num Suspense próprio com fallback null pra não bloquear
+  // outros nem o restante da UI. CommandPalette só baixa o cmdk após primeiro
+  // idle; Analytics/SpeedInsights idem; PWA prompts são quietos.
   return (
     <>
       <GlobalKAIAssistant />
-      <CommandPalette />
-      <InstallPrompt />
-      <OfflineIndicator />
+      <Suspense fallback={null}>
+        <CommandPalette />
+      </Suspense>
+      <Suspense fallback={null}>
+        <InstallPrompt />
+      </Suspense>
+      <Suspense fallback={null}>
+        <OfflineIndicator />
+      </Suspense>
     </>
   );
 }
@@ -126,9 +149,12 @@ const App = () => (
 
                 <GlobalAddons />
               </GlobalKAIProvider>
-              {/* Vercel telemetry — gratuitos no Hobby */}
-              <Analytics />
-              <SpeedInsights />
+              {/* Vercel telemetry — gratuitos no Hobby. Lazy + Suspense fallback null
+                  pra que entrem após first paint sem competir por bandwidth crítica. */}
+              <Suspense fallback={null}>
+                <Analytics />
+                <SpeedInsights />
+              </Suspense>
             </WorkspaceProvider>
           </BrowserRouter>
         </TooltipProvider>

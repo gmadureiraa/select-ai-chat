@@ -137,11 +137,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // CONCURRENCY: cron roda a cada 5min. Sem lock, 2 invocations paralelas
+    // mandariam o MESMO email 2x pro user (spam!).
+    //
+    // Fix: SELECT FOR UPDATE SKIP LOCKED + UPDATE sent_at=NOW() atomicamente.
+    // Se o send_email falhar depois, sobrescrevemos com error via markAsError
+    // (mantém sent_at preenchido pra não retentar, mas guarda error).
+    //
+    // Trade-off: se a function morrer mid-send, fica como "sent" sem ter
+    // sido. Aceitável: melhor perder 1 email do que mandar 2x.
     const queueItems = await query<EmailQueueItem>(
-      `SELECT * FROM email_notification_queue
-       WHERE sent_at IS NULL
-       ORDER BY created_at ASC
-       LIMIT $1`,
+      `WITH picked AS (
+         SELECT id
+           FROM email_notification_queue
+          WHERE sent_at IS NULL
+          ORDER BY created_at ASC
+          LIMIT $1
+          FOR UPDATE SKIP LOCKED
+       )
+       UPDATE email_notification_queue q
+          SET sent_at = NOW()
+         FROM picked p
+        WHERE q.id = p.id
+       RETURNING q.*`,
       [BATCH_SIZE],
     );
     if (!queueItems || queueItems.length === 0) {
@@ -197,10 +215,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
-        await getPool().query(
-          `UPDATE email_notification_queue SET sent_at = NOW() WHERE id = $1`,
-          [item.id],
-        );
+        // NB: sent_at já setado atomicamente no pickup CTE. Só conta sucesso.
         successCount++;
       } catch (itemError: any) {
         console.error(`[process-email-notifications] item ${item.id} error:`, itemError);

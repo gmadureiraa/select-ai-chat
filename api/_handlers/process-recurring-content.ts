@@ -198,11 +198,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           results.push({ templateId: template.id, created: false });
           continue;
         }
-        // Already created today?
+        // CONCURRENCY: 2 crons paralelos rodando podem ambos passar pelo SELECT
+        // sem ver row e ambos INSERTar — duplicava planning_items.
+        // Migration 0044 criou unique index `uq_planning_items_recurrence_per_day`
+        // em (recurrence_parent_id, DATE(created_at AT TIME ZONE 'UTC')).
+        // O INSERT abaixo usa ON CONFLICT DO NOTHING — race-safe.
+        // Mantém SELECT como fast-path pra economizar Gemini calls quando
+        // já tem item criado (não vale a pena gerar conteúdo + bloquear no
+        // INSERT). É só optimization, não correctness.
         const existing = await query<any>(
           `SELECT id FROM planning_items
            WHERE recurrence_parent_id = $1
-             AND created_at >= $2 AND created_at <= $3`,
+             AND created_at >= $2 AND created_at <= $3
+           LIMIT 1`,
           [template.id, `${today}T00:00:00`, `${today}T23:59:59`],
         );
         if (existing.length > 0) {

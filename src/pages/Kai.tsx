@@ -5,9 +5,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import { KaiSidebar } from "@/components/kai/KaiSidebar";
 import { MobileHeader } from "@/components/kai/MobileHeader";
 import { MobileBottomNav } from "@/components/kai/MobileBottomNav";
-import { OnboardingFlow } from "@/components/onboarding";
-import { NotificationPermissionPrompt } from "@/components/notifications/NotificationPermissionPrompt";
 import { PendingInvitesAlert } from "@/components/workspace/PendingInvitesAlert";
+
+// Onboarding e prompt de notificação só são visíveis em conditional flow
+// (primeiro acesso e quando o user permitiria push). Lazy tira ~15-20kB
+// do chunk principal do KAI sem afetar TTI.
+const OnboardingFlow = lazy(() =>
+  import("@/components/onboarding").then((m) => ({ default: m.OnboardingFlow })),
+);
+const NotificationPermissionPrompt = lazy(() =>
+  import("@/components/notifications/NotificationPermissionPrompt").then((m) => ({
+    default: m.NotificationPermissionPrompt,
+  })),
+);
 import { TabLoader } from "@/components/ui/page-loader";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -538,11 +548,12 @@ export default function Kai() {
 
   return (
     <div className="flex h-dvh bg-background w-full">
-      {/* Onboarding Flow */}
-      <OnboardingFlow />
-      
-      {/* Notification Permission Prompt */}
-      <NotificationPermissionPrompt />
+      {/* Onboarding Flow + Notification Permission Prompt — lazy, Suspense null.
+          Não competem com o first paint do shell (sidebar/header). */}
+      <Suspense fallback={null}>
+        <OnboardingFlow />
+        <NotificationPermissionPrompt />
+      </Suspense>
       
       {/* Desktop: Fixed Sidebar */}
       {!isMobile && (

@@ -45,13 +45,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Fetch pending items (limit 100)
+    // Fetch pending items (limit 100).
+    //
+    // CONCURRENCY: cron roda a cada 5min. Se 2 invocations rodarem em
+    // paralelo (cold + warm), ambos pegariam os mesmos 100 itens, mandariam
+    // 2x push notifications pro mesmo user e tentariam UPDATE ... SET
+    // processed=true 2x (não quebra, mas é trabalho duplicado e SPAM no
+    // device do user).
+    //
+    // Fix: SELECT FOR UPDATE SKIP LOCKED dentro de uma CTE + UPDATE marca
+    // processed=true ANTES de enviar. Se o envio falhar, o caller revert via
+    // UPDATE processed=false (não fazemos isso porque expired subs viram
+    // DELETE direto). Trade-off: se a invocation morrer mid-envio, o item
+    // fica como processed=true sem ter sido enviado de fato. Aceitável
+    // porque (a) é só notification (não cobrança), (b) push é best-effort,
+    // (c) probabilidade baixíssima (5min lifetime de Vercel function).
     const queueItems = await query<QueueItem>(
-      `SELECT id, user_id, payload
-         FROM push_notification_queue
-        WHERE processed = false
-        ORDER BY created_at ASC
-        LIMIT 100`
+      `WITH picked AS (
+         SELECT id
+           FROM push_notification_queue
+          WHERE processed = false
+          ORDER BY created_at ASC
+          LIMIT 100
+          FOR UPDATE SKIP LOCKED
+       )
+       UPDATE push_notification_queue q
+          SET processed = true,
+              processed_at = NOW()
+         FROM picked p
+        WHERE q.id = p.id
+       RETURNING q.id, q.user_id, q.payload`
     );
 
     if (queueItems.length === 0) {
@@ -124,14 +147,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const pool = getPool();
 
-    if (processedIds.length > 0) {
-      await pool.query(
-        `UPDATE push_notification_queue
-            SET processed = true, processed_at = now()
-          WHERE id = ANY($1::uuid[])`,
-        [processedIds]
-      );
-    }
+    // NB: processed=true já foi setado atomicamente no pickup CTE.
+    // Manteríamos processedIds só pra auditar/log — mas não precisa update.
 
     if (expiredSubscriptionIds.length > 0) {
       await pool.query(

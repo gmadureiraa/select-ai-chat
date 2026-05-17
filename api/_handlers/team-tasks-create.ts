@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertWorkspaceAccess, assertClientAccess } from '../_lib/access.js';
 
 const BodySchema = z.object({
   title: z.string().min(1).max(200),
@@ -23,9 +24,14 @@ export default authedPost(async ({ body, user }) => {
   const data = parsed.data;
   const pool = getPool();
 
-  // Resolve workspace via membership do user (se não foi explícito).
+  // Resolve workspace.
+  // SECURITY: se workspace_id é explícito, valida que o user é membro.
+  // Sem essa checagem, qualquer user logado podia criar tarefas em workspaces
+  // alheios passando o UUID conhecido.
   let workspaceId = data.workspace_id ?? null;
-  if (!workspaceId) {
+  if (workspaceId) {
+    await assertWorkspaceAccess(user.id, workspaceId);
+  } else {
     const w = await queryOne<{ workspace_id: string }>(
       `SELECT workspace_id FROM workspace_members
         WHERE user_id = $1
@@ -37,6 +43,16 @@ export default authedPost(async ({ body, user }) => {
   }
   if (!workspaceId) {
     throw new Error('Sem workspace associado ao user');
+  }
+
+  // Se client_id foi passado, garantir que pertence ao workspace E que o user
+  // tem acesso ao cliente. Sem essa checagem, podia mapear task pra cliente
+  // de outro workspace (vazaria via getRecentActivity).
+  if (data.client_id) {
+    const access = await assertClientAccess(user.id, data.client_id);
+    if (access.workspaceId !== workspaceId) {
+      throw new Error('client_id não pertence ao workspace alvo');
+    }
   }
 
   const r = await pool.query(

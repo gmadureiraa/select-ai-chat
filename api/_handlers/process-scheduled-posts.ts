@@ -142,36 +142,94 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Fetch planning_items due for publish, with retry-aware filter
-    const planningItems = await query<Omit<ScheduledItem, 'source'>>(
-      `SELECT pi.*, c.name AS client_name
-       FROM planning_items pi
-       LEFT JOIN clients c ON c.id = pi.client_id
-       WHERE pi.status = 'scheduled'
-         AND pi.scheduled_at <= $1
-         AND pi.external_post_id IS NULL
-         AND COALESCE(pi.retry_count, 0) < 3
-         AND (pi.next_retry_at IS NULL OR pi.next_retry_at <= $2)
-       ORDER BY pi.scheduled_at ASC
-       LIMIT 25`,
-      [marginTime.toISOString(), now.toISOString()],
-    );
+    // Fetch planning_items due for publish, with retry-aware filter.
+    //
+    // CONCURRENCY: usamos `FOR UPDATE SKIP LOCKED` pra garantir que invocações
+    // paralelas do cron NÃO pickem o mesmo item. Combinado com o `UPDATE ...
+    // SET status='publishing'` que vem logo depois (fora desta SELECT, dentro
+    // do for loop), o pickup vira atômico em duas etapas:
+    //   1. SELECT FOR UPDATE SKIP LOCKED — lock no advisory de cada row pickada
+    //   2. UPDATE status='publishing' — libera lock e marca como em-progresso
+    // Como dryRun não atualiza, FOR UPDATE seria desnecessário no dryRun, mas
+    // mantemos a mesma query (SKIP LOCKED é cheap) pra simplicidade.
+    //
+    // Em dryRun NÃO usamos lock porque é só diagnóstico (read-only).
+    const planningItems = dryRun
+      ? await query<Omit<ScheduledItem, 'source'>>(
+          `SELECT pi.*, c.name AS client_name
+           FROM planning_items pi
+           LEFT JOIN clients c ON c.id = pi.client_id
+           WHERE pi.status = 'scheduled'
+             AND pi.scheduled_at <= $1
+             AND pi.external_post_id IS NULL
+             AND COALESCE(pi.retry_count, 0) < 3
+             AND (pi.next_retry_at IS NULL OR pi.next_retry_at <= $2)
+           ORDER BY pi.scheduled_at ASC
+           LIMIT 25`,
+          [marginTime.toISOString(), now.toISOString()],
+        )
+      : await query<Omit<ScheduledItem, 'source'>>(
+          // Atomic pickup: UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED)
+          // RETURNING tudo que o handler precisa. Marca como 'publishing' já,
+          // dispensando o UPDATE separado dentro do loop.
+          `WITH picked AS (
+             SELECT pi.id
+               FROM planning_items pi
+              WHERE pi.status = 'scheduled'
+                AND pi.scheduled_at <= $1
+                AND pi.external_post_id IS NULL
+                AND COALESCE(pi.retry_count, 0) < 3
+                AND (pi.next_retry_at IS NULL OR pi.next_retry_at <= $2)
+              ORDER BY pi.scheduled_at ASC
+              LIMIT 25
+              FOR UPDATE SKIP LOCKED
+           )
+           UPDATE planning_items pi
+              SET status = 'publishing',
+                  updated_at = NOW()
+            FROM picked p
+            LEFT JOIN clients c ON c.id = pi.client_id
+            WHERE pi.id = p.id
+            RETURNING pi.*, c.name AS client_name`,
+          [marginTime.toISOString(), now.toISOString()],
+        );
 
-    // Legacy scheduled_posts table (graceful fallback)
+    // Legacy scheduled_posts table (graceful fallback) — mesma técnica
     let legacyPosts: Array<Omit<ScheduledItem, 'source'>> = [];
     try {
-      legacyPosts = await query<Omit<ScheduledItem, 'source'>>(
-        `SELECT *
-         FROM scheduled_posts
-         WHERE status = 'scheduled'
-           AND scheduled_at <= $1
-           AND external_post_id IS NULL
-           AND COALESCE(retry_count, 0) < 3
-           AND (next_retry_at IS NULL OR next_retry_at <= $2)
-         ORDER BY scheduled_at ASC
-         LIMIT 25`,
-        [marginTime.toISOString(), now.toISOString()],
-      );
+      legacyPosts = dryRun
+        ? await query<Omit<ScheduledItem, 'source'>>(
+            `SELECT *
+             FROM scheduled_posts
+             WHERE status = 'scheduled'
+               AND scheduled_at <= $1
+               AND external_post_id IS NULL
+               AND COALESCE(retry_count, 0) < 3
+               AND (next_retry_at IS NULL OR next_retry_at <= $2)
+             ORDER BY scheduled_at ASC
+             LIMIT 25`,
+            [marginTime.toISOString(), now.toISOString()],
+          )
+        : await query<Omit<ScheduledItem, 'source'>>(
+            `WITH picked AS (
+               SELECT id
+                 FROM scheduled_posts
+                WHERE status = 'scheduled'
+                  AND scheduled_at <= $1
+                  AND external_post_id IS NULL
+                  AND COALESCE(retry_count, 0) < 3
+                  AND (next_retry_at IS NULL OR next_retry_at <= $2)
+                ORDER BY scheduled_at ASC
+                LIMIT 25
+                FOR UPDATE SKIP LOCKED
+             )
+             UPDATE scheduled_posts sp
+                SET status = 'publishing'
+              FROM picked p
+              WHERE sp.id = p.id
+              RETURNING sp.*`,
+            [marginTime.toISOString(), now.toISOString()],
+          );
     } catch (e: unknown) {
       console.log('[process-scheduled-posts] legacy table query skipped:', errorMessage(e));
     }
@@ -252,8 +310,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
-        // Set publishing
-        await getPool().query(`UPDATE ${tableName} SET status = 'publishing' WHERE id = $1`, [item.id]);
+        // NB: status já foi setado pra 'publishing' atomicamente no pickup
+        // (CTE com FOR UPDATE SKIP LOCKED). Não reUPDATE aqui.
 
         if (!SUPPORTED_PLATFORMS.includes(item.platform)) {
           await getPool().query(

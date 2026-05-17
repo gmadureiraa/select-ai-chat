@@ -295,16 +295,19 @@ export const VisualReferencesManager = ({
                         size="icon"
                         onClick={() => handleTogglePrimary(ref)}
                         title={ref.is_primary ? "Remover destaque" : "Marcar como principal"}
+                        aria-label={ref.is_primary ? "Remover destaque" : "Marcar como principal"}
+                        aria-pressed={ref.is_primary}
                       >
-                        {ref.is_primary ? <StarOff className="h-4 w-4" /> : <Star className="h-4 w-4" />}
+                        {ref.is_primary ? <StarOff aria-hidden="true" className="h-4 w-4" /> : <Star aria-hidden="true" className="h-4 w-4" />}
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => deleteReference.mutate(ref.id)}
                         disabled={deleteReference.isPending}
+                        aria-label="Excluir referência"
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 aria-hidden="true" className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </div>
@@ -346,11 +349,13 @@ export const VisualReferencesManager = ({
                       variant="secondary"
                       onClick={() => handleTogglePrimary(ref)}
                       title={ref.is_primary ? "Remover destaque" : "Marcar como principal"}
+                      aria-label={ref.is_primary ? "Remover destaque" : "Marcar como principal"}
+                      aria-pressed={ref.is_primary}
                     >
                       {ref.is_primary ? (
-                        <StarOff className="h-4 w-4" />
+                        <StarOff aria-hidden="true" className="h-4 w-4" />
                       ) : (
-                        <Star className="h-4 w-4" />
+                        <Star aria-hidden="true" className="h-4 w-4" />
                       )}
                     </Button>
                     <Button
@@ -358,8 +363,9 @@ export const VisualReferencesManager = ({
                       variant="destructive"
                       onClick={() => deleteReference.mutate(ref.id)}
                       disabled={deleteReference.isPending}
+                      aria-label="Excluir referência"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 aria-hidden="true" className="h-4 w-4" />
                     </Button>
                   </div>
 

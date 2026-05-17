@@ -7,6 +7,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query, queryOne } from '../db.js';
+import { assertToolClientAccess, assertToolWorkspaceAccess } from './tool-access.js';
 
 interface GetWorkspaceMembersArgs {
   workspace_id?: string;
@@ -70,11 +71,17 @@ export const getWorkspaceMembersTool: RegisteredTool<
     const limit = Math.min(rawLimit, MAX_LIMIT);
 
     try {
-      // Resolve workspace_id: arg explícito ou derivar do cliente atual
+      // Resolve workspace_id: arg explícito ou derivar do cliente atual.
+      // SECURITY: workspace_id explícito DEVE ser validado contra
+      // ctx.userId — sem isso, qualquer user listava emails+roles de
+      // qualquer workspace conhecido (vazamento PII).
       let workspaceId = String(args.workspace_id ?? '').trim();
       let workspaceName: string | null = null;
 
-      if (!workspaceId) {
+      if (workspaceId) {
+        const guard = await assertToolWorkspaceAccess(ctx, workspaceId);
+        if (!guard.ok) return { ok: false, error: guard.error };
+      } else {
         if (!ctx.clientId) {
           return {
             ok: false,
@@ -82,14 +89,21 @@ export const getWorkspaceMembersTool: RegisteredTool<
               'Sem workspace_id explícito e sem clientId no contexto. Selecione um cliente ou passe workspace_id.',
           };
         }
-        const c = await queryOne<{ workspace_id: string }>(
-          `SELECT workspace_id FROM clients WHERE id = $1 LIMIT 1`,
-          [ctx.clientId],
-        );
-        if (!c?.workspace_id) {
-          return { ok: false, error: 'Cliente atual não tem workspace_id.' };
+        const guard = await assertToolClientAccess(ctx, ctx.clientId);
+        if (!guard.ok) return { ok: false, error: guard.error };
+        if (!guard.workspaceId) {
+          // Service-mode bypass — pega workspace direto do cliente.
+          const c = await queryOne<{ workspace_id: string }>(
+            `SELECT workspace_id FROM clients WHERE id = $1 LIMIT 1`,
+            [ctx.clientId],
+          );
+          if (!c?.workspace_id) {
+            return { ok: false, error: 'Cliente atual não tem workspace_id.' };
+          }
+          workspaceId = String(c.workspace_id);
+        } else {
+          workspaceId = guard.workspaceId;
         }
-        workspaceId = String(c.workspace_id);
       }
 
       const wsRow = await queryOne<{ name: string }>(

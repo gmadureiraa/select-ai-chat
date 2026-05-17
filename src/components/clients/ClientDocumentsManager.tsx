@@ -187,35 +187,44 @@ export const ClientDocumentsManager = ({ clientId }: ClientDocumentsManagerProps
                           onClick={() => handleOpenFile(doc)}
                           disabled={isDownloading === doc.id}
                           title="Abrir documento"
+                          aria-label={isDownloading === doc.id ? `Baixando ${doc.title}` : `Abrir ${doc.title}`}
                         >
                           {isDownloading === doc.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                           ) : (
-                            <ExternalLink className="h-4 w-4" />
+                            <ExternalLink aria-hidden="true" className="h-4 w-4" />
                           )}
                         </Button>
-                        
+
                         {/* View extracted content */}
                         {doc.extracted_content && (
                           <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Ver conteúdo extraído">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Ver conteúdo extraído"
+                              aria-label={expandedDoc === doc.id ? "Ocultar conteúdo extraído" : "Ver conteúdo extraído"}
+                              aria-expanded={expandedDoc === doc.id}
+                            >
                               {expandedDoc === doc.id ? (
-                                <ChevronDown className="h-4 w-4" />
+                                <ChevronDown aria-hidden="true" className="h-4 w-4" />
                               ) : (
-                                <ChevronRight className="h-4 w-4" />
+                                <ChevronRight aria-hidden="true" className="h-4 w-4" />
                               )}
                             </Button>
                           </CollapsibleTrigger>
                         )}
-                        
+
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
                           onClick={() => setDeleteTarget(doc)}
                           title="Remover documento"
+                          aria-label={`Remover ${doc.title}`}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 aria-hidden="true" className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
