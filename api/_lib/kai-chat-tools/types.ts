@@ -49,6 +49,18 @@ export interface ToolExecutionContext {
    * service-role token, não um JWT user).
    */
   isInternalCall?: boolean;
+  /**
+   * Snapshot do UI state que o front estava vendo quando enviou a mensagem.
+   * Lido do header `x-kai-ui-state: <base64-json>` no kai-simple-chat handler.
+   * Exposto pra `getUIState` tool (e qualquer tool futura que queira saber
+   * "em que aba/cliente/item o user tá olhando?"). Pode ser null.
+   *
+   * Shape esperado (não-enforced):
+   *   { tab?: string; clientId?: string; itemId?: string;
+   *     draftDirty?: boolean; monthInView?: string; filters?: Record<string,unknown>;
+   *     pathname?: string; }
+   */
+  uiState?: Record<string, unknown> | null;
 }
 
 export interface ToolHandlerResult<TData = unknown> {
