@@ -28,9 +28,11 @@ export type DesignTemplateId =
   | "blank"
   | "bohdan"
   | "paper-mono"
+  | "serif-duelo"
   | "madureira-reflection"
   | "dsec-dark"
-  | "defiverso-carrossel";
+  | "defiverso-carrossel"
+  | "defiverso-cripto-dark";
 
 /** Template default quando nada é especificado. */
 export const DEFAULT_DESIGN_TEMPLATE: DesignTemplateId = "manifesto";

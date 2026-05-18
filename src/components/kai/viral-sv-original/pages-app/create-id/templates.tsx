@@ -66,10 +66,14 @@ const TEMPLATE_ORDER: TemplateId[] = [
   "blank",
   "bohdan",
   "autoral",
+  // Madureira validados (paper-mono = tobi, serif-duelo = tinnaloaiza)
   "paper-mono",
+  "serif-duelo",
   "madureira",
   "madureira-reflection",
+  // Defiverso (v1 newsletter, v2 dark+coins+alien)
   "defiverso-carrossel",
+  "defiverso-cripto-dark",
 ];
 
 const TEMPLATE_DESC: Record<TemplateId, string> = {
@@ -81,10 +85,12 @@ const TEMPLATE_DESC: Record<TemplateId, string> = {
   blank: "Editorial educativo · serif Playfair + sans · cada slide um layout",
   bohdan: "Design-forward · B&W contraste alto · serif italic lime · handwritten",
   "paper-mono": "Confessional · cream paper-grain · sans bold + mono · B&W halftone · arco numerado (ref: tobi.the.og)",
+  "serif-duelo": "Auditoria editorial · cream parchment + Playfair · duelos FORTE/FRACA + princípio dark (ref: tinnaloaiza)",
   madureira: "Futurista simples · capa IA dominante · navy + accent verde · slides com quadrado 1:1",
   "madureira-reflection": "Texto-puro · 7 layouts DS (capa emoji/type, curva, barras, bullets, reflexão, CTA) · Geist + Fraunces italic accent · zero imagem",
   "dsec-dark": "(deprecated — DSEC usa twitter genérico agora)",
   "defiverso-carrossel": "Defiverso · verde profundo + cream · bullets c/ dado destacado · CTA ManyChat (👽) [v1 newsletter-repurpose]",
+  "defiverso-cripto-dark": "Defiverso v2 · dark + foto B&W full-bleed · título multi-cor (laranja/verde) · alien CTA handwritten",
 };
 
 /**
@@ -96,15 +102,17 @@ const TEMPLATE_DESC: Record<TemplateId, string> = {
  * defiverso → defiverso*, dsec → dsec*). null = sem cliente selecionado.
  */
 const TEMPLATE_CLIENT_ALLOWLIST: Partial<Record<TemplateId, string[]>> = {
-  // Madureira — 3 formatos validados (paper-mono = paper-mono-story tobi).
-  // serif-duelo (tinnaloaiza) ainda não tem template implementado (TODO).
+  // Madureira — 4 formatos. paper-mono e serif-duelo são os 2 validados
+  // pelo Gabriel em 2026-04-29 (refs tobi.the.og e tinnaloaiza).
+  // madureira e madureira-reflection ficam disponíveis como variantes.
   'paper-mono': ['madureira'],
+  'serif-duelo': ['madureira'],
   madureira: ['madureira'],
   'madureira-reflection': ['madureira'],
-  // Defiverso — só v1 newsletter-repurpose. Variante v2 (dark + coins
-  // foto big + alien CTA, ref imagens 2026-05-18) ainda não tem template
-  // implementado (TODO).
+  // Defiverso — v1 newsletter-repurpose + v2 cripto-dark (dark + coins
+  // foto big + alien CTA, ref imagens 2026-05-18).
   'defiverso-carrossel': ['defiverso'],
+  'defiverso-cripto-dark': ['defiverso'],
   // 'dsec-dark' removido do TEMPLATE_ORDER — DSEC usa templates genéricos.
 };
 

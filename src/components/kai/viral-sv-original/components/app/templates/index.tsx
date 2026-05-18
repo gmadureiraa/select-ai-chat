@@ -8,10 +8,12 @@ import TemplateAmbitious from "./template-ambitious";
 import TemplateBlank from "./template-blank";
 import TemplateBohdan from "./template-bohdan";
 import TemplatePaperMono from "./template-paper-mono";
+import TemplateSerifDuelo from "./template-serif-duelo";
 import TemplateMadureira from "./template-madureira";
 import TemplateMadureiraReflection from "./template-madureira-reflection";
 import TemplateDsecDark from "./template-dsec-dark";
 import TemplateDefiversoCarrossel from "./template-defiverso-carrossel";
+import TemplateDefiversoCriptoDark from "./template-defiverso-cripto-dark";
 import type { SlideProps, TemplateId, TemplateMeta } from "./types";
 
 export type { SlideProps, TemplateId, TemplateMeta } from "./types";
@@ -41,6 +43,8 @@ export const TemplateRenderer = forwardRef<
       return <TemplateBohdan ref={ref} {...rest} />;
     case "paper-mono":
       return <TemplatePaperMono ref={ref} {...rest} />;
+    case "serif-duelo":
+      return <TemplateSerifDuelo ref={ref} {...rest} />;
     case "madureira":
       return <TemplateMadureira ref={ref} {...rest} />;
     case "madureira-reflection":
@@ -49,6 +53,8 @@ export const TemplateRenderer = forwardRef<
       return <TemplateDsecDark ref={ref} {...rest} />;
     case "defiverso-carrossel":
       return <TemplateDefiversoCarrossel ref={ref} {...rest} />;
+    case "defiverso-cripto-dark":
+      return <TemplateDefiversoCriptoDark ref={ref} {...rest} />;
     default:
       return <TemplateTwitter ref={ref} {...rest} />;
   }
@@ -105,6 +111,12 @@ export const TEMPLATES_META: TemplateMeta[] = [
     palette: ["#ECE9DD", "#0E0E10", "#1A1A1A"],
   },
   {
+    id: "serif-duelo",
+    name: "Serif Duelo",
+    kicker: "Nº 08b · AUDITORIA",
+    palette: ["#EFE6CB", "#5DAA5C", "#E55A3D"],
+  },
+  {
     id: "madureira",
     name: "Madureira",
     kicker: "Nº 09 · CAPA IA",
@@ -128,6 +140,12 @@ export const TEMPLATES_META: TemplateMeta[] = [
     kicker: "Nº 12 · CRIPTO BR",
     palette: ["#0E3B2E", "#F5D547", "#7CF067"],
   },
+  {
+    id: "defiverso-cripto-dark",
+    name: "Defiverso Cripto Dark",
+    kicker: "Nº 12b · CRIPTO V2",
+    palette: ["#0A0A0A", "#FF7A28", "#7CF067"],
+  },
 ];
 
 export {
@@ -139,8 +157,10 @@ export {
   TemplateBlank,
   TemplateBohdan,
   TemplatePaperMono,
+  TemplateSerifDuelo,
   TemplateMadureira,
   TemplateMadureiraReflection,
   TemplateDsecDark,
   TemplateDefiversoCarrossel,
+  TemplateDefiversoCriptoDark,
 };

@@ -105,6 +105,12 @@ const TemplatePaperMono = forwardRef<HTMLDivElement, SlideProps>(
             fontFamily: displayStack,
             display: "flex",
             flexDirection: "column",
+            // 2026-05-18 — Fix bug Gabriel: conteúdo subia pro topo e parte
+            // de baixo ficava vazia em slides com body curto. Centralizar
+            // verticalmente o bloco título+body quando NÃO é cover/cta
+            // (cover usa próprio layout com foto dominante; cta tem CTA
+            // box ancorada embaixo).
+            justifyContent: isCta || isCover ? "flex-start" : "center",
             // Paper-grain: noise SVG inline + leve cream variation
             backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")`,
             backgroundRepeat: "repeat",

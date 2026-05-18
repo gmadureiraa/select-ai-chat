@@ -14,10 +14,12 @@ export type TemplateId =
   | "blank"
   | "bohdan"
   | "paper-mono"
+  | "serif-duelo"
   | "madureira"
   | "madureira-reflection"
   | "dsec-dark"
-  | "defiverso-carrossel";
+  | "defiverso-carrossel"
+  | "defiverso-cripto-dark";
 
 export type SlideVariantName =
   | "cover"
