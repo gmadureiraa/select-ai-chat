@@ -66,14 +66,15 @@ const TEMPLATE_ORDER: TemplateId[] = [
   "blank",
   "bohdan",
   "autoral",
-  // Madureira validados (paper-mono = tobi, serif-duelo = tinnaloaiza)
-  "paper-mono",
-  "serif-duelo",
-  "madureira",
-  "madureira-reflection",
-  // Defiverso (v1 newsletter, v2 dark+coins+alien)
-  "defiverso-carrossel",
-  "defiverso-cripto-dark",
+  // Madureira (Gabriel 2026-05-18: SÓ Twitter + madureira-dark Fraunces/Geist)
+  "paper-mono",        // mantido no order pra retrocompat de carrosseis salvos
+  "serif-duelo",       // idem
+  "madureira",         // idem
+  "madureira-reflection", // idem
+  "madureira-dark",    // ⭐ formato ativo
+  // Defiverso (Gabriel 2026-05-18: SÓ Twitter + defiverso-cripto-dark)
+  "defiverso-carrossel",  // mantido pra retrocompat
+  "defiverso-cripto-dark", // ⭐ formato ativo
 ];
 
 const TEMPLATE_DESC: Record<TemplateId, string> = {
@@ -88,6 +89,7 @@ const TEMPLATE_DESC: Record<TemplateId, string> = {
   "serif-duelo": "Auditoria editorial · cream parchment + Playfair · duelos FORTE/FRACA + princípio dark (ref: tinnaloaiza)",
   madureira: "Futurista simples · capa IA dominante · navy + accent verde · slides com quadrado 1:1",
   "madureira-reflection": "Texto-puro · 7 layouts DS (capa emoji/type, curva, barras, bullets, reflexão, CTA) · Geist + Fraunces italic accent · zero imagem",
+  "madureira-dark": "Dark · Fraunces italic 55pt capa (com emoji/imagem opcional) + Geist 35pt body · centralizado vertical · heart + N/total footer",
   "dsec-dark": "(deprecated — DSEC usa twitter genérico agora)",
   "defiverso-carrossel": "Defiverso · verde profundo + cream · bullets c/ dado destacado · CTA ManyChat (👽) [v1 newsletter-repurpose]",
   "defiverso-cripto-dark": "Defiverso v2 · dark + foto B&W full-bleed · título multi-cor (laranja/verde) · alien CTA handwritten",
@@ -101,29 +103,36 @@ const TEMPLATE_DESC: Record<TemplateId, string> = {
  * Match feito por substring do client.name lowercase (madureira → madureira*,
  * defiverso → defiverso*, dsec → dsec*). null = sem cliente selecionado.
  */
+// 2026-05-18 (atualizado pelo Gabriel): cada cliente vê SÓ 2 templates no
+// picker — twitter (genérico) + 1 template custom validado. Os antigos
+// continuam funcionando pra carrosseis JÁ salvos (não escondidos do switch
+// case do renderer) mas não aparecem mais no picker pra novos carrosseis.
 const TEMPLATE_CLIENT_ALLOWLIST: Partial<Record<TemplateId, string[]>> = {
-  // Madureira — 4 formatos. paper-mono e serif-duelo são os 2 validados
-  // pelo Gabriel em 2026-04-29 (refs tobi.the.og e tinnaloaiza).
-  // madureira e madureira-reflection ficam disponíveis como variantes.
-  'paper-mono': ['madureira'],
-  'serif-duelo': ['madureira'],
-  madureira: ['madureira'],
-  'madureira-reflection': ['madureira'],
-  // Defiverso — v1 newsletter-repurpose + v2 cripto-dark (dark + coins
-  // foto big + alien CTA, ref imagens 2026-05-18).
-  'defiverso-carrossel': ['defiverso'],
+  // Madureira — formato ativo: madureira-dark (Fraunces 55 + Geist 35).
+  // Os anteriores ficam restritos a [] (= ninguém vê no picker).
+  'paper-mono': [],
+  'serif-duelo': [],
+  madureira: [],
+  'madureira-reflection': [],
+  'madureira-dark': ['madureira'],
+  // Defiverso — formato ativo: defiverso-cripto-dark (dark + coins + alien).
+  'defiverso-carrossel': [],
   'defiverso-cripto-dark': ['defiverso'],
-  // 'dsec-dark' removido do TEMPLATE_ORDER — DSEC usa templates genéricos.
+  // 'dsec-dark' nem aparece no TEMPLATE_ORDER.
 };
 
 function isTemplateAvailableForClient(
   tid: TemplateId,
   clientName: string | null | undefined,
 ): boolean {
-  const allowlist = TEMPLATE_CLIENT_ALLOWLIST[tid];
-  if (!allowlist || allowlist.length === 0) return true; // genérico
+  const entry = TEMPLATE_CLIENT_ALLOWLIST[tid];
+  // Sem entry no allowlist = genérico, aparece pra todos.
+  if (entry === undefined) return true;
+  // Entry com array vazio = template desabilitado pra todos clientes
+  // (mantido só pra retrocompat de carrosseis salvos).
+  if (entry.length === 0) return false;
   const name = (clientName ?? '').toLowerCase();
-  return allowlist.some((needle) => name.includes(needle));
+  return entry.some((needle) => name.includes(needle));
 }
 
 const TEMPLATE_NAME_OVERRIDE: Partial<Record<TemplateId, string>> = {

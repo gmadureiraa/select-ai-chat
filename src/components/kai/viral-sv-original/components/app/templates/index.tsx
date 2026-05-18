@@ -11,6 +11,7 @@ import TemplatePaperMono from "./template-paper-mono";
 import TemplateSerifDuelo from "./template-serif-duelo";
 import TemplateMadureira from "./template-madureira";
 import TemplateMadureiraReflection from "./template-madureira-reflection";
+import TemplateMadureiraDark from "./template-madureira-dark";
 import TemplateDsecDark from "./template-dsec-dark";
 import TemplateDefiversoCarrossel from "./template-defiverso-carrossel";
 import TemplateDefiversoCriptoDark from "./template-defiverso-cripto-dark";
@@ -49,6 +50,8 @@ export const TemplateRenderer = forwardRef<
       return <TemplateMadureira ref={ref} {...rest} />;
     case "madureira-reflection":
       return <TemplateMadureiraReflection ref={ref} {...rest} />;
+    case "madureira-dark":
+      return <TemplateMadureiraDark ref={ref} {...rest} />;
     case "dsec-dark":
       return <TemplateDsecDark ref={ref} {...rest} />;
     case "defiverso-carrossel":
@@ -129,6 +132,12 @@ export const TEMPLATES_META: TemplateMeta[] = [
     palette: ["#000000", "#f4f1ea", "#e63a1f"],
   },
   {
+    id: "madureira-dark",
+    name: "Madureira Dark",
+    kicker: "Nº 10b · FRAUNCES + GEIST",
+    palette: ["#0A0A0A", "#FFFFFF", "#FF3D2E"],
+  },
+  {
     id: "dsec-dark",
     name: "DSEC Dark",
     kicker: "Nº 11 · TECH B2B",
@@ -160,6 +169,7 @@ export {
   TemplateSerifDuelo,
   TemplateMadureira,
   TemplateMadureiraReflection,
+  TemplateMadureiraDark,
   TemplateDsecDark,
   TemplateDefiversoCarrossel,
   TemplateDefiversoCriptoDark,

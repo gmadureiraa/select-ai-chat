@@ -17,6 +17,7 @@ export type TemplateId =
   | "serif-duelo"
   | "madureira"
   | "madureira-reflection"
+  | "madureira-dark"
   | "dsec-dark"
   | "defiverso-carrossel"
   | "defiverso-cripto-dark";

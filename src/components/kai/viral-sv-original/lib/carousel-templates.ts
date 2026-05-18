@@ -30,6 +30,7 @@ export type DesignTemplateId =
   | "paper-mono"
   | "serif-duelo"
   | "madureira-reflection"
+  | "madureira-dark"
   | "dsec-dark"
   | "defiverso-carrossel"
   | "defiverso-cripto-dark";
