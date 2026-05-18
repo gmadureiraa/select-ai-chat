@@ -1,0 +1,19 @@
+{
+  "list_routing": {
+    "901113611531": {"clientKey": "madureira", "platform": "instagram", "name": "Instagram Madureira"},
+    "901113611532": {"clientKey": "madureira", "platform": "twitter", "name": "Twitter Madureira"},
+    "901113627163": {"clientKey": "madureira", "platform": "linkedin", "name": "LinkedIn Madureira"},
+    "901113510382": {"clientKey": "dsec", "platform": "blog", "name": "Blog e News"},
+    "901113510384": {"clientKey": "dsec", "platform": "twitter", "name": "Twitter/X AlfredP2P"},
+    "901113510386": {"clientKey": "dsec", "platform": "linkedin", "name": "D-sec LinkedIn"},
+    "901113534480": {"clientKey": "dsec", "platform": "other", "name": "Campanhas & Estratégia"},
+    "901111727480": {"clientKey": "defiverso", "platform": "newsletter", "name": "Newsletter Defiverso"},
+    "901113468535": {"clientKey": "defiverso", "platform": "instagram", "name": "Stories Defiverso"},
+    "901111718522": {"clientKey": "defiverso", "platform": "twitter", "name": "Twitter Defiverso"},
+    "901112500589": {"clientKey": "lucas", "platform": "youtube", "name": "Vídeos Lucas Amendola"},
+    "901112411569": {"clientKey": "hugo", "platform": "youtube", "name": "Edição de vídeos"},
+    "901112411571": {"clientKey": "hugo", "platform": "other", "name": "Lançamento"},
+    "901113389898": {"clientKey": "lucas", "platform": "linkedin", "name": "Linkedin Lucas"},
+    "901111718507": {"clientKey": "layla", "platform": "newsletter", "name": "LaylaFoz"}
+  }
+}

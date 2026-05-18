@@ -34,6 +34,29 @@ const CLIENTS = {
   kaleidos: 'efdecbbc-00d9-460b-a746-3053b7366f6d',
   defiverso: '6129ea04-e53e-426d-b5ab-ce8553dde11e',
   dsec: '4e8be599-0d50-4759-b8a8-fb0b399e1551',
+  madureira: '14bf8576-7104-48ca-962d-014308e45a4e',
+  hugo: '501cc4b6-0055-446a-b71a-d786af0a4158',
+  lucas: 'e600c33f-717d-45c4-aa67-fe76f4130139',
+  layla: '903d4c5e-e0c1-4098-a336-8fe4da11b1eb',
+};
+
+// list_id ClickUp → { client_key, platform }
+const LIST_ROUTING: Record<string, { clientKey: keyof typeof CLIENTS; platform: string }> = {
+  '901113611531': { clientKey: 'madureira', platform: 'instagram' },
+  '901113611532': { clientKey: 'madureira', platform: 'twitter' },
+  '901113627163': { clientKey: 'madureira', platform: 'linkedin' },
+  '901113510382': { clientKey: 'dsec', platform: 'blog' },
+  '901113510384': { clientKey: 'dsec', platform: 'twitter' },
+  '901113510386': { clientKey: 'dsec', platform: 'linkedin' },
+  '901113534480': { clientKey: 'dsec', platform: 'other' },
+  '901111727480': { clientKey: 'defiverso', platform: 'newsletter' },
+  '901113468535': { clientKey: 'defiverso', platform: 'instagram' },
+  '901111718522': { clientKey: 'defiverso', platform: 'twitter' },
+  '901112500589': { clientKey: 'lucas', platform: 'youtube' },
+  '901112411569': { clientKey: 'hugo', platform: 'youtube' },
+  '901112411571': { clientKey: 'hugo', platform: 'other' },
+  '901113389898': { clientKey: 'lucas', platform: 'linkedin' },
+  '901111718507': { clientKey: 'layla', platform: 'newsletter' },
 };
 
 // ClickUp status → KAI column_type
@@ -191,6 +214,58 @@ async function importClickUp(
   return { inserted, skipped, rejected };
 }
 
+// Batch 2: lê fixture com tasks que carregam `list_id`, e mapeia via LIST_ROUTING
+async function importClickUpRouted(
+  c: any,
+  fixtureFile: string,
+  cols: ColumnMap,
+): Promise<{ inserted: number; skipped: number; rejected: number }> {
+  const tasks = JSON.parse(readFileSync(join(import.meta.dir, '_fixtures', fixtureFile), 'utf-8'));
+  let inserted = 0,
+    skipped = 0,
+    rejected = 0;
+  for (const t of tasks) {
+    const routing = LIST_ROUTING[t.list_id];
+    if (!routing) {
+      console.warn(`No routing for list_id ${t.list_id}`);
+      rejected++;
+      continue;
+    }
+    const colType = CLICKUP_STATUS_MAP[t.status];
+    if (!colType) {
+      rejected++;
+      continue;
+    }
+    const columnId = cols[colType];
+    if (!columnId) {
+      console.warn(`No column for type ${colType}`);
+      rejected++;
+      continue;
+    }
+    const dueIso = t.due_date ? new Date(Number(t.due_date)).toISOString() : null;
+    const status = colType;
+    const result = await upsertPlanningItem(c, {
+      clientId: CLIENTS[routing.clientKey],
+      source: 'clickup',
+      externalId: t.id,
+      title: t.name,
+      content: null,
+      contentType: inferContentType(t.tags ?? [], t.name),
+      platform: routing.platform,
+      status,
+      columnId,
+      scheduledAt: colType === 'scheduled' ? dueIso : null,
+      dueDate: dueIso ? dueIso.slice(0, 10) : null,
+      externalUrl: t.url,
+      labels: t.tags ?? [],
+      extraMetadata: { clickup_status: t.status, clickup_list_id: t.list_id },
+    });
+    if (result === 'inserted') inserted++;
+    else skipped++;
+  }
+  return { inserted, skipped, rejected };
+}
+
 async function importDsec(c: any, cols: ColumnMap): Promise<{ inserted: number; skipped: number }> {
   const dumpFile =
     '/Users/gabrielmadureira/.claude/projects/-Users-gabrielmadureira-GOS/e4830dc2-a20c-4b6b-bc37-3fdc50099fb0/tool-results/mcp-kaleidos-query_table-1779107582128.txt';
@@ -249,8 +324,28 @@ try {
   const ds = await importDsec(c, cols);
   console.log(`  inserted=${ds.inserted}  skipped=${ds.skipped}`);
 
+  // Batch 2 — listas adicionais por cliente, roteadas via list_id
+  const batch2Files = [
+    'clickup-madureira.json',
+    'clickup-defiverso-extra.json',
+    'clickup-hugo-lucas-layla.json',
+    'clickup-dsec.json',
+  ];
+  let b2Inserted = 0,
+    b2Skipped = 0,
+    b2Rejected = 0;
+  for (const fixture of batch2Files) {
+    console.log(`→ Importando ${fixture}...`);
+    const r = await importClickUpRouted(c, fixture, cols);
+    console.log(`  inserted=${r.inserted}  skipped=${r.skipped}  rejected=${r.rejected}`);
+    b2Inserted += r.inserted;
+    b2Skipped += r.skipped;
+    b2Rejected += r.rejected;
+  }
+
   console.log('---');
-  console.log(`Total inserted: ${k.inserted + d.inserted + ds.inserted}`);
+  console.log(`Total inserted batch 1: ${k.inserted + d.inserted + ds.inserted}`);
+  console.log(`Total inserted batch 2: ${b2Inserted} (skipped=${b2Skipped} rejected=${b2Rejected})`);
 } finally {
   c.release();
   await pool.end();
