@@ -1,7 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { isStaleChunkError } from "@/lib/lazyWithRetry";
+import { isStaleChunkError, hardReloadClearingCaches } from "@/lib/lazyWithRetry";
 
 interface Props {
   children: ReactNode;
@@ -56,6 +56,14 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.reload();
   };
 
+  // 2026-05-18 — quando erro é stale chunk, reload simples pode pegar SW
+  // cache antigo de novo. handleHardReload limpa SW caches + unregister
+  // antes do reload. Usado SÓ no fallback de stale chunk pra não custar
+  // performance em recoveries normais.
+  private handleHardReload = () => {
+    void hardReloadClearingCaches();
+  };
+
   public render() {
     if (!this.state.hasError) {
       return this.props.children;
@@ -101,7 +109,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="flex gap-2">
             {isStale ? (
               <Button
-                onClick={this.handleReload}
+                onClick={this.handleHardReload}
                 className="gap-2"
               >
                 <Download className="h-4 w-4" aria-hidden="true" />
@@ -163,7 +171,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
           <div className="flex gap-2 justify-center pt-2">
             {isStale ? (
-              <Button onClick={this.handleReload} className="gap-2">
+              <Button onClick={this.handleHardReload} className="gap-2">
                 <Download className="h-4 w-4" aria-hidden="true" />
                 Recarregar agora
               </Button>
