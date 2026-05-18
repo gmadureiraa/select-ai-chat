@@ -55,10 +55,8 @@ function fillVariants<T extends { variant?: SlideVariant }>(slides: T[]): T[] {
  * usando os slides do rascunho. Baseado em `v-templates` do handoff.
  */
 
-// 12 templates disponíveis — picker mostra todos pra admin, outros vêem só
-// os non-COMING_SOON (Twitter público padrão). Ordem por relevância: Twitter
-// primeiro (mais usado), depois Manifesto/Futurista (editorial), depois
-// os de cliente específicos (Madureira/DSEC/Defiverso) e os experimentais.
+// 2026-05-18 — paper-mono removido (estava sendo confundido com madureira
+// paper-mono-story por Gabriel). Madureira agora usa madureira/madureira-reflection.
 const TEMPLATE_ORDER: TemplateId[] = [
   "twitter",
   "manifesto",
@@ -66,7 +64,6 @@ const TEMPLATE_ORDER: TemplateId[] = [
   "ambitious",
   "blank",
   "bohdan",
-  "paper-mono",
   "autoral",
   "madureira",
   "madureira-reflection",
@@ -82,26 +79,37 @@ const TEMPLATE_DESC: Record<TemplateId, string> = {
   ambitious: "Motivacional · foto moody full-bleed · sans bold altura variável",
   blank: "Editorial educativo · serif Playfair + sans · cada slide um layout",
   bohdan: "Design-forward · B&W contraste alto · serif italic lime · handwritten",
-  "paper-mono": "Confessional · cream paper-grain · sans bold + mono · B&W halftone (ref: tobi.the.og)",
+  "paper-mono": "(deprecated — não usar)",
   madureira: "Futurista simples · capa IA dominante · navy + accent verde · slides com quadrado 1:1",
-  "madureira-reflection": "Texto-puro · 7 layouts DS (capa emoji/type, curva, barras, bullets, reflexão, CTA) · Geist + Fraunces italic accent · zero imagem (admin)",
+  "madureira-reflection": "Texto-puro · 7 layouts DS (capa emoji/type, curva, barras, bullets, reflexão, CTA) · Geist + Fraunces italic accent · zero imagem",
   "dsec-dark": "DSEC Labs · dark cybersecurity · Inter + Mono · accent BTC orange + verde dado · repurpose blog em 8-10 slides (B2B PT-BR)",
-  "defiverso-carrossel": "Defiverso IG · verde profundo + cream · Söhne/Inter · bullets com dado destacado + emoji pilar · CTA ManyChat (👽)",
+  "defiverso-carrossel": "Defiverso · dark cripto · coins + foto big · título verde/laranja · CTA alien ManyChat",
 };
 
 /**
- * Templates que SÓ aparecem pra admin. User comum nem vê no picker.
- * Diferente de COMING_SOON (que aparece com badge mas não pode selecionar).
+ * 2026-05-18 — Allowlist por cliente: templates custom só aparecem quando
+ * o cliente alvo é selecionado. Evita user pegar template Madureira pra fazer
+ * post de outro cliente.
  *
- * Templates por cliente (madureira/dsec/defiverso) são admin-only por padrão
- * — evita user genérico usar o visual de um cliente específico Kaleidos.
+ * Match feito por substring do client.name lowercase (madureira → madureira*,
+ * defiverso → defiverso*, dsec → dsec*). null = sem cliente selecionado.
  */
-const ADMIN_ONLY_TEMPLATES: Partial<Record<TemplateId, true>> = {
-  "madureira-reflection": true,
-  madureira: true,
-  "dsec-dark": true,
-  "defiverso-carrossel": true,
+const TEMPLATE_CLIENT_ALLOWLIST: Partial<Record<TemplateId, string[]>> = {
+  madureira: ['madureira'],
+  'madureira-reflection': ['madureira'],
+  'defiverso-carrossel': ['defiverso'],
+  'dsec-dark': ['dsec'],
 };
+
+function isTemplateAvailableForClient(
+  tid: TemplateId,
+  clientName: string | null | undefined,
+): boolean {
+  const allowlist = TEMPLATE_CLIENT_ALLOWLIST[tid];
+  if (!allowlist || allowlist.length === 0) return true; // genérico
+  const name = (clientName ?? '').toLowerCase();
+  return allowlist.some((needle) => name.includes(needle));
+}
 
 const TEMPLATE_NAME_OVERRIDE: Partial<Record<TemplateId, string>> = {
   manifesto: "Futurista",
@@ -269,8 +277,13 @@ export default function TemplatesPage(props: {
       <div
         className="mt-6 grid gap-6 grid-cols-1 sm:grid-cols-2"
       >
-        {TEMPLATE_ORDER.filter(
-          (tplId) => isAdmin || !ADMIN_ONLY_TEMPLATES[tplId],
+        {TEMPLATE_ORDER.filter((tplId) =>
+          // 2026-05-18 — Filtragem em camadas:
+          // 1. Allowlist por cliente (mais específico): só mostra template
+          //    custom quando o cliente correto está ativo. Aplica pra todos
+          //    (admin incluído) — separação por cliente é semântica, não
+          //    permissão.
+          isTemplateAvailableForClient(tplId, client?.name),
         ).map((tplId) => {
           const meta = TEMPLATES_META.find((m) => m.id === tplId)!;
           const isOn = selected === tplId;
