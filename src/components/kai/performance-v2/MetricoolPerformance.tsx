@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { apiInvoke } from '@/lib/apiInvoke';
+import { toast } from 'sonner';
 // MetricoolBestTimesCard agora é renderizado DENTRO de cada plataforma
 // (último bloco de cada PlatformDashboard / InstagramDashboardV2), não global.
 // 2026-05-17 — Dashboards per-tab lazy. Cada um tem charts (SVG primitives custom,
@@ -68,17 +70,47 @@ type ActiveTab = MetricoolNetwork | 'comparison';
 export function MetricoolPerformance({ clientId, client }: Props) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('comparison');
   const [period, setPeriod] = useState<number>(30);
+  const [refreshing, setRefreshing] = useState(false);
   const qc = useQueryClient();
 
   const archivedChannels: string[] = (client.social_media as any)?.archived_channels || [];
   const platforms = ALL_PLATFORMS.filter((p) => !archivedChannels.includes(p.id));
 
-  const handleRefresh = () => {
-    qc.invalidateQueries({ queryKey: ['metricool-posts', clientId] });
-    qc.invalidateQueries({ queryKey: ['metricool-reels', clientId] });
-    qc.invalidateQueries({ queryKey: ['metricool-stories', clientId] });
-    qc.invalidateQueries({ queryKey: ['metricool-analytics', clientId] });
-    qc.invalidateQueries({ queryKey: ['metricool-best-times', clientId] });
+  // 2026-05-18 — antes só invalidava cache local; agora dispara refresh REAL do
+  // Metricool (backfill posts + snapshot + poll + fetch published). Resposta
+  // tipica: 4-8s. Depois invalida queries pra re-fetchar do Neon.
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    const toastId = toast.loading('Puxando dados frescos do Metricool…');
+    try {
+      const { data, error } = await apiInvoke<{
+        ok: boolean;
+        total_duration_ms: number;
+        steps: Array<{ step: string; ok: boolean; durationMs: number; error?: string }>;
+        errors: string[];
+      }>('metricool-refresh-now', { body: {} });
+      if (error) throw new Error(error.message || 'Falha ao chamar refresh');
+      if (!data?.ok) {
+        toast.error(`Refresh parcial: ${data?.errors?.join(' | ') ?? 'erros desconhecidos'}`, {
+          id: toastId,
+        });
+      } else {
+        toast.success(`Atualizado em ${(data.total_duration_ms / 1000).toFixed(1)}s`, {
+          id: toastId,
+        });
+      }
+      // Re-fetch queries locais com dados frescos do Neon
+      qc.invalidateQueries({ queryKey: ['metricool-posts', clientId] });
+      qc.invalidateQueries({ queryKey: ['metricool-reels', clientId] });
+      qc.invalidateQueries({ queryKey: ['metricool-stories', clientId] });
+      qc.invalidateQueries({ queryKey: ['metricool-analytics', clientId] });
+      qc.invalidateQueries({ queryKey: ['metricool-best-times', clientId] });
+    } catch (err) {
+      toast.error(`Erro: ${(err as Error).message}`, { id: toastId });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   return (
@@ -106,9 +138,20 @@ export function MetricoolPerformance({ clientId, client }: Props) {
               </button>
             ))}
           </div>
-          <Button variant="outline" size="sm" onClick={handleRefresh} className="gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Atualizar
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="gap-1.5"
+            title="Puxa dados frescos do Metricool (~5-10s). Cron diário roda 3h BRT automaticamente."
+          >
+            {refreshing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            {refreshing ? 'Atualizando…' : 'Atualizar'}
           </Button>
         </div>
       </div>

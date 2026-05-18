@@ -90,6 +90,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'metricool-smart-links': () => import('./_handlers/metricool-smart-links.js'),
   'metricool-snapshots': () => import('./_handlers/metricool-snapshots.js'),
   'metricool-summary': () => import('./_handlers/metricool-summary.js'),
+  'metricool-refresh-now': () => import('./_handlers/metricool-refresh-now.js'),
   'metricool-reports': () => import('./_handlers/metricool-reports.js'),
   'metricool-calendar': () => import('./_handlers/metricool-calendar.js'),
   // Late.ai integration (publisher único pós-2026-05-17, Postiz arquivado).
