@@ -17,7 +17,7 @@ interface AddToPlanningArgs {
   title?: string;
   scheduled_at?: string;
   client_id?: string;
-  column_type?: 'idea' | 'draft' | 'review' | 'approved' | 'scheduled';
+  column_type?: 'idea' | 'pending_approval' | 'draft' | 'review' | 'approved' | 'scheduled';
   media_urls?: string[];
 }
 
@@ -84,7 +84,7 @@ export const addToPlanningTool: RegisteredTool<AddToPlanningArgs, AddToPlanningD
         },
         column_type: {
           type: 'string',
-          enum: ['idea', 'draft', 'review', 'approved', 'scheduled'],
+          enum: ['idea', 'pending_approval', 'draft', 'review', 'approved', 'scheduled'],
           description: 'Coluna alvo. Default: scheduled se scheduled_at presente, senão draft.',
         },
         media_urls: {

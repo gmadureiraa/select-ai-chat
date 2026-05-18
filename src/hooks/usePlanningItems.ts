@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 
-export type PlanningStatus = 'idea' | 'draft' | 'review' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'failed';
+export type PlanningStatus = 'idea' | 'pending_approval' | 'draft' | 'review' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'failed';
 export type PlanningPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type PlanningPlatform = 'twitter' | 'linkedin' | 'instagram' | 'youtube' | 'newsletter' | 'blog' | 'tiktok' | 'facebook' | 'threads' | 'other';
 
@@ -505,6 +505,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       const column = columns.find(c => c.id === columnId);
       const statusMap: Record<string, PlanningStatus> = {
         'idea': 'idea',
+        'pending_approval': 'pending_approval',
         'draft': 'draft',
         'review': 'review',
         'approved': 'approved',

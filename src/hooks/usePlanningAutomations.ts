@@ -31,7 +31,7 @@ export type ImageStyle = 'photographic' | 'illustration' | 'minimalist' | 'vibra
  * Status inicial do planning_item criado pela automação.
  * Aplicável só quando auto_publish=false. Default 'idea' (precisa aprovação manual).
  */
-export type StatusAfterGeneration = 'idea' | 'draft' | 'approved';
+export type StatusAfterGeneration = 'idea' | 'pending_approval' | 'draft' | 'approved';
 
 export interface PlanningAutomation {
   id: string;

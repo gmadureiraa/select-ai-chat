@@ -54,7 +54,7 @@ const BodySchema = z.object({
     .nullable()
     .optional(),
   auto_publish: z.boolean().default(false),
-  status_after_generation: z.enum(['idea', 'draft', 'approved']).default('idea'),
+  status_after_generation: z.enum(['idea', 'pending_approval', 'draft', 'approved']).default('idea'),
   is_active: z.boolean().default(true),
 });
 

@@ -14,7 +14,7 @@ const BodySchema = z.object({
   position: z.number().int().min(0).default(0),
   color: z.string().max(30).default('gray'),
   column_type: z
-    .enum(['idea', 'draft', 'review', 'approved', 'scheduled', 'published', 'custom'])
+    .enum(['idea', 'pending_approval', 'draft', 'review', 'approved', 'scheduled', 'published', 'custom'])
     .default('custom'),
 });
 

@@ -51,7 +51,7 @@ const priorityConfig: Record<string, { color: string; label: string }> = {
 };
 
 const statusLabels: Record<string, string> = {
-  idea: 'Ideia', draft: 'Rascunho', review: 'Revisão', approved: 'Aprovado',
+  idea: 'Ideia', pending_approval: 'Aprovar', draft: 'Iniciar', review: 'Revisar', approved: 'Pronto',
   scheduled: 'Agendado', publishing: 'Publicando', published: 'Publicado', failed: 'Falhou',
 };
 

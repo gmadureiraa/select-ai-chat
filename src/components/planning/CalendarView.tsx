@@ -47,6 +47,12 @@ const statusConfig: Record<string, { bg: string; text: string; border: string; d
     border: 'border-[hsl(var(--status-idea)/0.30)]',
     dot: 'bg-[hsl(var(--status-idea))]',
   },
+  pending_approval: {
+    bg: 'bg-[hsl(var(--status-pending_approval)/0.12)]',
+    text: 'text-[hsl(var(--status-pending_approval))]',
+    border: 'border-[hsl(var(--status-pending_approval)/0.30)]',
+    dot: 'bg-[hsl(var(--status-pending_approval))]',
+  },
   draft: {
     bg: 'bg-[hsl(var(--status-draft)/0.12)]',
     text: 'text-[hsl(var(--status-draft))]',

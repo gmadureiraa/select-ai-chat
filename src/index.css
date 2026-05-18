@@ -89,6 +89,7 @@
 
     /* Planning status colors (light) */
     --status-idea: 270 70% 60%;
+    --status-pending_approval: 38 95% 50%;
     --status-draft: 217 90% 60%;
     --status-review: 38 92% 55%;
     --status-approved: 142 70% 45%;
@@ -178,6 +179,7 @@
 
     /* Planning status colors (dark) */
     --status-idea: 270 80% 70%;
+    --status-pending_approval: 42 100% 60%;
     --status-draft: 217 95% 65%;
     --status-review: 42 95% 60%;
     --status-approved: 150 80% 55%;

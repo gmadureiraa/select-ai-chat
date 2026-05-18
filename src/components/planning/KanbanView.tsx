@@ -55,6 +55,7 @@ interface KanbanViewProps {
 
 const STATUS_MAP: Record<string, PlanningStatus> = {
   idea: 'idea',
+  pending_approval: 'pending_approval',
   draft: 'draft',
   review: 'review',
   approved: 'approved',
@@ -332,7 +333,7 @@ export const KanbanView = forwardRef<KanbanViewHandle, KanbanViewProps>(function
         <EmptyState
           type="kanban"
           title="Nenhuma coluna configurada"
-          description="As colunas padrão (Ideias, Rascunho, Revisão, Aprovado, Agendado, Publicado) ainda não foram criadas para este workspace."
+          description="As colunas padrão (Ideias, Aprovar, Iniciar, Revisar, Pronto, Agendado, Publicado) ainda não foram criadas para este workspace."
         />
       </div>
     );

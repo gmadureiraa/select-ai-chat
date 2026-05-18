@@ -35,9 +35,10 @@ const platforms: { value: PlanningPlatform; label: string }[] = [
 
 const statuses: { value: PlanningStatus; label: string }[] = [
   { value: 'idea', label: 'Ideia' },
-  { value: 'draft', label: 'Rascunho' },
-  { value: 'review', label: 'Revisão' },
-  { value: 'approved', label: 'Aprovado' },
+  { value: 'pending_approval', label: 'Aprovar' },
+  { value: 'draft', label: 'Iniciar' },
+  { value: 'review', label: 'Revisar' },
+  { value: 'approved', label: 'Pronto' },
   { value: 'scheduled', label: 'Agendado' },
   { value: 'published', label: 'Publicado' },
   { value: 'failed', label: 'Falhou' },

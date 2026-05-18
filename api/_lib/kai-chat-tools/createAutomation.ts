@@ -21,7 +21,7 @@ interface CreateAutomationArgs {
   image_prompt_template?: string;
   image_style?: 'photographic' | 'illustration' | 'minimalist' | 'vibrant';
   /** Status inicial do card quando auto_publish=false. Default 'idea'. */
-  status_after_generation?: 'idea' | 'draft' | 'approved';
+  status_after_generation?: 'idea' | 'pending_approval' | 'draft' | 'approved';
   is_active?: boolean;
 }
 
@@ -95,9 +95,9 @@ export const createAutomationTool: RegisteredTool<CreateAutomationArgs, CreateAu
         },
         status_after_generation: {
           type: 'string',
-          enum: ['idea', 'draft', 'approved'],
+          enum: ['idea', 'pending_approval', 'draft', 'approved'],
           description:
-            "Status inicial do card criado quando auto_publish=false. 'idea' (default) precisa aprovação manual; 'draft' já vira rascunho editável; 'approved' já aprovado pra agendar (use só se confia 100% no template).",
+            "Status inicial do card criado quando auto_publish=false. 'idea' (default) cai em Ideias; 'pending_approval' entra direto no gate Aprovar; 'draft' vai pra Iniciar (em produção); 'approved' já marca como Pronto pra agendar (use só se confia 100% no template).",
         },
         is_active: {
           type: 'boolean',

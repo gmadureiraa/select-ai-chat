@@ -454,7 +454,7 @@ export function PlanningItemDialog({
       // auto-move to "scheduled" column. NUNCA rebaixar status de 'published'
       // pra 'scheduled' só pq o user reabriu o dialog (item já saiu).
       let targetColumnId = columnId;
-      let targetStatus: 'idea' | 'draft' | 'review' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'failed' = 'idea';
+      let targetStatus: 'idea' | 'pending_approval' | 'draft' | 'review' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'failed' = 'idea';
       const currentStatus = effectiveItem?.status;
 
       if (finalScheduledAt && columns.length > 0 && currentStatus !== 'published') {
@@ -1292,6 +1292,46 @@ export function PlanningItemDialog({
                   Excluir
                 </Button>
               )}
+              {!readOnly && effectiveItem?.status === 'pending_approval' && onUpdate && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-blue-500/30 text-blue-600 hover:bg-blue-500/10 hover:text-blue-600"
+                    onClick={async () => {
+                      const draftColumn = columns.find(c => c.column_type === 'draft');
+                      await onUpdate(effectiveItem.id, {
+                        status: 'draft',
+                        ...(draftColumn ? { column_id: draftColumn.id } : {})
+                      });
+                      toast.success('Ideia aprovada — partiu produção!');
+                      onOpenChange(false);
+                    }}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Aprovar e iniciar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-muted-foreground/30 hover:bg-muted"
+                    onClick={async () => {
+                      const ideaColumn = columns.find(c => c.column_type === 'idea');
+                      await onUpdate(effectiveItem.id, {
+                        status: 'idea',
+                        ...(ideaColumn ? { column_id: ideaColumn.id } : {})
+                      });
+                      toast.info('Devolvido para Ideias');
+                      onOpenChange(false);
+                    }}
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    Voltar pra Ideias
+                  </Button>
+                </>
+              )}
               {!readOnly && effectiveItem?.status === 'review' && onUpdate && (
                 <>
                   <Button
@@ -1301,16 +1341,16 @@ export function PlanningItemDialog({
                     className="gap-1.5 border-green-500/30 text-green-600 hover:bg-green-500/10 hover:text-green-600"
                     onClick={async () => {
                       const approvedColumn = columns.find(c => c.column_type === 'approved');
-                      await onUpdate(effectiveItem.id, { 
+                      await onUpdate(effectiveItem.id, {
                         status: 'approved',
                         ...(approvedColumn ? { column_id: approvedColumn.id } : {})
                       });
-                      toast.success('Item aprovado!');
+                      toast.success('Marcado como Pronto!');
                       onOpenChange(false);
                     }}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    Aprovar
+                    Pronto
                   </Button>
                   <Button
                     type="button"
@@ -1319,7 +1359,7 @@ export function PlanningItemDialog({
                     className="gap-1.5 border-orange-500/30 text-orange-600 hover:bg-orange-500/10 hover:text-orange-600"
                     onClick={async () => {
                       const draftColumn = columns.find(c => c.column_type === 'draft');
-                      await onUpdate(effectiveItem.id, { 
+                      await onUpdate(effectiveItem.id, {
                         status: 'draft',
                         ...(draftColumn ? { column_id: draftColumn.id } : {})
                       });

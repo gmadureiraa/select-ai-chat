@@ -1,9 +1,9 @@
 # 📅 Planejamento — Kanban & Calendário
-> Última atualização: 09 de Março de 2026
+> Última atualização: 18 de Maio de 2026 (kanban v2 com gate Aprovar)
 
 ## Visão Geral
 
-O sistema de Planejamento é o hub de gestão editorial do Kaleidos. Combina um **Kanban Board** com um **Calendário** para gerenciar o ciclo de vida completo de conteúdo: ideação → rascunho → revisão → aprovação → agendamento → publicação.
+O sistema de Planejamento é o hub de gestão editorial do Kaleidos. Combina um **Kanban Board** com um **Calendário** para gerenciar o ciclo de vida completo de conteúdo: ideação → gate de aprovação → produção → revisão → pronto → agendamento → publicação.
 
 ---
 
@@ -26,11 +26,14 @@ Inicializadas por `initialize_kanban_columns()`:
 | Posição | Nome | Tipo | Cor |
 |---------|------|------|-----|
 | 0 | Ideias | `idea` | purple |
-| 1 | Rascunho | `draft` | blue |
-| 2 | Revisão | `review` | yellow |
-| 3 | Aprovado | `approved` | green |
-| 4 | Agendado | `scheduled` | orange |
-| 5 | Publicado | `published` | gray |
+| 1 | Aprovar | `pending_approval` | amber |
+| 2 | Iniciar | `draft` | blue |
+| 3 | Revisar | `review` | yellow |
+| 4 | Pronto | `approved` | green |
+| 5 | Agendado | `scheduled` | orange |
+| 6 | Publicado | `published` | gray |
+
+**Fluxo:** card nasce em **Ideias**, passa pelo gate **Aprovar** (Gabriel libera ou descarta), vai pra **Iniciar** (em produção), depois **Revisar**, **Pronto** (aprovado final), **Agendado** e por fim **Publicado**. Mudança de coluna atualiza `planning_items.status` automaticamente.
 
 ---
 

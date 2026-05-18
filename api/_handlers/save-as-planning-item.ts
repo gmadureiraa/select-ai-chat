@@ -26,7 +26,7 @@ const BodySchema = z.object({
     .optional(),
   platform: z.string().optional(),
   status: z
-    .enum(['idea', 'draft', 'review', 'approved', 'scheduled', 'published'])
+    .enum(['idea', 'pending_approval', 'draft', 'review', 'approved', 'scheduled', 'published'])
     .optional(),
   scheduled_at: z.string().optional(),
   metadata: z.record(z.unknown()).optional(),

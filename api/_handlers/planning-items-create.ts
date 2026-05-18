@@ -21,7 +21,7 @@ const BodySchema = z.object({
   platform: z.string().max(60).nullable().optional(),
   status: z
     .enum([
-      'idea', 'draft', 'review', 'approved', 'scheduled', 'published',
+      'idea', 'pending_approval', 'draft', 'review', 'approved', 'scheduled', 'published',
       'publishing', 'failed', 'todo',
     ])
     .optional(),

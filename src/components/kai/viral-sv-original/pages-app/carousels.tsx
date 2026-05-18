@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@sv/lib/auth-context";
 import { useKaiContext } from "@sv/lib/use-kai-context";
@@ -65,6 +66,7 @@ type FilterKey = "all" | "drafts" | "published" | "archived";
 export default function CarouselsPage() {
   const { user, refreshProfile, profile } = useAuth();
   const kaiCtx = useKaiContext();
+  const router = useRouter();
   const previewProfile = useMemo(() => buildLibraryPreviewProfile(profile), [profile]);
   const [carousels, setCarousels] = useState<SavedCarousel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,6 +78,45 @@ export default function CarouselsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [creatingBlank, setCreatingBlank] = useState(false);
+
+  // 4 slides em branco — capa, dois miolos e CTA. User edita tudo no /edit
+  // e usa "📅 Salvar no calendário" pra mandar pro planning_items.
+  async function handleCreateBlank() {
+    if (!user || !supabase) {
+      toast.error("Sessão inválida.");
+      return;
+    }
+    if (creatingBlank) return;
+    setCreatingBlank(true);
+    try {
+      const blankSlides = [
+        { heading: "Capa do carrossel", body: "", imageQuery: "", variant: "cover" as const },
+        { heading: "", body: "", imageQuery: "", variant: "headline" as const },
+        { heading: "", body: "", imageQuery: "", variant: "headline" as const },
+        { heading: "Chamada final", body: "", imageQuery: "", variant: "cta" as const },
+      ];
+      const { row } = await upsertUserCarousel(supabase, user.id, {
+        title: "Carrossel sem título",
+        slides: blankSlides,
+        slideStyle: "white",
+        status: "draft",
+        designTemplate: DEFAULT_DESIGN_TEMPLATE,
+        creationMode: "quick",
+        workspaceId: kaiCtx.workspaceId,
+        clientId: kaiCtx.clientId,
+      });
+      await bumpCarouselUsage(supabase, user.id);
+      await refreshProfile();
+      posthog.capture("carousel_blank_created", { carousel_id: row.id });
+      router.push(`/app/create/${row.id}/edit`);
+    } catch (err) {
+      console.error("[create-blank] falha:", err);
+      toast.error("Não foi possível criar o carrossel em branco. Tente de novo.");
+    } finally {
+      setCreatingBlank(false);
+    }
+  }
 
   const loadCarousels = useCallback(async () => {
     setLoadError(null);
@@ -380,9 +421,21 @@ export default function CarouselsPage() {
               {total} {total === 1 ? "peça salva" : "peças salvas"}. Filtre, duplique, exporte.
             </p>
           </div>
-          <Link href="/app/create/new" className="sv-btn-primary self-start">
-            + Novo carrossel
-          </Link>
+          <div className="flex flex-wrap items-center gap-3 self-start">
+            <Link href="/app/create/new" className="sv-btn-primary">
+              + Novo com IA
+            </Link>
+            <button
+              type="button"
+              onClick={() => void handleCreateBlank()}
+              disabled={creatingBlank}
+              className="sv-btn-outline"
+              style={{ opacity: creatingBlank ? 0.6 : 1, cursor: creatingBlank ? "wait" : "pointer" }}
+              title="Cria um carrossel vazio e abre o editor — preencha textos/imagens manualmente e mande pro planejamento."
+            >
+              {creatingBlank ? "Criando…" : "+ Em branco"}
+            </button>
+          </div>
         </div>
       </motion.div>
 
@@ -605,7 +658,7 @@ export default function CarouselsPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
           >
-            <EmptyState />
+            <EmptyState onCreateBlank={() => void handleCreateBlank()} />
           </motion.div>
         ) : (
           <motion.div
@@ -1064,7 +1117,7 @@ function CarouselCard({
   );
 }
 
-function EmptyState() {
+function EmptyState({ onCreateBlank }: { onCreateBlank?: () => void } = {}) {
   return (
     <section className="sv-card-accent flex flex-col gap-6 p-10 md:flex-row md:items-center md:justify-between md:p-12">
       <div className="max-w-xl">
@@ -1089,9 +1142,16 @@ function EmptyState() {
           duplicar e exportar sem perder a ordem.
         </p>
       </div>
-      <Link href="/app/create/new" className="sv-btn-ink self-start md:self-auto">
-        <PlusCircle size={13} /> Criar primeiro carrossel
-      </Link>
+      <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+        <Link href="/app/create/new" className="sv-btn-ink">
+          <PlusCircle size={13} /> Criar com IA
+        </Link>
+        {onCreateBlank && (
+          <button type="button" onClick={onCreateBlank} className="sv-btn-outline">
+            + Em branco
+          </button>
+        )}
+      </div>
     </section>
   );
 }

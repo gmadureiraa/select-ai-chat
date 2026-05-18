@@ -27,7 +27,7 @@ export interface AiWorkflowConfig {
   hashtags_max?: number;
   language?: string;
   due_date_offset_days?: number;
-  status_after_generation?: 'idea' | 'draft' | 'approved';
+  status_after_generation?: 'idea' | 'pending_approval' | 'draft' | 'approved';
   rotation_by_weekday?: Record<string, string>;
   trigger?: string;
   sources?: string[];

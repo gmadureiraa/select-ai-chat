@@ -13,7 +13,7 @@ const UpdateSchema = z.object({
   column_id: z.string().uuid(),
   position: z.number().int().min(0),
   status: z
-    .enum(['idea', 'draft', 'review', 'approved', 'scheduled', 'published'])
+    .enum(['idea', 'pending_approval', 'draft', 'review', 'approved', 'scheduled', 'published'])
     .optional(),
 });
 
