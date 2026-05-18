@@ -10,7 +10,6 @@ import {
   Webhook,
   Briefcase,
   Plug,
-  ScrollText,
   Terminal,
 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -19,11 +18,9 @@ export type SettingsSection =
   | "profile"
   | "workspace"
   | "members"
-  | "team"
   | "notifications"
   | "appearance"
   | "integrations"
-  | "audit-log"
   | "docs"
   | "ai-usage"
   | "webhooks"
@@ -32,11 +29,13 @@ export type SettingsSection =
 interface SettingsNavigationProps {
   activeSection: SettingsSection;
   onSectionChange: (section: SettingsSection) => void;
-  showTeam?: boolean;
   showWorkspace?: boolean;
   showMembers?: boolean;
   /** @deprecated Radar Viral removido do KAI em 2026-05-16. */
   showRadarSources?: boolean;
+  /** @deprecated 2026-05-18 — "team" virou alias de "members" (unificados). */
+  showTeam?: boolean;
+  /** @deprecated 2026-05-18 — auditoria removida. */
   showAuditLog?: boolean;
 }
 
@@ -49,10 +48,13 @@ type Section = {
   id: SettingsSection;
   label: string;
   icon: React.ElementType;
-  requiresPermission?: "team" | "workspace" | "members" | "audit-log";
+  requiresPermission?: "workspace" | "members";
   group: "account" | "workspace" | "system";
 };
 
+// 2026-05-18 — "Time" (TeamManagement legado) e "Auditoria" (AuditLogSettings)
+// removidos. Membros (WorkspaceMembersTab) é o componente único pra gerenciar
+// quem tem acesso ao workspace.
 const sections: Section[] = [
   // Conta — sempre visível
   { id: "profile", label: "Perfil", icon: User, group: "account" },
@@ -61,8 +63,6 @@ const sections: Section[] = [
   // Workspace — gated por permissão
   { id: "workspace", label: "Workspace", icon: Briefcase, requiresPermission: "workspace", group: "workspace" },
   { id: "members", label: "Membros", icon: Users, requiresPermission: "members", group: "workspace" },
-  { id: "team", label: "Time", icon: Users, requiresPermission: "team", group: "workspace" },
-  { id: "audit-log", label: "Auditoria", icon: ScrollText, requiresPermission: "audit-log", group: "workspace" },
   // Sistema — integrações, observabilidade, dev
   { id: "integrations", label: "Integrações", icon: Plug, group: "system" },
   { id: "mcp", label: "MCP kAI", icon: Terminal, group: "system" },
@@ -80,18 +80,13 @@ const groupLabels: Record<Section["group"], string> = {
 export function SettingsNavigation({
   activeSection,
   onSectionChange,
-  showTeam = true,
   showWorkspace = false,
   showMembers = false,
-  showRadarSources = false,
-  showAuditLog = false,
 }: SettingsNavigationProps) {
   const isMobile = useIsMobile();
   const visibleSections = sections.filter(section => {
-    if (section.requiresPermission === "team" && !showTeam) return false;
     if (section.requiresPermission === "workspace" && !showWorkspace) return false;
     if (section.requiresPermission === "members" && !showMembers) return false;
-    if (section.requiresPermission === "audit-log" && !showAuditLog) return false;
     return true;
   });
 

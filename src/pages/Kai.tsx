@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 // Sidebar/header ficam eager — sempre visíveis, viram parte do "shell" do app.
 import { KaiSidebar } from "@/components/kai/KaiSidebar";
@@ -122,6 +122,12 @@ const SettingsTab = lazy(() =>
 const AutomationsTab = lazy(() =>
   import("@/components/automations/AutomationsTab").then((m) => ({ default: m.AutomationsTab })),
 );
+// 2026-05-18 — restaurado: ClientsListPage agora monta INLINE como tab dentro do
+// Kai shell pra não perder sidebar. Antes (2026-05-10) era rota dedicada
+// `/kaleidos/clients` mas isso quebrava o layout (sem sidebar).
+const ClientsListPage = lazy(() =>
+  import("@/components/clients/ClientsListPage").then((m) => ({ default: m.ClientsListPage })),
+);
 // 2026-05-09 — RadarSourcesManager, WorkspaceSettingsTab e WorkspaceMembersTab
 // foram movidos pra dentro de SettingsTab (sections workspace, members,
 // radar-sources). Imports lazy removidos daqui — agora vivem em
@@ -149,7 +155,11 @@ export default function Kai() {
   const navigate = useNavigate();
   const clientId = searchParams.get("client");
   const carouselId = searchParams.get("carouselId");
-  const tab = searchParams.get("tab") || "home";
+  // 2026-05-18 — `/kaleidos/clients` aponta pra Kai shell com tab=clients
+  // (preservando sidebar). Pathname override: bookmarks antigos continuam OK.
+  const location = useLocation();
+  const tabFromPath = location.pathname === "/kaleidos/clients" ? "clients" : null;
+  const tab = tabFromPath || searchParams.get("tab") || "home";
   const isMobile = useIsMobile();
   
   const { clients, isLoading: isLoadingClients } = useClients();
@@ -223,22 +233,14 @@ export default function Kai() {
   useEffect(() => {
     if (isLoadingWorkspace) return;
 
-    // 2026-05-10 — `tab=clients` deduplicado: agora vai pra rota dedicada
-    // `/kaleidos/clients` (ClientsListPage). Antes montava ClientsManagementTool
-    // inline aqui, gerando dois caminhos pra mesma tela. Preserva clientId via
-    // query string pra quando voltar pelo back/forward o cliente continue ativo.
-    if (tab === "clients") {
-      // Permission gate continua valendo: viewer sem canViewClients perde acesso.
-      if (!canViewClients) {
-        const params = new URLSearchParams(searchParams);
-        params.set("tab", "planning");
-        setSearchParams(params);
-        return;
-      }
-      const target = clientId
-        ? `/kaleidos/clients?client=${encodeURIComponent(clientId)}`
-        : "/kaleidos/clients";
-      navigate(target, { replace: true });
+    // 2026-05-18 — `tab=clients` volta a renderizar INLINE no Kai shell
+    // (case "clients" no switch abaixo). Tentativa de 2026-05-10 com rota
+    // dedicada `/kaleidos/clients` quebrava o sidebar — usuário caía numa
+    // página standalone sem nav. Permission gate continua valendo.
+    if (tab === "clients" && !canViewClients) {
+      const params = new URLSearchParams(searchParams);
+      params.set("tab", "planning");
+      setSearchParams(params);
       return;
     }
 
@@ -404,7 +406,7 @@ export default function Kai() {
     // viral-library removida em 2026-05-08 — unificada com biblioteca normal
     // do cliente (client_reference_library) com scenes/slides/format.
     const toolTabs = [
-      "settings", "automations", "assistant", "home",
+      "settings", "automations", "assistant", "home", "clients",
       "viral-carrossel",
       // Metricool: só inbox unificado fica global (push notifications de DMs).
       "inbox",
@@ -412,9 +414,7 @@ export default function Kai() {
       // radar-sources-admin (viraram sections em Settings); hashtags,
       // competitors, reports (viraram per-client no Perfil → Viral);
       // mcp (virou section em Settings → Sistema → MCP kAI).
-      // 2026-05-10: removido "clients" — agora vai pra rota dedicada
-      // `/kaleidos/clients` via redirect no useEffect logo no topo.
-      // Esses tabs agora redirecionam via useEffect logo no topo.
+      // 2026-05-18: "clients" RESTAURADO inline (fix sidebar bug).
     ];
 
     if (toolTabs.includes(tab)) {
@@ -465,8 +465,11 @@ export default function Kai() {
               }}
             />
           );
-        // case "clients" removido 2026-05-10 — agora vai pra rota dedicada
-        // `/kaleidos/clients` via early-redirect no useEffect.
+        case "clients":
+          // 2026-05-18 — RESTAURADO inline. Antes era rota dedicada que perdia
+          // sidebar; agora monta dentro do shell preservando navegação.
+          // redirectOnComplete=false porque a navegação fica via tab state.
+          return <ClientsListPage redirectOnComplete={false} />;
         case "settings":
           return <SettingsTab />;
         case "automations":

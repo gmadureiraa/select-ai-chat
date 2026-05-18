@@ -21,14 +21,11 @@ import { SettingsNavigation, SettingsSection } from "@/components/settings/Setti
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-// 2026-05-17 — sections grandes (TeamManagement, Documentation, AIUsage, Webhook,
-// Workspace settings, Members, Integrations, AuditLog, MCPDocs) viraram lazy.
-// SettingsTab inteiro era ~178kB porque eager-importava TUDO; agora só baixa
-// a section que o user navegou via SettingsNavigation. Profile/Notifications/
-// Appearance ficam eager pq são o caso comum + pequenos.
-const TeamManagement = lazy(() =>
-  import("@/components/settings/TeamManagement").then((m) => ({ default: m.TeamManagement })),
-);
+// 2026-05-17 — sections grandes viraram lazy. SettingsTab inteiro era ~178kB
+// porque eager-importava TUDO; agora só baixa a section que o user navegou.
+// Profile/Notifications/Appearance ficam eager pq são o caso comum + pequenos.
+// 2026-05-18 — removidos TeamManagement (substituído por WorkspaceMembersTab)
+// e AuditLogSettings (feature descontinuada).
 const Documentation = lazy(() => import("@/pages/Documentation"));
 const AIUsageSettings = lazy(() =>
   import("@/components/settings/AIUsageSettings").then((m) => ({ default: m.AIUsageSettings })),
@@ -44,9 +41,6 @@ const WorkspaceMembersTab = lazy(() =>
 );
 const IntegrationsSettings = lazy(() =>
   import("@/components/settings/IntegrationsSettings").then((m) => ({ default: m.IntegrationsSettings })),
-);
-const AuditLogSettings = lazy(() =>
-  import("@/components/settings/AuditLogSettings").then((m) => ({ default: m.AuditLogSettings })),
 );
 const MCPDocsTab = lazy(() =>
   import("@/components/kai/MCPDocsTab").then((m) => ({ default: m.MCPDocsTab })),
@@ -81,16 +75,20 @@ export function SettingsTab() {
 
 
   // Initialize section from URL section parameter
-  const sectionParam = searchParams.get("section");
+  // 2026-05-18 — section aliases pra bookmarks antigos:
+  // ?section=team → members | ?section=audit-log → members
+  const sectionParamRaw = searchParams.get("section");
+  const sectionParam =
+    sectionParamRaw === "team" || sectionParamRaw === "audit-log"
+      ? "members"
+      : sectionParamRaw;
   const validSections: SettingsSection[] = [
     "profile",
     "workspace",
     "members",
-    "team",
     "notifications",
     "appearance",
     "integrations",
-    "audit-log",
     "docs",
     "ai-usage",
     "webhooks",
@@ -388,16 +386,12 @@ export function SettingsTab() {
           return isOwner ? <WorkspaceSettingsTab /> : renderProfileSection();
         case "members":
           return canManageTeam ? <WorkspaceMembersTab /> : renderProfileSection();
-        case "team":
-          return <TeamManagement />;
         case "notifications":
           return renderNotificationsSection();
         case "appearance":
           return renderAppearanceSection();
         case "integrations":
           return <IntegrationsSettings />;
-        case "audit-log":
-          return canManageTeam ? <AuditLogSettings /> : renderProfileSection();
         case "docs":
           return <Documentation />;
         case "ai-usage":
@@ -431,10 +425,8 @@ export function SettingsTab() {
         <SettingsNavigation
           activeSection={activeSection}
           onSectionChange={handleSectionChange}
-          showTeam={canManageTeam}
           showWorkspace={isOwner}
           showMembers={canManageTeam}
-          showAuditLog={canManageTeam}
         />
         
         {/* Content */}

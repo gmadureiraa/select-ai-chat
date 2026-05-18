@@ -125,7 +125,10 @@ const App = () => (
                     {/* Main app route - fixed to /kaleidos */}
                     <Route path="/kaleidos" element={<WorkspaceRouter />}>
                       <Route index element={<Kai />} />
-                      <Route path="clients" element={<ClientsListPage />} />
+                      {/* 2026-05-18 — rota antiga `/kaleidos/clients` agora
+                          renderiza Kai com tab=clients pra preservar sidebar.
+                          Bookmarks antigos continuam funcionando. */}
+                      <Route path="clients" element={<Kai />} />
                     </Route>
 
                     {/* No workspace page */}
