@@ -76,11 +76,17 @@ export const useWorkspace = () => {
   const isOwner = userRole === "owner";
   
   // Permission helpers for UI visibility
-  const canViewTools = isAdminOrOwner;
+  // 2026-05-18 — `canViewTools` e `canViewClients` liberadas pra MEMBER
+  // (antes era só admin/owner). Decisão Gabriel: time interno precisa
+  // criar/editar clientes + acessar ferramentas dia-a-dia sem ser admin.
+  // Convidar/remover outros membros continua só admin/owner via
+  // `canManageTeam`. Gerenciar automações continua só admin via
+  // `canManageAutomations`.
+  const canViewTools = !isViewer && userRole !== undefined;
   const canViewKnowledgeBase = !isViewer && userRole !== undefined;
   const canViewPerformance = userRole !== undefined;
   const canViewLibrary = userRole !== undefined;
-  const canViewClients = isAdminOrOwner;
+  const canViewClients = !isViewer && userRole !== undefined;
   
   // Permissions for viewer restrictions
   const canUseAssistant = !isViewer && userRole !== undefined;
