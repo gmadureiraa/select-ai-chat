@@ -541,13 +541,14 @@ export const createContentTool: RegisteredTool<CreateContentArgs, CreateContentD
           try {
             const res = await runSingleCreateContent(task, ctx, client);
             if (!res.ok) {
-              console.warn(`[createContent:batch][${idx}] failed: ${res.error}`);
+              const errMsg = (res as { ok: false; error: string }).error;
+              console.warn(`[createContent:batch][${idx}] failed: ${errMsg}`);
               return {
                 ok: false,
                 platform: taskPlatform,
                 format: taskFormat,
                 briefing: taskBriefing,
-                error: res.error,
+                error: errMsg,
               };
             }
             // Emite card individual via stream — runner não loopa em `cards`.
@@ -622,7 +623,7 @@ export const createContentTool: RegisteredTool<CreateContentArgs, CreateContentD
         client,
       );
       if (!singleResult.ok) {
-        return { ok: false, error: singleResult.error };
+        return { ok: false, error: (singleResult as { ok: false; error: string }).error };
       }
       return {
         ok: true,

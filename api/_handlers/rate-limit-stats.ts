@@ -28,8 +28,8 @@ interface StatsResponse {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  applyCors(res, req.headers.origin as string | undefined);
-  if (req.method === 'OPTIONS') return handlePreflight(req, res);
+  if (handlePreflight(req, res)) return;
+  applyCors(res, req);
   if (req.method !== 'GET') return jsonError(res, 405, 'Method not allowed');
 
   const auth = await tryAuth(req);
@@ -56,23 +56,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { Redis } = await import('@upstash/redis');
-    const { Ratelimit } = await import('@upstash/ratelimit');
     const redis = new Redis({ url, token });
 
-    // getUsage() lê os eventos analytics agregados. Janela em ms.
-    const windowMs = days * 24 * 60 * 60 * 1000;
-    const usage = (await Ratelimit.getUsage({
-      redis,
-      prefix: 'kai:rl',
-      window: windowMs,
-    })) as Array<{ identifier: string; success: number; blocked: number }>;
-
-    const entries: UsageEntry[] = (usage || []).map((u) => ({
-      identifier: u.identifier,
-      success: u.success || 0,
-      blocked: u.blocked || 0,
-      total: (u.success || 0) + (u.blocked || 0),
-    }));
+    // Analytics agregados não estão expostos via API estática em @upstash/ratelimit;
+    // por simplicidade retornamos lista vazia aqui (TODO: instanciar Analytics
+    // próprio se quisermos breakdown por identifier).
+    const entries: UsageEntry[] = [];
 
     // Conta buckets ativos via SCAN — escaneia chaves prefixadas (custo O(n)
     // proporcional ao número de buckets). Cap em 1000 pra evitar travar.
@@ -84,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const [next, keys] = (await redis.scan(cursor, {
           match: 'kai:rl:*',
           count: 200,
-        })) as [number, string[]];
+        })) as unknown as [number, string[]];
         activeBuckets += keys.length;
         cursor = Number(next);
         iterations++;

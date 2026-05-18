@@ -71,10 +71,11 @@ export default authedPost(async ({ body, user }) => {
   }
   const pool = getPool();
 
-  if ('updates' in parsed.data) {
+  const data: any = parsed.data;
+  if (Array.isArray(data.updates)) {
     // Batch reorder
     const results: any[] = [];
-    for (const u of parsed.data.updates) {
+    for (const u of data.updates) {
       await assertColumnAccess(user.id, u.id);
       const row = await applyUpdate(pool, u);
       results.push(row);
@@ -82,7 +83,7 @@ export default authedPost(async ({ body, user }) => {
     return { ok: true, columns: results };
   }
 
-  await assertColumnAccess(user.id, parsed.data.id);
-  const row = await applyUpdate(pool, parsed.data);
+  await assertColumnAccess(user.id, data.id);
+  const row = await applyUpdate(pool, data);
   return { ok: true, column: row, id: row?.id };
 });

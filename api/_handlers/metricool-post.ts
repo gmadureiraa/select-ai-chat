@@ -19,7 +19,67 @@ import {
 
 const ALLOWED_PLATFORMS = ['twitter', 'x', 'linkedin', 'instagram', 'tiktok', 'youtube', 'facebook', 'threads', 'pinterest', 'bluesky'] as const;
 
+interface PublishMetricoolBody {
+  clientId: string;
+  platform?: string;
+  platforms?: string[];
+  content?: string;
+  mediaUrls?: string[];
+  mediaItems?: Array<{ url: string }>;
+  threadItems?: Array<{ text: string; media_urls?: string[] }>;
+  scheduledFor?: Date | string | null;
+  publishNow?: boolean;
+  planningItemId?: string;
+  platformOptions?: Record<string, any>;
+  timezone?: string;
+  blogId?: string;
+}
+
+export interface PublishMetricoolResult {
+  ok: boolean;
+  success?: boolean;
+  blogId?: string;
+  scheduledPostId?: string | null;
+  postId?: string | null;
+  childIds?: string[];
+  status?: string;
+  platforms?: string[];
+  providers?: any[];
+  message?: string;
+  provider?: string;
+  error?: string;
+}
+
+/**
+ * In-process callable variant — usado pelo cron `process-scheduled-posts`
+ * pra publicar sem ir via HTTP. Reusa toda lógica do default handler.
+ */
+export async function publishMetricoolForClient(
+  args: { body: PublishMetricoolBody; userId?: string },
+  _ctx?: { userId?: string },
+): Promise<PublishMetricoolResult> {
+  const body = args.body;
+  const userId = args.userId ?? _ctx?.userId;
+  try {
+    const result = await runMetricoolPost(body, userId);
+    return {
+      ok: true,
+      success: true,
+      blogId: result.blogId ?? undefined,
+      scheduledPostId: result.postId,
+      ...result,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, success: false, error: msg };
+  }
+}
+
 export default authedPost(async ({ body, user }) => {
+  return runMetricoolPost(body as PublishMetricoolBody, user.id);
+});
+
+async function runMetricoolPost(body: PublishMetricoolBody, userId?: string) {
   const {
     clientId,
     platform,
@@ -37,7 +97,7 @@ export default authedPost(async ({ body, user }) => {
   } = body;
 
   if (!clientId) throw new Error('clientId é obrigatório');
-  await assertClientAccess(user.id, clientId);
+  if (userId) await assertClientAccess(userId, clientId);
 
   // platforms[] tem prioridade; senão usa platform single
   const platforms: string[] = (rawPlatforms && rawPlatforms.length > 0)
@@ -226,8 +286,9 @@ export default authedPost(async ({ body, user }) => {
     platforms,
     providers: resp?.providers || [],
     message: isSchedule
-      ? `Agendado para ${new Date(scheduledFor).toLocaleString('pt-BR')}`
+      ? `Agendado para ${new Date(scheduledFor as string | Date).toLocaleString('pt-BR')}`
       : (publishNow ? `Publicado em ${platforms.join(', ')}` : 'Salvo como rascunho'),
     provider: 'metricool',
+    blogId,
   };
-});
+}

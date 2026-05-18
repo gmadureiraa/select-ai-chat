@@ -371,7 +371,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await publishMetricoolForClient({
           userId: actorUserId,
           body: {
-            clientId: item.client_id,
+            clientId: item.client_id!,
             platform: item.platform,
             content: item.content || item.description || '',
             mediaUrls: stringArray(item.media_urls),
@@ -379,7 +379,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             planningItemId: item.id,
             publishNow: true,
           },
-        }) as Record<string, unknown>;
+        }) as unknown as Record<string, unknown>;
 
         if (result.success) {
           // Find published column

@@ -467,6 +467,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const proto = req.headers['x-forwarded-proto'] ?? 'https';
   const host = req.headers.host;
   const baseUrl = `${proto}://${host}`;
+  const cronSecret = process.env.CRON_SECRET ?? '';
 
   const clients = await pickClientsWithSources();
   if (clients.length === 0) {

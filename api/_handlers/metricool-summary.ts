@@ -123,7 +123,7 @@ function calcChange(history: Array<{ date: string; followers: number }>, days: n
   return last.followers - old.followers;
 }
 
-export default authedPost<SummaryResponse>(async ({ body, user }) => {
+export default authedPost(async ({ body, user }): Promise<SummaryResponse> => {
   const { clientId, period = 30, blogId: directBlogId } = body;
   if (clientId) await assertClientAccess(user.id, clientId);
 

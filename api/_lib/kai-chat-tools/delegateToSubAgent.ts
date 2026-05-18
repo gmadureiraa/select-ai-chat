@@ -94,12 +94,13 @@ const ROLE_CONFIG: Record<
 function makeSilentEmitter(): KAIStreamEmitter {
   return {
     content: () => {},
+    image: () => {},
     toolRunning: () => {},
-    toolResult: () => {},
     actionCard: () => {},
     approvalRequest: () => {},
     error: () => {},
     done: () => {},
+    heartbeat: () => {},
     startHeartbeat: () => () => {},
   };
 }

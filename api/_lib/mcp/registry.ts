@@ -47,7 +47,7 @@ export function getMcpToolRegistry(): ToolRegistry {
   for (const [exportName, value] of Object.entries(ToolsBarrel)) {
     if (!looksLikeRegisteredTool(value)) continue;
     try {
-      reg.register(value);
+      reg.register(value as RegisteredTool<any, any>);
       names.push(value.definition.name);
     } catch (err) {
       console.error(`[mcp/registry] falhou registrar export "${exportName}":`, err);

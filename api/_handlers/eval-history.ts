@@ -26,8 +26,8 @@ interface EvalRunRow {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  applyCors(res, req.headers.origin as string | undefined);
-  if (req.method === 'OPTIONS') return handlePreflight(req, res);
+  if (handlePreflight(req, res)) return;
+  applyCors(res, req);
   if (req.method === 'POST') {
     // Insert hook — runner posta resultado via Authorization: Bearer <userToken>
     return insertRun(req, res);
