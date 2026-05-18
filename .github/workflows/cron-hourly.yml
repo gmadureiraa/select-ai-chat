@@ -1,0 +1,53 @@
+name: Cron Hourly (6h-00h BRT)
+
+# Hobby do Vercel só aceita cron 1x/dia por endpoint. Os 3 processos abaixo
+# precisam rodar de hora em hora (scheduling de posts, push, email). GitHub
+# Actions cuida disso de graça (~57 chamadas/dia, ~10 min/mês).
+#
+# 6h BRT = 9h UTC (BRT é UTC-3, sem horário de verão desde 2019).
+# 00h BRT = 03h UTC (do dia seguinte).
+# Janela: 9-23 UTC + 0-3 UTC = 19 horas/dia.
+
+on:
+  schedule:
+    - cron: '0 9-23 * * *'
+    - cron: '0 0-3 * * *'
+  # Permite trigger manual em https://github.com/.../actions
+  workflow_dispatch:
+
+jobs:
+  process-queues:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # Os 3 endpoints rodam em paralelo — falha de um não bloqueia os outros.
+    strategy:
+      fail-fast: false
+      matrix:
+        endpoint:
+          - process-scheduled-posts
+          - process-push-queue
+          - process-email-notifications
+
+    steps:
+      - name: Trigger ${{ matrix.endpoint }}
+        env:
+          CRON_SECRET: ${{ secrets.KAI_CRON_SECRET }}
+          BASE_URL: https://kai-2-topaz.vercel.app
+        run: |
+          set -e
+          echo "→ POST $BASE_URL/api/${{ matrix.endpoint }}"
+          response=$(curl -sS -w "\nHTTP_STATUS:%{http_code}\n" \
+            -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "User-Agent: github-actions-cron" \
+            --max-time 60 \
+            "$BASE_URL/api/${{ matrix.endpoint }}")
+          status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2)
+          body=$(echo "$response" | sed '/HTTP_STATUS:/d')
+          echo "Status: $status"
+          echo "Body: $body"
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Endpoint returned HTTP $status"
+            exit 1
+          fi
