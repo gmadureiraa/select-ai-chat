@@ -4,6 +4,36 @@
   "buildCommand": "bun run build",
   "outputDirectory": "dist",
   "installCommand": "bun install",
+  "headers": [
+    {
+      "_comment": "2026-05-18 fix Gabriel — index.html NUNCA cachear (sempre baixa fresh). Sem isso, browser segura index velho com refs pros chunks JS antigos que foram deletados no deploy novo → 404 'Failed to fetch dynamically imported module'. Os chunks /assets/* têm hash imutável → cache 1 ano OK.",
+      "source": "/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/blob/:path*",
