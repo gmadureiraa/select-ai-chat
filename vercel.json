@@ -100,24 +100,8 @@
   },
   "crons": [
     {
-      "path": "/api/cron-metricool-backfill-posts",
-      "schedule": "0 5 * * *"
-    },
-    {
-      "path": "/api/cron-metricool-snapshot",
-      "schedule": "0 6 * * *"
-    },
-    {
       "path": "/api/cron-generate-daily-brief",
       "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron-metricool-poll",
-      "schedule": "0 10 * * *"
-    },
-    {
-      "path": "/api/cron-fetch-published-metrics",
-      "schedule": "0 13 * * *"
     },
     {
       "path": "/api/cron-transcribe-recent-posts",

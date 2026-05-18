@@ -1780,7 +1780,7 @@ function getInternalBaseUrl(req: VercelRequest): string {
   const proto = (req.headers['x-forwarded-proto'] as string) || 'https';
   const host = req.headers.host;
   if (host) return `${proto}://${host}`;
-  return 'https://kai-2-topaz.vercel.app';
+  return 'https://kai.kaleidos.com.br';
 }
 
 // Media fetcher → inlineData (até 18MB) ou Files API (até 2GB).
@@ -2316,7 +2316,7 @@ SEMPRE prefira buscar dados via tool em vez de adivinhar ou perguntar redundante
 - "quem tem acesso?", "membros do workspace", "owner/admin/viewer" → \`getWorkspaceMembers\`
 - "qual o tom?", "voice profile", "use/avoid", "pillars" → \`getVoiceProfile\` (mais específico que getClientContext)
 - "cor primária", "logo", "tipografia", "paleta", "refs visuais" → \`getBrandAssets\`
-- "tá conectado IG/LinkedIn/Metricool?", "integrações faltando" → \`getIntegrationsStatus\`
+- "tá conectado IG/LinkedIn/Late?", "integrações faltando" → \`getIntegrationsStatus\`
 - "lista todas refs", "quantas refs", "filtra refs por tipo" → \`getReferences\` (vs searchRefs que é por palavra-chave)
 - "ai workflows", "automações avançadas com cron" → \`getWorkflows\` (NÃO confunde com listAutomations que é planning_automations simples)
 - "minhas notificações", "tem novidade pra mim?" → \`getNotifications\`

@@ -2,7 +2,7 @@
 
 Plataforma multi-tenant da Kaleidos pra criação de conteúdo, planejamento, métricas, performance e automação social — incluindo 3 apps virais integrados (Sequência Viral, Radar Viral, Reels Viral). Single-page React app que roda em Vercel.
 
-> **Live:** https://kai-2-topaz.vercel.app
+> **Live:** https://kai.kaleidos.com.br
 > **Repo:** `gmadureiraa/kai-app`
 > **Branch ativa desta migração:** `combo-viral-integration`
 
@@ -18,7 +18,9 @@ Plataforma multi-tenant da Kaleidos pra criação de conteúdo, planejamento, m�
   - **Sequência Viral** — gera carrossel completo (texto + imagem + voz) single-shot via Gemini 2.5 Pro/Flash + Imagen 4.
   - **Radar Viral** — alerta de conteúdo viral (IG, YouTube, News, Newsletters) + briefs de remix.
   - **Reels Viral** — engenharia reversa de reels: análise multimodal (Gemini Flash) + script + storyboard cena por cena.
-- **Postiz** — agendamento e publicação social (Instagram, Twitter, LinkedIn, YouTube, TikTok, Meta Ads).
+- **Late/Zernio** — agendamento e publicação social (Instagram, Twitter, LinkedIn, YouTube, TikTok, Threads, Facebook, Meta Ads). Publisher único do KAI desde a migração Metricool→Postiz→Late (2026-05-17).
+- **Late Inbox** — comentários e DMs centralizados de todas as redes conectadas.
+- **Performance multi-plataforma** — dashboards por cliente com snapshots diários populados via webhooks Late/Zernio.
 
 ## Screenshots
 
@@ -40,11 +42,11 @@ Plataforma multi-tenant da Kaleidos pra criação de conteúdo, planejamento, m�
 - **Database:** Neon Postgres (88 tabelas, 291 RLS policies, 263 indexes, 47 triggers)
 - **Auth:** Neon Auth (Better Auth) via `@neondatabase/auth` com `SupabaseAuthAdapter` pra retro-compat
 - **Data API:** Neon Data API (PostgREST-compatible). JWT do Neon Auth injetado em cada request.
-- **Backend:** Vercel Functions (Node 20) — 1 catch-all router que carrega 97 handlers sob demanda
+- **Backend:** Vercel Functions (Node 20) — 1 catch-all router que carrega 184 handlers sob demanda
 - **Storage:** Vercel Blob (buckets simulados como prefixos de path)
 - **Realtime:** TanStack Query polling — não há WebSocket
 - **Cron:** Vercel Cron (`vercel.json`)
-- **Social:** Postiz (agendamento e publicação) — auth-bridge JWT pelo backend
+- **Social:** Late/Zernio (agendamento, publicação, inbox) — bearer token único por workspace (`LATE_API_KEY`)
 - **LLMs:** Gemini 2.5 Flash/Pro (default), OpenAI, Anthropic, Grok (web search)
 - **Forms/State:** React Hook Form + Zod, Zustand (state global), TanStack Query
 - **Charts:** Recharts (lazy)
@@ -99,9 +101,8 @@ vercel dev             # Front + Vercel Functions juntos
 | `SERPER_API_KEY` | Search agent (newsletters / temas) |
 | `RESEND_API_KEY` | Envio de email transacional |
 | `STRIPE_SECRET_KEY` | Billing (signature `STRIPE_WEBHOOK_SECRET`) |
-| `POSTIZ_*` | Agendamento social (auth bridge) |
+| `LATE_API_KEY` + `LATE_WEBHOOK_SECRET` | Publisher único (Late.so/Zernio) — agendamento, publicação, inbox, métricas |
 | `META_ACCESS_TOKEN` + `META_AD_ACCOUNT_ID` + `META_PAGE_ID` | Meta Ads single-tenant (sem App Review) |
-| `LATE_API_KEY` | OAuth bridge antigo (legacy fallback) |
 | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` | Daily report |
 
 Detalhes completos em [`ENV-VARS.md`](./ENV-VARS.md) e setup do zero em [`SETUP.md`](./SETUP.md).
@@ -135,7 +136,7 @@ kai-app-combo/
 ├── api/                          # Vercel Functions
 │   ├── router.ts                 # catch-all /api/* — despacha pra _handlers/<slug>
 │   ├── handler-manifest.ts       # mapa { slug → import lazy do handler }
-│   ├── _handlers/                # 97 handlers (1 arquivo por endpoint)
+│   ├── _handlers/                # 184 handlers (1 arquivo por endpoint)
 │   ├── _lib/                     # db, auth, cors, handler wrapper, llm, stub
 │   └── blob/                     # 5 endpoints diretos pro Vercel Blob
 ├── migrations/                   # SQL aplicadas no Neon (numeradas, ordem cresc.)
@@ -191,7 +192,7 @@ kai-app-combo/
 
 | Item | Valor |
 |---|---|
-| **URL** | https://kai-2-topaz.vercel.app |
+| **URL** | https://kai.kaleidos.com.br |
 | **Vercel Project** | `kai-2` (team `gfmadureiraa-3391s-projects`) |
 | **Framework** | Vite (autodetect) |
 | **Build cmd** | `bun run build` |
@@ -229,7 +230,7 @@ Todo call-site de export usa `await import(...)` dentro do handler. As tabs prin
 ## Próximos passos
 
 - [ ] Cron `cron-scrape-news` rodando manualmente — automatizar quando upgrade Pro
-- [ ] Ativar OAuth real (LinkedIn + Twitter + Late) preenchendo env vars — ver [`STUBS-MIGRATED-FINAL.md`](./STUBS-MIGRATED-FINAL.md)
+- [ ] Validar OAuth real de todas as redes via Late/Zernio (LinkedIn + Twitter + IG + TikTok + YouTube + Threads) — ver [`STUBS-MIGRATED-FINAL.md`](./STUBS-MIGRATED-FINAL.md)
 - [ ] Sunset do Lovable Supabase — só após paridade end-to-end testada
 - [ ] Regenerar `src/integrations/supabase/types.ts` a partir do Neon (atualmente é o gerado pelo Lovable; tabelas novas dos 0003/0004 estão acessadas via `(supabase as any).from(...)`)
 - [ ] Code splitting de pages do app standalone (viral-sv-original/pages-app/onboarding.tsx tem 2700+ linhas)

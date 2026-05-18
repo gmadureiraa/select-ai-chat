@@ -12,10 +12,8 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'client-context': () => import('./_handlers/client-context.js'),
   'cron-approval-tokens-cleanup': () => import('./_handlers/cron-approval-tokens-cleanup.js'),
   'cron-generate-daily-brief': () => import('./_handlers/cron-generate-daily-brief.js'),
-  'cron-fetch-published-metrics': () => import('./_handlers/cron-fetch-published-metrics.js'),
-  'cron-metricool-backfill-posts': () => import('./_handlers/cron-metricool-backfill-posts.js'),
-  'cron-metricool-poll': () => import('./_handlers/cron-metricool-poll.js'),
-  'cron-metricool-snapshot': () => import('./_handlers/cron-metricool-snapshot.js'),
+  // 2026-05-18 rev2 — cron-fetch-published-metrics arquivado (dependia de Metricool).
+  // Wave A vai reimplementar via late-analytics quando entregar Performance UI.
   // 2026-05-16: 'cron-radar-master' removido junto com Radar Viral (saiu do KAI).
   'cron-scrape-instagram': () => import('./_handlers/cron-scrape-instagram.js'),
   'cron-scrape-linkedin': () => import('./_handlers/cron-scrape-linkedin.js'),
@@ -72,28 +70,15 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'kai-metrics-agent': () => import('./_handlers/kai-metrics-agent.js'),
   'kai-planning-agent': () => import('./_handlers/kai-planning-agent.js'),
   'kai-simple-chat': () => import('./_handlers/kai-simple-chat.js'),
-  'metricool-analytics': () => import('./_handlers/metricool-analytics.js'),
-  'metricool-posts-local': () => import('./_handlers/metricool-posts-local.js'),
-  'metricool-best-times': () => import('./_handlers/metricool-best-times.js'),
-  'metricool-fetch-post-metrics': () => import('./_handlers/metricool-fetch-post-metrics.js'),
-  'metricool-competitors': () => import('./_handlers/metricool-competitors.js'),
-  'metricool-hashtags': () => import('./_handlers/metricool-hashtags.js'),
-  'metricool-inbox': () => import('./_handlers/metricool-inbox.js'),
-  'metricool-linkin-bio': () => import('./_handlers/metricool-linkin-bio.js'),
-  'metricool-list-brands': () => import('./_handlers/metricool-list-brands.js'),
-  'metricool-list-posts': () => import('./_handlers/metricool-list-posts.js'),
-  'metricool-map-brand': () => import('./_handlers/metricool-map-brand.js'),
-  'metricool-post': () => import('./_handlers/metricool-post.js'),
-  'metricool-realtime': () => import('./_handlers/metricool-realtime.js'),
-  'metricool-smart-links': () => import('./_handlers/metricool-smart-links.js'),
-  'metricool-snapshots': () => import('./_handlers/metricool-snapshots.js'),
-  'metricool-summary': () => import('./_handlers/metricool-summary.js'),
-  'metricool-refresh-now': () => import('./_handlers/metricool-refresh-now.js'),
-  'metricool-reports': () => import('./_handlers/metricool-reports.js'),
-  'metricool-calendar': () => import('./_handlers/metricool-calendar.js'),
-  // Late.ai integration (publisher único pós-2026-05-17, Postiz arquivado).
+  // 2026-05-18 rev2 — Metricool REMOVIDO. Late/Zernio é o publisher único.
+  // 22 handlers metricool-* + 3 cron-metricool-* arquivados em
+  // _TRASH-2026-05-18-metricool-removed/handlers/.
+  // Late.ai/Zernio integration (publisher único pós-decisão Gabriel 2026-05-18).
+  // Metricool removido (custo + falta WhatsApp + falta API create brand).
   'late-analytics': () => import('./_handlers/late-analytics.js'),
+  'late-create-brand': () => import('./_handlers/late-create-brand.js'),
   'late-disconnect-account': () => import('./_handlers/late-disconnect-account.js'),
+  'late-inbox': () => import('./_handlers/late-inbox.js'),
   'late-oauth-callback': () => import('./_handlers/late-oauth-callback.js'),
   'late-oauth-start': () => import('./_handlers/late-oauth-start.js'),
   'late-post': () => import('./_handlers/late-post.js'),
@@ -217,5 +202,6 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'validate-social-credentials': () => import('./_handlers/validate-social-credentials.js'),
   // 2026-05-17: 'viral-library' removido — unificado com biblioteca normal em 2026-05-08, handler nunca existiu.
   'viral-stats': () => import('./_handlers/viral-stats.js'),
+  'x-manual-report': () => import('./_handlers/x-manual-report.js'),
   'youtube-search': () => import('./_handlers/youtube-search.js'),
 };

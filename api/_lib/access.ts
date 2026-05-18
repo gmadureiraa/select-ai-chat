@@ -71,6 +71,30 @@ export async function assertWorkspaceAccess(
   }
 }
 
+/**
+ * Lança 403 se a coluna kanban não pertence ao workspace alvo.
+ * Defesa em profundidade: handlers de planning_items recebem column_id no body —
+ * sem essa verificação, user autenticado podia mover/criar item em coluna
+ * de outro workspace passando UUID forjado.
+ */
+export async function assertColumnInWorkspace(
+  columnId: string | null | undefined,
+  workspaceId: string,
+): Promise<void> {
+  if (!columnId || !workspaceId) return;
+  const row = await queryOne<{ id: string }>(
+    `SELECT id FROM kanban_columns
+      WHERE id = $1 AND workspace_id = $2 LIMIT 1`,
+    [columnId, workspaceId],
+  );
+  if (!row) {
+    throw withStatus(
+      new Error('column_id não pertence ao workspace alvo'),
+      403,
+    );
+  }
+}
+
 function withStatus(err: Error, status: number): Error {
   (err as any).status = status;
   (err as any).statusCode = status;

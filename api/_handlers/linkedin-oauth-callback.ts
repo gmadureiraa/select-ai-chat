@@ -11,7 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
   applyCors(res);
 
-  const frontendUrl = process.env.FRONTEND_URL || 'https://kai-2-topaz.vercel.app';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://kai.kaleidos.com.br';
 
   const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
   if (missing.length > 0) {

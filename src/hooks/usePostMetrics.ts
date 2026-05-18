@@ -105,8 +105,10 @@ export function useFetchPostMetrics() {
       platform?: string;
       force?: boolean;
     }): Promise<FetchPostMetricsResult> => {
+      // 2026-05-18 rev2 — metricool-fetch-post-metrics removido. fetch-late-metrics
+      // é o equivalente Late/Zernio (recupera métricas por late_post_id).
       const { data, error } = await apiInvoke<FetchPostMetricsResult>(
-        'metricool-fetch-post-metrics',
+        'fetch-late-metrics',
         { body: input },
       );
       if (error) throw error;

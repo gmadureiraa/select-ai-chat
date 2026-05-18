@@ -157,15 +157,18 @@ export default function PreviewPage(props: {
   }
 
   // 2026-05-09 — Zernio scheduling REMOVIDO do KAI 2.0. Os endpoints
-  // `/api/zernio/*` foram removidos (Zernio era SaaS standalone). KAI 2.0
-  // publica via Metricool (handler `metricool-post`). Bloco de UI Zernio
-  // (ScheduleZernioModal + PlannedPostModal) deletado por ser dead code.
+  // `/api/zernio/*` foram removidos (Zernio era SaaS standalone).
+  // 2026-05-18 rev2 — Metricool também REMOVIDO. KAI 2.0 publica via Late/Zernio
+  // (handler `publish-viral-carousel` → `late-post`). Variáveis mantêm prefixo
+  // `metricool*` por inércia (todo: rename pra `latePublish*` num refactor),
+  // mas o publisher real é Late.ai.
   const isAdmin = isAdminEmail(profile?.email ?? user?.email);
-  // Metricool publish — fluxo unificado do KAI 2.0. Substitui Zernio.
-  // Captura PNGs dos slides → upload via blob handler → chama metricool-post
-  // que normaliza URLs internamente e cria o agendamento. Salva
-  // metricool_post_id no carousel pra rastreio. Disponível pra qualquer plano
-  // pago + admin enquanto Metricool tiver brand mapeado pro cliente.
+  // Late publish — fluxo unificado do KAI 2.0. Captura PNGs dos slides →
+  // upload pro Vercel Blob via publish-viral-carousel → late-post cria o
+  // agendamento via Late API (Bearer LATE_API_KEY). Persiste external_post_id
+  // no planning_item (quando linkado) e last_publish_media_urls no carrossel.
+  // Disponível pra qualquer plano pago + admin enquanto cliente tiver conta
+  // Late conectada (Settings → Integrações).
   const canPublishMetricool = isAdmin || profile?.plan === "pro" || profile?.plan === "business";
   const [metricoolPublishing, setMetricoolPublishing] = useState(false);
   const [metricoolPostId, setMetricoolPostId] = useState<string | null>(null);
@@ -185,11 +188,6 @@ export default function PreviewPage(props: {
   const [savedLibraryItemId, setSavedLibraryItemId] = useState<string | null>(
     null,
   );
-
-  // 2026-05-09 — `/api/zernio/by-carousel` removido. KAI 2.0 usa Metricool.
-  // `carouselEntries` (contador de agendamentos) ficou dead code junto com
-  // o bloco UI Zernio. Plugar aqui quando o backend Metricool expor
-  // listagem de schedules por carouselId.
 
   async function handleExportZip() {
     await exportZip(draft?.title || "carrossel");
@@ -531,19 +529,19 @@ export default function PreviewPage(props: {
   }
 
   /**
-   * Publica/agenda o carrossel atual no Instagram via Metricool (handler
+   * Publica/agenda o carrossel atual no Instagram via Late/Zernio (handler
    * `publish-viral-carousel` que sobe slides pro Vercel Blob e dispara
-   * `metricool-post`). Substitui o fluxo Zernio antigo. Persiste
-   * metricool_post_id no carrossel via `upsertUserCarousel` (campo
-   * `last_publish_media_urls` é escrito server-side pelo handler).
+   * `late-post`). Substitui o fluxo Metricool (2026-05-18) e o Zernio antigo.
+   * Persiste `last_publish_media_urls` no carrossel server-side e
+   * `external_post_id` no planning_item linkado (quando existir).
    *
    * Pré-requisitos:
-   *  - clientId selecionado (Metricool resolve blogId via client_social_credentials)
-   *  - cliente com brand Metricool mapeado (Settings → Integrações Metricool)
+   *  - clientId selecionado (Late resolve account via client_social_credentials)
+   *  - cliente com conta Instagram conectada via Late (Settings → Integrações)
    *
    * Errors mais comuns:
-   *  - "Cliente sem blog Metricool mapeado" → Gabriel precisa rodar metricool-map-brand
-   *  - "Falha ao publicar via Metricool" → conta IG não conectada no Metricool
+   *  - "Conta instagram não conectada" → conectar no Settings → Integrações
+   *  - "Credenciais do instagram expiradas" → reconectar conta Late
    */
   async function handleMetricoolPublish(mode: "now" | "schedule") {
     if (!draft || slides.length === 0) {
@@ -586,8 +584,8 @@ export default function PreviewPage(props: {
       }));
       const captionWithTags =
         hashtags.length > 0 ? `${caption}\n\n${hashtags.join(" ")}` : caption;
-      // ISO local datetime → ISO 8601 com segundos. Metricool usa
-      // publicationDate.dateTime + timezone.
+      // ISO local datetime → ISO 8601 com segundos. (legado Metricool usava
+      // publicationDate.dateTime + timezone; Late/Zernio aceita ISO 8601 puro).
       const scheduledFor =
         mode === "schedule" ? `${metricoolScheduledLocal}:00` : undefined;
 
@@ -613,8 +611,8 @@ export default function PreviewPage(props: {
         throw new Error(error.message || "Falha ao publicar.");
       }
       // Aceita múltiplos shapes: handler atual (publish-viral-carousel) ainda
-      // wrappa em `latePost`, mas postiz-post/metricool-post retornam `postId`
-      // top-level. Fallback robusto pra qualquer mudança de shape no backend.
+      // wrappa em `latePost`. Mantém fallbacks pra `postizPost`/`metricoolPost`
+      // (shapes legados) e `postId` top-level por robustez se backend mudar.
       const postId =
         data?.postizPost?.postId ??
         data?.latePost?.postId ??
@@ -625,8 +623,8 @@ export default function PreviewPage(props: {
 
       toast.success(
         mode === "schedule"
-          ? `Agendado pra ${new Date(metricoolScheduledLocal).toLocaleString("pt-BR")} no Metricool.`
-          : "Publicação enviada ao Metricool.",
+          ? `Agendado pra ${new Date(metricoolScheduledLocal).toLocaleString("pt-BR")} na Late.`
+          : "Publicação enviada à Late.",
         {
           description: postId ? `Post ID: ${postId.slice(0, 12)}` : undefined,
           duration: 6000,
@@ -635,9 +633,10 @@ export default function PreviewPage(props: {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Falha ao publicar.";
       toast.error(msg, {
-        description: msg.includes("blog Metricool")
-          ? "Conecte o cliente em Settings → Metricool primeiro."
-          : undefined,
+        description:
+          msg.includes("não conectada") || msg.includes("expirad")
+            ? "Conecte ou reconecte o Instagram em Settings → Integrações Late."
+            : undefined,
         duration: 8000,
       });
     } finally {
@@ -1076,8 +1075,10 @@ export default function PreviewPage(props: {
 
           {/* 2026-05-09 — Bloco Zernio (calendar entries + planejamento + agendar
               auto) DELETADO. Era dead code: canScheduleZernio/canPlanInCalendar
-              eram hard-coded false porque /api/zernio/* foi removido. KAI 2.0
-              usa o card Metricool abaixo pra publicar/agendar. */}
+              eram hard-coded false porque /api/zernio/* foi removido.
+              2026-05-18 — KAI 2.0 publica via Late/Zernio (handler late-post);
+              o card de publicação abaixo (variáveis nomeadas metricool* por
+              inércia legacy) é a UI canônica. */}
 
           {/* Salvar na biblioteca do cliente (KAI-only) — só aparece quando
               há clientId selecionado no shell. Conteúdo gerado vai pra
@@ -1384,7 +1385,7 @@ export default function PreviewPage(props: {
             )}
           </div>
 
-          {/* Publicar — Metricool (publicação direta + agendamento) */}
+          {/* Publicar — Late/Zernio (publicação direta + agendamento) */}
           <div
             style={{
               padding: 22,
@@ -1417,8 +1418,8 @@ export default function PreviewPage(props: {
               }}
             >
               {canPublishMetricool && clientId
-                ? "Publica direto no Instagram via Metricool. Cliente precisa estar conectado em Settings → Metricool."
-                : "Exporta os PNGs, copia a legenda e sobe direto no Instagram. Pra publicação automática, ative Metricool no plano Pro."}
+                ? "Publica direto no Instagram via Late/Zernio. Cliente precisa estar conectado em Settings → Integrações."
+                : "Exporta os PNGs, copia a legenda e sobe direto no Instagram. Pra publicação automática, ative Late no plano Pro."}
             </p>
 
             {/* Botão de copiar caption — sempre disponível como fallback */}
@@ -1437,7 +1438,7 @@ export default function PreviewPage(props: {
               Copiar legenda + hashtags
             </button>
 
-            {/* Metricool publish flow — só pra plano Pro+ com clientId. */}
+            {/* Late publish flow — só pra plano Pro+ com clientId. */}
             {canPublishMetricool && clientId && draft?.id && (
               <div
                 style={{
@@ -1458,7 +1459,7 @@ export default function PreviewPage(props: {
                     marginBottom: 8,
                   }}
                 >
-                  Metricool · Instagram
+                  Late · Instagram
                 </div>
 
                 {/* Mode toggle: agora vs agendar */}
@@ -1553,7 +1554,7 @@ export default function PreviewPage(props: {
                       color: "var(--sv-muted)",
                     }}
                   >
-                    ● Enviado · Metricool ID {metricoolPostId.slice(0, 12)}
+                    ● Enviado · Late post ID {metricoolPostId.slice(0, 12)}
                   </div>
                 )}
               </div>

@@ -6,4 +6,4 @@ Allow: /
 Allow: /login
 Allow: /signup
 
-Sitemap: https://kai-2-topaz.vercel.app/sitemap.xml
+Sitemap: https://kai.kaleidos.com.br/sitemap.xml

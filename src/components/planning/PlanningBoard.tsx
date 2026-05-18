@@ -28,17 +28,24 @@ import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 
 // 2026-05-17 — Dialogs e views opcionais lazy. PlanningItemDialog (form
-// pesado), MetricoolCalendarView (só ativo na view "editorial"),
+// pesado), MetricoolCalendarView (placeholder legado, view "editorial"),
 // KeyboardShortcutsDialog (só abre ao apertar "?"), ColumnsCustomizeDialog
 // (admin) e ClickUpImportDialog (importação manual) — nenhum deles é
 // usado no primeiro paint do Planning. Saem ~30-50kB do chunk principal.
 const PlanningItemDialog = lazyWithRetry(() =>
   import('./PlanningItemDialog').then((m) => ({ default: m.PlanningItemDialog })),
 );
-const MetricoolCalendarView = lazyWithRetry(() =>
-  import('@/components/metricool/MetricoolCalendarView').then((m) => ({
-    default: m.MetricoolCalendarView,
-  })),
+// 2026-05-18 rev2 — MetricoolCalendarView removido (Metricool foi-se).
+// View "editorial" mostra placeholder até equivalente Late/Zernio entrar.
+// Aceita as props originais (clientId, onCreatePlanningItem) pra manter o JSX
+// chamando sem refactor — só não usa nenhuma delas.
+const MetricoolCalendarView = (_props: {
+  clientId?: string;
+  onCreatePlanningItem?: (date: Date, eventTitle?: string) => void;
+}) => (
+  <div className="text-center py-12 px-4 text-sm text-muted-foreground">
+    Calendário editorial em migração pro Late/Zernio. Use a view Kanban por enquanto.
+  </div>
 );
 const KeyboardShortcutsDialog = lazyWithRetry(() =>
   import('./KeyboardShortcutsDialog').then((m) => ({
@@ -294,6 +301,53 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
+  // 2026-05-18 fix integração SV↔Planning↔Late: cron `process-scheduled-posts`
+  // só pega itens com status='scheduled' AND scheduled_at <= now(). Quando o
+  // user arrasta card pra coluna "Agendado" sem ter setado data antes (via
+  // PlanningItemDialog), o item ficava preso indefinidamente sem nunca publicar.
+  // Esta wrapper detecta esse caso, mostra warning e abre o dialog do PRIMEIRO
+  // item afetado pro user definir scheduled_at. Os outros updates do batch
+  // (reorder dentro da mesma coluna, movimentos pra colunas com data) seguem.
+  const handleReorderWithScheduleGuard = useCallback(
+    (updates: Array<{ id: string; column_id: string; position: number; status?: PlanningItem['status'] }>) => {
+      const scheduledWithoutDate = updates.filter((u) => {
+        if (u.status !== 'scheduled') return false;
+        const item = items.find((i) => i.id === u.id);
+        if (!item) return false;
+        // Já tem data definida? Tudo certo, pode mover.
+        if (item.scheduled_at) return false;
+        // Item já estava no status 'scheduled'? Não é a transição que nos
+        // interessa — só queremos pegar quem ENTROU na coluna agora sem data.
+        if (item.status === 'scheduled') return false;
+        return true;
+      });
+      reorderItems.mutate(updates);
+      if (scheduledWithoutDate.length > 0) {
+        const firstMissing = items.find((i) => i.id === scheduledWithoutDate[0].id);
+        toast.warning(
+          scheduledWithoutDate.length === 1
+            ? 'Defina data de publicação pra agendar.'
+            : `${scheduledWithoutDate.length} cards sem data — defina pra publicar.`,
+          {
+            description:
+              'O cron só publica itens com scheduled_at preenchido. Abra o card e setta data + hora.',
+            action: firstMissing
+              ? {
+                  label: 'Abrir card',
+                  onClick: () => {
+                    setEditingItem(firstMissing);
+                    setDialogOpen(true);
+                  },
+                }
+              : undefined,
+            duration: 9000,
+          },
+        );
+      }
+    },
+    [items, reorderItems],
+  );
+
   const bulkMoveToColumn = useCallback(async (columnId: string) => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
@@ -308,10 +362,11 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
       position: basePos + i,
       status: columnType ? (columnType as PlanningItem['status']) : undefined,
     }));
-    reorderItems.mutate(updates);
+    // Usa o guard pra avisar se mover pra "Agendado" sem scheduled_at definido.
+    handleReorderWithScheduleGuard(updates);
     toast.success(`${ids.length} ${ids.length === 1 ? 'card movido' : 'cards movidos'} pra ${column?.name ?? 'coluna'}`);
     clearSelection();
-  }, [selectedIds, columns, items, reorderItems, clearSelection]);
+  }, [selectedIds, columns, items, handleReorderWithScheduleGuard, clearSelection]);
 
   const bulkAssign = useCallback(async (userId: string | null) => {
     const ids = Array.from(selectedIds);
@@ -538,7 +593,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
             onDuplicate={handleDuplicate}
             onQuickRename={!isViewer ? handleQuickRename : undefined}
             onMoveItem={(itemId, columnId, position) => moveToColumn.mutate({ itemId, columnId, newPosition: position })}
-            onReorder={(updates) => reorderItems.mutate(updates)}
+            onReorder={handleReorderWithScheduleGuard}
             onAddCard={(columnId) => handleNewCard(columnId)}
             canDelete={!isViewer}
             viewSettings={settings}
@@ -622,7 +677,7 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
                   <h3 className="text-base font-semibold mb-1">Calendário Editorial</h3>
                   <p className="text-sm text-muted-foreground">
                     Selecione um cliente acima pra ver datas comemorativas, holidays e
-                    eventos do nicho via Metricool.
+                    eventos do nicho (em migração pro Late/Zernio).
                   </p>
                 </div>
               </div>

@@ -1,8 +1,9 @@
 // PlanningItemPerformance — seção de métricas pós-publicação no PlanningItemDialog.
 //
-// Renderiza só quando item.status === 'published' E há postId no metadata
-// (external_post_id ou metricool_post_id). Lê metrics persistidas em
-// metadata.metrics e oferece botão de "atualizar agora".
+// Renderiza só quando item.status === 'published' E há postId no metadata.
+// Source of truth: item.external_post_id (Late post id). Fallback legacy:
+// metadata.metricool_post_id pra cards publicados antes da migração 2026-05-18.
+// Lê metrics persistidas em metadata.metrics e oferece botão de "atualizar agora".
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

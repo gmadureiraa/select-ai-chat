@@ -7,8 +7,12 @@
 //   4. Call Gemini directly to generate text content
 //   5. Create planning_item row
 //   6. Optionally call generate-content-v2 for image
-//   7. Optionally publish via late-post
+//   7. Optionally publish via late-post (único publisher — Metricool foi-se em
+//      2026-05-18; auto_publish chama POST /api/late-post)
 //   8. Notify (in-app + Telegram, best-effort)
+//
+// Backfill de rows legadas com provider='metricool':
+//   migrations/0049_backfill_automations_late.sql (manual, ainda não rodada)
 //
 // Uses Neon (pg) instead of Supabase and Gemini direct (no Lovable Gateway).
 // NOTE: deep-research, viral_carousel branch and recursive supabase scraping

@@ -1,18 +1,12 @@
-// useHistoricalSnapshots — série temporal diária de métricas de uma rede
-// vinda da nossa tabela `metricool_daily_snapshots` (cron 06:00 UTC).
-//
-// Override Metricool API (que só dá 30-90d de janela). A partir do dia em que
-// o cron foi ligado, vai acumulando histórico ad eternum.
-//
-// Quando snapshots cobrem o range completo: source = 'snapshots'
-// Quando snapshots cobrem parcialmente: handler complementa com Metricool
-// API e retorna source = 'mixed' | 'api'.
+// 2026-05-18 rev2 — STUB. metricool-snapshots handler removido junto com Metricool.
+// Histórico vai ser reconstruído via late-analytics quando Wave A entregar.
+// Por enquanto, queryFn retorna snapshots vazios pra não quebrar componentes
+// que ainda importam (5 dashboards). Os componentes mostram "sem histórico" naturalmente.
 import { useQuery } from '@tanstack/react-query';
-import { apiInvoke } from '@/lib/apiInvoke';
 import type { MetricoolNetwork } from '@/hooks/useMetricoolPerformance';
 
 export interface SnapshotData {
-  date: string; // YYYY-MM-DD
+  date: string;
   followers: number | null;
   posts_count: number;
   total_likes: number;
@@ -44,22 +38,23 @@ export function useHistoricalSnapshots(
   period: number = 30,
 ) {
   return useQuery({
-    queryKey: ['metricool-snapshots', clientId, network, period],
+    queryKey: ['historical-snapshots-stub', clientId, network, period],
     queryFn: async (): Promise<SnapshotResponse> => {
       const now = new Date();
       const fromDate = new Date(now.getTime() - period * 86400_000);
-      const { data, error } = await apiInvoke('metricool-snapshots', {
-        body: {
-          clientId,
-          network,
-          fromDate: localDateKey(fromDate),
-          toDate: localDateKey(now),
+      return {
+        ok: true as const,
+        snapshots: [],
+        source: 'api' as const,
+        range: {
+          from: localDateKey(fromDate),
+          to: localDateKey(now),
+          days: period,
         },
-      });
-      if (error) throw error;
-      return data as SnapshotResponse;
+        coverage: { snapshotDays: 0, totalDays: period, ratio: 0 },
+      };
     },
-    enabled: !!clientId && !!network,
-    staleTime: 1000 * 60 * 30, // 30min — snapshots só mudam 1x/dia
+    enabled: false, // disabled até Late equivalent entrar (Wave A)
+    staleTime: Infinity,
   });
 }

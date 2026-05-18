@@ -27,7 +27,7 @@ const WORKSPACE_ID = '11111111-1111-1111-1111-111111111111';
 const INVITED_BY = '5014248e-b1ac-4306-8490-2644dcd8aeb5'; // Gabriel (owner)
 const ROLE = 'member';
 const EXPIRES_DAYS = 30;
-const BASE_URL = 'https://kai-2-topaz.vercel.app';
+const BASE_URL = 'https://kai.kaleidos.com.br';
 
 const EMAILS = [
   'rebelo@kaleidosdigital.com',

@@ -1,3 +1,25 @@
+// AutomationsTab — UI das 3 sub-tabs:
+//   schedule  → planning_automations (trigger_type='schedule')
+//   feeds     → planning_automations (trigger_type='rss' | 'webhook')
+//   workflows → ai_workflows (Madureira-style cron próprio + agentes)
+//
+// FLUXO PUBLISHING (2026-05-18 — cutover Metricool → Late/Zernio):
+//   1. Cron / "Testar agora" → POST /api/process-automations (handler em
+//      api/_handlers/process-automations.ts).
+//   2. Handler avalia trigger (cron-like ou novo item RSS), gera content via
+//      Gemini, cria planning_item.
+//   3. Se automation.auto_publish=true:
+//        → callInternal('/api/late-post', { clientId, platform, content,
+//          mediaItems | threadItems, planningItemId })
+//        → grava metadata.late_post_ids[platform] + external_post_id +
+//          status='published' no planning_item.
+//   4. Se auto_publish=false, item fica em draft/idea pro user mandar pra
+//      cron-process-scheduled-posts (que também publica via late na hora
+//      agendada — ver api/_handlers/process-scheduled-posts.ts).
+//
+// Late é o único publisher daqui pra frente. Não existe mais switch de
+// provider na UI. Backfill de rows legadas: migrations/0049_backfill_automations_late.sql.
+
 import { useState, useMemo } from 'react';
 import { Plus, Zap, Calendar, Rss, Webhook, MoreVertical, Pause, Play, Trash2, Pencil, TestTube2, History, Loader2, Filter, Users, Twitter, Linkedin, Instagram, Youtube, Facebook, AtSign, Video, Mail, FileText, Globe, Sparkles, ListChecks, Brain, Clock, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';

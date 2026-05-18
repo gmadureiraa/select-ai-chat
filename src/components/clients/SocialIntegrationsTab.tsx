@@ -6,7 +6,8 @@ import { useSocialCredentials } from "@/hooks/useSocialCredentials";
 import { useLateConnection, LatePlatform } from "@/hooks/useLateConnection";
 import { useClientPlatformStatus } from "@/hooks/useClientPlatformStatus";
 import { useToast } from "@/components/ui/use-toast";
-import { MetricoolBrandMapper } from "@/components/metricool/MetricoolBrandMapper";
+// 2026-05-18 rev2 — MetricoolBrandMapper removido. Conexão de contas
+// agora via Late/Zernio (PlatformConnectCards no SV settings).
 import { getNetworkBranding } from "@/lib/network-branding";
 import { cn } from "@/lib/utils";
 
@@ -228,11 +229,7 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
         )}
       </div>
 
-      {/* Metricool brand mapping — analytics + publishing nativos */}
-      <MetricoolBrandMapper
-        clientId={clientId}
-        currentBlogId={currentMetricoolBlogId}
-      />
+      {/* 2026-05-18 rev2 — MetricoolBrandMapper removido. Conexões agora via Late/Zernio. */}
     </div>
   );
 }

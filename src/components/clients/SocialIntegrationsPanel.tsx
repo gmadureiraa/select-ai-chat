@@ -12,6 +12,8 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
+  Sparkles,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,26 +37,27 @@ import {
   type SupportedPlatform,
 } from "@/hooks/useClientPlatformStatus";
 import { useSocialCredentials } from "@/hooks/useSocialCredentials";
+import { useClientLateProfile } from "@/hooks/useClientLateProfile";
 import { useToast } from "@/components/ui/use-toast";
 
 /**
- * SocialIntegrationsPanel — dashboard de plataformas conectadas via Postiz.
+ * SocialIntegrationsPanel — dashboard de plataformas conectadas via Late/Zernio.
  *
  * Diferente do SocialIntegrationsTab (legacy, lista cards de "conectar / desconectar"
  * por plataforma), esse painel mostra um *resumo* das contas já conectadas com
  * avatar + nome + botão desconectar, e tem um menu único "+ Conectar nova" pra
  * iniciar OAuth de qualquer plataforma suportada.
  *
- * Drop-in replacement no longo prazo — hoje vive lado a lado durante migração
- * Late→Postiz (UI ainda referencia "Postiz" mas o hook `useLateConnection` já
- * chama postiz-oauth-start internamente, não Late.com).
+ * Late/Zernio é o único publisher ativo (migração Metricool→Postiz→Late fechada
+ * em 2026-05-17). Variáveis com prefixo `postiz*` em hooks legados são apenas
+ * naming histórico — backend chama Late/Zernio.
  */
 
 interface SocialIntegrationsPanelProps {
   clientId: string;
 }
 
-// Plataformas suportadas pelo Postiz (espelha LATE_API_PLATFORMS no hook).
+// Plataformas suportadas pelo Late/Zernio (espelha LATE_API_PLATFORMS no hook).
 const SUPPORTED_PLATFORMS: Array<{
   id: LatePlatform;
   name: string;
@@ -75,6 +78,28 @@ export function SocialIntegrationsPanel({ clientId }: SocialIntegrationsPanelPro
   const { credentials, isLoading: isLoadingCreds } = useSocialCredentials(clientId);
   const { statuses, verifyAccounts, isVerifying } = useClientPlatformStatus(clientId);
   const lateConnection = useLateConnection({ clientId });
+  const lateProfile = useClientLateProfile(clientId);
+
+  const handleCreateBrand = async () => {
+    try {
+      await lateProfile.createBrand.mutateAsync({});
+    } catch {
+      // toast já mostrado pelo hook
+    }
+  };
+
+  const handleRecreateBrand = async () => {
+    if (!confirm(
+      "Recriar profile no Late/Zernio?\n\nIsso vai criar um novo profile e desconectar todas as redes que estiverem ligadas no atual. Use só se o profile sumiu do Late ou foi corrompido.",
+    )) {
+      return;
+    }
+    try {
+      await lateProfile.createBrand.mutateAsync({ force: true });
+    } catch {
+      // toast já mostrado pelo hook
+    }
+  };
 
   const platformMap = useMemo(() => {
     const m = new Map<LatePlatform, (typeof SUPPORTED_PLATFORMS)[number]>();
@@ -124,8 +149,101 @@ export function SocialIntegrationsPanel({ clientId }: SocialIntegrationsPanelPro
     );
   }
 
+  const lateOauthDisabled = !lateProfile.hasProfile;
+
   return (
     <TooltipProvider delayDuration={300}>
+      <div className="space-y-4">
+        {/* Brand profile card — pre-requisito pras OAuth connections.
+           Toda conta social precisa estar attached a um Late "profile" (brand).
+           Antes dessa UI, admin tinha que abrir app.getlate.dev manualmente. */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  Profile Late/Zernio
+                  {lateProfile.hasProfile && (
+                    <Badge variant="outline" className="text-[10px] gap-1 border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400">
+                      <CheckCircle2 className="h-2.5 w-2.5" />
+                      Configurado
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  Brand container que organiza todas as contas sociais deste cliente no Late.
+                </CardDescription>
+              </div>
+              {lateProfile.hasProfile && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRecreateBrand}
+                  disabled={lateProfile.isCreating}
+                  className="gap-1.5 text-xs"
+                >
+                  {lateProfile.isCreating ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  Recriar
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {lateProfile.isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : lateProfile.hasProfile ? (
+              <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs text-muted-foreground">Late Profile ID</span>
+                  <span className="font-mono text-xs truncate" title={lateProfile.profileId || ""}>
+                    {lateProfile.profileId}
+                  </span>
+                </div>
+                {lateProfile.profileName && (
+                  <Badge variant="secondary" className="text-[10px] shrink-0">
+                    {lateProfile.profileName}
+                  </Badge>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-md border-2 border-dashed border-border bg-amber-50/40 dark:bg-amber-950/10 p-4">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-foreground">
+                      Crie o profile no Late antes de conectar redes
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Profile = brand container. Sem ele, OAuth não tem onde anexar as contas.
+                      Antes essa etapa só rodava manualmente no dashboard do Late.
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={handleCreateBrand}
+                      disabled={lateProfile.isCreating}
+                      className="mt-3 gap-1.5"
+                    >
+                      {lateProfile.isCreating ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Plus className="h-3.5 w-3.5" />
+                      )}
+                      Criar agora
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
       <Card>
         <CardHeader className="pb-4">
           <div className="flex items-start justify-between gap-3">
@@ -139,7 +257,7 @@ export function SocialIntegrationsPanel({ clientId }: SocialIntegrationsPanelPro
                 )}
               </CardTitle>
               <CardDescription>
-                Contas integradas via Postiz para publicação automática.
+                Contas integradas via Late/Zernio para publicação automática.
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -158,47 +276,64 @@ export function SocialIntegrationsPanel({ clientId }: SocialIntegrationsPanelPro
                 <span className="hidden sm:inline">Sincronizar</span>
               </Button>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={notConnectedIds.length === 0 || lateConnection.isLoading}
-                  >
-                    {lateConnection.isLoading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Plus className="h-3.5 w-3.5" />
-                    )}
-                    Conectar nova
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  {notConnectedIds.length === 0 ? (
-                    <DropdownMenuItem disabled>
-                      Todas as plataformas já estão conectadas
-                    </DropdownMenuItem>
-                  ) : (
-                    notConnectedIds.map((p) => {
-                      const Icon = p.icon;
-                      return (
-                        <DropdownMenuItem
-                          key={p.id}
-                          onClick={() => handleConnect(p.id)}
-                          className="gap-2 cursor-pointer"
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="sm"
+                          className="gap-1.5"
+                          disabled={
+                            notConnectedIds.length === 0 ||
+                            lateConnection.isLoading ||
+                            lateOauthDisabled
+                          }
                         >
-                          <span
-                            className={`h-6 w-6 rounded flex items-center justify-center ${p.brandClass}`}
-                          >
-                            <Icon className="h-3.5 w-3.5" />
-                          </span>
-                          <span className="text-sm">{p.name}</span>
-                        </DropdownMenuItem>
-                      );
-                    })
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                          {lateConnection.isLoading ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Plus className="h-3.5 w-3.5" />
+                          )}
+                          Conectar nova
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        {notConnectedIds.length === 0 ? (
+                          <DropdownMenuItem disabled>
+                            Todas as plataformas já estão conectadas
+                          </DropdownMenuItem>
+                        ) : (
+                          notConnectedIds.map((p) => {
+                            const Icon = p.icon;
+                            return (
+                              <DropdownMenuItem
+                                key={p.id}
+                                onClick={() => handleConnect(p.id)}
+                                className="gap-2 cursor-pointer"
+                              >
+                                <span
+                                  className={`h-6 w-6 rounded flex items-center justify-center ${p.brandClass}`}
+                                >
+                                  <Icon className="h-3.5 w-3.5" />
+                                </span>
+                                <span className="text-sm">{p.name}</span>
+                              </DropdownMenuItem>
+                            );
+                          })
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </span>
+                </TooltipTrigger>
+                {lateOauthDisabled && (
+                  <TooltipContent side="top">
+                    <p className="text-xs max-w-xs">
+                      Crie o profile Late/Zernio acima antes de conectar redes.
+                    </p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
             </div>
           </div>
         </CardHeader>
@@ -210,7 +345,7 @@ export function SocialIntegrationsPanel({ clientId }: SocialIntegrationsPanelPro
                 Nenhuma conta conectada ainda
               </div>
               <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-                Conecte X, Instagram, LinkedIn ou outras redes via Postiz
+                Conecte X, Instagram, LinkedIn ou outras redes via Late/Zernio
                 para agendar e publicar direto daqui.
               </p>
             </div>
@@ -271,7 +406,7 @@ export function SocialIntegrationsPanel({ clientId }: SocialIntegrationsPanelPro
                           className="text-[10px] h-5 gap-1 border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400"
                         >
                           <CheckCircle2 className="h-2.5 w-2.5" />
-                          Conectado via Postiz
+                          Conectado via Late/Zernio
                         </Badge>
                       ) : (
                         <Tooltip>
@@ -287,7 +422,7 @@ export function SocialIntegrationsPanel({ clientId }: SocialIntegrationsPanelPro
                           <TooltipContent side="top">
                             <p className="text-xs max-w-xs">
                               {cred.validation_error ||
-                                "Token expirou ou conta foi desconectada do Postiz."}
+                                "Token expirou ou conta foi desconectada do Late/Zernio."}
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -348,6 +483,7 @@ export function SocialIntegrationsPanel({ clientId }: SocialIntegrationsPanelPro
           )}
         </CardContent>
       </Card>
+      </div>
     </TooltipProvider>
   );
 }

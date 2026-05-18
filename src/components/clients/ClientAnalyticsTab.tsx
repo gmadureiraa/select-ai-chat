@@ -13,7 +13,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { VerticalBarChart } from "@/components/kai/performance-v2/components/charts/svg-primitives";
+import { VerticalBarChart } from "@/components/kai/charts/svg-primitives";
 import {
   Activity,
   TrendingUp,

@@ -105,13 +105,27 @@ export default authedPost(async ({ user, body, req, res }) => {
 
   console.log(`[publish-viral-carousel] uploaded ${mediaUrls.length} slides for carousel ${carouselId}`);
 
+  // 2026-05-18 fix: se o caller (SV preview) não passar planningItemId, tenta
+  // resolver via FK viral_carousels.planning_item_id. Sem isso o publishViaLate
+  // não atualiza o planning_item correspondente quando o user publica direto
+  // pelo botão "Publicar/Agendar" do preview do SV, deixando o card no Kanban
+  // travado em status='scheduled' mesmo após postagem confirmada na Late.
+  let resolvedPlanningItemId = planningItemId;
+  if (!resolvedPlanningItemId) {
+    const linked = await queryOne<{ planning_item_id: string | null }>(
+      `SELECT planning_item_id FROM viral_carousels WHERE id = $1 LIMIT 1`,
+      [carouselId],
+    ).catch(() => null);
+    if (linked?.planning_item_id) resolvedPlanningItemId = linked.planning_item_id;
+  }
+
   // Call late-post handler in-process via a captured pseudo response.
   const lateBody = {
     clientId,
     platform: 'instagram',
     content: caption,
     mediaUrls,
-    planningItemId,
+    planningItemId: resolvedPlanningItemId,
     scheduledFor,
     publishNow: !scheduledFor,
   };

@@ -1,16 +1,18 @@
 // Scrapes LinkedIn posts (personal profile or company) of a client via Apify
 // and upserts into metricool_posts (network='linkedin').
+// (nome da tabela é legado Metricool — schema mantido, conteúdo hoje vem de
+// Late/Zernio ou scrape direto via Apify.)
 //
 // MOTIVAÇÃO (2026-05-16):
-//   A Metricool API NÃO retorna analytics de posts de perfis LinkedIn pessoais
-//   (apenas Company Pages que ela administra com OAuth full). Madureira e a
-//   maioria dos creators usam perfil pessoal — então `/v2/analytics/posts/linkedin`
-//   sempre retorna `data: []`, e o dashboard Performance > LinkedIn fica zerado.
+//   APIs de publisher (era Metricool, hoje Late/Zernio) NÃO retornam analytics
+//   de posts de perfis LinkedIn pessoais (só Company Pages). Madureira e a
+//   maioria dos creators usam perfil pessoal — então o dashboard Performance >
+//   LinkedIn fica zerado sem este scrape.
 //
 //   Esta função faz o scrape via Apify (mesma estratégia do `cron-scrape-linkedin`
 //   pra Radar, mas escrevendo numa tabela do CLIENTE em vez do Radar). O endpoint
 //   é authedPost manual (não cron) — chamado pelo botão "Atualizar" do dashboard
-//   ou por cron que vamos adicionar no `cron-metricool-backfill-posts`.
+//   ou pelo cron `cron-metricool-backfill-posts` (nome legado).
 //
 // INPUT:
 //   { clientId: uuid, handle?: string }

@@ -680,6 +680,17 @@ export default function EditPage(props: {
       toast.error("Selecione um cliente na sidebar antes de salvar no calendário.");
       return;
     }
+    // 2026-05-18 fix: o handler save-as-planning-item exige workspace_id
+    // (zod required). Antes a chamada só mandava client_id e batia em
+    // 400 Invalid input: workspace_id: Required — bloqueando o "Salvar no
+    // calendário" 100% das vezes em runtime. kaiCtx.workspaceId vem do
+    // WorkspaceContext do shell KAI e sempre existe quando user tem
+    // workspace ativo.
+    const targetWorkspace = kaiCtx.workspaceId;
+    if (!targetWorkspace) {
+      toast.error("Workspace KAI não resolvido — recarregue a página.");
+      return;
+    }
     setSavingToPlanning(true);
     try {
       // Flush primeiro pra garantir que o DB tem o estado atual antes do
@@ -711,6 +722,7 @@ export default function EditPage(props: {
         error?: string;
       }>("save-as-planning-item", {
         body: {
+          workspace_id: targetWorkspace,
           client_id: targetClient,
           source: "sv",
           title: (title || "Carrossel sem título").slice(0, 200),

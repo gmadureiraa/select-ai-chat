@@ -3,8 +3,11 @@
 //
 // Body: {
 //   clientId: string;            // obrigatório
-//   postId: string;              // obrigatório (metricool_post_id ou external id)
+//   postId: string;              // obrigatório (external_post_id ou legacy metricool_post_id)
 //   source: 'metricool' | 'instagram_posts' | 'planning';
+//                                // 'metricool' é mantido por compatibilidade com
+//                                // schema da tabela client_post_transcriptions
+//                                // (hoje os posts vêm via Late/Zernio).
 //   postType?: 'post' | 'carousel' | 'reel' | 'story' | 'video';
 //   network?: string;            // default 'instagram'
 //   imageUrls?: string[];        // imagens/slides

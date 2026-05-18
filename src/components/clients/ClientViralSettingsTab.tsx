@@ -26,9 +26,20 @@ import {
   FileText,
 } from "lucide-react";
 import { useClientContext } from "@/hooks/useClientContext";
-import { MetricoolHashtagsTracker } from "@/components/metricool/MetricoolHashtagsTracker";
-import { MetricoolCompetitorsPanel } from "@/components/metricool/MetricoolCompetitorsPanel";
-import { MetricoolReportsManager } from "@/components/metricool/MetricoolReportsManager";
+// 2026-05-18 rev2 — Metricool removido. Hashtags/Competitors/Reports panels
+// virão via Late/Zernio quando integrarmos (Late tem `late-analytics`).
+// Stubs pra não quebrar UI:
+const MetricoolPlaceholder = ({ feature }: { feature: string }) => (
+  <div className="text-center py-12 px-4 border-2 border-dashed border-border rounded-lg">
+    <div className="text-sm font-medium text-foreground">{feature} em migração</div>
+    <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+      Estamos migrando do Metricool pro Late/Zernio. Esse painel volta em breve com features equivalentes.
+    </p>
+  </div>
+);
+const MetricoolHashtagsTracker = (_p: { clientId: string }) => <MetricoolPlaceholder feature="Tracker de hashtags" />;
+const MetricoolCompetitorsPanel = (_p: { clientId: string }) => <MetricoolPlaceholder feature="Análise de concorrentes" />;
+const MetricoolReportsManager = (_p: { clientId: string }) => <MetricoolPlaceholder feature="Relatórios" />;
 // 2026-05-16 — Radar Viral e Reels Viral removidos do KAI por completo.
 
 interface ClientViralSettingsTabProps {

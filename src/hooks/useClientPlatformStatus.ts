@@ -19,14 +19,13 @@ export interface ClientPlatformStatuses {
   [key: string]: PlatformStatus;
 }
 
-// Platforms that support auto-publishing via Postiz (substituiu Late API em 2026-05-08).
-// Constante mantém o nome legado por compat com componentes que importam.
+// Plataformas com autopublish via Late/Zernio (publisher único pós 2026-05-18 rev2).
 const LATE_API_PLATFORMS: SupportedPlatform[] = ['twitter', 'linkedin', 'instagram', 'facebook', 'threads', 'tiktok', 'youtube'];
 
 export function useClientPlatformStatus(clientId: string | null | undefined) {
   const queryClient = useQueryClient();
   const lastVerifiedRef = useRef<string | null>(null);
-  
+
   const { data: statuses, isLoading } = useQuery({
     queryKey: ['client-platform-status', clientId],
     queryFn: async (): Promise<ClientPlatformStatuses> => {
@@ -41,9 +40,8 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
 
       const statusMap: ClientPlatformStatuses = {};
 
-      // Initialize all platforms with default status
       const allPlatforms: SupportedPlatform[] = ['twitter', 'linkedin', 'instagram', 'youtube', 'newsletter', 'blog', 'tiktok', 'facebook', 'threads', 'other'];
-      
+
       for (const platform of allPlatforms) {
         statusMap[platform] = {
           platform,
@@ -56,13 +54,12 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
         };
       }
 
-      // Update with actual credentials
       for (const cred of credentials || []) {
         const platform = cred.platform as SupportedPlatform;
         const metadata = cred.metadata as Record<string, unknown> | null;
-        // isLateApi nome legado — true tb pra Postiz (provider unificado de scheduling).
-        const isLateApi = !!(metadata?.postiz_integration_id || metadata?.late_account_id || metadata?.late_profile_id);
-        
+        // isLateApi true = autopublish via Late/Zernio (late_account_id ou late_profile_id presente)
+        const isLateApi = !!(metadata?.late_account_id || metadata?.late_profile_id);
+
         if (statusMap[platform]) {
           statusMap[platform] = {
             platform,
@@ -79,7 +76,7 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
       return statusMap;
     },
     enabled: !!clientId,
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 30000,
   });
 
   const getPlatformStatus = (platform: SupportedPlatform | null): PlatformStatus | null => {
@@ -98,50 +95,40 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
     return canAutoPublish(platform) ? 'auto' : 'manual';
   };
 
-  // Mutation to verify accounts with Late API
+  // Verify accounts com Late/Zernio API (revalida tokens OAuth + remove órfãos)
   const verifyAccountsMutation = useMutation({
     mutationFn: async () => {
       if (!clientId) return null;
-      
-      // 2026-05-17: Postiz arquivado, voltamos pro late-verify-accounts (mode 'verify' já era o default).
       const { data, error } = await apiInvoke('late-verify-accounts', {
         body: { clientId }
       });
-      
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
       if (data?.deletedCount > 0 || data?.invalidCount > 0) {
-        // Invalidate queries to refresh UI
         queryClient.invalidateQueries({ queryKey: ['client-platform-status', clientId] });
         queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
       }
     },
   });
 
-  // Auto-verify accounts on mount (with 5 minute stale time)
+  // Auto-verify accounts on mount (com 5 min stale time)
   useEffect(() => {
     if (!clientId || !statuses) return;
-    
-    // Check if we have any Late API connected platforms
+
     const hasLateConnections = Object.values(statuses).some(s => s.isLateApi && s.hasApi);
     if (!hasLateConnections) return;
-    
-    // Only verify once per 5 minutes per client
+
     const now = Date.now();
     const lastVerifiedKey = `late-verify-${clientId}`;
     const lastVerified = localStorage.getItem(lastVerifiedKey);
-    const staleTime = 5 * 60 * 1000; // 5 minutes
-    
-    if (lastVerified && (now - parseInt(lastVerified)) < staleTime) {
-      return;
-    }
-    
-    // Prevent duplicate verifications
+    const staleTime = 5 * 60 * 1000;
+
+    if (lastVerified && (now - parseInt(lastVerified)) < staleTime) return;
     if (lastVerifiedRef.current === clientId) return;
     lastVerifiedRef.current = clientId;
-    
+
     localStorage.setItem(lastVerifiedKey, now.toString());
     verifyAccountsMutation.mutate();
   }, [clientId, statuses, verifyAccountsMutation]);

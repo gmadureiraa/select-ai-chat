@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAuth } from "@/hooks/useAuth";
-import { useInboxUnreadCount } from "@/hooks/useMetricoolInbox";
+import { useInboxUnreadCount } from "@/hooks/useLateInbox";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 import {

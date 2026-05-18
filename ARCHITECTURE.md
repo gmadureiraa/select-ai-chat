@@ -51,8 +51,8 @@ Documento técnico do app pós-migração Supabase (Lovable) → Neon (2026-05-0
                                   │ External APIs invoked from handlers:
                                   ├── Gemini, OpenAI, Anthropic, Grok (LLMs)
                                   ├── Apify (IG/TikTok/YouTube/Twitter scrapers)
-                                  ├── Late API (publishing)
-                                  ├── LinkedIn, Twitter (OAuth)
+                                  ├── Late/Zernio API (publishing + inbox + metrics)
+                                  ├── LinkedIn, Twitter (OAuth via Late/Zernio)
                                   ├── Resend (email)
                                   ├── Telegram Bot API
                                   ├── ClickUp API
@@ -124,7 +124,7 @@ fetchWithNeonAuth(req):
 
 ## 4. Fluxo de Edge Functions (browser → API)
 
-Pattern adotado: **catch-all router** carrega 97 handlers sob demanda. Razão: Hobby plan da Vercel limita 12 functions; este pattern usa só 2 (router + blob).
+Pattern adotado: **catch-all router** carrega 184 handlers sob demanda. Razão: Hobby plan da Vercel limita 12 functions; este pattern usa só 2 (router + blob).
 
 ```
 src/lib/apiInvoke.ts
@@ -152,7 +152,7 @@ api/_handlers/<slug>.ts:
   - usa _lib/handler.ts (authedPost, anonPost wrappers)
 ```
 
-- 97 handlers em `api/_handlers/` (1 arquivo por endpoint).
+- 184 handlers em `api/_handlers/` (1 arquivo por endpoint).
 - `_lib/handler.ts` provê `authedPost` (auth obrigatória) e `anonPost` (auth opcional). Ambos cuidam de CORS + JSON parsing + erro padronizado.
 - SSE streams (`kai-content-agent`, `kai-simple-chat`, `kai-metrics-agent`) usam `res.write(...)` com `Content-Type: text/event-stream`. `apiInvokeStream(name)` no client devolve a `Response` raw pra leitura via `EventSource`/`getReader`.
 - Chamadas internas entre handlers usam `fetch('${INTERNAL_API_BASE_URL}/api/<other>')` propagando o `Authorization` header. `INTERNAL_API_BASE_URL` resolvido via env → `req.headers.host` → fallback `https://kai-2-topaz.vercel.app`.
@@ -262,13 +262,14 @@ api/
 │   ├── stub.ts                  # notImplemented(name) helper
 │   ├── shared/                  # ports de _shared/* legacy (formato/qualidade)
 │   └── kai-chat-tools/          # 13 tools do kai-simple-chat
-├── _handlers/                   # 97 handlers (1 arquivo cada)
+├── _handlers/                   # 184 handlers (1 arquivo cada)
 │   ├── extract-pdf.ts           # autenticado, Gemini Vision
-│   ├── kai-simple-chat.ts       # SSE, function-calling, 11 tools
-│   ├── cron-*.ts                # 4 crons (news, ig, tiktok, daily-brief)
-│   ├── linkedin-*.ts            # OAuth + post (3 handlers)
-│   ├── twitter-*.ts             # OAuth + post (3 handlers)
-│   ├── late-*.ts                # Late publishing API (8 handlers)
+│   ├── kai-simple-chat.ts       # SSE, function-calling, 43 tools
+│   ├── cron-*.ts                # crons (news, ig, tiktok, daily-brief, radar, ...)
+│   ├── linkedin-*.ts            # OAuth + post (auth via Late/Zernio)
+│   ├── twitter-*.ts             # OAuth + post (auth via Late/Zernio)
+│   ├── late-*.ts                # Late/Zernio publishing + inbox + metrics (11 handlers)
+│   ├── publish-viral-carousel.ts # Pipeline carrossel viral → Late.post
 │   ├── telegram-*.ts            # bot poll + notify + daily report
 │   └── ... (resto)
 └── blob/                        # 5 endpoints diretos pro Vercel Blob
@@ -370,7 +371,9 @@ migrations/
 
 | Decisão | Justificativa |
 |---|---|
-| **Catch-all router 1 function** | Hobby plan limita 12 functions; consolidação reduz pra 2 (router + blob). Trade-off: cold start único compartilhado entre 97 endpoints. |
+| **Catch-all router 1 function** | Hobby plan limita 12 functions; consolidação reduz pra 2 (router + blob). Trade-off: cold start único compartilhado entre 184 endpoints. |
+| **Late/Zernio como publisher único** | Migração Metricool → Postiz → Late/Zernio fechada em 2026-05-17. Late cobre 14 redes (IG, TikTok, X, LinkedIn, YouTube, Threads, Facebook, ...) + inbox + métricas via webhooks. Tabelas legacy (`metricool_posts`, `metricool_daily_snapshots`, `metricool_inbox`) mantidas com nome histórico, mas populadas pelos handlers `late-*.ts` + `late-webhook.ts`. |
+| **Performance multi-platform** | Métricas chegam por: (1) webhooks `post.published/post.failed/post.partial` → `late-webhook.ts`, (2) fetch sob demanda via `fetch-*-posts-apify.ts` quando a API do publisher não devolve analytics (ex: perfis pessoais LinkedIn). |
 | **Polling > Realtime WS** | Reduz infra; uses cases atuais toleram 5–30s de latência. |
 | **`SupabaseAuthAdapter` pra Neon Auth** | Mantém 45 callsites legados `supabase.auth.*` sem refactor. |
 | **Tipos do Supabase mantidos** | `types.ts` ainda é o gerado pelo Lovable. Tabelas novas usam `(supabase as any)` até regenerarmos do Neon. |
@@ -387,4 +390,4 @@ migrations/
 - pg_cron jobs antigos no Lovable Supabase: confirmar que ninguém depende deles antes de sunset
 - Tooling de migração estruturada (drizzle-kit / atlas)
 - Code splitting agressivo no front (chunk único de ~4MB)
-- OAuth real LinkedIn + Twitter + Late (handlers prontos, falta credencial)
+- Validar OAuth real LinkedIn + Twitter + IG via Late/Zernio (handlers prontos, falta validar fluxo end-to-end por cliente)

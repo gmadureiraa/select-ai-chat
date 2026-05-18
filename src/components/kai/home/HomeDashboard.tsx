@@ -1,8 +1,9 @@
 // HomeDashboard — entrypoint do KAI 2.0 (rota /início, ?tab=home).
 //
 // Reescrito 2026-05-09: alimentado 100% por dados reais (planning_items +
-// metricool_posts + metricool_daily_snapshots). Substitui o dashboard antigo
-// que era pesado em pipeline/Kanban e leve em performance.
+// metricool_posts + metricool_daily_snapshots — nomes herdados, hoje populados
+// via Late/Zernio webhooks). Substitui o dashboard antigo que era pesado em
+// pipeline/Kanban e leve em performance.
 //
 // Layout (top-down):
 //   1. Hero — saudação + workspace stats agregadas + plan badge + sino
@@ -57,7 +58,7 @@ import { useDashboardClientCards } from "@/hooks/useDashboardClientCards";
 import { useDashboardTopPosts } from "@/hooks/useDashboardTopPosts";
 import { useDashboardUpcoming } from "@/hooks/useDashboardUpcoming";
 import { useMyTeamTasks } from "@/hooks/useTeamTasks";
-import { useInboxUnreadCount } from "@/hooks/useMetricoolInbox";
+import { useInboxUnreadCount } from "@/hooks/useLateInbox";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -262,8 +263,8 @@ function useSetupChecklist(opts: {
         cta: { label: "Cadastrar", tab: "clients" },
       },
       {
-        key: "metricool",
-        label: "Conectar Metricool (importar posts)",
+        key: "publisher",
+        label: "Conectar Late/Zernio (importar posts)",
         done: opts.metricoolPostsCount > 0,
         cta: { label: "Configurar", tab: "settings" },
       },
@@ -458,7 +459,7 @@ export function HomeDashboard({
                 value: stats?.itemsPublishedLast30d ?? 0,
                 hint:
                   stats && stats.metricoolPostsLast30d > 0
-                    ? `${stats.metricoolPostsLast30d} no Metricool`
+                    ? `${stats.metricoolPostsLast30d} via Late/Zernio`
                     : "Pipeline + redes",
                 icon: Send,
                 accent: "text-emerald-500",
@@ -684,7 +685,7 @@ export function HomeDashboard({
             ) : clientCards.length === 0 ? (
               <Card>
                 <CardContent className="p-6 text-center text-sm text-muted-foreground">
-                  Nenhum cliente com dados ainda. Conecte Metricool ou aguarde o
+                  Nenhum cliente com dados ainda. Conecte Late/Zernio ou aguarde o
                   primeiro snapshot diário.
                 </CardContent>
               </Card>
@@ -749,7 +750,7 @@ export function HomeDashboard({
                         Nenhum post nos últimos 30 dias.
                       </p>
                       <p className="text-xs text-muted-foreground/60 mt-0.5">
-                        Conecte Metricool ou agende publicações pra ver ranking.
+                        Conecte Late/Zernio ou agende publicações pra ver ranking.
                       </p>
                     </div>
                   ) : (

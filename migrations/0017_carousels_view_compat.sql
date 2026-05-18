@@ -21,11 +21,17 @@
 --
 -- FIX (2026-05-16): cada `CREATE OR REPLACE FUNCTION` agora é wrapped
 -- num DO block que CHECA `prosecdef` antes. Se a versão SECURITY DEFINER
--- já existe (0028/0037 aplicada), pula a recriação. A VIEW em si (sem
--- security implications) sempre re-cria normalmente.
+-- já existe (0028/0037 aplicada), pula a recriação.
+--
+-- FIX (2026-05-18): a VIEW em si TAMBÉM precisa de blindagem. A 0047
+-- aplicou `SET (security_invoker = true)` pra fechar bypass de RLS via
+-- anon. Se 0017 re-rodar (reseed) sem `WITH (security_invoker = true)`,
+-- o atributo volta pro default (false / security_definer mode), abrindo
+-- o bug de novo. Agora a CREATE OR REPLACE VIEW já vem com o flag certo.
 -- ═══════════════════════════════════════════════════════════════════════════
 
-CREATE OR REPLACE VIEW public.carousels AS
+CREATE OR REPLACE VIEW public.carousels
+WITH (security_invoker = true) AS
 SELECT
   vc.id,
   vc.client_id,
@@ -180,4 +186,28 @@ CREATE TRIGGER carousels_view_delete
 
 -- Permissões na view: herdam policies da tabela base. Habilita acesso
 -- via PostgREST/Neon Data API.
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.carousels TO authenticated, anon;
+--
+-- ⚠️ HARDENING (0047, 2026-05-18): anon NUNCA deve ter acesso. View deve ser
+-- security_invoker. Se essa migration rodar standalone depois da 0047,
+-- regrediria. Guard abaixo só re-grant se 0047 NÃO foi aplicada.
+DO $guard_grants$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM __migrations_applied WHERE id = '0047_view_carousels_security_invoker'
+  ) THEN
+    RAISE NOTICE '[0017] 0047 já hardened — pulando grants antigos (anon = deny)';
+    -- Re-aplica o estado hardened pra garantir
+    ALTER VIEW public.carousels SET (security_invoker = true);
+    BEGIN
+      REVOKE ALL ON public.carousels FROM anon;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON public.carousels TO authenticated;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON public.carousels TO service_role;
+  ELSE
+    GRANT SELECT, INSERT, UPDATE, DELETE ON public.carousels TO authenticated, anon;
+  END IF;
+EXCEPTION WHEN undefined_table THEN
+  -- __migrations_applied não existe ainda (primeira aplicação) — segue grant original.
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.carousels TO authenticated, anon;
+END $guard_grants$;

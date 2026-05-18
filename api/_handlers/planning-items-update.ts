@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertColumnInWorkspace } from '../_lib/access.js';
 
 const BodySchema = z.object({
   id: z.string().uuid(),
@@ -72,6 +73,17 @@ export default authedPost(async ({ body, user }) => {
   );
   if (!access?.ok) {
     throw new Error('Item não encontrado ou acesso negado');
+  }
+
+  // Sec2: se vai mover pra coluna nova, valida que coluna é do mesmo workspace.
+  if (data.column_id) {
+    const wsRow = await queryOne<{ workspace_id: string }>(
+      `SELECT workspace_id FROM planning_items WHERE id = $1 LIMIT 1`,
+      [data.id],
+    );
+    if (wsRow?.workspace_id) {
+      await assertColumnInWorkspace(data.column_id, wsRow.workspace_id);
+    }
   }
 
   const updates: string[] = [];

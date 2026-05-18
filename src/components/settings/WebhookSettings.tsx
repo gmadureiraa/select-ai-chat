@@ -49,7 +49,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 // Migrated 2026-05-07: Supabase edge function -> Vercel Function under /api/.
-// 2026-05-17: Postiz arquivado (provider voltou pra Late.ai como única integração).
+// 2026-05-17: Late/Zernio é o único publisher ativo (Postiz e Metricool removidos).
 const WEBHOOK_URL = (() => {
   if (typeof window !== "undefined" && window.location?.origin) {
     return `${window.location.origin}/api/late-webhook`;
@@ -61,7 +61,7 @@ const SUPPORTED_EVENTS = [
   { id: "post.published", label: "post.published", severity: "info", description: "Move o card para Publicado e registra a URL." },
   { id: "post.failed", label: "post.failed", severity: "alert", description: "Marca como Falha e dispara alerta no Telegram." },
   { id: "post.partial", label: "post.partial", severity: "alert", description: "Marca como Parcial e lista as redes que falharam." },
-  { id: "post.scheduled", label: "post.scheduled", severity: "info", description: "Confirma que a Postiz agendou o post." },
+  { id: "post.scheduled", label: "post.scheduled", severity: "info", description: "Confirma que o Late/Zernio agendou o post." },
   { id: "post.cancelled", label: "post.cancelled", severity: "alert", description: "Marca como Cancelado e avisa no Telegram." },
   { id: "post.recycled", label: "post.recycled", severity: "silent", description: "Salva nova URL no metadata (silencioso)." },
   { id: "account.disconnected", label: "account.disconnected", severity: "alert", description: "Remove credencial e avisa no Telegram." },
@@ -179,7 +179,7 @@ export function WebhookSettings() {
   const copyUrl = async () => {
     await navigator.clipboard.writeText(WEBHOOK_URL);
     setCopied(true);
-    toast({ title: "URL copiada", description: "Cole no painel da Postiz." });
+    toast({ title: "URL copiada", description: "Cole no painel do Late/Zernio." });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -274,7 +274,7 @@ export function WebhookSettings() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Webhook className="h-5 w-5 text-muted-foreground" />
-                  <CardTitle>Webhooks Postiz</CardTitle>
+                  <CardTitle>Webhooks Late/Zernio</CardTitle>
                 </div>
                 <Dialog open={testOpen} onOpenChange={setTestOpen}>
                   <DialogTrigger asChild>
@@ -340,7 +340,7 @@ export function WebhookSettings() {
                 </Dialog>
               </div>
               <CardDescription>
-                Configure no painel da Postiz em <strong>Settings → Webhooks → Create Webhook</strong>.
+                Configure no painel do Late/Zernio em <strong>Settings → Webhooks → Create Webhook</strong>.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -359,9 +359,9 @@ export function WebhookSettings() {
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground uppercase">Secret Key (HMAC)</div>
                 <p className="text-sm text-muted-foreground">
-                  Está armazenado como <code className="text-xs bg-muted/50 px-1.5 py-0.5 rounded">POSTIZ_WEBHOOK_SECRET</code>.
-                  Cole o mesmo valor no campo <em>Secret Key</em> da Postiz para validarmos a assinatura
-                  <code className="text-xs bg-muted/50 px-1.5 py-0.5 rounded ml-1">X-Postiz-Signature</code>.
+                  Está armazenado como <code className="text-xs bg-muted/50 px-1.5 py-0.5 rounded">LATE_WEBHOOK_SECRET</code>.
+                  Cole o mesmo valor no campo <em>Secret Key</em> do Late/Zernio para validarmos a assinatura
+                  <code className="text-xs bg-muted/50 px-1.5 py-0.5 rounded ml-1">X-Late-Signature</code>.
                 </p>
               </div>
 

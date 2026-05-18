@@ -6,7 +6,7 @@
 // de N supabase.from('planning_items').update direto. Sem assertClientAccess.
 import { z } from 'zod';
 import { authedPost } from '../_lib/handler.js';
-import { getPool, query } from '../_lib/db.js';
+import { getPool, query, queryOne } from '../_lib/db.js';
 
 const UpdateSchema = z.object({
   id: z.string().uuid(),
@@ -48,6 +48,29 @@ export default authedPost(async ({ body, user }) => {
     throw new Error(
       `Acesso negado a ${ids.length - accessRows.length} item(s) do batch`,
     );
+  }
+
+  // Sec2: defesa em profundidade — toda column_id passada precisa pertencer
+  // ao mesmo workspace dos items movidos. 1 query batch valida tudo de uma vez.
+  const uniqueColumnIds = Array.from(new Set(updates.map((u) => u.column_id)));
+  const columnRows = await query<{ id: string; workspace_id: string }>(
+    `SELECT kc.id, kc.workspace_id
+       FROM kanban_columns kc
+      WHERE kc.id = ANY($1::uuid[])`,
+    [uniqueColumnIds],
+  );
+  const itemWsRows = await query<{ id: string; workspace_id: string }>(
+    `SELECT id, workspace_id FROM planning_items WHERE id = ANY($1::uuid[])`,
+    [ids],
+  );
+  const itemWsMap = new Map(itemWsRows.map((r) => [r.id, r.workspace_id]));
+  const columnWsMap = new Map(columnRows.map((r) => [r.id, r.workspace_id]));
+  for (const u of updates) {
+    const itemWs = itemWsMap.get(u.id);
+    const colWs = columnWsMap.get(u.column_id);
+    if (!itemWs || !colWs || itemWs !== colWs) {
+      throw new Error(`column_id ${u.column_id} não pertence ao workspace do item ${u.id}`);
+    }
   }
 
   // Aplica updates em transaction.

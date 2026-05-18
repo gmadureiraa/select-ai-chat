@@ -33,7 +33,7 @@ jobs:
       - name: Trigger ${{ matrix.endpoint }}
         env:
           CRON_SECRET: ${{ secrets.KAI_CRON_SECRET }}
-          BASE_URL: https://kai-2-topaz.vercel.app
+          BASE_URL: https://kai.kaleidos.com.br
         run: |
           set -e
           echo "→ POST $BASE_URL/api/${{ matrix.endpoint }}"

@@ -18,17 +18,6 @@ function anyEnv(names: string[], configuredDetail: string, missingDetail: string
     : { configured: false, detail: missingDetail };
 }
 
-function allEnv(names: string[], configuredDetail: string): IntegrationStatus {
-  const missing = names.filter((name) => !envSet(name));
-  if (missing.length === 0) {
-    return { configured: true, detail: configuredDetail };
-  }
-  return {
-    configured: false,
-    detail: `Faltando: ${missing.join(', ')}`,
-  };
-}
-
 export default authedPost(async () => {
   const lateCore = envSet('LATE_API_KEY');
   const lateWebhook = envSet('LATE_WEBHOOK_SECRET');
@@ -61,12 +50,6 @@ export default authedPost(async () => {
       ],
       'Apify configurado',
       'Configure APIFY_API_KEY/APIFY_API_TOKEN ou chaves por plataforma',
-    ),
-    metricool: allEnv(
-      ['METRICOOL_USER_TOKEN', 'METRICOOL_USER_ID'],
-      envSet('METRICOOL_API_URL')
-        ? 'Metricool configurado com API URL customizada'
-        : 'Metricool configurado',
     ),
     late: {
       configured: lateCore,

@@ -54,12 +54,13 @@ function ClientRequiredEmpty({ message }: { message: string }) {
 const HomeDashboard = lazyWithRetry(() =>
   import("@/components/kai/home/HomeDashboard").then((m) => ({ default: m.HomeDashboard })),
 );
-// Performance refeito 2026-05-09: alimentado 100% por Metricool API.
-// Antigo KaiPerformanceTab.tsx (CSV + Apify scrape) preservado em legacy
-// caso precise rollback.
+// 2026-05-18 — Performance reimplementado usando Late/Zernio Analytics API
+// (`late-analytics` handler). 7 plataformas com dashboards completos + X/Twitter
+// como entrada manual (custo da X API seria proibitivo). Substitui o stub
+// placeholder e o antigo KaiPerformanceTab Metricool-based.
 const KaiPerformanceTab = lazyWithRetry(() =>
-  import("@/components/kai/performance-v2/MetricoolPerformance").then((m) => ({
-    default: m.MetricoolPerformance,
+  import("@/components/kai/performance-late/LatePerformanceTab").then((m) => ({
+    default: m.LatePerformanceTab,
   })),
 );
 const KaiLibraryTab = lazyWithRetry(() =>
@@ -141,9 +142,12 @@ const ClientsListPage = lazyWithRetry(() =>
 // BillingTab REMOVIDO — KAI 2.0 é uso interno Kaleidos, sem cobrança por workspace.
 // O arquivo src/components/billing/BillingTab.tsx ainda existe mas não é mais
 // importado nem montado em rota nenhuma.
-// MetricoolInboxPanel é 1197 linhas — lazy pra não inflar bundle inicial
-const MetricoolInboxPanel = lazyWithRetry(() =>
-  import("@/components/metricool/MetricoolInboxPanel").then((m) => ({ default: m.MetricoolInboxPanel })),
+// 2026-05-18 rev3 — Late Inbox real (substituiu placeholder de migração).
+// DMs + comments + reviews unificado via Late/Zernio Inbox API.
+const LateInboxPanel = lazyWithRetry(() =>
+  import("@/components/kai/late-inbox/LateInboxPanel").then((m) => ({
+    default: m.LateInboxPanel,
+  })),
 );
 // 2026-05-09 — MetricoolCalendarView e MetricoolSmartLinksManager removidos:
 //   * editorial-calendar foi removido do switch (Calendar live em PlanningBoard)
@@ -449,7 +453,7 @@ export default function Kai() {
         // (Settings → Sistema → MCP kAI). Tab antigo redireciona via useEffect.
         case "inbox":
           return selectedClient ? (
-            <MetricoolInboxPanel clientId={selectedClient.id} />
+            <LateInboxPanel clientId={selectedClient.id} />
           ) : (
             <ClientRequiredEmpty message="Selecione um cliente pra ver o Inbox unificado." />
           );

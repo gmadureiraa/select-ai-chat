@@ -112,21 +112,34 @@ NEON_JWKS_URL=$VITE_NEON_JWKS_URL
 | `TWITTER_CONSUMER_SECRET` | O | mesmo | OAuth |
 | `TWITTER_REDIRECT_URI` | O | default `https://<host>/api/twitter-oauth-callback` | OAuth callback |
 
-### Postiz (publishing aggregator — substituiu Late.ai em 2026-05-08)
-| Var | R/O | Origem | Uso |
-|---|---|---|---|
-| `POSTIZ_API_KEY` | R | Settings → Developers → Public API em app.postiz.com (cloud) ou self-host | Auth header em todos os handlers `postiz-*` |
-| `POSTIZ_API_URL` | O | default `https://api.postiz.com/public/v1` (cloud); pra self-host: `https://<host>/api/public/v1` | Base URL do client |
-| `POSTIZ_WEBHOOK_SECRET` | O | gerar manualmente, configurar em automação Postiz/n8n | HMAC SHA-256 de `postiz-webhook` |
-| `POSTIZ_OAUTH_CALLBACK_BASE` | O | default monta de `req.headers.host` | Base URL do callback OAuth |
-| `POSTIZ_CONNECT_URL_TEMPLATE` | O | só pra self-host com fluxo customizado, ex: `https://app.postiz.com/launches?platform={platform}&attempt={attemptId}&redirect={callback}` | Template do authUrl quando user clica "Conectar" |
+### Late.so / Zernio (publisher único — 2026-05-17)
+Late/Zernio é o agregador de publicação ativo no KAI. Cobre 14 redes (Instagram, TikTok, X, LinkedIn, YouTube, Threads, Facebook, ...) + inbox + métricas. Substituiu Metricool (sunset 2026-05-08) e o experimento Postiz (sunset 2026-05-17).
 
-### Late (legado — DEPRECATED 2026-05-08, mantido como fallback)
 | Var | R/O | Origem | Uso |
 |---|---|---|---|
-| `LATE_API_KEY` | O | https://late.so | `late-post`, `late-oauth-callback`, `late-analytics`, etc. |
-| `LATE_OAUTH_CALLBACK_BASE` | O | default monta de `req.headers.host` | OAuth callback base |
-| `LATE_WEBHOOK_SECRET` | O | configurar no painel Late | HMAC SHA-256 do `late-webhook` |
+| `LATE_API_KEY` | **R** | https://getlate.dev → Settings → API Keys | Bearer auth em todos os handlers `late-*.ts` (post, oauth-start, oauth-callback, accounts, analytics, inbox, ...) |
+| `LATE_WEBHOOK_SECRET` | **R** | gerar localmente (`openssl rand -hex 32`) e colar em Settings → Webhooks → Create Webhook | HMAC SHA-256 de `late-webhook.ts` (eventos `post.published/failed/partial/scheduled/cancelled/recycled`, `account.disconnected/expired`) |
+| `LATE_OAUTH_CALLBACK_BASE` | O | default monta de `req.headers.host` | OAuth callback base. Override só se o callback precisar de domínio diferente do app. |
+
+### Postiz (DEPRECATED 2026-05-17 — vars mantidas pra evitar erro de boot em ambientes antigos)
+Handlers `postiz-*.ts` foram arquivados. Não preencher essas vars em ambientes novos.
+
+| Var | R/O | Status |
+|---|---|---|
+| `POSTIZ_API_KEY` | DEPRECATED | Ignorado. Removido em handlers vivos. |
+| `POSTIZ_API_URL` | DEPRECATED | Ignorado. |
+| `POSTIZ_WEBHOOK_SECRET` | DEPRECATED | Ignorado. |
+| `POSTIZ_OAUTH_CALLBACK_BASE` | DEPRECATED | Ignorado. |
+| `POSTIZ_CONNECT_URL_TEMPLATE` | DEPRECATED | Ignorado. |
+
+### Metricool (DEPRECATED 2026-05-08 — sunset confirmado)
+Tabelas `metricool_posts`, `metricool_daily_snapshots` e `metricool_inbox` mantêm o nome histórico no schema, mas são populadas via webhooks Late/Zernio. Vars `METRICOOL_*` foram removidas do `get-integrations-status` em 2026-05-18.
+
+| Var | R/O | Status |
+|---|---|---|
+| `METRICOOL_USER_TOKEN` | REMOVIDO | Não usado em handlers vivos. |
+| `METRICOOL_USER_ID` | REMOVIDO | Não usado em handlers vivos. |
+| `METRICOOL_API_URL` | REMOVIDO | Não usado em handlers vivos. |
 
 ---
 

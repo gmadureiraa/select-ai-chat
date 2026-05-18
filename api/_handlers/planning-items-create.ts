@@ -6,7 +6,11 @@
 import { z } from 'zod';
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
-import { assertClientAccess, assertWorkspaceAccess } from '../_lib/access.js';
+import {
+  assertClientAccess,
+  assertColumnInWorkspace,
+  assertWorkspaceAccess,
+} from '../_lib/access.js';
 
 const BodySchema = z.object({
   // Permite restore com id preservado (undo flow). Se omitido, o DB gera.
@@ -60,6 +64,10 @@ export default authedPost(async ({ body, user }) => {
     if (access.workspaceId !== data.workspace_id) {
       throw new Error('client_id não pertence ao workspace alvo');
     }
+  }
+  // Sec2: defesa em profundidade — column_id também precisa ser do mesmo workspace.
+  if (data.column_id) {
+    await assertColumnInWorkspace(data.column_id, data.workspace_id);
   }
 
   const pool = getPool();

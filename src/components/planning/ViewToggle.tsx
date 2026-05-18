@@ -58,7 +58,7 @@ export function ViewToggle({ view, onChange }: ViewToggleProps) {
       </ToggleGroupItem>
       <ToggleGroupItem
         value="editorial"
-        aria-label="Editorial calendar view (datas comemorativas Metricool)"
+        aria-label="Editorial calendar view (datas comemorativas)"
         className={cn(
           "gap-1 px-2 h-7 text-xs rounded-md",
           "data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm",

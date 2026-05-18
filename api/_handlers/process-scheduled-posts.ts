@@ -1,9 +1,10 @@
-// Migrated from supabase/functions/process-scheduled-posts/index.ts
-// Cron worker that publishes due planning_items by calling Metricool in-process.
+// Cron worker that publishes due planning_items via Late/Zernio in-process.
+// 2026-05-18 rev2 — migrado de Metricool pra Late/Zernio. publishViaLate em
+// api/_lib/integrations/late.ts é shim puro (sem auth user) reusável.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
-import { publishMetricoolForClient } from './metricool-post.js';
+import { publishViaLate } from '../_lib/integrations/late.js';
 import { normalizePublicationError } from '../_lib/publication-errors.js';
 import { assertCronAuth } from '../_lib/cron-auth.js';
 
@@ -128,7 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const recovered = await query<{ id: string }>(
         `UPDATE planning_items
             SET status = 'failed',
-                error_message = COALESCE(error_message, 'Publicação ficou presa em "publicando" sem retorno da Metricool. Revise e clique em retry.'),
+                error_message = COALESCE(error_message, 'Publicação ficou presa em "publicando" sem retorno da Late. Revise e clique em retry.'),
                 retry_count = GREATEST(COALESCE(retry_count, 0), 1),
                 next_retry_at = NULL,
                 updated_at = NOW()
@@ -361,6 +362,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const metadata = isRecord(item.metadata) ? item.metadata : null;
         const threadTweets = threadItems(metadata?.thread_tweets);
 
+        // 2026-05-18 fix integração SV↔Planning↔Late: carrosseis Instagram
+        // PRECISAM ter media_urls. Quando o user clica "Salvar no calendário"
+        // no editor SV mas nunca abre o preview pra exportar PNG/PDF, o
+        // planning_item fica sem media_urls (slides ficam só em
+        // metadata.viral_carousel_slides como dados crus). Publicar isso via
+        // Late dispararia erro genérico da API ("missing media") sem dica.
+        // Damos uma mensagem acionável e voltamos pra 'scheduled' (não
+        // queima retries — espera o user renderizar).
+        const mediaUrlsArr = stringArray(item.media_urls);
+        const ct = (metadata?.content_type as string | undefined) ?? '';
+        const isCarouselish =
+          ct === 'carousel' || ct === 'viral_carousel' || !!metadata?.viral_carousel_id;
+        if (
+          (item.platform === 'instagram' || item.platform === 'facebook') &&
+          isCarouselish &&
+          mediaUrlsArr.length === 0
+        ) {
+          await getPool().query(
+            `UPDATE ${tableName} SET status = 'scheduled', error_message = $1 WHERE id = $2`,
+            [
+              'Carrossel sem imagens renderizadas. Abra o preview no Sequência Viral e clique "Publicar/Agendar" pra exportar e enviar à Late.',
+              item.id,
+            ],
+          );
+          results.push({
+            postId: item.id,
+            platform: item.platform,
+            success: false,
+            error: 'Carousel missing rendered media',
+            source: tableName,
+          });
+          continue;
+        }
+
         const actorUserId = await resolveActorUserId(item);
         if (!actorUserId) {
           await getPool().query(
@@ -377,17 +412,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
-        const result = await publishMetricoolForClient({
-          userId: actorUserId,
-          body: {
-            clientId: item.client_id!,
-            platform: item.platform,
-            content: item.content || item.description || '',
-            mediaUrls: stringArray(item.media_urls),
-            threadItems: threadTweets,
-            planningItemId: item.id,
-            publishNow: true,
-          },
+        const result = await publishViaLate({
+          clientId: item.client_id!,
+          platform: item.platform,
+          content: item.content || item.description || '',
+          mediaUrls: mediaUrlsArr,
+          threadItems: threadTweets,
+          planningItemId: item.id,
+          // publishNow=true equivale a scheduledFor undefined no shim
         }) as unknown as Record<string, unknown>;
 
         if (result.success) {

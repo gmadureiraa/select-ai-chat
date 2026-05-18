@@ -51,7 +51,7 @@ function getInternalBaseUrl(req: VercelRequest): string {
   const proto = (req.headers['x-forwarded-proto'] as string) || 'https';
   const host = req.headers.host;
   if (host) return `${proto}://${host}`;
-  return 'https://kai-2-topaz.vercel.app';
+  return 'https://kai.kaleidos.com.br';
 }
 
 function readHeader(req: VercelRequest, name: string): string | null {

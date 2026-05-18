@@ -1,6 +1,8 @@
 /**
  * IntegrationsSettings — visão centralizada das integrações externas usadas
- * pelo workspace (Metricool, Apify, Gemini, OpenAI, Anthropic, Late.so).
+ * pelo workspace (Late/Zernio, Apify, Gemini, Anthropic).
+ * 2026-05-18 (rev2) — Metricool removido. Late/Zernio é único publisher
+ * (+ WhatsApp Business + API completa pra conectar redes via KAI UI).
  *
  * IMPORTANTE: chaves de API ficam em env vars Vercel (não no DB), então
  * essa tela é read-only — mostra status (configurada/faltando), origem e
@@ -14,7 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plug, CheckCircle2, XCircle, ExternalLink, Sparkles, BarChart3, Bot, Camera, Send, Loader2 } from "lucide-react";
+import { Plug, CheckCircle2, XCircle, ExternalLink, Sparkles, Bot, Camera, Send, Loader2 } from "lucide-react";
 import { apiInvoke } from "@/lib/apiInvoke";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -55,15 +57,6 @@ const INTEGRATIONS: IntegrationDef[] = [
     storage: "vercel",
   },
   {
-    id: "metricool",
-    name: "Metricool",
-    description: "Métricas, hashtags, concorrentes e relatórios de redes sociais.",
-    icon: BarChart3,
-    envVar: "METRICOOL_USER_TOKEN + METRICOOL_USER_ID",
-    docsUrl: "https://metricool.com/api/",
-    storage: "vercel",
-  },
-  {
     id: "anthropic",
     name: "Anthropic Claude",
     description: "Geração de copywriting longo e análise contextual avançada.",
@@ -74,8 +67,8 @@ const INTEGRATIONS: IntegrationDef[] = [
   },
   {
     id: "late",
-    name: "Late.so",
-    description: "Publicação automática multi-plataforma (alternativa ao Metricool publish).",
+    name: "Late.so / Zernio",
+    description: "Publicação multi-plataforma (14 redes), Inbox, Ads e WhatsApp Business. Único publisher do KAI.",
     icon: Send,
     envVar: "LATE_API_KEY",
     docsUrl: "https://docs.getlate.dev/",

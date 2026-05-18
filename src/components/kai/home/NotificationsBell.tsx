@@ -6,7 +6,7 @@
 //  2. planning_items scheduled_at=hoje + status agendado/aprovado
 //  3. planning_items overdue (scheduled_at<now e status!=published/failed)
 //  4. team_tasks atribuídas ao user com due_date<=hoje e status!=done
-//  5. metricool_inbox unread (já temos hook — agrega por todos clientes)
+//  5. late_inbox unread (agrega por todos clientes — legado: era metricool_inbox)
 //
 // Cada item tem onClick que dispara `onNavigate`/`onFilter` no pai pra
 // abrir a tab correta com o filtro aplicado.
@@ -36,7 +36,7 @@ import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyTeamTasks } from "@/hooks/useTeamTasks";
 import { useClients } from "@/hooks/useClients";
-import { useInboxUnreadCount } from "@/hooks/useMetricoolInbox";
+import { useInboxUnreadCount } from "@/hooks/useLateInbox";
 import { cn } from "@/lib/utils";
 
 interface NotificationsBellProps {
