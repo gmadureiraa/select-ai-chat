@@ -55,8 +55,9 @@ function fillVariants<T extends { variant?: SlideVariant }>(slides: T[]): T[] {
  * usando os slides do rascunho. Baseado em `v-templates` do handoff.
  */
 
-// 2026-05-18 — paper-mono removido (estava sendo confundido com madureira
-// paper-mono-story por Gabriel). Madureira agora usa madureira/madureira-reflection.
+// 2026-05-18 — paper-mono RESTAURADO (é o `paper-mono-story` tobi validado
+// pelo Gabriel em 2026-04-29 — formato preferido pra Madureira). dsec-dark
+// removido (Gabriel: DSEC e outros não precisam template custom, usa twitter).
 const TEMPLATE_ORDER: TemplateId[] = [
   "twitter",
   "manifesto",
@@ -65,9 +66,9 @@ const TEMPLATE_ORDER: TemplateId[] = [
   "blank",
   "bohdan",
   "autoral",
+  "paper-mono",
   "madureira",
   "madureira-reflection",
-  "dsec-dark",
   "defiverso-carrossel",
 ];
 
@@ -79,11 +80,11 @@ const TEMPLATE_DESC: Record<TemplateId, string> = {
   ambitious: "Motivacional · foto moody full-bleed · sans bold altura variável",
   blank: "Editorial educativo · serif Playfair + sans · cada slide um layout",
   bohdan: "Design-forward · B&W contraste alto · serif italic lime · handwritten",
-  "paper-mono": "(deprecated — não usar)",
+  "paper-mono": "Confessional · cream paper-grain · sans bold + mono · B&W halftone · arco numerado (ref: tobi.the.og)",
   madureira: "Futurista simples · capa IA dominante · navy + accent verde · slides com quadrado 1:1",
   "madureira-reflection": "Texto-puro · 7 layouts DS (capa emoji/type, curva, barras, bullets, reflexão, CTA) · Geist + Fraunces italic accent · zero imagem",
-  "dsec-dark": "DSEC Labs · dark cybersecurity · Inter + Mono · accent BTC orange + verde dado · repurpose blog em 8-10 slides (B2B PT-BR)",
-  "defiverso-carrossel": "Defiverso · dark cripto · coins + foto big · título verde/laranja · CTA alien ManyChat",
+  "dsec-dark": "(deprecated — DSEC usa twitter genérico agora)",
+  "defiverso-carrossel": "Defiverso · verde profundo + cream · bullets c/ dado destacado · CTA ManyChat (👽) [v1 newsletter-repurpose]",
 };
 
 /**
@@ -95,10 +96,16 @@ const TEMPLATE_DESC: Record<TemplateId, string> = {
  * defiverso → defiverso*, dsec → dsec*). null = sem cliente selecionado.
  */
 const TEMPLATE_CLIENT_ALLOWLIST: Partial<Record<TemplateId, string[]>> = {
+  // Madureira — 3 formatos validados (paper-mono = paper-mono-story tobi).
+  // serif-duelo (tinnaloaiza) ainda não tem template implementado (TODO).
+  'paper-mono': ['madureira'],
   madureira: ['madureira'],
   'madureira-reflection': ['madureira'],
+  // Defiverso — só v1 newsletter-repurpose. Variante v2 (dark + coins
+  // foto big + alien CTA, ref imagens 2026-05-18) ainda não tem template
+  // implementado (TODO).
   'defiverso-carrossel': ['defiverso'],
-  'dsec-dark': ['dsec'],
+  // 'dsec-dark' removido do TEMPLATE_ORDER — DSEC usa templates genéricos.
 };
 
 function isTemplateAvailableForClient(
