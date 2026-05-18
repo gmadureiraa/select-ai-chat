@@ -483,6 +483,52 @@ export const CONTENT_MACHINE_RENDER_SPECS: Record<
       "NUNCA use travessão (—) no body — viola regra editorial do Madureira. NUNCA use \"Simples assim.\" como fechamento. Use **bold** com moderação (1-3 palavras por slide).",
     ].join("\n"),
   },
+  // 2026-05-18 — 3 templates novos (audit fix BACKEND-7): faltavam entries
+  // no Record. Runtime caía em lookup vazio → blocks=0 → slide vazio.
+  "serif-duelo": {
+    blocks: 8,
+    rules: [
+      CONTENT_MACHINE_NARRATIVE_RULES,
+      "",
+      "ESTRUTURA do Serif Duelo (ref @tinnaloaiza) — auditoria editorial em duelos FORTE vs FRACA:",
+      "- Slide 1 (cover): tema vs tema em hero Playfair (ex: 'carrossel com 1.000 views vs. carrossel com 1.000.000'). Palavras em **bold** viram itálico marrom claro #7A6646.",
+      "- Slide 2: frame de abertura — declarações curtas comparativas.",
+      "- Slides 3-6 (duelos): body com convenção '<descrição forte>||<descrição fraca>>>><princípio>' — renderiza caixa verde + caixa coral + barra dark com princípio.",
+      "- Slide 7: síntese + chamada interna ('salva pra auditar tua próxima capa').",
+      "- Slide 8 (cta): handle + tagline curta.",
+      "",
+      "VOZ: analítica, frases declarativas curtas. Storytelling de framework.",
+      "BANIDOS: travessão, hashtag, hype.",
+    ].join("\n"),
+  },
+  "madureira-dark": {
+    blocks: 8,
+    rules: [
+      CONTENT_MACHINE_NARRATIVE_RULES,
+      "",
+      "ESTRUTURA do Madureira Dark (Fraunces 55 + Geist 35):",
+      "- Slide 1 (cover): emoji opcional 1ª linha do body + título Fraunces italic centralizado vertical. Imagem opcional acima.",
+      "- Slides 2-N (inner): body Geist centralizado vertical. **bold** vira verde alien #7CF067.",
+      "- Slide N (cta): pergunta engajamento Fraunces + caixa REC coral com palavra ManyChat em **bold**.",
+      "",
+      "VOZ: confessional 1ª pessoa, dado numérico concreto. Padrão Madureira.",
+      "BANIDOS: travessão, 'Simples assim.', hashtag.",
+    ].join("\n"),
+  },
+  "defiverso-cripto-dark": {
+    blocks: 9,
+    rules: [
+      CONTENT_MACHINE_NARRATIVE_RULES,
+      "",
+      "ESTRUTURA do Defiverso Cripto Dark v2 (dark + foto B&W + alien CTA):",
+      "- Slide 1 (cover): hero hook multi-cor. Cada linha (\\n) cicla cores: laranja BTC #FF7A28 / branco / verde alien #7CF067 / amarelo.",
+      "- Slides 2-N (inner): foto full-bleed B&W (grayscale 100%) + título Geist 800 verde alien + body com **bold** highlights amarelo/verde.",
+      "- Slide N (cta): pergunta engajamento + alien 👽 gigante + 'COMENTA AÍ' handwritten Caveat rotacionado.",
+      "",
+      "VOZ: analítica, didática cripto BR. Dado-shock na capa.",
+      "BANIDOS: hype, hashtag corpo, traduções literais EN.",
+    ].join("\n"),
+  },
 };
 
 export function usesNativeSlidePreview(_template: DesignTemplateId): boolean {

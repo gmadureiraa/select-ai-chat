@@ -310,15 +310,23 @@ export default function Kai() {
       shouldRedirect = true;
       redirectTab = "planning";
     }
-    
+
+    // Performance requires canViewPerformance — antes não tinha gate (qualquer
+    // role acessava direto via ?tab=performance). Audit 2026-05-18.
+    if (tab === "performance" && !canViewPerformance) {
+      shouldRedirect = true;
+      redirectTab = "planning";
+    }
+
     // Repurpose requires canViewRepurpose
     if (tab === "repurpose" && !canViewRepurpose) {
       shouldRedirect = true;
       redirectTab = "planning";
     }
-    
-    // (tab === "clients" early-redirect já acontece no topo do effect — vai
-    // pra rota dedicada `/kaleidos/clients`. O check de canViewClients fica lá.)
+
+    // 2026-05-18 — `tab=clients` voltou a renderizar inline no shell
+    // (audit C1 reverteu rota dedicada que quebrava sidebar). Permission
+    // check fica no early-return logo no topo deste effect.
 
     // Radar Sources Manager — só super_admin
     if (tab === "radar-sources-admin" && !isSuperAdmin) {

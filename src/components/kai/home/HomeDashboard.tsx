@@ -960,7 +960,7 @@ export function HomeDashboard({
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
                   Comece criando seu primeiro cliente — assim destrava todas
-                  as ferramentas (carrossel, reels, radar, performance).
+                  as ferramentas (carrossel, planejamento, performance, assistente).
                 </p>
                 <Button onClick={() => onNavigate("clients")} className="gap-2">
                   <Users className="h-4 w-4" />

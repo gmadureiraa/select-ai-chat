@@ -64,8 +64,16 @@
   --font-mono: var(--font-mono);
 }
 
+/* 2026-05-18 — SCOPEAMENTO CRÍTICO: tokens shadcn (--background, --foreground,
+ * --card, --border etc) eram declarados em :root direto e VAZAVAM pro shell
+ * KAI quando o user visitava a tab carrossel. KAI usa esses mesmos nomes
+ * mas com valores HSL — `hsl(var(--background))` no resto do app resolvia
+ * pra `hsl(#F7F5EF)` (INVÁLIDO) → cor preta/transparente, design quebrava.
+ * Fix: tokens shadcn agora só dentro de .sv-root. Tokens `--sv-*` ficam
+ * globais (são prefixados, não conflitam). Mesmo tratamento pro html.dark.
+ */
 :root {
-  /* ── Sequência Viral / Kaleidos Digital — brand tokens ──
+  /* ── Sequência Viral / Kaleidos Digital — brand tokens (prefixed, safe) ──
      Paleta brutalist editorial: preto + creme-jornal + verde lime + pink.
      Fonte Atelier (display), Gridlite (mono kicker), Inter (corpo).
   */
@@ -85,10 +93,13 @@
   --sv-display-alt: "Instrument Serif", Georgia, serif;
   --sv-sans: "SVInter", "Inter", system-ui, -apple-system, "Helvetica Neue", sans-serif;
   --sv-mono: "Gridlite", "JetBrains Mono", "Courier New", monospace;
+}
 
-  /* ── Tokens compat com código existente. Background/foreground/accent
-     agora apontam pras cores Kaleidos; shadcn tokens e nomes de escape
-     preservados pra não quebrar componentes antigos. */
+/* Tokens shadcn-style — só dentro do shell SV. Preservados pra que
+ * componentes copy-pasted do Next.js standalone (que usam var(--background),
+ * var(--card), etc) continuem funcionando.
+ */
+.sv-root {
   --background: var(--sv-paper);
   --foreground: var(--sv-ink);
   --muted: #6B6960;
@@ -125,8 +136,9 @@
   --radius: 0;  /* brutalist: raio 0 por padrão */
 }
 
-/* Dark theme */
-html.dark {
+/* Dark theme — também scopado pra .sv-root pra não sobrescrever os tokens
+ * HSL do KAI (que vive em html.dark direto). */
+html.dark .sv-root {
   --background: #0A0A0A;
   --foreground: #F5F5F0;
   --muted: #8A8A96;
@@ -144,12 +156,11 @@ html.dark {
   --dark-border: #2A2A2A;
 }
 
-body {
+/* Tipografia + overflow scope: só dentro do shell SV (era body{} global). */
+.sv-root {
   background: var(--background);
   color: var(--foreground);
   font-feature-settings: "ss01", "ss02", "cv01";
-  /* Evita scroll horizontal em mobile quando algum elemento decorativo
-     vaza viewport (rotações, posições absolutas). Desktop continua igual. */
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
 }
@@ -160,12 +171,15 @@ body {
   min-width: 44px;
 }
 
-::selection {
+/* ::selection e scroll-behavior também precisam scopar pra não conflitar
+ * com index.css do KAI shell (que tem reduced-motion override). */
+.sv-root ::selection,
+.sv-root *::selection {
   background: rgba(255, 87, 34, 0.12);
   color: #0F0F0F;
 }
 
-html {
+.sv-root {
   scroll-behavior: smooth;
 }
 

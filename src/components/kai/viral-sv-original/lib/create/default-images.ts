@@ -167,6 +167,15 @@ const POOLS: Record<TemplateId, string[]> = {
   // editorial (warm neutral magazine feature, compatível com palette
   // cream + green sutil).
   "defiverso-carrossel": BLANK,
+  // 2026-05-18 — 3 novos templates (audit fix BACKEND-7).
+  // serif-duelo: text-only editorial, sem imagens (pool vazio).
+  "serif-duelo": [],
+  // madureira-dark: imagem opcional só na capa, reaproveita pool Paper Mono
+  // (fotos editoriais B&W documentais combinam com dark + Fraunces).
+  "madureira-dark": PAPER_MONO,
+  // defiverso-cripto-dark: foto full-bleed B&W nos slides internos.
+  // Reusa pool Paper Mono (B&W) pra default; user pode trocar no editor.
+  "defiverso-cripto-dark": PAPER_MONO,
 };
 
 /**

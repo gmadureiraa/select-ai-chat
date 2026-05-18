@@ -52,7 +52,11 @@ export function FacebookLoginButton({
       return;
     }
 
-    const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
+    // 2026-05-18 — Vite (KAI shell) não shim'a process.env. Lê via import.meta.env.
+    // Fallback pro nome antigo NEXT_PUBLIC_* preserva compat se var ainda assim setada.
+    const appId =
+      (import.meta.env.VITE_FACEBOOK_APP_ID as string | undefined) ??
+      (import.meta.env.NEXT_PUBLIC_FACEBOOK_APP_ID as string | undefined);
     if (!appId) {
       toast.error("Integração Meta não configurada (app ID ausente).");
       return;

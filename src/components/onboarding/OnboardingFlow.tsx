@@ -180,10 +180,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-xs">@newsletter</span>
                       <span className="text-muted-foreground">→ Gera newsletter completa</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-xs">@reels</span>
-                      <span className="text-muted-foreground">→ Gera roteiro de reels</span>
-                    </div>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground text-center">
@@ -249,10 +245,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     <div className="flex items-center gap-2 text-sm">
                       <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-xs">@newsletter</span>
                       <span className="text-muted-foreground">→ Gera newsletter completa</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-xs">@reels</span>
-                      <span className="text-muted-foreground">→ Gera roteiro de reels</span>
                     </div>
                   </div>
                 </div>

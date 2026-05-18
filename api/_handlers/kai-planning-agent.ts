@@ -21,8 +21,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : (req.body ? JSON.parse(req.body) : {});
-    const { clientId, workspaceId, userId, request, action, quantity } = body;
-    if (!clientId || !workspaceId || !userId) return jsonError(res, 400, 'clientId, workspaceId e userId são obrigatórios');
+    const { clientId, workspaceId, request, action, quantity } = body;
+    // 2026-05-18 — userId removido do body. authedUser.id é a fonte da verdade
+    // (vem do JWT). Antes aceitava userId arbitrário pra registrar como
+    // target_user_id em metadata — vetor de log spoofing baixo, mas tirado.
+    const userId = authedUser.id;
+    if (!clientId || !workspaceId) return jsonError(res, 400, 'clientId e workspaceId são obrigatórios');
     await assertClientAccess(authedUser.id, clientId);
     if (!isLLMConfigured()) {
       return jsonError(res, 500, 'Nenhum provider LLM configurado (GOOGLE_AI_STUDIO_API_KEY ou OPENAI_API_KEY).');
