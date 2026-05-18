@@ -1,6 +1,14 @@
 /* @import "tailwindcss";  — comentado: KAI integra Tailwind v3 globalmente.
    @import "tw-animate-css"; — KAI usa tw-animate via globals do shell. */
 
+/* 2026-05-18 — Google Fonts pros templates novos:
+ * - Fraunces (Madureira capa italic 600)
+ * - Geist (Madureira body sans 400/500)
+ * - Playfair Display (Serif Duelo hero 900)
+ * - Caveat (Defiverso Cripto Dark CTA handwritten)
+ * Servido via display=swap pra não bloquear primeira renderização. */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,500;1,9..144,600;1,9..144,700&family=Geist:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Caveat:wght@500;700&display=swap');
+
 /* ─────────────────────────────────────────────────────────────────
    Sequência Viral — Kaleidos Digital brand fonts (brutalist editorial)
    Handoff: design_handoff_sequencia_viral/README.md
