@@ -8,7 +8,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { tryAuth } from '../_lib/auth.js';
-import { query } from '../_lib/db.js';
+import { query, queryOne } from '../_lib/db.js';
 
 interface EvalRunRow {
   id: string;
@@ -36,6 +36,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const auth = await tryAuth(req);
   if (!auth) return jsonError(res, 401, 'Unauthorized');
+  const superAdmin = await queryOne<{ user_id: string }>(
+    `SELECT user_id FROM super_admins WHERE user_id = $1 LIMIT 1`,
+    [auth.id],
+  );
+  if (!superAdmin) return jsonError(res, 403, 'Forbidden');
 
   const limitParam = Number(req.query.limit ?? 30);
   const limit = Math.max(1, Math.min(200, isNaN(limitParam) ? 30 : limitParam));

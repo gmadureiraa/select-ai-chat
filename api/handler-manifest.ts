@@ -61,9 +61,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'generate-viral-carousel': () => import('./_handlers/generate-viral-carousel.js'),
   'generate-voice-profile': () => import('./_handlers/generate-voice-profile.js'),
   'get-vapid-public-key': () => import('./_handlers/get-vapid-public-key.js'),
-  // 2026-05-17: 'get-integrations-status' removido (handler nunca existiu como arquivo,
-  //   só era chamado por IntegrationsSettings.tsx via supabase.functions.invoke
-  //   herdado da era pré-Vercel. UI vai precisar adotar getIntegrationsStatus tool/refactor).
+  'get-integrations-status': () => import('./_handlers/get-integrations-status.js'),
   'google-news-search': () => import('./_handlers/google-news-search.js'),
   'google-trends-br': () => import('./_handlers/google-trends-br.js'),
   'image-search': () => import('./_handlers/image-search.js'),

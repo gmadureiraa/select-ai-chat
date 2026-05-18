@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plug, CheckCircle2, XCircle, ExternalLink, Sparkles, BarChart3, Bot, Camera, Send, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiInvoke } from "@/lib/apiInvoke";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -41,7 +41,7 @@ const INTEGRATIONS: IntegrationDef[] = [
     name: "Google Gemini",
     description: "Geração de carrosséis, briefs e análise de imagens (Imagen 4 + Flash).",
     icon: Sparkles,
-    envVar: "GEMINI_API_KEY",
+    envVar: "GOOGLE_AI_STUDIO_API_KEY / GEMINI_API_KEY",
     docsUrl: "https://ai.google.dev/",
     storage: "vercel",
   },
@@ -50,7 +50,7 @@ const INTEGRATIONS: IntegrationDef[] = [
     name: "Apify",
     description: "Scraping de Instagram, TikTok e Threads usado pelo Radar e Reels.",
     icon: Camera,
-    envVar: "APIFY_API_KEY",
+    envVar: "APIFY_API_KEY / APIFY_API_TOKEN",
     docsUrl: "https://docs.apify.com/api/v2",
     storage: "vercel",
   },
@@ -59,7 +59,7 @@ const INTEGRATIONS: IntegrationDef[] = [
     name: "Metricool",
     description: "Métricas, hashtags, concorrentes e relatórios de redes sociais.",
     icon: BarChart3,
-    envVar: "METRICOOL_API_KEY",
+    envVar: "METRICOOL_USER_TOKEN + METRICOOL_USER_ID",
     docsUrl: "https://metricool.com/api/",
     storage: "vercel",
   },
@@ -87,15 +87,13 @@ export function IntegrationsSettings() {
   const { toast } = useToast();
   const [testingId, setTestingId] = useState<string | null>(null);
 
-  // Pega status server-side via uma edge function que verifica env vars sem
-  // expor valores. Caso a fn não exista, fallback graceful: mostra "ver Vercel".
+  // Pega status server-side via Vercel Function que verifica env vars sem
+  // expor valores. Caso falhe, fallback graceful: mostra "ver Vercel".
   const { data: serverStatus, isLoading } = useQuery({
     queryKey: ["integrations-server-status"],
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("get-integrations-status", {
-          body: {},
-        });
+        const { data, error } = await apiInvoke<Record<string, IntegrationStatus>>("get-integrations-status", { body: {} });
         if (error) throw error;
         return (data || {}) as Record<string, IntegrationStatus>;
       } catch {
@@ -116,16 +114,17 @@ export function IntegrationsSettings() {
     }
     setTestingId(integration.id);
     try {
-      const { data, error } = await supabase.functions.invoke(integration.testEdgeFn);
+      const { data, error } = await apiInvoke(integration.testEdgeFn, { body: {} });
       if (error) throw error;
       toast({
         title: "Conexão OK",
         description: data?.message || `${integration.name} respondeu com sucesso.`,
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Erro desconhecido.";
       toast({
         title: "Falha no teste",
-        description: e?.message || "Erro desconhecido.",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -248,7 +247,7 @@ export function IntegrationsSettings() {
           <ol className="list-decimal list-inside space-y-1 pl-1">
             <li>Acesse o painel do Vercel do projeto.</li>
             <li>Vá em Settings → Environment Variables.</li>
-            <li>Adicione/edite a variável (ex: <code className="bg-muted/60 px-1 py-0.5 rounded">GEMINI_API_KEY</code>) em todos os ambientes.</li>
+            <li>Adicione/edite a variável (ex: <code className="bg-muted/60 px-1 py-0.5 rounded">GOOGLE_AI_STUDIO_API_KEY</code>) em todos os ambientes.</li>
             <li>Faça redeploy ou aguarde o próximo build pra propagar.</li>
           </ol>
           <p className="pt-2">
