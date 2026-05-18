@@ -1,4 +1,5 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { SkipLink } from "@/components/ui/skip-link";
@@ -17,33 +18,33 @@ import { GlobalKAIAssistant } from "@/components/kai-global";
 // Telemetry + addons globais — lazy. Não fazem parte do first paint e os
 // chunks `@vercel/analytics`, `@vercel/speed-insights`, `cmdk`,
 // PWA install/offline prompts vinham eager somando ~40-50kB raw no entry.
-const Analytics = lazy(() =>
+const Analytics = lazyWithRetry(() =>
   import("@vercel/analytics/react").then((m) => ({ default: m.Analytics })),
 );
-const SpeedInsights = lazy(() =>
+const SpeedInsights = lazyWithRetry(() =>
   import("@vercel/speed-insights/react").then((m) => ({ default: m.SpeedInsights })),
 );
-const InstallPrompt = lazy(() =>
+const InstallPrompt = lazyWithRetry(() =>
   import("@/components/pwa/InstallPrompt").then((m) => ({ default: m.InstallPrompt })),
 );
-const OfflineIndicator = lazy(() =>
+const OfflineIndicator = lazyWithRetry(() =>
   import("@/components/pwa/OfflineIndicator").then((m) => ({ default: m.OfflineIndicator })),
 );
-const CommandPalette = lazy(() =>
+const CommandPalette = lazyWithRetry(() =>
   import("@/components/CommandPalette").then((m) => ({ default: m.CommandPalette })),
 );
 
 // Lazy-loaded pages — separa o bundle das rotas e diminui o index.js inicial.
 // Cada rota vira um chunk independente carregado sob demanda.
-const Kai = lazy(() => import("./pages/Kai"));
-const Login = lazy(() => import("./pages/Login"));
-const SimpleSignup = lazy(() => import("./pages/SimpleSignup"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const ExportMadureira = lazy(() => import("./pages/ExportMadureira"));
-const NoWorkspacePage = lazy(() => import("./pages/NoWorkspacePage"));
-const Offline = lazy(() => import("./pages/Offline"));
-const ClientsListPage = lazy(() =>
+const Kai = lazyWithRetry(() => import("./pages/Kai"));
+const Login = lazyWithRetry(() => import("./pages/Login"));
+const SimpleSignup = lazyWithRetry(() => import("./pages/SimpleSignup"));
+const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const ExportMadureira = lazyWithRetry(() => import("./pages/ExportMadureira"));
+const NoWorkspacePage = lazyWithRetry(() => import("./pages/NoWorkspacePage"));
+const Offline = lazyWithRetry(() => import("./pages/Offline"));
+const ClientsListPage = lazyWithRetry(() =>
   import("@/components/clients/ClientsListPage").then((m) => ({
     default: m.ClientsListPage,
   })),

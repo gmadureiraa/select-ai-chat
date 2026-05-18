@@ -21,7 +21,8 @@
  * contexto pra que features futuras possam scopar geração por cliente.
  */
 
-import { useEffect, useState, useMemo, lazy, Suspense, createContext, useContext, type ReactNode } from "react";
+import { useEffect, useState, useMemo, Suspense, createContext, useContext, type ReactNode } from "react";
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { Toaster as SonnerToaster } from "sonner";
 import { AuthProvider, useAuth } from "@sv/lib/auth-context";
 import { Loader2 } from "lucide-react";
@@ -47,17 +48,17 @@ import type { ComponentType } from "react";
 
 type AnyPage = ComponentType<any>;
 
-const DashboardPage = lazy(() => import("./pages-app/dashboard")) as AnyPage;
-const CarouselsPage = lazy(() => import("./pages-app/carousels")) as AnyPage;
-const CreateNewPage = lazy(() => import("./pages-app/create-new")) as AnyPage;
-const CreateIdEditPage = lazy(() => import("./pages-app/create-id/edit")) as AnyPage;
-const CreateIdPreviewPage = lazy(() => import("./pages-app/create-id/preview")) as AnyPage;
-const CreateIdConceptsPage = lazy(() => import("./pages-app/create-id/concepts")) as AnyPage;
-const CreateIdTemplatesPage = lazy(() => import("./pages-app/create-id/templates")) as AnyPage;
-const SettingsPage = lazy(() => import("./pages-app/settings/page")) as AnyPage;
-const PlansPage = lazy(() => import("./pages-app/plans")) as AnyPage;
-const HelpPage = lazy(() => import("./pages-app/help")) as AnyPage;
-const OnboardingPage = lazy(() => import("./pages-app/onboarding")) as AnyPage;
+const DashboardPage = lazyWithRetry(() => import("./pages-app/dashboard")) as AnyPage;
+const CarouselsPage = lazyWithRetry(() => import("./pages-app/carousels")) as AnyPage;
+const CreateNewPage = lazyWithRetry(() => import("./pages-app/create-new")) as AnyPage;
+const CreateIdEditPage = lazyWithRetry(() => import("./pages-app/create-id/edit")) as AnyPage;
+const CreateIdPreviewPage = lazyWithRetry(() => import("./pages-app/create-id/preview")) as AnyPage;
+const CreateIdConceptsPage = lazyWithRetry(() => import("./pages-app/create-id/concepts")) as AnyPage;
+const CreateIdTemplatesPage = lazyWithRetry(() => import("./pages-app/create-id/templates")) as AnyPage;
+const SettingsPage = lazyWithRetry(() => import("./pages-app/settings/page")) as AnyPage;
+const PlansPage = lazyWithRetry(() => import("./pages-app/plans")) as AnyPage;
+const HelpPage = lazyWithRetry(() => import("./pages-app/help")) as AnyPage;
+const OnboardingPage = lazyWithRetry(() => import("./pages-app/onboarding")) as AnyPage;
 
 // ─── Client context (KAI integration) ────────────────────────────────────
 interface SVClientContext {

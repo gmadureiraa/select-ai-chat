@@ -1,4 +1,5 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, Suspense } from "react";
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { Plus, Search, Pencil, Trash2, Building2, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -19,15 +20,15 @@ import { TabHeader } from "@/components/kai/TabHeader";
 // 2026-05-17 — Dialogs heavy lazy. ClientOnboardingWizard sozinho tem 918
 // linhas + form state pesado; ClientEditDialog e DeleteClientDialog tb só
 // montam quando o user clica. Tira ~30-40kB do entry da página de clientes.
-const ClientOnboardingWizard = lazy(() =>
+const ClientOnboardingWizard = lazyWithRetry(() =>
   import("./ClientOnboardingWizard").then((m) => ({
     default: m.ClientOnboardingWizard,
   })),
 );
-const ClientEditDialog = lazy(() =>
+const ClientEditDialog = lazyWithRetry(() =>
   import("./ClientEditDialog").then((m) => ({ default: m.ClientEditDialog })),
 );
-const DeleteClientDialog = lazy(() =>
+const DeleteClientDialog = lazyWithRetry(() =>
   import("./DeleteClientDialog").then((m) => ({ default: m.DeleteClientDialog })),
 );
 

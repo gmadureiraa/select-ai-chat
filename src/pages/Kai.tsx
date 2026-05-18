@@ -1,4 +1,5 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 // Sidebar/header ficam eager — sempre visíveis, viram parte do "shell" do app.
@@ -11,10 +12,10 @@ import { SkipLink } from "@/components/ui/skip-link";
 // Onboarding e prompt de notificação só são visíveis em conditional flow
 // (primeiro acesso e quando o user permitiria push). Lazy tira ~15-20kB
 // do chunk principal do KAI sem afetar TTI.
-const OnboardingFlow = lazy(() =>
+const OnboardingFlow = lazyWithRetry(() =>
   import("@/components/onboarding").then((m) => ({ default: m.OnboardingFlow })),
 );
-const NotificationPermissionPrompt = lazy(() =>
+const NotificationPermissionPrompt = lazyWithRetry(() =>
   import("@/components/notifications/NotificationPermissionPrompt").then((m) => ({
     default: m.NotificationPermissionPrompt,
   })),
@@ -50,21 +51,21 @@ function ClientRequiredEmpty({ message }: { message: string }) {
 
 // Tabs grandes: lazy. Cada um vira um chunk só baixado quando o user abre a tab.
 // Generadores de conteúdo (sequence/reels/radar/hunter) são os mais pesados.
-const HomeDashboard = lazy(() =>
+const HomeDashboard = lazyWithRetry(() =>
   import("@/components/kai/home/HomeDashboard").then((m) => ({ default: m.HomeDashboard })),
 );
 // Performance refeito 2026-05-09: alimentado 100% por Metricool API.
 // Antigo KaiPerformanceTab.tsx (CSV + Apify scrape) preservado em legacy
 // caso precise rollback.
-const KaiPerformanceTab = lazy(() =>
+const KaiPerformanceTab = lazyWithRetry(() =>
   import("@/components/kai/performance-v2/MetricoolPerformance").then((m) => ({
     default: m.MetricoolPerformance,
   })),
 );
-const KaiLibraryTab = lazy(() =>
+const KaiLibraryTab = lazyWithRetry(() =>
   import("@/components/kai/KaiLibraryTab").then((m) => ({ default: m.KaiLibraryTab })),
 );
-const KaiAssistantTab = lazy(() =>
+const KaiAssistantTab = lazyWithRetry(() =>
   import("@/components/kai/KaiAssistantTab").then((m) => ({ default: m.KaiAssistantTab })),
 );
 // KaiAnalyticsTab REMOVIDO da rota em 2026-05-09 — Performance v4 (Metricool)
@@ -79,7 +80,7 @@ const KaiAssistantTab = lazy(() =>
 // O SVLauncher continua no repo como fallback/documentação, mas a rota principal
 // precisa abrir o fluxo core dentro do shell: lista, criação, edição, preview e
 // export.
-const ViralSequenceTab = lazy(() =>
+const ViralSequenceTab = lazyWithRetry(() =>
   import("@/components/kai/viral-sv-original/MainApp").then((m) => ({
     default: m.default,
   })),
@@ -92,7 +93,7 @@ const ViralSequenceTab = lazy(() =>
 // ViralLibraryTab removida 2026-05-08 — unificada com KaiLibraryTab (per cliente).
 // Refs/ideas/reels viáveis agora vivem em client_reference_library com format
 // + scenes (Reels Viral pattern) + slides_text (carousel pattern).
-const ViralFeatureGate = lazy(() =>
+const ViralFeatureGate = lazyWithRetry(() =>
   import("@/components/kai/viral/ViralFeatureGate").then((m) => ({ default: m.ViralFeatureGate })),
 );
 // Placeholders foram substituídos pelas tabs reais (ViralSequenceTab, ViralReelsTab,
@@ -110,22 +111,22 @@ const ViralFeatureGate = lazy(() =>
 // componente ClientsManagementTool permanece no repo como referência (quem sabe
 // volta pra um KAI tool slot futuro), mas não é importado nem montado em rota
 // nenhuma do app principal.
-const PlanningBoard = lazy(() =>
+const PlanningBoard = lazyWithRetry(() =>
   import("@/components/planning/PlanningBoard").then((m) => ({ default: m.PlanningBoard })),
 );
-const TeamTasksBoard = lazy(() =>
+const TeamTasksBoard = lazyWithRetry(() =>
   import("@/components/tasks").then((m) => ({ default: m.TeamTasksBoard })),
 );
-const SettingsTab = lazy(() =>
+const SettingsTab = lazyWithRetry(() =>
   import("@/components/settings/SettingsTab").then((m) => ({ default: m.SettingsTab })),
 );
-const AutomationsTab = lazy(() =>
+const AutomationsTab = lazyWithRetry(() =>
   import("@/components/automations/AutomationsTab").then((m) => ({ default: m.AutomationsTab })),
 );
 // 2026-05-18 — restaurado: ClientsListPage agora monta INLINE como tab dentro do
 // Kai shell pra não perder sidebar. Antes (2026-05-10) era rota dedicada
 // `/kaleidos/clients` mas isso quebrava o layout (sem sidebar).
-const ClientsListPage = lazy(() =>
+const ClientsListPage = lazyWithRetry(() =>
   import("@/components/clients/ClientsListPage").then((m) => ({ default: m.ClientsListPage })),
 );
 // 2026-05-09 — RadarSourcesManager, WorkspaceSettingsTab e WorkspaceMembersTab
@@ -141,7 +142,7 @@ const ClientsListPage = lazy(() =>
 // O arquivo src/components/billing/BillingTab.tsx ainda existe mas não é mais
 // importado nem montado em rota nenhuma.
 // MetricoolInboxPanel é 1197 linhas — lazy pra não inflar bundle inicial
-const MetricoolInboxPanel = lazy(() =>
+const MetricoolInboxPanel = lazyWithRetry(() =>
   import("@/components/metricool/MetricoolInboxPanel").then((m) => ({ default: m.MetricoolInboxPanel })),
 );
 // 2026-05-09 — MetricoolCalendarView e MetricoolSmartLinksManager removidos:

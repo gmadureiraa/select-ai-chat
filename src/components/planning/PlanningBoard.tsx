@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Zap, Eye, Keyboard, Upload, CalendarDays, Columns3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,25 +32,25 @@ import { toast } from 'sonner';
 // KeyboardShortcutsDialog (só abre ao apertar "?"), ColumnsCustomizeDialog
 // (admin) e ClickUpImportDialog (importação manual) — nenhum deles é
 // usado no primeiro paint do Planning. Saem ~30-50kB do chunk principal.
-const PlanningItemDialog = lazy(() =>
+const PlanningItemDialog = lazyWithRetry(() =>
   import('./PlanningItemDialog').then((m) => ({ default: m.PlanningItemDialog })),
 );
-const MetricoolCalendarView = lazy(() =>
+const MetricoolCalendarView = lazyWithRetry(() =>
   import('@/components/metricool/MetricoolCalendarView').then((m) => ({
     default: m.MetricoolCalendarView,
   })),
 );
-const KeyboardShortcutsDialog = lazy(() =>
+const KeyboardShortcutsDialog = lazyWithRetry(() =>
   import('./KeyboardShortcutsDialog').then((m) => ({
     default: m.KeyboardShortcutsDialog,
   })),
 );
-const ColumnsCustomizeDialog = lazy(() =>
+const ColumnsCustomizeDialog = lazyWithRetry(() =>
   import('./ColumnsCustomizeDialog').then((m) => ({
     default: m.ColumnsCustomizeDialog,
   })),
 );
-const ClickUpImportDialog = lazy(() =>
+const ClickUpImportDialog = lazyWithRetry(() =>
   import('./ClickUpImportDialog').then((m) => ({
     default: m.ClickUpImportDialog,
   })),

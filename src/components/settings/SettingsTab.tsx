@@ -1,4 +1,5 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -26,23 +27,23 @@ import { useIsMobile } from "@/hooks/use-mobile";
 // Profile/Notifications/Appearance ficam eager pq são o caso comum + pequenos.
 // 2026-05-18 — removidos TeamManagement (substituído por WorkspaceMembersTab)
 // e AuditLogSettings (feature descontinuada).
-const Documentation = lazy(() => import("@/pages/Documentation"));
-const AIUsageSettings = lazy(() =>
+const Documentation = lazyWithRetry(() => import("@/pages/Documentation"));
+const AIUsageSettings = lazyWithRetry(() =>
   import("@/components/settings/AIUsageSettings").then((m) => ({ default: m.AIUsageSettings })),
 );
-const WebhookSettings = lazy(() =>
+const WebhookSettings = lazyWithRetry(() =>
   import("@/components/settings/WebhookSettings").then((m) => ({ default: m.WebhookSettings })),
 );
-const WorkspaceSettingsTab = lazy(() =>
+const WorkspaceSettingsTab = lazyWithRetry(() =>
   import("@/components/workspace/WorkspaceSettingsTab").then((m) => ({ default: m.WorkspaceSettingsTab })),
 );
-const WorkspaceMembersTab = lazy(() =>
+const WorkspaceMembersTab = lazyWithRetry(() =>
   import("@/components/workspace/WorkspaceMembersTab").then((m) => ({ default: m.WorkspaceMembersTab })),
 );
-const IntegrationsSettings = lazy(() =>
+const IntegrationsSettings = lazyWithRetry(() =>
   import("@/components/settings/IntegrationsSettings").then((m) => ({ default: m.IntegrationsSettings })),
 );
-const MCPDocsTab = lazy(() =>
+const MCPDocsTab = lazyWithRetry(() =>
   import("@/components/kai/MCPDocsTab").then((m) => ({ default: m.MCPDocsTab })),
 );
 

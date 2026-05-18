@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { isStaleChunkError } from "@/lib/lazyWithRetry";
 
 interface Props {
   children: ReactNode;
@@ -67,6 +68,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
     const error = this.state.error;
     const message = error?.message ?? "Erro inesperado";
+    // 2026-05-18 — detecta chunk stale (deploy novo invalidou hash do
+    // chunk antigo). Mensagem específica em vez de erro genérico.
+    const isStale = isStaleChunkError(error);
 
     if (this.props.compact) {
       return (
@@ -75,37 +79,55 @@ export class ErrorBoundary extends Component<Props, State> {
           aria-live="assertive"
           className="flex flex-col items-center justify-center h-full min-h-[300px] p-6 text-center"
         >
-          <div className="rounded-full bg-destructive/10 p-3 mb-4">
-            <AlertTriangle aria-hidden="true" className="h-6 w-6 text-destructive" />
+          <div className={isStale ? "rounded-full bg-primary/10 p-3 mb-4" : "rounded-full bg-destructive/10 p-3 mb-4"}>
+            {isStale ? (
+              <Download aria-hidden="true" className="h-6 w-6 text-primary" />
+            ) : (
+              <AlertTriangle aria-hidden="true" className="h-6 w-6 text-destructive" />
+            )}
           </div>
           <h3 className="text-lg font-semibold mb-1">
-            Algo deu errado
+            {isStale ? "Versão nova disponível" : "Algo deu errado"}
           </h3>
-          {this.props.context && (
+          {this.props.context && !isStale && (
             <p className="text-xs uppercase tracking-wide text-muted-foreground/70 mb-2">
               {this.props.context}
             </p>
           )}
           <p className="text-sm text-muted-foreground mb-4 max-w-md">
-            {message}
+            {isStale
+              ? "O KAI foi atualizado enquanto você estava aqui. Recarregue a página pra pegar a versão nova (vai levar 1 segundo)."
+              : message}
           </p>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={this.handleRetry}
-              className="gap-2"
-            >
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              Tentar novamente
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={this.handleReload}
-            >
-              Recarregar página
-            </Button>
+            {isStale ? (
+              <Button
+                onClick={this.handleReload}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Recarregar agora
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={this.handleRetry}
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  Tentar novamente
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={this.handleReload}
+                >
+                  Recarregar página
+                </Button>
+              </>
+            )}
           </div>
         </div>
       );
