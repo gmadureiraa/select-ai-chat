@@ -8,7 +8,7 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
-import { assertToolClientAccess } from './tool-access.js';
+import { assertToolClientAccess, isToolAccessFail } from './tool-access.js';
 
 /**
  * Remove chaves perigosas de prototype pollution (__proto__, constructor, prototype).
@@ -98,7 +98,7 @@ export const updateBrandAssetsTool: RegisteredTool<
 
     // SECURITY: validar acesso ANTES de mutate.
     const guard = await assertToolClientAccess(ctx, clientId);
-    if (!guard.ok) return { ok: false, error: guard.error };
+    if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
 
     const merge = args.merge ?? true;
 

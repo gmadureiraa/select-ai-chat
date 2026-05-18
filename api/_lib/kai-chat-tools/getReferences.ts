@@ -11,7 +11,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query, queryOne } from '../db.js';
-import { assertToolClientAccess } from './tool-access.js';
+import { assertToolClientAccess, isToolAccessFail } from './tool-access.js';
 
 interface GetReferencesArgs {
   client_id?: string;
@@ -116,7 +116,7 @@ export const getReferencesTool: RegisteredTool<GetReferencesArgs, GetReferencesD
     // SECURITY: client_reference_library guarda swipes/refs salvos
     // (estratégia editorial). Validar acesso antes.
     const guard = await assertToolClientAccess(ctx, clientId);
-    if (!guard.ok) return { ok: false, error: guard.error };
+    if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
 
     const rawLimit =
       typeof args.limit === 'number' && args.limit > 0

@@ -34,18 +34,21 @@ import { usePlanningAutomations, PlanningAutomation, ScheduleConfig, RSSConfig }
 import { useAiWorkflows, AiWorkflow, describeCron, estimateNextRun } from '@/hooks/useAiWorkflows';
 import { useAiWorkflowRuns, useLatestRunsByWorkflow, AiWorkflowRun } from '@/hooks/useAiWorkflowRuns';
 import { useClients, type Client as ClientType } from '@/hooks/useClients';
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 // 2026-05-17 — Os 2 dialogs heavy lazy. AutomationDialog tem form complexo
 // (cron picker, RSS, schedule, etc — ~30kB). AutomationHistoryDialog
 // renderiza lista de runs com logs (~15kB). Antes vinham eager apesar de
 // só montarem quando user clica em Editar/Histórico.
-const AutomationDialog = lazy(() =>
+// 2026-05-18 — Trocado lazy() → lazyWithRetry() pra recuperar de stale chunks
+// pós-deploy (erro "Failed to fetch dynamically imported module").
+const AutomationDialog = lazyWithRetry(() =>
   import('@/components/planning/AutomationDialog').then((m) => ({
     default: m.AutomationDialog,
   })),
 );
-const AutomationHistoryDialog = lazy(() =>
+const AutomationHistoryDialog = lazyWithRetry(() =>
   import('./AutomationHistoryDialog').then((m) => ({
     default: m.AutomationHistoryDialog,
   })),
@@ -689,7 +692,7 @@ function PlanningAutomationsList({
                   )}
                   {clientName}
                   <Badge variant="secondary" className="text-xs ml-1">
-                    {clientAutomations.length} automação{clientAutomations.length !== 1 ? 'ões' : ''}
+                    {clientAutomations.length} {clientAutomations.length === 1 ? 'automação' : 'automações'}
                   </Badge>
                 </CardTitle>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -1071,7 +1074,7 @@ function AiWorkflowsSection({
           {healthyCount > 0 && (
             <span className="flex items-center gap-1">
               <span className="h-2 w-2 rounded-full bg-green-500" />
-              {healthyCount} saudável{healthyCount !== 1 ? 'eis' : ''}
+              {healthyCount} {healthyCount === 1 ? 'saudável' : 'saudáveis'}
             </span>
           )}
           {staleCount > 0 && (
@@ -1437,7 +1440,7 @@ function RunRow({ run }: { run: AiWorkflowRun }) {
           <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
           <div className="min-w-0 flex-1">
             <p className="text-amber-700 dark:text-amber-400 font-medium">
-              {violationsCount} violação{violationsCount !== 1 ? 'ões' : ''}
+              {violationsCount} {violationsCount === 1 ? 'violação' : 'violações'}
             </p>
             <ul className="text-muted-foreground mt-1 space-y-0.5">
               {run.violations.slice(0, 3).map((v, i) => (

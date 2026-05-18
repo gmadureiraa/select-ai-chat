@@ -10,7 +10,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query, queryOne } from '../db.js';
-import { assertToolClientAccess } from './tool-access.js';
+import { assertToolClientAccess, isToolAccessFail } from './tool-access.js';
 
 interface GetBrandAssetsArgs {
   client_id?: string;
@@ -73,7 +73,7 @@ export const getBrandAssetsTool: RegisteredTool<GetBrandAssetsArgs, GetBrandAsse
     // SECURITY: brand_assets pode conter URLs internas / refs visuais privadas.
     // Validar acesso antes de devolver.
     const guard = await assertToolClientAccess(ctx, clientId);
-    if (!guard.ok) return { ok: false, error: guard.error };
+    if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
 
     try {
       const c = await queryOne<{

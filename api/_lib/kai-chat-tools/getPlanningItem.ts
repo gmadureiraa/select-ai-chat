@@ -13,7 +13,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { queryOne, query } from '../db.js';
-import { assertToolClientAccess } from './tool-access.js';
+import { assertToolClientAccess, isToolAccessFail } from './tool-access.js';
 
 interface GetPlanningItemArgs {
   planningItemId?: string;
@@ -90,7 +90,7 @@ export const getPlanningItemTool: RegisteredTool<
     // de qualquer cliente. Validar acesso explicitamente.
     if (ctx.clientId) {
       const guard = await assertToolClientAccess(ctx, ctx.clientId);
-      if (!guard.ok) return { ok: false, error: guard.error };
+      if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
     }
 
     try {

@@ -940,7 +940,7 @@ export default function EditPage(props: {
       toast.error("Carrossel precisa de pelo menos 1 slide.");
       return;
     }
-    if (!confirm(`Apagar o slide ${index + 1}?`)) return;
+    if (typeof window !== "undefined" && !window.confirm(`Apagar o slide ${index + 1}?`)) return;
     setSlides((prev) => prev.filter((_, i) => i !== index));
     // Ajusta activeIndex pra não apontar pra slide deletado.
     setActiveIndex((prev) => {

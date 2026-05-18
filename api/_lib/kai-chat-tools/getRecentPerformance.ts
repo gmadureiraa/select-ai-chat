@@ -12,7 +12,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query } from '../db.js';
-import { assertToolClientAccess } from './tool-access.js';
+import { assertToolClientAccess, isToolAccessFail } from './tool-access.js';
 
 interface GetRecentPerformanceArgs {
   network?: string;
@@ -131,7 +131,7 @@ export const getRecentPerformanceTool: RegisteredTool<
       return { ok: false, error: 'Cliente atual obrigatório.' };
     }
     const guard = await assertToolClientAccess(ctx, ctx.clientId);
-    if (!guard.ok) return { ok: false, error: guard.error };
+    if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
 
     const targetPlatforms =
       network === 'all'

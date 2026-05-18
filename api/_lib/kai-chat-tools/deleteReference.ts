@@ -6,7 +6,7 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
-import { requireApproval, consumeApprovalToken } from '../approval-flow.js';
+import { requireApproval, consumeApprovalToken, type ApprovalRequest } from '../approval-flow.js';
 
 interface DeleteReferenceArgs {
   referenceId: string;
@@ -19,7 +19,7 @@ interface DeleteReferenceData {
   requiresApproval?: boolean;
 }
 
-export const deleteReferenceTool: RegisteredTool<DeleteReferenceArgs, DeleteReferenceData> = {
+export const deleteReferenceTool: RegisteredTool<DeleteReferenceArgs, DeleteReferenceData | ApprovalRequest> = {
   definition: {
     name: 'deleteReference',
     description:

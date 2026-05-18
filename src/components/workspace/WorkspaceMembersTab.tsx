@@ -506,7 +506,7 @@ export function WorkspaceMembersTab() {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <Avatar className="h-9 w-9">
-                        <AvatarImage src={undefined} />
+                        <AvatarImage />
                         <AvatarFallback className="bg-primary/10 text-primary">
                           <Icon className="h-4 w-4" />
                         </AvatarFallback>

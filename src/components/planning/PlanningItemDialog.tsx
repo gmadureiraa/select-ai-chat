@@ -70,6 +70,8 @@ interface PlanningItemDialogProps {
   defaultClientId?: string;
   /** Pre-popula o campo Título (ex: vindo do Calendário Editorial com nome de data comemorativa) */
   defaultTitle?: string;
+  /** Pre-popula o campo Content (ex: KaiAssistantTab "salvar como planejamento" sem fetch DB) */
+  defaultContent?: string;
   onSave: (data: CreatePlanningItemInput) => Promise<{ id: string } | void>;
   onUpdate?: (id: string, data: Partial<PlanningItem>) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
@@ -101,6 +103,7 @@ export function PlanningItemDialog({
   defaultDate,
   defaultClientId,
   defaultTitle,
+  defaultContent,
   onSave,
   onUpdate,
   onDelete,
@@ -382,7 +385,7 @@ export function PlanningItemDialog({
     } else if (!item) {
       // Only reset when there's no item at all (new card)
       setTitle(defaultTitle || '');
-      setContent('');
+      setContent(defaultContent || '');
       setSelectedClientId(defaultClientId || '');
       setColumnId(defaultColumnId || columns[0]?.id || '');
       // 2026-05-17 fix: vazio em vez de 'tweet' — força user a escolher formato
@@ -402,7 +405,7 @@ export function PlanningItemDialog({
       setLabels([]);
       setLabelInput('');
     }
-  }, [effectiveItem, item, defaultColumnId, defaultDate, defaultClientId, defaultTitle, columns, open]);
+  }, [effectiveItem, item, defaultColumnId, defaultDate, defaultClientId, defaultTitle, defaultContent, columns, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -987,7 +990,7 @@ export function PlanningItemDialog({
                   <FileText className="h-3 w-3" />
                   Formato
                 </Label>
-                <Select value={contentType || undefined} onValueChange={(v) => setContentType(v as ContentTypeKey)}>
+                <Select value={contentType ?? ""} onValueChange={(v) => setContentType(v as ContentTypeKey)}>
                   <SelectTrigger className={cn("h-8 text-sm", !contentType && "border-amber-500/60 text-amber-700 dark:text-amber-400")}>
                     <SelectValue placeholder="Escolher formato..." />
                   </SelectTrigger>

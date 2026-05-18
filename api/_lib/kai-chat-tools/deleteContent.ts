@@ -11,7 +11,7 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
-import { requireApproval, consumeApprovalToken } from '../approval-flow.js';
+import { requireApproval, consumeApprovalToken, type ApprovalRequest } from '../approval-flow.js';
 
 interface DeleteContentArgs {
   planningItemId: string;
@@ -27,7 +27,7 @@ interface DeleteContentData {
   wasPublished?: boolean;
 }
 
-export const deleteContentTool: RegisteredTool<DeleteContentArgs, DeleteContentData> = {
+export const deleteContentTool: RegisteredTool<DeleteContentArgs, DeleteContentData | ApprovalRequest> = {
   definition: {
     name: 'deleteContent',
     description:

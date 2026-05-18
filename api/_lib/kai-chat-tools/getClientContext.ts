@@ -3,7 +3,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query, queryOne } from '../db.js';
-import { assertToolClientAccess } from './tool-access.js';
+import { assertToolClientAccess, isToolAccessFail } from './tool-access.js';
 
 interface GetClientContextArgs {
   [key: string]: unknown;
@@ -69,7 +69,7 @@ export const getClientContextTool: RegisteredTool<GetClientContextArgs, GetClien
       return { ok: false, error: 'Cliente atual obrigatório.' };
     }
     const guard = await assertToolClientAccess(ctx, ctx.clientId);
-    if (!guard.ok) return { ok: false, error: guard.error };
+    if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
 
     console.log(`[getClientContext] clientId=${ctx.clientId}`);
     try {

@@ -3,8 +3,9 @@
 // Uses direct Telegram Bot API (not Lovable connector gateway).
 // Defensive fallback: if TELEGRAM_BOT_TOKEN not configured, returns 503.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { applyCors, handlePreflight } from '../_lib/cors.js';
+import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
+import { assertCronAuth } from '../_lib/cron-auth.js';
 
 const REQUIRED_ENV = ['TELEGRAM_BOT_TOKEN'];
 const MAX_RUNTIME_MS = 55_000;
@@ -796,6 +797,13 @@ async function handleMessage(message: any) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
   applyCors(res);
+  if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
+
+  // 2026-05-18 audit fix: endpoint era PÚBLICO sem auth — qualquer POST
+  // anônimo executava /aprovar_todos /aprovar /rejeitar etc. mutando
+  // planning_items + automation_content_feedback. Agora gate via cron auth
+  // (Bearer CRON_SECRET) — só cron scheduler do GH Actions / Vercel chama.
+  if (!assertCronAuth(req, res)) return;
 
   const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
   if (missing.length > 0) {

@@ -5,7 +5,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query } from '../db.js';
-import { assertToolClientAccess } from './tool-access.js';
+import { assertToolClientAccess, isToolAccessFail } from './tool-access.js';
 
 interface SearchRefsArgs {
   query?: string;
@@ -82,7 +82,7 @@ export const searchRefsTool: RegisteredTool<SearchRefsArgs, SearchRefsData> = {
 
     // SECURITY: validar acesso ao cliente antes de devolver refs.
     const guard = await assertToolClientAccess(ctx, clientId);
-    if (!guard.ok) return { ok: false, error: guard.error };
+    if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
 
     const queryStr = typeof args.query === 'string' ? args.query.trim() : '';
     const rawLimit =

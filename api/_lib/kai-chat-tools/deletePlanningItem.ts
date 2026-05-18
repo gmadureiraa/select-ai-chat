@@ -9,7 +9,7 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
-import { requireApproval, consumeApprovalToken } from '../approval-flow.js';
+import { requireApproval, consumeApprovalToken, type ApprovalRequest } from '../approval-flow.js';
 
 interface DeletePlanningItemArgs {
   itemId: string;
@@ -26,7 +26,7 @@ interface DeletePlanningItemData {
 
 export const deletePlanningItemTool: RegisteredTool<
   DeletePlanningItemArgs,
-  DeletePlanningItemData
+  DeletePlanningItemData | ApprovalRequest
 > = {
   definition: {
     name: 'deletePlanningItem',

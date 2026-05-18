@@ -118,7 +118,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     // F0.3b — tool-calling mode ON por padrão (Gemini function calling com
     // ToolRegistry de 23 tools). Pode ser desligado via `?tools=0` pra cair
     // no fluxo legado de intent detection por regex (debug).
-    useTools: new URLSearchParams(window.location.search).get("tools") !== "0",
+    useTools: typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tools") !== "0" : true,
     onConversationCreated: (id) => {
       queryClient.invalidateQueries({
         queryKey: ["kai-latest-conversation", clientId],
@@ -532,19 +532,9 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
           const result = await createItem.mutateAsync(data);
           return { id: result.id };
         }}
-        item={contentForPlanning ? {
-          id: "",
-          title: contentForPlanning.substring(0, 60) + (contentForPlanning.length > 60 ? "..." : ""),
-          content: contentForPlanning,
-          client_id: clientId,
-          column_id: defaultColumn?.id || "",
-          priority: "medium",
-          status: "idea",
-          created_by: "",
-          workspace_id: "",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        } as any : null}
+        item={null}
+        defaultTitle={contentForPlanning ? contentForPlanning.substring(0, 60) + (contentForPlanning.length > 60 ? "..." : "") : undefined}
+        defaultContent={contentForPlanning || undefined}
       />
     </div>
   );

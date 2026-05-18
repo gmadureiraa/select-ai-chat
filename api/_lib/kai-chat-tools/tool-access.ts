@@ -15,32 +15,49 @@
  *
  * Uso:
  *
- *   import { assertToolClientAccess } from './tool-access.js';
+ *   import { assertToolClientAccess, isToolAccessFail } from './tool-access.js';
  *   handler: async (args, ctx) => {
  *     const clientId = String(args.client_id ?? ctx.clientId ?? '').trim();
  *     const guard = await assertToolClientAccess(ctx, clientId);
- *     if (!guard.ok) return { ok: false, error: guard.error };
+ *     if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
  *     // ... segue com o que a tool faz
  *   }
+ *
+ * NOTA: usamos `isToolAccessFail()` em vez de `if (!guard.ok)` porque o
+ * type-checker do @vercel/node 5.x não estreita a union pela negação direta
+ * do discriminator (bug observado em 2026-05-18). Type guard explícito força
+ * o narrowing.
  */
 import { queryOne } from '../db.js';
 import type { ToolExecutionContext, ToolHandlerResult } from './types.js';
 
-export interface ToolAccessOk {
+export type ToolAccessOk = {
   ok: true;
   workspaceId: string | null;
   /** True quando rodou em service mode sem userId — bypass por design. */
   skipped: boolean;
-}
+};
 
-export interface ToolAccessFail {
+export type ToolAccessFail = {
   ok: false;
   error: string;
   /** HTTP status sugerido. */
   status: 401 | 403 | 400 | 404;
-}
+};
 
 export type ToolAccessResult = ToolAccessOk | ToolAccessFail;
+
+/**
+ * Type guard pra estreitar `ToolAccessResult` em `ToolAccessFail`. Útil
+ * quando o flow-analysis do TS não consegue narrow via `!guard.ok` direto
+ * (cenário observado no build do Vercel/@vercel/node 5.x). Use:
+ *
+ *   const guard = await assertToolClientAccess(ctx, clientId);
+ *   if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
+ */
+export function isToolAccessFail(result: ToolAccessResult): result is ToolAccessFail {
+  return result.ok === false;
+}
 
 function serviceModeNoUser(ctx: ToolExecutionContext): boolean {
   return !!ctx.isInternalCall && !ctx.userId;

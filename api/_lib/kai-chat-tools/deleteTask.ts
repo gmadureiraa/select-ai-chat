@@ -6,7 +6,7 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
-import { requireApproval, consumeApprovalToken } from '../approval-flow.js';
+import { requireApproval, consumeApprovalToken, type ApprovalRequest } from '../approval-flow.js';
 
 interface DeleteTaskArgs {
   taskId: string;
@@ -19,7 +19,7 @@ interface DeleteTaskData {
   requiresApproval?: boolean;
 }
 
-export const deleteTaskTool: RegisteredTool<DeleteTaskArgs, DeleteTaskData> = {
+export const deleteTaskTool: RegisteredTool<DeleteTaskArgs, DeleteTaskData | ApprovalRequest> = {
   definition: {
     name: 'deleteTask',
     description:

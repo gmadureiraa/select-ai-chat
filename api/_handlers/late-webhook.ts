@@ -6,7 +6,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight } from '../_lib/cors.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const TG_GATEWAY = 'https://connector-gateway.lovable.dev/telegram';
 const REQUIRED_ENV = ['LATE_WEBHOOK_SECRET'];
@@ -57,7 +57,15 @@ async function readRawBody(req: VercelRequest): Promise<string> {
 function verifyWebhookSignature(rawBody: string, signature: string | null, secret: string): boolean {
   if (!signature) return false;
   const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
-  return signature === expected;
+  // 2026-05-18 audit fix: == era vulnerável a timing attack (atacante pode
+  // medir tempo de resposta pra inferir bytes corretos do hash). timingSafeEqual
+  // compara em tempo constante. Tamanhos diferentes = false rápido.
+  if (signature.length !== expected.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'));
+  } catch {
+    return false;
+  }
 }
 
 async function alertsEnabledForClient(clientId: string | null | undefined): Promise<boolean> {

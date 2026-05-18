@@ -7,7 +7,7 @@ import { newActionCardId, type KAIActionCard } from './kai-stream.js';
 import type { RegisteredTool } from './types.js';
 import { buildToolFetchHeaders } from './internal-headers.js';
 import { query } from '../db.js';
-import { requireApproval, consumeApprovalToken } from '../approval-flow.js';
+import { requireApproval, consumeApprovalToken, type ApprovalRequest } from '../approval-flow.js';
 
 interface DeleteAutomationArgs {
   automationId: string;
@@ -20,7 +20,7 @@ interface DeleteAutomationData {
   requiresApproval?: boolean;
 }
 
-export const deleteAutomationTool: RegisteredTool<DeleteAutomationArgs, DeleteAutomationData> = {
+export const deleteAutomationTool: RegisteredTool<DeleteAutomationArgs, DeleteAutomationData | ApprovalRequest> = {
   definition: {
     name: 'deleteAutomation',
     description:

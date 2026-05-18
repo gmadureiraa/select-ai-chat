@@ -172,6 +172,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // Atomic pickup: UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED)
           // RETURNING tudo que o handler precisa. Marca como 'publishing' já,
           // dispensando o UPDATE separado dentro do loop.
+          //
+          // 2026-05-18 fix Gabriel: o UPDATE não pode JOIN clients direto
+          // (Postgres não permite alias da target table na FROM clause + outro
+          // JOIN). Fix: CTE updated faz só o UPDATE atômico, depois SELECT
+          // final junta com clients pra trazer client_name.
           `WITH picked AS (
              SELECT pi.id
                FROM planning_items pi
@@ -183,14 +188,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ORDER BY pi.scheduled_at ASC
               LIMIT 25
               FOR UPDATE SKIP LOCKED
+           ),
+           updated AS (
+             UPDATE planning_items pi
+                SET status = 'publishing',
+                    updated_at = NOW()
+              FROM picked p
+              WHERE pi.id = p.id
+              RETURNING pi.*
            )
-           UPDATE planning_items pi
-              SET status = 'publishing',
-                  updated_at = NOW()
-            FROM picked p
-            LEFT JOIN clients c ON c.id = pi.client_id
-            WHERE pi.id = p.id
-            RETURNING pi.*, c.name AS client_name`,
+           SELECT u.*, c.name AS client_name
+             FROM updated u
+        LEFT JOIN clients c ON c.id = u.client_id`,
           [marginTime.toISOString(), now.toISOString()],
         );
 

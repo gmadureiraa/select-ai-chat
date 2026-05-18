@@ -12,7 +12,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query, queryOne } from '../db.js';
-import { assertToolClientAccess } from './tool-access.js';
+import { assertToolClientAccess, isToolAccessFail } from './tool-access.js';
 
 interface GetIntegrationsStatusArgs {
   client_id?: string;
@@ -85,7 +85,7 @@ export const getIntegrationsStatusTool: RegisteredTool<
     // expires_at — vazar isso facilita takeover de contas sociais. Exigir
     // que o user tenha acesso ao cliente antes de listar.
     const guard = await assertToolClientAccess(ctx, clientId);
-    if (!guard.ok) return { ok: false, error: guard.error };
+    if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
 
     try {
       const c = await queryOne<{ name: string | null }>(

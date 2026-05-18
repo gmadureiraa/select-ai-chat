@@ -4,7 +4,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight } from '../_lib/cors.js';
 import { getPool, queryOne } from '../_lib/db.js';
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const REQUIRED_ENV = ['TWITTER_CONSUMER_KEY', 'TWITTER_CONSUMER_SECRET'];
 
@@ -107,7 +107,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .replace(/[+/=]/g, '')
       .substring(0, 32);
 
-    if (providedHash !== expectedHash) {
+    // 2026-05-18 audit fix: == era vulnerável a timing attack. timingSafeEqual
+    // exige buffers do mesmo tamanho — fast path se length diferente.
+    const hashMatch =
+      providedHash.length === expectedHash.length &&
+      (() => {
+        try {
+          return timingSafeEqual(Buffer.from(providedHash), Buffer.from(expectedHash));
+        } catch {
+          return false;
+        }
+      })();
+    if (!hashMatch) {
       console.error('Invalid state hash');
       res.setHeader('Content-Type', 'text/html');
       res.status(200).send(renderClosePage(false, 'Estado de segurança inválido'));

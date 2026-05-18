@@ -15,7 +15,7 @@
  */
 import type { RegisteredTool } from './types.js';
 import { query, queryOne } from '../db.js';
-import { assertToolClientAccess, assertToolWorkspaceAccess } from './tool-access.js';
+import { assertToolClientAccess, assertToolWorkspaceAccess, isToolAccessFail } from './tool-access.js';
 
 interface GetRecentActivityArgs {
   workspace_id?: string;
@@ -121,7 +121,7 @@ export const getRecentActivityTool: RegisteredTool<
       let workspaceId = String(args.workspace_id ?? '').trim();
       if (workspaceId) {
         const guard = await assertToolWorkspaceAccess(ctx, workspaceId);
-        if (!guard.ok) return { ok: false, error: guard.error };
+        if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
       } else {
         if (!ctx.clientId) {
           return {
@@ -131,7 +131,7 @@ export const getRecentActivityTool: RegisteredTool<
           };
         }
         const guard = await assertToolClientAccess(ctx, ctx.clientId);
-        if (!guard.ok) return { ok: false, error: guard.error };
+        if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
         if (guard.workspaceId) {
           workspaceId = guard.workspaceId;
         } else {
@@ -152,7 +152,7 @@ export const getRecentActivityTool: RegisteredTool<
       const clientFilter = String(args.client_id ?? '').trim();
       if (clientFilter) {
         const guard = await assertToolClientAccess(ctx, clientFilter);
-        if (!guard.ok) return { ok: false, error: guard.error };
+        if (isToolAccessFail(guard)) return { ok: false, error: guard.error };
         if (guard.workspaceId && guard.workspaceId !== workspaceId) {
           return { ok: false, error: 'client_id filtro fora do workspace alvo.' };
         }
