@@ -72,6 +72,7 @@ export { addToPlanningTool } from './addToPlanning.js';
 export { getPostTranscriptionTool } from './getPostTranscription.js';
 export { getPlanningItemTool } from './getPlanningItem.js';
 export { getRecentPerformanceTool } from './getRecentPerformance.js';
+export { suggestEventDatesTool } from './suggestEventDates.js';
 
 // READ agregadores (2026-05-16) — workspace, brand, voice, integrações,
 // auditoria, refs full, workflows, notificações, atividade, UI state.

@@ -246,12 +246,17 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
     quality?: "fast" | "high",
     mode?: ChatMode,
     citations?: Citation[],
+    audioUrls?: string[],
     forceTool?: { name: string; args: Record<string, unknown> },
   ) => {
-    if (!content.trim() && (!images || images.length === 0)) return;
-    
+    if (
+      !content.trim() &&
+      (!images || images.length === 0) &&
+      (!audioUrls || audioUrls.length === 0)
+    ) return;
+
     const effectiveMode = mode || chatMode;
-    
+
     // Performance mode — call kai-metrics-agent directly
     if (effectiveMode === "performance") {
       try {
@@ -259,7 +264,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
           body: { clientId, question: content },
         });
         if (response.error) throw new Error(response.error.message);
-        
+
         let responseContent = "";
         const reader = response.data?.body?.getReader();
         if (reader) {
@@ -270,15 +275,18 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
             responseContent += decoder.decode(value, { stream: true });
           }
         } else {
-          responseContent = typeof response.data === "string" 
-            ? response.data 
+          responseContent = typeof response.data === "string"
+            ? response.data
             : response.data?.content || "Não foi possível analisar as métricas.";
         }
-        
+
         // Use the simple chat to add both messages so they're persisted
-        await baseSendMessage(`[Análise de Performance] ${content}`, 
+        await baseSendMessage(
+          `[Análise de Performance] ${content}`,
           citations?.map(c => ({ id: c.id, type: c.type as any, title: c.title })),
-          images
+          images,
+          undefined,
+          audioUrls,
         );
       } catch (error) {
         console.error("Performance analysis error:", error);
@@ -290,15 +298,15 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
       }
       return;
     }
-    
+
     // All other modes — delegate to kai-simple-chat via the hook
     const simpleCitations: SimpleCitation[] | undefined = citations?.map(c => ({
       id: c.id,
       type: c.type as any,
       title: c.title,
     }));
-    
-    await baseSendMessage(content, simpleCitations, images, forceTool);
+
+    await baseSendMessage(content, simpleCitations, images, forceTool, audioUrls);
   };
 
   // Clear history
@@ -451,7 +459,7 @@ export const KaiAssistantTab = ({ clientId, client }: KaiAssistantTabProps) => {
                         // injeta nudge pro LLM chamar essa tool direto.
                         // Mensagem human-readable pro histórico fica natural.
                         const humanMsg = actionLabelForDisplay(actionId, toolCall.name);
-                        void handleSend(humanMsg, undefined, undefined, undefined, undefined, toolCall);
+                        void handleSend(humanMsg, undefined, undefined, undefined, undefined, undefined, toolCall);
                         return;
                       }
                       if (actionId === "edit") {

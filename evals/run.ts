@@ -93,6 +93,7 @@ function buildStubRegistry(): { registry: ToolRegistry; called: string[] } {
     Tools.webSearchTool,
     Tools.delegateToSubAgentTool,
     Tools.delegateBatchTool,
+    Tools.suggestEventDatesTool,
     Tools.createContentTool,
     Tools.createViralCarouselTool,
     Tools.editContentTool,

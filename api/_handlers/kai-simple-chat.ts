@@ -24,6 +24,7 @@ import {
   webSearchTool,
   delegateToSubAgentTool,
   delegateBatchTool,
+  suggestEventDatesTool,
   createContentTool,
   createViralCarouselTool,
   editContentTool,
@@ -2480,6 +2481,7 @@ adicional. O card de confirmação já injeta isso automaticamente.
       registry.register(webSearchTool);
       registry.register(delegateToSubAgentTool);
       registry.register(delegateBatchTool);
+      registry.register(suggestEventDatesTool);
       registry.register(createContentTool);
       registry.register(createViralCarouselTool);
       registry.register(editContentTool);

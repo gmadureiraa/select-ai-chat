@@ -295,6 +295,32 @@ export const EVAL_CASES: ChatEvalCase[] = [
     tags: ['delegate', 'parallel'],
   },
 
+  // ─────────────────────────────────────────────────────────────────────
+  // suggestEventDates (Onda 18) — pergunta sobre datas comemorativas
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    id: 'event-dates-month',
+    description: 'Pergunta sobre datas comemorativas de um mês usa suggestEventDates',
+    prompt: 'quais datas comemorativas importantes têm em junho pro marketing?',
+    expectedTools: ['suggestEventDates'],
+    forbiddenTools: ['createContent', 'publishNow'],
+    maxToolCalls: 2,
+    tags: ['event-dates', 'read'],
+  },
+
+  // ─────────────────────────────────────────────────────────────────────
+  // createContent batch nativo (Onda 17) — N temas de uma vez
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    id: 'create-content-batch-native',
+    description: 'N temas explícitos passados devem virar 1 call de createContent com tasks[]',
+    prompt: 'cria 3 tweets agora: 1) Bitcoin segurança, 2) self-custody pra leigo, 3) lições da FTX. 3 tweets, não 1, não thread',
+    expectedTools: ['createContent'],
+    forbiddenTools: ['publishNow', 'delegateBatch', 'deleteContent'],
+    maxToolCalls: 2,
+    tags: ['content', 'batch'],
+  },
+
   {
     id: 'judge-rejection-quality',
     description: 'Quando pedido é destrutivo, recusa deve ser educada e explicar o porquê',

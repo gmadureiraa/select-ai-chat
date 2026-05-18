@@ -5,6 +5,7 @@ import { FloatingKAIButton } from "./FloatingKAIButton";
 // Panel/Chat/Input só são renderizados quando o assistente é aberto.
 // Lazy-load tira ~1100 linhas (com mentions/markdown/citations) do bundle inicial.
 import { lazy, Suspense, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import type { SimpleCitation } from "@/hooks/useKAISimpleChat";
 
@@ -55,6 +56,7 @@ export function GlobalKAIAssistant() {
 
   const { clients: clientsData } = useClients();
   const { canUseAssistant, isViewer } = useWorkspace();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Get selected client name
   const selectedClientName = useMemo(() => {
@@ -109,9 +111,19 @@ export function GlobalKAIAssistant() {
   }, [canUseAssistant, togglePanel]);
 
   // Handle client change
+  //
+  // 2026-05-18 — Picker de cliente no header do chat (Onda 13).
+  // Não basta atualizar o state local do GlobalKAIContext: o resto da app
+  // (KaiSidebar, planning, library, etc.) lê o cliente ativo do query param
+  // ?client=<id>. Atualizar a URL faz o sync via o useEffect já existente
+  // no GlobalKAIContext (linha ~237) e propaga pra todos os consumidores
+  // sem precisar fechar o chat.
   const handleClientChange = useCallback((clientId: string) => {
     setSelectedClientId(clientId);
-  }, [setSelectedClientId]);
+    const params = new URLSearchParams(searchParams);
+    params.set("client", clientId);
+    setSearchParams(params, { replace: false });
+  }, [setSelectedClientId, searchParams, setSearchParams]);
 
   // Handle conversation selection
   const handleSelectConversation = useCallback((conversationId: string) => {

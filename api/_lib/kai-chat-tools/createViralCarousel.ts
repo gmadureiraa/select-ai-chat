@@ -115,6 +115,13 @@ export const createViralCarouselTool: RegisteredTool<
       const planningItemId: string | null = json.planningItemId ?? null;
       const slides = (json.slides ?? []) as Array<{ body: string }>;
 
+      // Deep-link pro editor visual da Sequência Viral dentro do KAI.
+      // Formato espelha PlanningItemDialog.tsx:835 e Kai.tsx:157,162 — `?client&tab=sequence&carouselId`
+      // é lido por Kai.tsx pra montar <ViralSequenceTab carouselId=... />.
+      const sequenceEditorUrl = carouselId
+        ? `/kaleidos?client=${encodeURIComponent(ctx.clientId)}&tab=sequence&carouselId=${encodeURIComponent(carouselId)}`
+        : undefined;
+
       const card: KAIActionCard = {
         id: newActionCardId(),
         planning_item_id: planningItemId,
@@ -130,6 +137,7 @@ export const createViralCarouselTool: RegisteredTool<
           briefing,
           viralCarouselId: carouselId,
           viralSlides: slides,
+          ...(sequenceEditorUrl ? { externalUrl: sequenceEditorUrl } : {}),
         },
         requires_approval: false,
         available_actions: [

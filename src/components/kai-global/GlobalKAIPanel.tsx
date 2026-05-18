@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Trash2, Download, ChevronDown, Check, Plus, History, MessageSquare } from "lucide-react";
+import { X, Trash2, Download, Check, Plus, History, MessageSquare } from "lucide-react";
 import { useTheme } from "next-themes";
 import kaleidosLogoVerde from "@/assets/kaleidos-logo-verde.svg";
 import kaleidosLogoRosa from "@/assets/kaleidos-logo-rosa.svg";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import { ClientPickerHeader } from "./ClientPickerHeader";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -126,7 +126,6 @@ export function GlobalKAIPanel({
     }
   };
 
-  const selectedClient = clients.find(c => c.id === selectedClientId);
   const hasConversations = conversations.length > 0;
 
   return (
@@ -184,55 +183,15 @@ export function GlobalKAIPanel({
                     />
                   </div>
                   
-                  {/* Client selector dropdown */}
+                  {/* Client selector — agora extraído em componente próprio
+                      com suporte a busca quando há muitos clientes (Onda 13,
+                      2026-05-18). Troca cliente sem fechar o chat. */}
                   {clients.length > 0 && onClientChange ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-auto py-1.5 px-2 gap-2 max-w-[220px] hover:bg-muted/50">
-                          {selectedClient ? (
-                            <>
-                              <Avatar className="h-6 w-6 border border-border/50">
-                                <AvatarImage src={selectedClient.avatar_url} />
-                                <AvatarFallback className="text-[10px] bg-muted">
-                                  {selectedClient.name.substring(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex flex-col items-start min-w-0">
-                                <span className="text-sm font-medium truncate max-w-[140px]">{selectedClient.name}</span>
-                                <span className="text-[10px] text-muted-foreground">Criando conteúdo</span>
-                              </div>
-                            </>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">Selecionar perfil</span>
-                          )}
-                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 ml-1" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-64">
-                        <DropdownMenuLabel className="text-xs text-muted-foreground">
-                          Selecione um perfil
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {clients.map((client) => (
-                          <DropdownMenuItem
-                            key={client.id}
-                            onClick={() => onClientChange(client.id)}
-                            className="gap-3 py-2"
-                          >
-                            <Avatar className="h-7 w-7 border border-border/50">
-                              <AvatarImage src={client.avatar_url} />
-                              <AvatarFallback className="text-[10px] bg-muted">
-                                {client.name.substring(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="flex-1 truncate">{client.name}</span>
-                            {client.id === selectedClientId && (
-                              <Check className="h-4 w-4 text-primary" />
-                            )}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <ClientPickerHeader
+                      clients={clients}
+                      selectedClientId={selectedClientId ?? null}
+                      onClientChange={onClientChange}
+                    />
                   ) : (
                     <div className="flex flex-col min-w-0">
                       <span className="text-base font-semibold text-foreground">kAI</span>

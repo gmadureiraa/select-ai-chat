@@ -181,8 +181,16 @@ export function useKAISimpleChat({
         publicar"), o front passa a tool_call desejada. O edge injeta uma
         system nudge pro LLM chamar exatamente essa tool. */
     forceTool?: ForceToolCall,
+    /** Onda 16 — áudios anexados (mp3/wav/m4a/ogg/opus/webm). Backend
+     *  (`api/_handlers/kai-simple-chat.ts`) já aceita `audioUrls` desde
+     *  a Onda 8 e baixa inline (até 18MB) pra mandar pro Gemini. */
+    audioUrls?: string[],
   ) => {
-    if (!content.trim() && (!imageUrls || imageUrls.length === 0)) return;
+    if (
+      !content.trim() &&
+      (!imageUrls || imageUrls.length === 0) &&
+      (!audioUrls || audioUrls.length === 0)
+    ) return;
     if (!clientId) {
       toast.error("Selecione um cliente primeiro");
       return;
@@ -270,6 +278,7 @@ export function useKAISimpleChat({
             clientId,
             conversationId: activeConversationId,
             imageUrls: imageUrls?.length ? imageUrls : undefined,
+            audioUrls: audioUrls?.length ? audioUrls : undefined,
             citations: citations?.map(c => ({
               id: c.id,
               type: c.type,

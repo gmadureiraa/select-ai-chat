@@ -14,7 +14,8 @@
  * F0.6 entrega os primeiros tipos (draft + echo). F1+ evolui os demais.
  */
 
-import { Sparkles, CheckCircle2, Calendar, Link2, BarChart3, BookOpen, XCircle, Loader2, Clock } from "lucide-react";
+import { Sparkles, CheckCircle2, Calendar, Link2, BarChart3, BookOpen, XCircle, Loader2, Clock, ExternalLink } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,31 @@ const typeStyles: Record<string, { icon: React.ReactNode; accent: string }> = {
 export function ActionCard({ card, onAction, className }: ActionCardProps) {
   const status = statusStyles[card.status] ?? statusStyles.done;
   const type = typeStyles[card.type] ?? typeStyles.draft;
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // CTA "Abrir no Kanban/Calendário" — só aparece pros tipos draft/scheduled
+  // que carregam um planning_item_id real (criado pelas tools do agente).
+  // Navega pra ?tab=planning&openItem=<id> preservando o workspace slug atual
+  // na URL (rota é /:workspaceSlug). PlanningBoard lê o openItem do query
+  // e abre o dialog do card automaticamente (ver PlanningBoard.tsx:165).
+  const planningItemId = card.planning_item_id;
+  const canOpenInPlanning =
+    !!planningItemId &&
+    (card.type === "scheduled" || card.type === "draft");
+
+  const handleOpenInPlanning = () => {
+    if (!planningItemId) return;
+    const params = new URLSearchParams(searchParams);
+    params.set("tab", "planning");
+    params.set("openItem", planningItemId);
+    // navigate relativo preserva o /:workspaceSlug atual sem precisar do hook
+    navigate({ search: `?${params.toString()}` });
+  };
+
+  const openLabel = card.type === "scheduled" ? "Abrir no calendário" : "Abrir no Kanban";
+  const hasAvailableActions = !!card.available_actions && card.available_actions.length > 0;
+  const showActionsBar = hasAvailableActions || canOpenInPlanning;
 
   return (
     <div
@@ -101,9 +127,9 @@ export function ActionCard({ card, onAction, className }: ActionCardProps) {
       <CardBody card={card} />
 
       {/* Actions */}
-      {card.available_actions && card.available_actions.length > 0 && (
+      {showActionsBar && (
         <div className="flex items-center gap-2 pt-2 border-t border-border/30 flex-wrap">
-          {card.available_actions.map((action) => (
+          {card.available_actions?.map((action) => (
             <Button
               key={action.id}
               size="sm"
@@ -114,6 +140,21 @@ export function ActionCard({ card, onAction, className }: ActionCardProps) {
               {action.label}
             </Button>
           ))}
+          {canOpenInPlanning && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={handleOpenInPlanning}
+            >
+              {card.type === "scheduled" ? (
+                <Calendar className="h-3 w-3" />
+              ) : (
+                <ExternalLink className="h-3 w-3" />
+              )}
+              {openLabel}
+            </Button>
+          )}
         </div>
       )}
     </div>

@@ -35,6 +35,12 @@ export interface KAIDraftCardData {
   hashtags?: string[];
   mediaUrls?: string[];
   briefing?: string;
+  /**
+   * URL interna/externa pra abrir o draft num editor especializado.
+   * Ex: carrossel viral → `/kaleidos?client=<id>&tab=sequence&carouselId=<id>`.
+   * UI usa pra renderizar botão "Abrir no editor" em DraftBody.
+   */
+  externalUrl?: string;
   [key: string]: unknown;
 }
 

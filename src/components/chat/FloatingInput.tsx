@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Send, X, Loader2, Image as ImageIcon, FileText, Lightbulb, MessageCircle, Sparkles, AtSign } from "lucide-react";
+import { Send, X, Loader2, Image as ImageIcon, FileText, Lightbulb, MessageCircle, Sparkles, AtSign, Mic } from "lucide-react";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ import { detectFormat, type DetectedFormat } from "@/lib/formatDetection";
 import { ChatMode } from "./ModeSelector";
 
 interface FloatingInputProps {
-  onSend: (message: string, imageUrls?: string[], quality?: "fast" | "high", mode?: ChatMode, citations?: Citation[]) => void;
+  onSend: (message: string, imageUrls?: string[], quality?: "fast" | "high", mode?: ChatMode, citations?: Citation[], audioUrls?: string[]) => void;
   disabled?: boolean;
   templateType?: "free_chat" | "content" | "image";
   placeholder?: string;
@@ -71,7 +71,9 @@ export const FloatingInput = ({
 }: FloatingInputProps) => {
   const [input, setInput] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [audioFiles, setAudioFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
   const [mode, setMode] = useState<ChatMode>(
     templateType === "free_chat" ? "free_chat" : "ideas"
   );
@@ -82,10 +84,24 @@ export const FloatingInput = ({
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   const citationAnchorRef = useRef<HTMLSpanElement>(null);
   const { toast } = useToast();
   const maxChars = 10000;
   const maxImages = 5;
+  const maxAudios = 3;
+  // 25MB UI cap (backend corta inline em 18MB). Defensivo.
+  const maxAudioBytes = 25 * 1024 * 1024;
+  // mp3, wav, m4a/aac, ogg, opus, webm. Aceita variações de MIME.
+  const acceptedAudioMime = /^audio\//;
+  const acceptedAudioExt = /\.(mp3|wav|m4a|aac|ogg|opus|webm)$/i;
+  const isAudioFile = (f: File) =>
+    acceptedAudioMime.test(f.type) || acceptedAudioExt.test(f.name);
+  const isImageFile = (f: File) => f.type.startsWith("image/");
+  const formatBytes = (b: number) =>
+    b < 1024 * 1024
+      ? `${(b / 1024).toFixed(0)} KB`
+      : `${(b / 1024 / 1024).toFixed(1)} MB`;
 
   useEffect(() => {
     if (templateType === "free_chat") {
@@ -217,11 +233,16 @@ export const FloatingInput = ({
 
   const handleSubmit = async () => {
     const trimmed = input.trim();
-    if ((!trimmed && imageFiles.length === 0 && citations.length === 0) || disabled || trimmed.length > maxChars) {
+    if (
+      (!trimmed && imageFiles.length === 0 && audioFiles.length === 0 && citations.length === 0) ||
+      disabled ||
+      trimmed.length > maxChars
+    ) {
       return;
     }
 
     let imageUrls: string[] = [];
+    let audioUrls: string[] = [];
 
     if (imageFiles.length > 0) {
       setUploadingImages(true);
@@ -245,6 +266,28 @@ export const FloatingInput = ({
       setUploadingImages(false);
     }
 
+    if (audioFiles.length > 0) {
+      setUploadingAudio(true);
+      try {
+        const uploadPromises = audioFiles.map(async (file) => {
+          const { signedUrl, error } = await uploadAndGetSignedUrl(file, "chat-audio");
+          if (error) throw error;
+          return signedUrl;
+        });
+
+        audioUrls = (await Promise.all(uploadPromises)).filter((url): url is string => url !== null);
+      } catch (error: any) {
+        toast({
+          title: "Erro ao enviar áudio",
+          description: error.message,
+          variant: "destructive",
+        });
+        setUploadingAudio(false);
+        return;
+      }
+      setUploadingAudio(false);
+    }
+
     // Determinar modo baseado nas citações E no modo selecionado
     // Prioridade: citação de formato > citação de ideias > modo selecionado pelo ModeSelector > fallback
     let effectiveMode: ChatMode;
@@ -265,9 +308,18 @@ export const FloatingInput = ({
     // Modo "content" SEMPRE usa alta qualidade (pipeline multi-agente)
     const quality = effectiveMode === "content" ? "high" : "fast";
     
-    onSend(trimmed || "Analise esta imagem", imageUrls, quality, effectiveMode, citations.length > 0 ? citations : undefined);
+    const fallbackPrompt = audioUrls.length > 0 ? "Transcreva e analise este áudio" : "Analise esta imagem";
+    onSend(
+      trimmed || fallbackPrompt,
+      imageUrls,
+      quality,
+      effectiveMode,
+      citations.length > 0 ? citations : undefined,
+      audioUrls.length > 0 ? audioUrls : undefined,
+    );
     setInput("");
     setImageFiles([]);
+    setAudioFiles([]);
     setCitations([]);
     
     if (textareaRef.current) {
@@ -293,6 +345,56 @@ export const FloatingInput = ({
 
   const removeImage = (index: number) => {
     setImageFiles(imageFiles.filter((_, i) => i !== index));
+  };
+
+  const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const accepted: File[] = [];
+    let rejectedType = 0;
+    let rejectedSize = 0;
+    for (const f of files) {
+      if (!isAudioFile(f)) {
+        rejectedType++;
+        continue;
+      }
+      if (f.size > maxAudioBytes) {
+        rejectedSize++;
+        continue;
+      }
+      accepted.push(f);
+    }
+    if (rejectedType > 0) {
+      toast({
+        title: "Formato de áudio inválido",
+        description: "Aceitos: mp3, wav, m4a, ogg, opus, webm.",
+        variant: "destructive",
+      });
+    }
+    if (rejectedSize > 0) {
+      toast({
+        title: "Áudio muito grande",
+        description: "Limite de 25 MB por arquivo.",
+        variant: "destructive",
+      });
+    }
+    if (accepted.length + audioFiles.length > maxAudios) {
+      toast({
+        title: "Limite de áudios",
+        description: `Máximo de ${maxAudios} áudios por mensagem.`,
+        variant: "destructive",
+      });
+      const remaining = Math.max(0, maxAudios - audioFiles.length);
+      setAudioFiles([...audioFiles, ...accepted.slice(0, remaining)]);
+    } else if (accepted.length > 0) {
+      setAudioFiles([...audioFiles, ...accepted]);
+    }
+    if (audioInputRef.current) {
+      audioInputRef.current.value = "";
+    }
+  };
+
+  const removeAudio = (index: number) => {
+    setAudioFiles(audioFiles.filter((_, i) => i !== index));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -333,43 +435,87 @@ export const FloatingInput = ({
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    
+
     const files = Array.from(e.dataTransfer.files);
     if (files.length === 0) return;
-    
-    // Filter for images only
-    const imageFilesFromDrop = files.filter(f => f.type.startsWith("image/"));
-    if (imageFilesFromDrop.length === 0) {
+
+    const imageFilesFromDrop = files.filter(isImageFile);
+    const audioFilesFromDrop = files.filter(isAudioFile);
+    const unsupported = files.length - imageFilesFromDrop.length - audioFilesFromDrop.length;
+
+    if (imageFilesFromDrop.length === 0 && audioFilesFromDrop.length === 0) {
       toast({
         title: "Arquivo não suportado",
-        description: "Apenas imagens são aceitas neste chat.",
+        description: "Aceitos: imagens (jpg/png/webp) e áudios (mp3/wav/m4a/ogg/opus/webm).",
         variant: "destructive",
       });
       return;
     }
-    
-    const remainingSlots = maxImages - imageFiles.length;
-    if (remainingSlots <= 0) {
-      toast({
-        title: "Limite de imagens",
-        description: `Máximo de ${maxImages} imagens por mensagem.`,
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const filesToAdd = imageFilesFromDrop.slice(0, remainingSlots);
-    setImageFiles(prev => [...prev, ...filesToAdd]);
-    
-    if (imageFilesFromDrop.length > remainingSlots) {
-      toast({
-        title: "Limite de imagens",
-        description: `Apenas ${remainingSlots} imagem(ns) adicionada(s).`,
-      });
-    }
-  }, [imageFiles.length, toast]);
 
-  const isSubmitDisabled = (!input.trim() && imageFiles.length === 0 && citations.length === 0) || disabled || uploadingImages;
+    if (imageFilesFromDrop.length > 0) {
+      const remainingSlots = maxImages - imageFiles.length;
+      if (remainingSlots <= 0) {
+        toast({
+          title: "Limite de imagens",
+          description: `Máximo de ${maxImages} imagens por mensagem.`,
+          variant: "destructive",
+        });
+      } else {
+        const filesToAdd = imageFilesFromDrop.slice(0, remainingSlots);
+        setImageFiles(prev => [...prev, ...filesToAdd]);
+        if (imageFilesFromDrop.length > remainingSlots) {
+          toast({
+            title: "Limite de imagens",
+            description: `Apenas ${remainingSlots} imagem(ns) adicionada(s).`,
+          });
+        }
+      }
+    }
+
+    if (audioFilesFromDrop.length > 0) {
+      const validAudio = audioFilesFromDrop.filter(f => f.size <= maxAudioBytes);
+      const oversize = audioFilesFromDrop.length - validAudio.length;
+      if (oversize > 0) {
+        toast({
+          title: "Áudio muito grande",
+          description: "Limite de 25 MB por arquivo.",
+          variant: "destructive",
+        });
+      }
+      const remainingSlots = maxAudios - audioFiles.length;
+      if (remainingSlots <= 0) {
+        toast({
+          title: "Limite de áudios",
+          description: `Máximo de ${maxAudios} áudios por mensagem.`,
+          variant: "destructive",
+        });
+      } else {
+        const filesToAdd = validAudio.slice(0, remainingSlots);
+        if (filesToAdd.length > 0) {
+          setAudioFiles(prev => [...prev, ...filesToAdd]);
+        }
+        if (validAudio.length > remainingSlots) {
+          toast({
+            title: "Limite de áudios",
+            description: `Apenas ${remainingSlots} áudio(s) adicionado(s).`,
+          });
+        }
+      }
+    }
+
+    if (unsupported > 0) {
+      toast({
+        title: "Alguns arquivos foram ignorados",
+        description: `${unsupported} arquivo(s) não suportado(s).`,
+      });
+    }
+  }, [imageFiles.length, audioFiles.length, toast]);
+
+  const isUploading = uploadingImages || uploadingAudio;
+  const isSubmitDisabled =
+    (!input.trim() && imageFiles.length === 0 && audioFiles.length === 0 && citations.length === 0) ||
+    disabled ||
+    isUploading;
   const hasLibraryContent = contentLibrary.length > 0 || referenceLibrary.length > 0;
 
   return (
@@ -421,6 +567,33 @@ export const FloatingInput = ({
         </div>
       )}
 
+      {/* Audio Preview */}
+      {audioFiles.length > 0 && (
+        <div className="flex gap-2 flex-wrap px-1">
+          {audioFiles.map((file, index) => (
+            <div
+              key={index}
+              className="relative group flex items-center gap-2 pl-2 pr-7 py-1.5 rounded-lg border border-border/30 bg-muted/30 text-xs max-w-[260px]"
+            >
+              <Mic className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="truncate font-medium text-foreground/80" title={file.name}>
+                {file.name}
+              </span>
+              <span className="text-muted-foreground/70 flex-shrink-0">
+                {formatBytes(file.size)}
+              </span>
+              <button
+                onClick={() => removeAudio(index)}
+                className="absolute -top-1 -right-1 bg-muted-foreground/80 text-background rounded-full p-0.5 shadow-sm hover:bg-muted-foreground transition-colors"
+                aria-label={`Remover áudio ${file.name}`}
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Main Input Container */}
       <div 
         className={cn(
@@ -452,7 +625,7 @@ export const FloatingInput = ({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          disabled={disabled || uploadingImages}
+          disabled={disabled || isUploading}
           className={cn(
             "min-h-[48px] max-h-[120px] resize-none border-0 bg-transparent text-sm",
             "px-4 py-3 pr-32",
@@ -472,11 +645,19 @@ export const FloatingInput = ({
             onChange={handleImageSelect}
             className="hidden"
           />
-          
+          <input
+            ref={audioInputRef}
+            type="file"
+            accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.opus,.webm"
+            multiple
+            onChange={handleAudioSelect}
+            className="hidden"
+          />
+
           {/* Action Menu */}
           <ActionMenuPopover
             onImageUpload={() => fileInputRef.current?.click()}
-            disabled={disabled || uploadingImages}
+            disabled={disabled || isUploading}
           />
 
           {/* Citation Button */}
@@ -485,7 +666,7 @@ export const FloatingInput = ({
               onClick={openCitationPopover}
               variant="ghost"
               size="icon"
-              disabled={disabled || uploadingImages}
+              disabled={disabled || isUploading}
               className={cn(
                 "h-8 w-8 rounded-lg hover:bg-muted/40",
                 citations.length > 0
@@ -504,7 +685,7 @@ export const FloatingInput = ({
             onClick={() => fileInputRef.current?.click()}
             variant="ghost"
             size="icon"
-            disabled={disabled || uploadingImages}
+            disabled={disabled || isUploading}
             className="h-8 w-8 rounded-lg hover:bg-muted/40 text-muted-foreground/60 hover:text-muted-foreground"
             title="Anexar imagem"
             aria-label="Anexar imagem"
@@ -512,12 +693,34 @@ export const FloatingInput = ({
             <ImageIcon aria-hidden="true" className="h-3.5 w-3.5" />
           </Button>
 
+          {/* Direct Audio Upload */}
+          <Button
+            onClick={() => audioInputRef.current?.click()}
+            variant="ghost"
+            size="icon"
+            disabled={disabled || isUploading}
+            className={cn(
+              "h-8 w-8 rounded-lg hover:bg-muted/40",
+              audioFiles.length > 0
+                ? "text-primary"
+                : "text-muted-foreground/60 hover:text-muted-foreground"
+            )}
+            title="Anexar áudio (mp3, wav, m4a, ogg, opus, webm — até 25 MB)"
+            aria-label={
+              audioFiles.length > 0
+                ? `Áudios anexados (${audioFiles.length})`
+                : "Anexar áudio"
+            }
+          >
+            <Mic aria-hidden="true" className="h-3.5 w-3.5" />
+          </Button>
+
           {/* Send Button */}
           <Button
             onClick={handleSubmit}
             disabled={isSubmitDisabled}
             size="icon"
-            aria-label={uploadingImages ? "Enviando..." : "Enviar mensagem"}
+            aria-label={isUploading ? "Enviando..." : "Enviar mensagem"}
             className={cn(
               "h-8 w-8 rounded-lg transition-all",
               isSubmitDisabled
@@ -525,7 +728,7 @@ export const FloatingInput = ({
                 : "bg-foreground hover:bg-foreground/90 text-background"
             )}
           >
-            {uploadingImages ? (
+            {isUploading ? (
               <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Send aria-hidden="true" className="h-3.5 w-3.5" />
