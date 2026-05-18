@@ -3,7 +3,7 @@ import App from "./App.tsx";
 import "./index.css";
 
 const CHUNK_LOAD_FAILURE_RE =
-  /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|ChunkLoadError|error loading dynamically imported module/i;
+  /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|ChunkLoadError|error loading dynamically imported module|Expected a JavaScript-or-Wasm module script|MIME type ["']text\/html["']/i;
 
 function isChunkLoadFailure(error: unknown) {
   const message =

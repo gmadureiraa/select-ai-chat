@@ -4,18 +4,19 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { FloatingKAIButton } from "./FloatingKAIButton";
 // Panel/Chat/Input só são renderizados quando o assistente é aberto.
 // Lazy-load tira ~1100 linhas (com mentions/markdown/citations) do bundle inicial.
-import { lazy, Suspense, useMemo, useCallback } from "react";
+import { Suspense, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import type { SimpleCitation } from "@/hooks/useKAISimpleChat";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 
-const GlobalKAIPanel = lazy(() =>
+const GlobalKAIPanel = lazyWithRetry(() =>
   import("./GlobalKAIPanel").then((m) => ({ default: m.GlobalKAIPanel })),
 );
-const GlobalKAIChat = lazy(() =>
+const GlobalKAIChat = lazyWithRetry(() =>
   import("./GlobalKAIChat").then((m) => ({ default: m.GlobalKAIChat })),
 );
-const GlobalKAIInputMinimal = lazy(() =>
+const GlobalKAIInputMinimal = lazyWithRetry(() =>
   import("./GlobalKAIInputMinimal").then((m) => ({ default: m.GlobalKAIInputMinimal })),
 );
 

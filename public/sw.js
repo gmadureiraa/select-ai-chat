@@ -1,7 +1,7 @@
 // KAI - Service Worker for Push Notifications & PWA Caching
 // IMPORTANT: cache version bump is required to prevent clients from mixing old/new JS chunks
 // (which can cause invalid hook calls like: "Cannot read properties of null (reading 'useRef')").
-const CACHE_NAME = 'kai-v2-20260516';
+const CACHE_NAME = 'kai-v2-20260518-stale-chunks';
 const OFFLINE_URL = '/';
 
 // Assets to cache for offline use

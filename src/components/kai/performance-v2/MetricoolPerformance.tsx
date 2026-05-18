@@ -6,25 +6,26 @@
 //
 // Plataformas: instagram (com sub-tabs Posts/Reels/Stories), facebook, twitter,
 // linkedin, tiktok, youtube, threads.
-import { useState, lazy, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiInvoke } from '@/lib/apiInvoke';
 import { toast } from 'sonner';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 // MetricoolBestTimesCard agora é renderizado DENTRO de cada plataforma
 // (último bloco de cada PlatformDashboard / InstagramDashboardV2), não global.
 // 2026-05-17 — Dashboards per-tab lazy. Cada um tem charts (SVG primitives custom,
 // ~10kB) e queries próprias; só baixa quando o user navega pra aquela tab.
 // CrossPlatformComparison é a default mas ainda assim lazy — mantém initial bundle baixo.
-const PlatformDashboard = lazy(() =>
+const PlatformDashboard = lazyWithRetry(() =>
   import('./PlatformDashboard').then((m) => ({ default: m.PlatformDashboard })),
 );
-const InstagramDashboardV2 = lazy(() =>
+const InstagramDashboardV2 = lazyWithRetry(() =>
   import('./InstagramDashboard').then((m) => ({ default: m.InstagramDashboardV2 })),
 );
-const CrossPlatformComparison = lazy(() =>
+const CrossPlatformComparison = lazyWithRetry(() =>
   import('./CrossPlatformComparison').then((m) => ({
     default: m.CrossPlatformComparison,
   })),
@@ -73,7 +74,10 @@ export function MetricoolPerformance({ clientId, client }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const qc = useQueryClient();
 
-  const archivedChannels: string[] = (client.social_media as any)?.archived_channels || [];
+  const socialMediaConfig = client.social_media as unknown as { archived_channels?: unknown };
+  const archivedChannels = Array.isArray(socialMediaConfig.archived_channels)
+    ? socialMediaConfig.archived_channels.filter((channel): channel is string => typeof channel === 'string')
+    : [];
   const platforms = ALL_PLATFORMS.filter((p) => !archivedChannels.includes(p.id));
 
   // 2026-05-18 — antes só invalidava cache local; agora dispara refresh REAL do

@@ -6,12 +6,22 @@
   "installCommand": "bun install",
   "headers": [
     {
-      "_comment": "2026-05-18 fix Gabriel — index.html NUNCA cachear (sempre baixa fresh). Sem isso, browser segura index velho com refs pros chunks JS antigos que foram deletados no deploy novo → 404 'Failed to fetch dynamically imported module'. Os chunks /assets/* têm hash imutável → cache 1 ano OK.",
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel.app https://*.vercel.live https://vercel.live https://*.posthog.com https://us-assets.i.posthog.com https://app.posthog.com https://challenges.cloudflare.com https://*.stripe.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.vercel.app; font-src 'self' data: https://fonts.gstatic.com https://*.vercel.app; img-src 'self' data: blob: https: http:; media-src 'self' blob: data: https:; connect-src 'self' https: wss: blob: data:; frame-src 'self' https://*.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com https://vercel.live https://*.vercel.app https://*.youtube.com https://www.instagram.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self' https://*.stripe.com; object-src 'none'; upgrade-insecure-requests" }
+      ]
+    },
+    {
       "source": "/",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
+          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
         }
       ]
     },
@@ -20,8 +30,33 @@
       "headers": [
         {
           "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
           "value": "public, max-age=0, must-revalidate"
         }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, proxy-revalidate" }
       ]
     },
     {
@@ -48,7 +83,7 @@
       "destination": "/api/router?slug=:slug*"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api/|assets/|icons/|brand/|clients/|fonts/|.*\\.[^/]+$).*)",
       "destination": "/index.html"
     }
   ],
@@ -119,32 +154,6 @@
     {
       "path": "/api/cron-approval-tokens-cleanup",
       "schedule": "0 3 * * *"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel.app https://*.vercel.live https://vercel.live https://*.posthog.com https://us-assets.i.posthog.com https://app.posthog.com https://challenges.cloudflare.com https://*.stripe.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.vercel.app; font-src 'self' data: https://fonts.gstatic.com https://*.vercel.app; img-src 'self' data: blob: https: http:; media-src 'self' blob: data: https:; connect-src 'self' https: wss: blob: data:; frame-src 'self' https://*.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com https://vercel.live https://*.vercel.app https://*.youtube.com https://www.instagram.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self' https://*.stripe.com; object-src 'none'; upgrade-insecure-requests" }
-      ]
-    },
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, proxy-revalidate" }
-      ]
-    },
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { Library, Link2, Plus, Search, Image as ImageIcon, Layers, BookOpen, FileBarChart, Trash2, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,27 +13,28 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { ClientReferencesManager } from "@/components/clients/ClientReferencesManager";
 import { UnifiedContentGrid } from "@/components/kai/library/UnifiedContentGrid";
 import { CaseStudyGrid } from "@/components/kai/library/CaseStudyGrid";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 
 // 2026-05-17 — 4 dialogs lazy. ReferenceDialog/ReferenceViewDialog vêm com
 // editor RichContent (react-markdown + tiptap-like). AddContentDialog tem
 // preview + form. VisualReferenceUploader carrega lib de upload + crop.
 // Tudo só monta quando o user clica/abre — antes ficavam eager no chunk.
-const ReferenceDialog = lazy(() =>
+const ReferenceDialog = lazyWithRetry(() =>
   import("@/components/references/ReferenceDialog").then((m) => ({
     default: m.ReferenceDialog,
   })),
 );
-const ReferenceViewDialog = lazy(() =>
+const ReferenceViewDialog = lazyWithRetry(() =>
   import("@/components/references/ReferenceViewDialog").then((m) => ({
     default: m.ReferenceViewDialog,
   })),
 );
-const AddContentDialog = lazy(() =>
+const AddContentDialog = lazyWithRetry(() =>
   import("@/components/kai/library/AddContentDialog").then((m) => ({
     default: m.AddContentDialog,
   })),
 );
-const VisualReferenceUploader = lazy(() =>
+const VisualReferenceUploader = lazyWithRetry(() =>
   import("@/components/kai/library/VisualReferenceUploader").then((m) => ({
     default: m.VisualReferenceUploader,
   })),

@@ -33,6 +33,9 @@ function isChunkLoadError(err: unknown): boolean {
     msg.includes('Failed to fetch dynamically imported module') ||
     msg.includes('Importing a module script failed') ||
     msg.includes('error loading dynamically imported module') ||
+    msg.includes('Expected a JavaScript-or-Wasm module script') ||
+    msg.includes('MIME type "text/html"') ||
+    msg.includes("MIME type 'text/html'") ||
     msg.includes('Loading chunk') ||
     msg.includes('Loading CSS chunk')
   );

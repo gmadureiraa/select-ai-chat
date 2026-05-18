@@ -44,7 +44,6 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // eslint-disable-next-line no-console
     console.error("[ErrorBoundary]", error, errorInfo);
     this.props.onError?.(error, errorInfo);
   }
@@ -140,27 +139,43 @@ export class ErrorBoundary extends Component<Props, State> {
         className="min-h-dvh flex items-center justify-center bg-background p-6"
       >
         <div className="max-w-md w-full text-center space-y-4">
-          <div className="mx-auto rounded-full bg-destructive/10 p-4 w-fit">
-            <AlertTriangle aria-hidden="true" className="h-8 w-8 text-destructive" />
+          <div className={isStale ? "mx-auto rounded-full bg-primary/10 p-4 w-fit" : "mx-auto rounded-full bg-destructive/10 p-4 w-fit"}>
+            {isStale ? (
+              <Download aria-hidden="true" className="h-8 w-8 text-primary" />
+            ) : (
+              <AlertTriangle aria-hidden="true" className="h-8 w-8 text-destructive" />
+            )}
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-semibold">Algo deu errado</h1>
+            <h1 className="text-2xl font-semibold">
+              {isStale ? "Versão nova disponível" : "Algo deu errado"}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              Não conseguimos carregar essa parte da aplicação. Você pode
-              tentar de novo ou recarregar a página.
+              {isStale
+                ? "O KAI foi atualizado enquanto esta aba estava aberta. Recarregue para baixar os chunks atuais."
+                : "Não conseguimos carregar essa parte da aplicação. Você pode tentar de novo ou recarregar a página."}
             </p>
-            {error && (
+            {error && !isStale && (
               <pre className="text-xs text-left bg-muted/40 p-3 rounded mt-3 overflow-auto max-h-40 border border-border">
                 <code>{error.message}</code>
               </pre>
             )}
           </div>
           <div className="flex gap-2 justify-center pt-2">
-            <Button onClick={this.handleRetry} variant="outline" className="gap-2">
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              Tentar novamente
-            </Button>
-            <Button onClick={this.handleReload}>Recarregar página</Button>
+            {isStale ? (
+              <Button onClick={this.handleReload} className="gap-2">
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Recarregar agora
+              </Button>
+            ) : (
+              <>
+                <Button onClick={this.handleRetry} variant="outline" className="gap-2">
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  Tentar novamente
+                </Button>
+                <Button onClick={this.handleReload}>Recarregar página</Button>
+              </>
+            )}
           </div>
         </div>
       </div>
