@@ -96,6 +96,10 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
   };
 
   // Verify accounts com Late/Zernio API (revalida tokens OAuth + remove órfãos)
+  // 2026-05-19 P0 fix audit: invalidação era CONDICIONAL (só se deletedCount ou
+  // invalidCount > 0), então quando o Late retornava `{ ok: true }` sem esses
+  // campos, a UI nunca atualizava. Agora invalida sempre — query reusa cache se
+  // statuses não mudou de fato.
   const verifyAccountsMutation = useMutation({
     mutationFn: async () => {
       if (!clientId) return null;
@@ -105,15 +109,18 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
-      if (data?.deletedCount > 0 || data?.invalidCount > 0) {
-        queryClient.invalidateQueries({ queryKey: ['client-platform-status', clientId] });
-        queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
-      }
+    onSuccess: () => {
+      if (!clientId) return;
+      queryClient.invalidateQueries({ queryKey: ['client-platform-status', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
     },
   });
 
-  // Auto-verify accounts on mount (com 5 min stale time)
+  // Auto-verify accounts on mount (com 5 min stale time).
+  // 2026-05-19 P0 fix audit: deps include `verifyAccountsMutation` (objeto novo
+  // a cada render) → loop. Agora extrai `mutate` (function ref estável) e tira
+  // statuses das deps (gate é via lastVerifiedRef + localStorage).
+  const verifyMutate = verifyAccountsMutation.mutate;
   useEffect(() => {
     if (!clientId || !statuses) return;
 
@@ -130,8 +137,9 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
     lastVerifiedRef.current = clientId;
 
     localStorage.setItem(lastVerifiedKey, now.toString());
-    verifyAccountsMutation.mutate();
-  }, [clientId, statuses, verifyAccountsMutation]);
+    verifyMutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
 
   return {
     statuses: statuses || {},

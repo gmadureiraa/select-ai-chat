@@ -37,14 +37,8 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
   const lateConnection = useLateConnection({ clientId });
   const { verifyAccounts, isVerifying } = useClientPlatformStatus(clientId);
 
-  // Metricool blogId atual (lookup da 1ª credential que tenha)
-  const currentMetricoolBlogId: string | null = (() => {
-    const cred = credentials?.find(
-      (c) => typeof c.metadata?.metricool_blog_id === "string",
-    );
-    const v = cred?.metadata?.metricool_blog_id;
-    return typeof v === "string" ? v : null;
-  })();
+  // 2026-05-19 P1 fix audit: removido `currentMetricoolBlogId` IIFE — variável
+  // nunca lida em nenhum lugar (legacy de antes da migração Metricool→Late).
 
   const handleSyncWithLate = async () => {
     try {
@@ -148,7 +142,12 @@ export function SocialIntegrationsTab({ clientId }: SocialIntegrationsTabProps) 
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => lateConnection.disconnect(platform)}
+                  onClick={() => {
+                    // 2026-05-19 P0 fix: confirma antes (destrutivo).
+                    if (window.confirm(`Desconectar ${platform}? Você precisará reconectar via OAuth.`)) {
+                      lateConnection.disconnect(platform);
+                    }
+                  }}
                   disabled={lateConnection.isLoading && lateConnection.currentPlatform === platform}
                 >
                   {lateConnection.isLoading && lateConnection.currentPlatform === platform ? (

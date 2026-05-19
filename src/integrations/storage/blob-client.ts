@@ -32,6 +32,8 @@ import { getNeonAuthJWT } from "@/integrations/neon-auth/client";
 
 const BLOB_API_BASE = "/api/blob";
 const UPLOAD_ENDPOINT = "/api/upload";
+const PRESIGN_UPLOAD_ENDPOINT = "/api/upload-presign";
+const SERVER_UPLOAD_FALLBACK_MAX_BYTES = 4 * 1024 * 1024;
 
 /**
  * Pega o JWT do Neon Auth pra mandar como `Authorization: Bearer ...`.
@@ -63,10 +65,11 @@ interface UploadOptions {
   cacheControl?: string;
   upsert?: boolean;
   contentType?: string;
+  onProgress?: (percent: number) => void;
 }
 
 interface UploadResult {
-  data: { path: string; url: string } | null;
+  data: { path: string; url: string; size?: number; contentType?: string } | null;
   error: { message: string } | null;
 }
 
@@ -108,6 +111,45 @@ function joinPath(bucket: string, path: string): string {
   return `${bucket}/${cleanPath}`;
 }
 
+function isDirectUploadCandidate(file: Blob | File, contentType?: string): boolean {
+  const type = contentType || (file as File).type || "";
+  return type.startsWith("image/") || type.startsWith("video/");
+}
+
+function fileSize(file: Blob | File): number {
+  return typeof file.size === "number" ? file.size : 0;
+}
+
+function xhrUpload(
+  url: string,
+  file: Blob | File,
+  headers: Record<string, string>,
+  onProgress?: (percent: number) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    for (const [key, value] of Object.entries(headers)) {
+      xhr.setRequestHeader(key, value);
+    }
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable || !onProgress) return;
+      onProgress(Math.round((event.loaded / event.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(100);
+        resolve();
+      } else {
+        reject(new Error(xhr.responseText || `R2 upload failed (${xhr.status})`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Falha de rede no upload direto para R2"));
+    xhr.onabort = () => reject(new Error("Upload cancelado"));
+    xhr.send(file);
+  });
+}
+
 async function postJson<T>(
   endpoint: string,
   body: Record<string, unknown>
@@ -147,17 +189,89 @@ class BlobBucket {
   async upload(
     path: string,
     file: Blob | File,
-    _options: UploadOptions = {}
+    options: UploadOptions = {}
   ): Promise<UploadResult> {
-    const form = new FormData();
-    // Nome: se o file tem nome próprio (File), usa esse; senão deriva do path.
+    const contentType =
+      options.contentType || (file as File).type || "application/octet-stream";
+    const size = fileSize(file);
     const fileName =
       (file as File).name ||
       path.split("/").pop() ||
       `upload-${Date.now()}`;
+
+    if (
+      typeof XMLHttpRequest !== "undefined" &&
+      isDirectUploadCandidate(file, contentType)
+    ) {
+      try {
+        const authHeader = await getAuthHeader();
+        const presignRes = await fetch(PRESIGN_UPLOAD_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeader,
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            bucket: this.bucket,
+            path,
+            fileName,
+            contentType,
+            size,
+          }),
+        });
+        if (!presignRes.ok) {
+          const text = await presignRes.text().catch(() => "Presign failed");
+          throw new Error(text || `HTTP ${presignRes.status}`);
+        }
+        const signed = (await presignRes.json()) as {
+          uploadUrl: string;
+          publicUrl: string;
+          path: string;
+          size?: number;
+          contentType?: string;
+          headers?: Record<string, string>;
+        };
+
+        await xhrUpload(
+          signed.uploadUrl,
+          file,
+          signed.headers || { "Content-Type": contentType },
+          options.onProgress,
+        );
+
+        return {
+          data: {
+            path: signed.path,
+            url: signed.publicUrl,
+            size: signed.size ?? size,
+            contentType: signed.contentType ?? contentType,
+          },
+          error: null,
+        };
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Upload direto para R2 falhou";
+        if (size > SERVER_UPLOAD_FALLBACK_MAX_BYTES) {
+          return {
+            data: null,
+            error: {
+              message: `${message}. Arquivos maiores precisam do upload direto R2; confira CORS/env do bucket.`,
+            },
+          };
+        }
+        // Arquivos pequenos ainda podem passar pelo endpoint legado como
+        // fallback enquanto CORS do R2 propaga.
+      }
+    }
+
+    const form = new FormData();
+    // Nome: se o file tem nome próprio (File), usa esse; senão deriva do path.
     form.append("file", file, fileName);
     // Mantém o bucket+path como prefixo no R2 — preserva Supabase-like semantics
-    // (callers passam `data.path` pra getPublicUrl que re-prefixa).
+    // para operações futuras de list/remove/download.
     const fullPathPrefix = joinPath(this.bucket, path)
       .split("/")
       .slice(0, -1)
@@ -181,18 +295,24 @@ class BlobBucket {
       const json = (await res.json()) as {
         url: string;
         path: string;
+        size?: number;
+        contentType?: string;
       };
       // 2026-05-19 fix: server adiciona sufixo `${Date.now()}-${rnd}-` na key,
       // então o `path` original do caller NÃO bate com a key real no R2.
-      // Resultado: getPublicUrl(data.path) reconstruía URL 404 → preview
-      // quebrado. Agora retornamos o path real do server (sem bucket prefix,
-      // mantendo semântica Supabase-like).
+      // Resultado antigo: callers reconstruíam URL com path incorreto. Agora
+      // callers devem persistir json.url e usar path só para operações internas.
       const bucketPrefix = `${this.bucket}/`;
       const serverPath = json.path.startsWith(bucketPrefix)
         ? json.path.slice(bucketPrefix.length)
         : json.path;
       return {
-        data: { path: serverPath, url: json.url },
+        data: {
+          path: serverPath,
+          url: json.url,
+          size: json.size ?? size,
+          contentType: json.contentType ?? contentType,
+        },
         error: null,
       };
     } catch (err) {

@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
-import { Plus, X, GripVertical, Video, Loader2, Maximize2, FolderDown } from 'lucide-react';
+import { Plus, X, GripVertical, Video, Loader2, Maximize2, FolderDown, FileText, Music } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { blobStorage } from '@/integrations/storage/blob-client';
 import { toast } from 'sonner';
 import { ImageLightbox } from './ImageLightbox';
+import type { PlanningMediaItem } from '@/lib/planningMedia';
 // 2026-05-08 — `jszip` é lazy-loaded em handleDownloadAll pra não inflar o bundle
 // inicial. Audit B (perf bundle).
 import type JSZipType from 'jszip';
@@ -42,10 +43,10 @@ const getExtensionFromUrl = (url: string, type: 'image' | 'video'): string => {
   return type === 'video' ? 'mp4' : 'png';
 };
 
-export interface MediaItem {
-  id: string;
-  url: string;
-  type: 'image' | 'video';
+const IMAGE_MAX_BYTES = 15 * 1024 * 1024;
+const VIDEO_MAX_BYTES = 250 * 1024 * 1024;
+
+export interface MediaItem extends PlanningMediaItem {
   file?: File;
 }
 
@@ -55,6 +56,7 @@ interface MediaUploaderProps {
   maxItems?: number;
   clientId?: string;
   className?: string;
+  onUploadStateChange?: (isUploading: boolean) => void;
 }
 
 export function MediaUploader({
@@ -62,9 +64,11 @@ export function MediaUploader({
   onChange,
   maxItems = 4,
   clientId,
-  className
+  className,
+  onUploadStateChange,
 }: MediaUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ fileName: string; percent: number } | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -138,6 +142,7 @@ export function MediaUploader({
     }
 
     setIsUploading(true);
+    onUploadStateChange?.(true);
     const newItems: MediaItem[] = [];
 
     for (const file of filesToProcess) {
@@ -148,8 +153,16 @@ export function MediaUploader({
         toast.error(`Arquivo ${file.name} não é uma imagem ou vídeo`);
         continue;
       }
+      const maxBytes = isVideo ? VIDEO_MAX_BYTES : IMAGE_MAX_BYTES;
+      if (file.size > maxBytes) {
+        toast.error(
+          `${file.name} excede o limite de ${isVideo ? '250MB para vídeo' : '15MB para imagem'}`,
+        );
+        continue;
+      }
 
       try {
+        setUploadProgress({ fileName: file.name, percent: 0 });
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = clientId 
@@ -160,27 +173,32 @@ export function MediaUploader({
           .from('planning-media')
           .upload(filePath, file, {
             cacheControl: '3600',
-            upsert: false
+            upsert: false,
+            contentType: file.type,
+            onProgress: (percent) => setUploadProgress({ fileName: file.name, percent }),
           });
 
-        if (error) {
+        if (error || !data) {
           console.error('Upload error:', error);
-          toast.error(`Erro ao fazer upload de ${file.name}`);
+          toast.error(`Erro ao fazer upload de ${file.name}: ${error?.message || 'sem resposta do servidor'}`);
           continue;
         }
 
-        const { data: urlData } = blobStorage
-          .from('planning-media')
-          .getPublicUrl(data.path);
-
         newItems.push({
           id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
-          url: urlData.publicUrl,
+          url: data.url,
           type: isVideo ? 'video' : 'image',
+          path: data.path,
+          mimeType: data.contentType || file.type,
+          size: data.size || file.size,
+          name: file.name,
+          source: 'r2',
         });
       } catch (err) {
         console.error('Upload error:', err);
         toast.error(`Erro ao fazer upload de ${file.name}`);
+      } finally {
+        setUploadProgress(null);
       }
     }
 
@@ -190,6 +208,7 @@ export function MediaUploader({
     }
 
     setIsUploading(false);
+    onUploadStateChange?.(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -267,11 +286,24 @@ export function MediaUploader({
               <div className="w-full h-full bg-muted flex items-center justify-center">
                 <Video className="h-8 w-8 text-muted-foreground" />
               </div>
+            ) : item.type === 'audio' ? (
+              <div className="w-full h-full bg-muted flex items-center justify-center">
+                <Music className="h-8 w-8 text-muted-foreground" />
+              </div>
+            ) : item.type === 'document' || item.type === 'file' ? (
+              <div className="w-full h-full bg-muted flex items-center justify-center">
+                <FileText className="h-8 w-8 text-muted-foreground" />
+              </div>
             ) : (
               <img
                 src={item.url}
                 alt=""
                 className="w-full h-full object-cover cursor-pointer"
+                onError={(e) => {
+                  if (item.fallbackUrl && e.currentTarget.src !== item.fallbackUrl) {
+                    e.currentTarget.src = item.fallbackUrl;
+                  }
+                }}
                 onClick={(e) => handleOpenLightbox(e, index)}
               />
             )}
@@ -336,6 +368,21 @@ export function MediaUploader({
         )}
       </div>
 
+      {uploadProgress && (
+        <div className="rounded-md border border-border/50 bg-muted/30 px-2.5 py-2">
+          <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+            <span className="truncate">Enviando {uploadProgress.fileName}</span>
+            <span className="font-medium">{uploadProgress.percent}%</span>
+          </div>
+          <div className="mt-1 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${uploadProgress.percent}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <input
         ref={fileInputRef}
         type="file"
@@ -347,7 +394,11 @@ export function MediaUploader({
 
       {/* Lightbox for viewing images larger */}
       <ImageLightbox
-        images={value.map(v => ({ url: v.url, type: v.type }))}
+        images={value.map(v => ({
+          url: v.url,
+          fallbackUrl: v.fallbackUrl,
+          type: v.type === 'video' ? 'video' : 'image',
+        }))}
         initialIndex={lightboxIndex}
         open={lightboxOpen}
         onOpenChange={setLightboxOpen}

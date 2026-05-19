@@ -33,6 +33,7 @@ import { Badge } from '@/components/ui/badge';
 import { getPlanningItemMetrics } from '@/hooks/usePostMetrics';
 import { useClientPlatformStatus } from '@/hooks/useClientPlatformStatus';
 import { PLATFORM_COLOR_MAP, getContentTypeLabel } from '@/types/contentTypes';
+import { hydratePlanningMediaItems } from '@/lib/planningMedia';
 import type { PlanningItem } from '@/hooks/usePlanningItems';
 import type { ViewSettings } from './ViewSettingsPopover';
 
@@ -204,9 +205,11 @@ export const PlanningItemCard = memo(function PlanningItemCard({
     return getPlatformStatus(item.platform);
   }, [item.platform, getPlatformStatus]);
 
-  const hasMedia = item.media_urls && item.media_urls.length > 0;
-  const firstMediaUrl = hasMedia ? item.media_urls[0] : null;
-  const isImage = firstMediaUrl && !firstMediaUrl.match(/\.(mp4|webm|mov)$/i);
+  const mediaPreviewItems = hydratePlanningMediaItems(item.media_urls, item.metadata);
+  const hasMedia = mediaPreviewItems.length > 0;
+  const firstMedia = mediaPreviewItems[0] || null;
+  const firstMediaUrl = firstMedia?.url || null;
+  const isImage = firstMedia?.type === 'image';
 
   // Métricas pós-publicação (só se status='published' e metadata.metrics presente)
   const postMetrics = isPublished ? getPlanningItemMetrics(item) : null;
@@ -289,25 +292,45 @@ export const PlanningItemCard = memo(function PlanningItemCard({
       {/* Media thumbnail preview (multiplos = strip carrossel) */}
       {isImage && firstMediaUrl && (
         <div className="relative w-full bg-muted/30 overflow-hidden border-b border-border/30">
-          {item.media_urls.length > 1 ? (
+          {mediaPreviewItems.length > 1 ? (
             <div className="flex h-32 gap-px">
-              {item.media_urls.slice(0, 4).map((url, i) => (
+              {mediaPreviewItems.slice(0, 4).map((media, i) => (
                 <div key={i} className="relative flex-1 min-w-0 overflow-hidden">
-                  <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" />
-                  {i === 3 && item.media_urls.length > 4 && (
+                  <img
+                    src={media.url}
+                    alt=""
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      if (media.fallbackUrl && e.currentTarget.src !== media.fallbackUrl) {
+                        e.currentTarget.src = media.fallbackUrl;
+                      }
+                    }}
+                  />
+                  {i === 3 && mediaPreviewItems.length > 4 && (
                     <div className="absolute inset-0 bg-black/55 flex items-center justify-center text-white text-xs font-semibold">
-                      +{item.media_urls.length - 4}
+                      +{mediaPreviewItems.length - 4}
                     </div>
                   )}
                 </div>
               ))}
             </div>
           ) : (
-            <img src={firstMediaUrl} alt="" loading="lazy" className="w-full h-32 object-cover" />
+            <img
+              src={firstMediaUrl}
+              alt=""
+              loading="lazy"
+              className="w-full h-32 object-cover"
+              onError={(e) => {
+                if (firstMedia?.fallbackUrl && e.currentTarget.src !== firstMedia.fallbackUrl) {
+                  e.currentTarget.src = firstMedia.fallbackUrl;
+                }
+              }}
+            />
           )}
           <div className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1">
             <Layers className="h-2.5 w-2.5" />
-            {item.media_urls.length} {item.media_urls.length > 1 ? 'imagens' : 'imagem'}
+            {mediaPreviewItems.length} {mediaPreviewItems.length > 1 ? 'imagens' : 'imagem'}
           </div>
         </div>
       )}
@@ -668,7 +691,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
             {hasMedia && !isImage && (
               <div className="flex items-center gap-0.5 text-[11px]">
                 <ImageIcon className="h-3 w-3" />
-                <span>{item.media_urls.length}</span>
+                <span>{mediaPreviewItems.length}</span>
               </div>
             )}
           </div>
@@ -718,9 +741,10 @@ export const PlanningItemCard = memo(function PlanningItemCard({
       {/* Lightbox */}
       {hasMedia && (
         <ImageLightbox
-          images={item.media_urls.map(url => ({
-            url,
-            type: url.match(/\.(mp4|webm|mov)$/i) ? 'video' as const : 'image' as const
+          images={mediaPreviewItems.map(media => ({
+            url: media.url,
+            fallbackUrl: media.fallbackUrl,
+            type: media.type === 'video' ? 'video' as const : 'image' as const
           }))}
           initialIndex={0}
           open={lightboxOpen}

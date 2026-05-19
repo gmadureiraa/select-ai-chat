@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
@@ -13,6 +13,11 @@ interface UseLateConnectionProps {
 export function useLateConnection({ clientId }: UseLateConnectionProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [currentPlatform, setCurrentPlatform] = useState<LatePlatform | null>(null);
+  // 2026-05-19 P0 fix audit: `isPopupOpen` retornado pelo hook era derivado de
+  // `popupRef.current !== null && !popupRef.current.closed` no return — refs
+  // não disparam re-render, então consumers ficavam com dado stale (ex: botão
+  // continuava em "Conectando..." mesmo após popup fechar). Agora é state.
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
   const popupRef = useRef<Window | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -23,7 +28,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const platformNames: Record<LatePlatform, string> = {
+  const platformNames: Record<LatePlatform, string> = useMemo(() => ({
     twitter: 'Twitter/X',
     linkedin: 'LinkedIn',
     instagram: 'Instagram',
@@ -31,7 +36,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
     threads: 'Threads',
     tiktok: 'TikTok',
     youtube: 'YouTube'
-  };
+  }), []);
 
   const cleanup = useCallback(() => {
     if (intervalRef.current) {
@@ -42,9 +47,15 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+    // 2026-05-19 P1 fix: fecha popup órfão antes de nullificar — antes ficava
+    // window aberta com user trocou de cliente no meio.
+    if (popupRef.current && !popupRef.current.closed) {
+      try { popupRef.current.close(); } catch {}
+    }
     popupRef.current = null;
     expectedConnectionRef.current = null;
     setIsLoading(false);
+    setIsPopupOpen(false);
     setCurrentPlatform(null);
   }, []);
 
@@ -169,6 +180,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       if (!popupRef.current) {
         throw new Error("Popup bloqueado. Por favor, permita popups para este site.");
       }
+      setIsPopupOpen(true);
 
       // Set timeout for OAuth (5 minutes)
       timeoutRef.current = setTimeout(() => {
@@ -184,13 +196,24 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
       }, 5 * 60 * 1000);
 
       // Monitor popup
+      // 2026-05-19 P1 fix: se popup fecha sem postMessage (user fechou na unha),
+      // mostra "Conexão cancelada" em vez de só atualizar query silenciosamente.
+      let hadSuccessFlag = false;
       intervalRef.current = setInterval(() => {
         if (popupRef.current?.closed) {
+          const wasExpected = expectedConnectionRef.current !== null;
           cleanup();
-          // Invalidate queries to refresh credentials
           queryClient.invalidateQueries({ queryKey: ['social-credentials', clientId] });
           queryClient.invalidateQueries({ queryKey: ['client-platform-status', clientId] });
+          if (wasExpected && !hadSuccessFlag) {
+            toast({
+              title: "Conexão cancelada",
+              description: "A janela de autorização foi fechada antes de concluir.",
+            });
+          }
         }
+        // hadSuccessFlag é setado externamente pelo handleMessage quando vem success
+        if (expectedConnectionRef.current === null) hadSuccessFlag = true;
       }, 500);
 
     } catch (error) {
@@ -208,11 +231,12 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
     content: string,
     options?: {
       mediaUrls?: string[];
+      mediaItems?: Array<{ url: string; type?: string }>;
       planningItemId?: string;
       threadItems?: Array<{ id?: string; text: string; media_urls?: string[] }>;
       scheduledFor?: string; // ISO date string for scheduling
       publishNow?: boolean;
-      platformOptions?: Record<string, any>;
+      platformOptions?: Record<string, unknown>;
     }
   ) => {
     // Timeout to prevent infinite loading (30 seconds)
@@ -241,6 +265,7 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
           platform,
           content,
           mediaUrls: options?.mediaUrls,
+          mediaItems: options?.mediaItems,
           threadItems: options?.threadItems,
           planningItemId: options?.planningItemId,
           scheduledFor: options?.scheduledFor,
@@ -354,6 +379,6 @@ export function useLateConnection({ clientId }: UseLateConnectionProps) {
     disconnect,
     isLoading,
     currentPlatform,
-    isPopupOpen: popupRef.current !== null && !popupRef.current.closed,
+    isPopupOpen,
   };
 }

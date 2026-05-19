@@ -97,19 +97,15 @@ export function RichContentEditor({
 
       const { data, error } = await blobStorage
         .from('media')
-        .upload(filePath, file);
+        .upload(filePath, file, { contentType: file.type });
 
-      if (error) throw error;
-
-      const { data: urlData } = blobStorage
-        .from('media')
-        .getPublicUrl(data.path);
+      if (error || !data) throw error || new Error('Upload sem resposta');
 
       // Insert markdown image at cursor position
       const textarea = textareaRef.current;
       if (textarea) {
         const start = textarea.selectionStart;
-        const imageMarkdown = `\n![${file.name}](${urlData.publicUrl})\n`;
+        const imageMarkdown = `\n![${file.name}](${data.url})\n`;
         
         const newValue = 
           value.substring(0, start) + 

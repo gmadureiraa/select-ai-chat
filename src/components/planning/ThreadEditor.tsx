@@ -78,17 +78,13 @@ export function ThreadEditor({
 
       const { data, error } = await blobStorage
         .from('media')
-        .upload(filePath, file);
+        .upload(filePath, file, { contentType: file.type });
 
-      if (error) throw error;
-
-      const { data: urlData } = blobStorage
-        .from('media')
-        .getPublicUrl(data.path);
+      if (error || !data) throw error || new Error('Upload sem resposta');
 
       onChange(value.map(t => {
         if (t.id === tweetId && t.media_urls.length < 4) {
-          return { ...t, media_urls: [...t.media_urls, urlData.publicUrl] };
+          return { ...t, media_urls: [...t.media_urls, data.url] };
         }
         return t;
       }));

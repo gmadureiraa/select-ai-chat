@@ -9,6 +9,7 @@
 // `publishMetricoolForClient` de metricool-post.ts (arquivado).
 
 import { getPool, queryOne } from '../db.js';
+import { buildPublishMediaItems, resolveMediaUrl } from '../media.js';
 
 const LATE_API_BASE = 'https://getlate.dev/api';
 
@@ -35,6 +36,7 @@ export interface PublishViaLateInput {
   mediaUrls?: string[];
   mediaItems?: Array<{ type?: string; url: string }>;
   threadItems?: Array<{ text: string; media_urls?: string[] }>;
+  metadata?: unknown;
   planningItemId?: string;
   scheduledFor?: string | null; // ISO; null/undefined = publishNow
   platformOptions?: PlatformOptions;
@@ -109,6 +111,7 @@ export async function publishViaLate(
     mediaUrls,
     mediaItems: inputMediaItems,
     threadItems,
+    metadata,
     planningItemId,
     scheduledFor,
     platformOptions,
@@ -171,20 +174,11 @@ export async function publishViaLate(
     );
   }
 
-  let finalMediaItems: Array<{ type: string; url: string; order?: number }> = [];
-  if (inputMediaItems && inputMediaItems.length > 0) {
-    finalMediaItems = inputMediaItems.map((m, i) => ({
-      type: m.type || (m.url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image'),
-      url: m.url,
-      order: i,
-    }));
-  } else if (mediaUrls && mediaUrls.length > 0) {
-    finalMediaItems = mediaUrls.map((url, i) => ({
-      type: url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image',
-      url,
-      order: i,
-    }));
-  }
+  const finalMediaItems = buildPublishMediaItems({
+    mediaUrls,
+    mediaItems: inputMediaItems,
+    metadata,
+  });
 
   const publishNow = !scheduledFor;
   const postPayload: Record<string, unknown> = { publishNow };
@@ -197,8 +191,8 @@ export async function publishViaLate(
       ...(item.media_urls?.length
         ? {
             mediaItems: item.media_urls.map((url, j) => ({
-              type: url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image',
-              url,
+              type: buildPublishMediaItems({ mediaUrls: [url], metadata })[0]?.type || 'image',
+              url: resolveMediaUrl(url, metadata),
               order: j,
             })),
           }

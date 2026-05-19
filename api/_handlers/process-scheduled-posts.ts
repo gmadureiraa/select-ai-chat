@@ -430,6 +430,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           content: item.content || item.description || '',
           mediaUrls: mediaUrlsArr,
           threadItems: threadTweets,
+          metadata,
           planningItemId: item.id,
           platformOptions,
           // publishNow=true equivale a scheduledFor undefined no shim

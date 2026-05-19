@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import type JSZipType from 'jszip';
 
 interface ImageLightboxProps {
-  images: { url: string; type: 'image' | 'video' }[];
+  images: { url: string; fallbackUrl?: string; type: 'image' | 'video' }[];
   initialIndex: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -253,6 +253,11 @@ export function ImageLightbox({
               controls
               className="max-w-full max-h-full object-contain"
               style={{ transform: `scale(${zoom})` }}
+              onError={(e) => {
+                if (currentImage.fallbackUrl && e.currentTarget.src !== currentImage.fallbackUrl) {
+                  e.currentTarget.src = currentImage.fallbackUrl;
+                }
+              }}
             />
           ) : (
             <img
@@ -263,6 +268,11 @@ export function ImageLightbox({
               )}
               style={{ transform: `scale(${zoom})` }}
               draggable={false}
+              onError={(e) => {
+                if (currentImage.fallbackUrl && e.currentTarget.src !== currentImage.fallbackUrl) {
+                  e.currentTarget.src = currentImage.fallbackUrl;
+                }
+              }}
             />
           )}
         </div>
@@ -313,7 +323,16 @@ export function ImageLightbox({
                     <span className="text-[10px] text-muted-foreground">VID</span>
                   </div>
                 ) : (
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={img.url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      if (img.fallbackUrl && e.currentTarget.src !== img.fallbackUrl) {
+                        e.currentTarget.src = img.fallbackUrl;
+                      }
+                    }}
+                  />
                 )}
               </button>
             ))}

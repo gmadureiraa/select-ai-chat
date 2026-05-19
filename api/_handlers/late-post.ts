@@ -6,6 +6,7 @@
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
 import { assertClientAccess } from '../_lib/access.js';
+import { buildPublishMediaItems, resolveMediaUrl } from '../_lib/media.js';
 
 const LATE_API_BASE = 'https://getlate.dev/api';
 
@@ -148,20 +149,11 @@ export default authedPost(async ({ body, user }) => {
   const lateAccountId = stringOpt(meta, 'late_account_id') || credentials.account_id;
   if (!lateAccountId) throw new Error('Conta não configurada corretamente. Reconecte nas Integrações.');
 
-  let finalMediaItems: Array<{ type: string; url: string; order?: number }> = [];
-  if (inputMediaItems && inputMediaItems.length > 0) {
-    finalMediaItems = inputMediaItems.map((m, i) => ({
-      type: m.type || (m.url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image'),
-      url: m.url,
-      order: i,
-    }));
-  } else if (mediaUrls && mediaUrls.length > 0) {
-    finalMediaItems = mediaUrls.map((url: string, i: number) => ({
-      type: url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image',
-      url,
-      order: i,
-    }));
-  }
+  const finalMediaItems = buildPublishMediaItems({
+    mediaUrls,
+    mediaItems: inputMediaItems,
+    metadata: planningItemContext?.metadata,
+  });
 
   const postPayload: Record<string, unknown> = { publishNow };
   if (scheduledFor) {
@@ -176,8 +168,11 @@ export default authedPost(async ({ body, user }) => {
       ...(item.media_urls?.length
         ? {
             mediaItems: item.media_urls.map((url: string, j: number) => ({
-              type: url.match(/\.(mp4|mov|webm|avi)$/i) ? 'video' : 'image',
-              url,
+              type: buildPublishMediaItems({
+                mediaUrls: [url],
+                metadata: planningItemContext?.metadata,
+              })[0]?.type || 'image',
+              url: resolveMediaUrl(url, planningItemContext?.metadata),
               order: j,
             })),
           }

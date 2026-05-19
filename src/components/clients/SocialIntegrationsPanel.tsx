@@ -133,7 +133,13 @@ export function SocialIntegrationsPanel({ clientId }: SocialIntegrationsPanelPro
     }
   };
 
+  // 2026-05-19 P0 fix: desconectar removia credencial sem confirmação. Agora
+  // pede pra confirmar antes — destrutivo + irreversível (precisa OAuth de novo).
   const handleDisconnect = async (platform: LatePlatform) => {
+    const ok = typeof window !== 'undefined'
+      ? window.confirm(`Desconectar ${platform}? Você precisará reconectar via OAuth.`)
+      : true;
+    if (!ok) return;
     await lateConnection.disconnect(platform);
   };
 

@@ -34,6 +34,7 @@ import { useClientSuggestion } from '@/hooks/useClientSuggestion';
 import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';
 import { MediaUploader, MediaItem } from './MediaUploader';
+import { hydratePlanningMediaItems, serializePlanningMediaItems } from '@/lib/planningMedia';
 import { RichContentEditor } from './RichContentEditor';
 import { ThreadEditor, ThreadTweet } from './ThreadEditor';
 import { ImageGenerationModal, ImageGenerationOptions } from './ImageGenerationModal';
@@ -116,6 +117,7 @@ export function PlanningItemDialog({
   const { members } = useTeamMembers();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isMediaUploading, setIsMediaUploading] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -273,7 +275,7 @@ export function PlanningItemDialog({
 
   // Check if any selected platform can auto-publish
   const publishablePlatforms = selectedPlatforms.filter(p => canAutoPublish(p as any));
-  const canPublishNow = publishablePlatforms.length > 0 && (content.trim() || threadTweets.some(t => t.text.trim()));
+  const canPublishNow = !isMediaUploading && publishablePlatforms.length > 0 && (content.trim() || threadTweets.some(t => t.text.trim()));
 
   const canGenerateContent = title.trim() && contentType && selectedClientId;
   const canGenerateImage = (content.trim() || threadTweets.some(t => t.text.trim())) && selectedClientId;
@@ -302,7 +304,8 @@ export function PlanningItemDialog({
         const newMediaItems: MediaItem[] = result.images.map((url, i) => ({
           id: `ref-img-${Date.now()}-${i}`,
           url,
-          type: 'image' as const
+          type: 'image' as const,
+          source: 'external',
         }));
         setMediaItems(prev => [...newMediaItems, ...prev]);
       }
@@ -391,11 +394,7 @@ export function PlanningItemDialog({
       setLabelInput('');
       
       const mediaUrls = effectiveItem.media_urls as string[] || [];
-      setMediaItems(mediaUrls.map((url, i) => ({
-        id: `media-${i}`,
-        url,
-        type: url.match(/\.(mp4|webm|mov)$/i) ? 'video' : 'image'
-      })));
+      setMediaItems(hydratePlanningMediaItems(mediaUrls, metadata));
       
       if (metadata.thread_tweets) {
         setThreadTweets(metadata.thread_tweets);
@@ -464,6 +463,10 @@ export function PlanningItemDialog({
       onOpenChange(false);
       return;
     }
+    if (isMediaUploading) {
+      toast.info('Upload em andamento — aguarde terminar para fechar o card');
+      return;
+    }
     // Card NOVO sem nada digitado — descarta.
     if (
       !item &&
@@ -503,6 +506,7 @@ export function PlanningItemDialog({
         target_platforms: selectedPlatforms,
         platform_options: platformOptions,
         auto_publish: autoPublish,
+        media_items: serializePlanningMediaItems(mediaItems),
       };
       if (isTwitterThread) draftMetadata.thread_tweets = threadTweets;
 
@@ -556,6 +560,10 @@ export function PlanningItemDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
+    if (isMediaUploading) {
+      toast.error('Aguarde o upload das mídias terminar antes de salvar');
+      return;
+    }
 
     // 2026-05-17 fix: validação dura antes de salvar — bloqueia gravar tipo
     // 'tweet' default quando user editou só firstComment de carrossel IG.
@@ -634,6 +642,7 @@ export function PlanningItemDialog({
         target_platforms: selectedPlatforms,
         platform_options: platformOptions,
         auto_publish: autoPublish, // 2026-05-19: persistir flag opt-in
+        media_items: serializePlanningMediaItems(mediaItems),
       };
       if (isTwitterThread) {
         nextMetadata.thread_tweets = threadTweets;
@@ -691,6 +700,10 @@ export function PlanningItemDialog({
               isTwitterThread ? threadTweets.map(t => t.text).join('\n\n') : finalContent,
               {
                 mediaUrls: mediaItems.map(m => m.url),
+                mediaItems: serializePlanningMediaItems(mediaItems).map(m => ({
+                  url: m.url,
+                  type: m.type,
+                })),
                 planningItemId: savedItemId,
                 threadItems: isTwitterThread ? threadTweets : undefined,
                 scheduledFor: finalScheduledAt.toISOString(),
@@ -717,6 +730,10 @@ export function PlanningItemDialog({
   };
 
   const handlePublishNow = async () => {
+    if (isMediaUploading) {
+      toast.error('Aguarde o upload das mídias terminar antes de publicar');
+      return;
+    }
     if (!selectedClientId) {
       toast.error('Selecione um cliente');
       return;
@@ -780,6 +797,7 @@ export function PlanningItemDialog({
             target_platforms: selectedPlatforms,
             ...(isTwitterThread && { thread_tweets: threadTweets }),
             platform_options: platformOptions,
+            media_items: serializePlanningMediaItems(mediaItems),
           },
         };
         
@@ -812,6 +830,10 @@ export function PlanningItemDialog({
             finalContent,
             {
               mediaUrls: mediaItems.map(m => m.url),
+              mediaItems: serializePlanningMediaItems(mediaItems).map(m => ({
+                url: m.url,
+                type: m.type,
+              })),
               planningItemId: itemId,
               threadItems: isTwitterThread ? threadTweets : undefined,
               platformOptions,
@@ -864,7 +886,8 @@ export function PlanningItemDialog({
       setMediaItems(prev => [...prev, {
         id: `generated-${Date.now()}`,
         url: imageUrl,
-        type: 'image'
+        type: 'image',
+        source: 'generated',
       }]);
     }
 
@@ -1086,6 +1109,7 @@ export function PlanningItemDialog({
                   onChange={setMediaItems}
                   maxItems={platform === 'twitter' ? 4 : 20}
                   clientId={selectedClientId}
+                  onUploadStateChange={setIsMediaUploading}
                 />
               </div>
 
@@ -1581,7 +1605,7 @@ export function PlanningItemDialog({
                     variant="secondary"
                     size="sm"
                     onClick={handlePublishNow}
-                    disabled={isPublishing || isSubmitting}
+                    disabled={isPublishing || isSubmitting || isMediaUploading}
                     className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
                   >
                     {isPublishing ? (
@@ -1602,9 +1626,9 @@ export function PlanningItemDialog({
                 );
               })()}
               {!readOnly && (
-                <Button type="submit" size="sm" disabled={isSubmitting || !title.trim()}>
+                <Button type="submit" size="sm" disabled={isSubmitting || isMediaUploading || !title.trim()}>
                   {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
-                  {item ? 'Salvar' : 'Criar'}
+                  {isMediaUploading ? 'Enviando mídia...' : item ? 'Salvar' : 'Criar'}
                 </Button>
               )}
             </div>

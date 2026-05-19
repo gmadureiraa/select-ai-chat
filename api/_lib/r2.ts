@@ -98,6 +98,36 @@ export async function putObject(
   return { url: publicUrl(cleanKey), key: cleanKey, size: body.length };
 }
 
+/** Presigned PUT URL para upload direto do browser ao R2. */
+export async function presignPut(
+  key: string,
+  contentType: string,
+  expiresInSec = 900,
+): Promise<{
+  uploadUrl: string;
+  publicUrl: string;
+  key: string;
+  expiresIn: number;
+  headers: Record<string, string>;
+}> {
+  const { s3, bucket } = getR2();
+  const cleanKey = key.replace(/^\/+/, "");
+  const cmd = new PutObjectCommand({
+    Bucket: bucket,
+    Key: cleanKey,
+    ContentType: contentType,
+  });
+  return {
+    uploadUrl: await getSignedUrl(s3, cmd, { expiresIn: expiresInSec }),
+    publicUrl: publicUrl(cleanKey),
+    key: cleanKey,
+    expiresIn: expiresInSec,
+    headers: {
+      "Content-Type": contentType,
+    },
+  };
+}
+
 export async function objectExists(key: string): Promise<boolean> {
   const { s3, bucket } = getR2();
   try {

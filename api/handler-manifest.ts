@@ -165,6 +165,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'client-update': () => import('./_handlers/client-update.js'),
   'client-create': () => import('./_handlers/client-create.js'),
   'upload': () => import('./_handlers/upload.js'),
+  'upload-presign': () => import('./_handlers/upload-presign.js'),
   'img-proxy': () => import('./_handlers/img-proxy.js'),
   'profile-scraper': () => import('./_handlers/profile-scraper.js'),
   'brand-analysis': () => import('./_handlers/brand-analysis.js'),
