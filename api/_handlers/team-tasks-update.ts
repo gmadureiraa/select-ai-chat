@@ -42,15 +42,18 @@ export default authedPost(async ({ body, user }) => {
     throw new Error('Tarefa não encontrada ou acesso negado');
   }
 
+  // 2026-05-19 fix: team_tasks.labels é JSONB (não text[]). Bug paralelo ao
+  // team-tasks-create. Schema confirmado via information_schema.
   const updates: string[] = [];
   const params: any[] = [];
   for (const [key, value] of Object.entries(data)) {
     if (key === 'id') continue;
     if (value === undefined) continue;
-    params.push(value);
     if (key === 'labels') {
-      updates.push(`"${key}" = $${params.length}::text[]`);
+      params.push(JSON.stringify(value));
+      updates.push(`"${key}" = $${params.length}::jsonb`);
     } else {
+      params.push(value);
       updates.push(`"${key}" = $${params.length}`);
     }
   }

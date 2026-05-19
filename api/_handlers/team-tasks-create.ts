@@ -55,11 +55,14 @@ export default authedPost(async ({ body, user }) => {
     }
   }
 
+  // 2026-05-19 fix: team_tasks.labels é JSONB (não text[]). Bug anterior
+  // crashava criar tarefa com "column labels is of type jsonb but expression
+  // is of type text[]". Schema confirmado via information_schema.
   const r = await pool.query(
     `INSERT INTO team_tasks
        (workspace_id, client_id, title, description, status, priority,
         due_date, assigned_to, labels, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::text[], $10)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
      RETURNING id, title, status, priority, due_date, created_at`,
     [
       workspaceId,
@@ -70,15 +73,10 @@ export default authedPost(async ({ body, user }) => {
       data.priority ?? 'medium',
       data.due_date ?? null,
       data.assigned_to ?? user.id,
-      data.labels ?? [],
+      JSON.stringify(data.labels ?? []),
       user.id,
     ],
-  ).catch((err) => {
-    // Schema team_tasks pode variar. Se algum campo não existe (ex: labels
-    // text[] vs jsonb), retry sem ele.
-    console.warn('[team-tasks-create] insert failed:', err?.message);
-    throw err;
-  });
+  );
 
   return { ok: true, task: r.rows[0], id: r.rows[0]?.id };
 });

@@ -25,6 +25,12 @@ export const CONTENT_TYPES = {
   newsletter: { label: "Newsletter", category: "long_form" },
   blog_post: { label: "Blog Post", category: "long_form" },
   email_marketing: { label: "Email Marketing", category: "long_form" },
+
+  // Messaging (sem autopublish — Late/Zernio não cobre WhatsApp; serve pra
+  // organizar+escrever mensagens manuais)
+  whatsapp_group: { label: "Mensagem de Grupo (WhatsApp)", category: "messaging" },
+  whatsapp_broadcast: { label: "Broadcast WhatsApp", category: "messaging" },
+  whatsapp_status: { label: "Status WhatsApp", category: "messaging" },
   
   // Documents & Studies
   case_study: { label: "Estudo de Caso", category: "document" },
@@ -58,6 +64,10 @@ export const CONTENT_TYPE_OPTIONS: { value: ContentTypeKey; label: string; categ
   { value: "newsletter", label: "Newsletter", category: "Escrita" },
   { value: "blog_post", label: "Blog Post", category: "Escrita" },
   { value: "email_marketing", label: "Email Marketing", category: "Escrita" },
+  // Messaging
+  { value: "whatsapp_group", label: "Mensagem de Grupo", category: "WhatsApp" },
+  { value: "whatsapp_broadcast", label: "Broadcast", category: "WhatsApp" },
+  { value: "whatsapp_status", label: "Status", category: "WhatsApp" },
   // Documents
   { value: "case_study", label: "Estudo de Caso", category: "Documentos" },
   { value: "report", label: "Relatório", category: "Documentos" },
@@ -90,6 +100,9 @@ export const CONTENT_TO_PLATFORM: Record<ContentTypeKey, string> = {
   case_study: 'document',
   report: 'document',
   document: 'document',
+  whatsapp_group: 'whatsapp',
+  whatsapp_broadcast: 'whatsapp',
+  whatsapp_status: 'whatsapp',
   other: 'other',
 };
 
@@ -116,7 +129,10 @@ export const VALID_PLATFORMS_FOR_CONTENT: Record<ContentTypeKey, ReadonlyArray<s
   case_study: ['blog', 'newsletter'],
   report: ['blog', 'newsletter'],
   document: ['blog', 'newsletter'],
-  other: ['twitter', 'linkedin', 'instagram', 'threads', 'tiktok', 'youtube', 'facebook', 'newsletter', 'blog'],
+  whatsapp_group: ['whatsapp'],
+  whatsapp_broadcast: ['whatsapp'],
+  whatsapp_status: ['whatsapp'],
+  other: ['twitter', 'linkedin', 'instagram', 'threads', 'tiktok', 'youtube', 'facebook', 'newsletter', 'blog', 'whatsapp'],
 };
 
 /**
@@ -159,6 +175,10 @@ export const ALL_PUBLISH_PLATFORMS = [
   { value: 'facebook', label: 'Facebook', lucideIcon: 'facebook', brandColor: 'hsl(220 46% 48%)' },
   { value: 'newsletter', label: 'Newsletter', lucideIcon: 'mail', brandColor: 'hsl(38 92% 50%)' },
   { value: 'blog', label: 'Blog', lucideIcon: 'file-text', brandColor: 'hsl(160 60% 45%)' },
+  // WhatsApp: sem autopublish via Late/Zernio. Aparece pra organizar mensagens
+  // manuais (grupos, broadcast, status). canAutoPublish naturalmente retorna
+  // false porque não está em LATE_API_PLATFORMS.
+  { value: 'whatsapp', label: 'WhatsApp', lucideIcon: 'message-circle', brandColor: 'hsl(142 70% 49%)' },
 ] as const;
 
 // Map platform value to Lucide icon name for easy lookup

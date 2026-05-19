@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useEffect, useRef } from 'react';
 import { apiInvoke } from '../lib/apiInvoke';
 
-export type SupportedPlatform = 'twitter' | 'linkedin' | 'instagram' | 'youtube' | 'newsletter' | 'blog' | 'tiktok' | 'facebook' | 'threads' | 'other';
+export type SupportedPlatform = 'twitter' | 'linkedin' | 'instagram' | 'youtube' | 'newsletter' | 'blog' | 'tiktok' | 'facebook' | 'threads' | 'whatsapp' | 'other';
 
 export interface PlatformStatus {
   platform: SupportedPlatform;
@@ -40,7 +40,7 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
 
       const statusMap: ClientPlatformStatuses = {};
 
-      const allPlatforms: SupportedPlatform[] = ['twitter', 'linkedin', 'instagram', 'youtube', 'newsletter', 'blog', 'tiktok', 'facebook', 'threads', 'other'];
+      const allPlatforms: SupportedPlatform[] = ['twitter', 'linkedin', 'instagram', 'youtube', 'newsletter', 'blog', 'tiktok', 'facebook', 'threads', 'whatsapp', 'other'];
 
       for (const platform of allPlatforms) {
         statusMap[platform] = {
