@@ -28,6 +28,14 @@ if (!NEON_AUTH_URL) {
 
 export const neonAuth = createAuthClient(NEON_AUTH_URL ?? "", {
   adapter: SupabaseAuthAdapter(),
+  // 2026-05-19: Better Auth seta cookie `__Secure-neon-auth.session_token` com
+  // SameSite=None/Secure/Partitioned. Sem credentials:'include', o browser
+  // não envia o cookie de volta na próxima request → getSession() retorna null
+  // e signInWithPassword aparenta funcionar mas user fica "deslogado" instante
+  // depois. Fix obrigatório pra login email+password funcionar em produção.
+  fetchOptions: {
+    credentials: "include" as RequestCredentials,
+  },
 });
 
 /**
