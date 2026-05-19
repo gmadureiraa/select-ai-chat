@@ -183,6 +183,11 @@ export function PlanningItemDialog({
   
   const [scheduledAt, setScheduledAt] = useState<Date | undefined>();
   const [scheduledTime, setScheduledTime] = useState<string>('09:00');
+  // 2026-05-19: Gabriel pediu opt-in explícito pra autopublicar. Antes, qualquer
+  // card com scheduled_at + plataforma + content era enviado automático pro Late
+  // ao clicar Salvar — gerava agendamento sem querer. Agora Salvar SÓ persiste
+  // o card. Pra agendar de verdade, user marca esse toggle.
+  const [autoPublish, setAutoPublish] = useState(false);
   const [isSchedulingToLate, setIsSchedulingToLate] = useState(false);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
@@ -317,6 +322,10 @@ export function PlanningItemDialog({
         : effectiveItem.due_date ? parseISO(effectiveItem.due_date) : undefined;
       setScheduledAt(parsedScheduledAt);
       setScheduledTime(parsedScheduledAt ? format(parsedScheduledAt, 'HH:mm') : '09:00');
+      // 2026-05-19: restaura autoPublish do metadata. Cards que já saíram pro Late
+      // (têm external_post_id) começam OFF por segurança (não re-agenda).
+      const persistedAuto = (metadata as any).auto_publish === true && !effectiveItem.external_post_id;
+      setAutoPublish(persistedAuto);
       setAssignedTo(effectiveItem.assigned_to || '');
       
       const metadata = effectiveItem.metadata as any || {};
@@ -349,14 +358,14 @@ export function PlanningItemDialog({
       }
       setContentType(candidate);
 
-      // Restore selected platforms — prioriza top-level platform (source of truth),
-      // depois metadata.target_platforms, depois deriva do content_type.
-      // 2026-05-17 fix: antes metadata.target_platforms ganhava sempre, mas se
-      // o user editou só firstComment e metadata vinha vazio do legacy import,
-      // selectedPlatforms ficava [] e o save gravava platform=twitter (default
-      // do contentType='tweet'). Agora respeita top-level platform.
-      if (Array.isArray(metadata.target_platforms) && metadata.target_platforms.length > 0) {
-        setSelectedPlatforms(metadata.target_platforms);
+      // Restore selected platforms.
+      // 2026-05-19 fix: priorizar metadata.target_platforms se a chave EXISTIR
+      // (mesmo array vazio). Array vazio = user desmarcou tudo de propósito —
+      // não pode cair no fallback de item.platform porque isso re-marcava.
+      // Só faz fallback pra item.platform se metadata.target_platforms NÃO existir.
+      const hasMetadataPlatforms = Array.isArray(metadata.target_platforms);
+      if (hasMetadataPlatforms) {
+        setSelectedPlatforms(metadata.target_platforms as string[]);
       } else if (effectiveItem.platform) {
         setSelectedPlatforms([effectiveItem.platform]);
       } else {
@@ -397,6 +406,7 @@ export function PlanningItemDialog({
       setPriority('medium');
       setScheduledAt(defaultDate || undefined);
       setScheduledTime('09:00');
+      setAutoPublish(false); // 2026-05-19: novo card sempre começa OFF.
       setIsSchedulingToLate(false);
       setMediaItems([]);
       setThreadTweets([{ id: 'tweet-1', text: '', media_urls: [] }]);
@@ -472,11 +482,14 @@ export function PlanningItemDialog({
       }
 
       // 2026-05-17 fix: derivar platform da PRIMEIRA selectedPlatforms quando
-      // existir (multi-plataforma) — antes usava CONTENT_TO_PLATFORM que sempre
-      // mapeava pra plataforma "principal" do tipo, ignorando seleção do user.
-      // Ex: carousel + selectedPlatforms=['instagram'] → platform=instagram (não
-      // o que CONTENT_TO_PLATFORM diz).
-      const resolvedPlatform = (selectedPlatforms[0] as PlanningPlatform | undefined) ?? platform;
+      // existir (multi-plataforma).
+      // 2026-05-19 fix: quando user DESMARCA tudo (selectedPlatforms=[]), gravar
+      // platform=null. Antes mantinha `platform` antigo → na hidratação, fallback
+      // re-marcava porque target_platforms=[] caía no else-if usando item.platform.
+      const resolvedPlatform: PlanningPlatform | null =
+        selectedPlatforms.length > 0
+          ? (selectedPlatforms[0] as PlanningPlatform)
+          : null;
 
       // 2026-05-17 fix: MERGE metadata em vez de sobrescrever — antes campos
       // tipo campanha, cta_keyword, manychat_trigger eram apagados toda vez
@@ -487,6 +500,7 @@ export function PlanningItemDialog({
         content_type: contentType,
         target_platforms: selectedPlatforms,
         platform_options: platformOptions,
+        auto_publish: autoPublish, // 2026-05-19: persistir flag opt-in
       };
       if (isTwitterThread) {
         nextMetadata.thread_tweets = threadTweets;
@@ -525,10 +539,13 @@ export function PlanningItemDialog({
         savedItemId = result && 'id' in result ? result.id : undefined;
       }
 
-      // If scheduling is set AND we can publish to this platform, send to Late API
-      const shouldScheduleToLate = 
-        finalScheduledAt && 
-        publishablePlatforms.length > 0 && 
+      // If scheduling is set AND we can publish to this platform, send to Late API.
+      // 2026-05-19: agora EXIGE autoPublish=true (opt-in explícito). Antes,
+      // qualquer save com scheduled_at + plataforma + content disparava Late.
+      const shouldScheduleToLate =
+        autoPublish &&
+        finalScheduledAt &&
+        publishablePlatforms.length > 0 &&
         selectedClientId &&
         (finalContent.trim() || threadTweets.some(t => t.text.trim()));
 
@@ -1133,9 +1150,32 @@ export function PlanningItemDialog({
                     />
                   </div>
                 </div>
+                {/* 2026-05-19: toggle opt-in autopublicar. Antes era automático,
+                    gerava agendamentos sem querer. Agora user precisa MARCAR. */}
                 {scheduledAt && publishablePlatforms.length > 0 && (
-                  <p className="text-[10px] text-muted-foreground">
-                    ✓ Auto-publicar em {publishablePlatforms.length} plataforma(s) às {scheduledTime}
+                  <div className="flex items-start gap-2 rounded-md border border-border/50 bg-muted/30 px-2.5 py-2">
+                    <input
+                      type="checkbox"
+                      id="auto-publish-toggle"
+                      checked={autoPublish}
+                      onChange={(e) => setAutoPublish(e.target.checked)}
+                      className="mt-0.5 h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
+                    />
+                    <label htmlFor="auto-publish-toggle" className="flex-1 cursor-pointer">
+                      <div className="text-[11px] font-medium text-foreground">
+                        Publicar automaticamente via Late/Zernio
+                      </div>
+                      <div className="text-[10px] text-muted-foreground leading-relaxed">
+                        {autoPublish
+                          ? `✓ Será publicado em ${publishablePlatforms.length} plataforma(s) às ${scheduledTime}`
+                          : 'Marca pra agendar no Late. Desmarcado = só salva o card (sem postar nada).'}
+                      </div>
+                    </label>
+                  </div>
+                )}
+                {scheduledAt && publishablePlatforms.length === 0 && (
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                    ⚠️ Nenhuma plataforma selecionada com autopublish disponível (precisa conectar conta no Late/Zernio).
                   </p>
                 )}
               </div>
