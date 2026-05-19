@@ -18,7 +18,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useImportClientSocialContent } from "@/hooks/useImportClientSocialContent";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
-import { SocialIntegrationsTab } from "./SocialIntegrationsTab";
 import { SocialIntegrationsPanel } from "./SocialIntegrationsPanel";
 import { ClientReferencesManager } from "./ClientReferencesManager";
 import { ClientDocumentsManager } from "./ClientDocumentsManager";
@@ -524,12 +523,11 @@ export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimp
           )}
 
           {activeSection === "integrations" && (
-            <>
-              {/* Painel novo (resumo + conectar nova) */}
-              <SocialIntegrationsPanel clientId={client.id} />
-              {/* Cards detalhados legacy (todas plataformas, com descrições) */}
-              <SocialIntegrationsTab clientId={client.id} />
-            </>
+            // 2026-05-19: removida duplicação. SocialIntegrationsTab legacy
+            // mostrava as mesmas plataformas que o Panel novo + cards de
+            // descrição. Tudo importante já tá no Panel (profile Late, conectar,
+            // desconectar, status). Arquivo do Tab fica em _archive.
+            <SocialIntegrationsPanel clientId={client.id} />
           )}
 
           {activeSection === "viral" && (
