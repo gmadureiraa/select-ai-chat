@@ -322,13 +322,14 @@ export function PlanningItemDialog({
         : effectiveItem.due_date ? parseISO(effectiveItem.due_date) : undefined;
       setScheduledAt(parsedScheduledAt);
       setScheduledTime(parsedScheduledAt ? format(parsedScheduledAt, 'HH:mm') : '09:00');
+      setAssignedTo(effectiveItem.assigned_to || '');
+
+      const metadata = effectiveItem.metadata as any || {};
       // 2026-05-19: restaura autoPublish do metadata. Cards que já saíram pro Late
       // (têm external_post_id) começam OFF por segurança (não re-agenda).
-      const persistedAuto = (metadata as any).auto_publish === true && !effectiveItem.external_post_id;
+      // (Tem que vir DEPOIS da declaração de `metadata` — fix TDZ commit 159cfbad.)
+      const persistedAuto = metadata.auto_publish === true && !effectiveItem.external_post_id;
       setAutoPublish(persistedAuto);
-      setAssignedTo(effectiveItem.assigned_to || '');
-      
-      const metadata = effectiveItem.metadata as any || {};
       // 2026-05-17 fix: PRIORIZAR effectiveItem.content_type (coluna top-level
       // do DB, source of truth) ANTES de metadata.content_type. Antes o fallback
       // ia direto pra 'tweet' quando metadata estava vazio, corrompendo carrosséis.
