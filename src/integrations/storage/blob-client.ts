@@ -28,8 +28,34 @@
  * expiração, sem proxy.
  */
 
+import { getNeonAuthJWT } from "@/integrations/neon-auth/client";
+
 const BLOB_API_BASE = "/api/blob";
 const UPLOAD_ENDPOINT = "/api/upload";
+
+/**
+ * Pega o JWT do Neon Auth pra mandar como `Authorization: Bearer ...`.
+ * O auth do server (api/_lib/auth.ts) só lê esse header — não lê cookie. Sem
+ * isso todo upload caía em 401 silencioso (descoberto 2026-05-19 quando o user
+ * reportou "Erro ao fazer upload de X" mesmo após R2 estar configurado).
+ */
+async function getAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const token = await getNeonAuthJWT();
+    if (token) return { Authorization: `Bearer ${token}` };
+  } catch {
+    // Fallback localStorage (mesmo padrão do apiInvoke)
+    try {
+      const raw =
+        localStorage.getItem("kai-auth-token") ||
+        localStorage.getItem("neon-auth-token");
+      if (raw) return { Authorization: `Bearer ${raw}` };
+    } catch {
+      // ignore
+    }
+  }
+  return {};
+}
 
 // -- types -----------------------------------------------------------------
 
@@ -87,9 +113,11 @@ async function postJson<T>(
   body: Record<string, unknown>
 ): Promise<{ data: T | null; error: { message: string } | null }> {
   try {
+    const authHeader = await getAuthHeader();
     const res = await fetch(`${BLOB_API_BASE}${endpoint}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeader },
+      credentials: "include",
       body: JSON.stringify(body),
     });
 
@@ -139,10 +167,12 @@ class BlobBucket {
     }
 
     try {
+      const authHeader = await getAuthHeader();
       const res = await fetch(UPLOAD_ENDPOINT, {
         method: "POST",
         body: form,
         credentials: "include",
+        headers: authHeader,
       });
       if (!res.ok) {
         const text = await res.text().catch(() => "Upload failed");
@@ -171,7 +201,11 @@ class BlobBucket {
     const fullPath = joinPath(this.bucket, path);
     try {
       const url = `${BLOB_API_BASE}/download?path=${encodeURIComponent(fullPath)}`;
-      const res = await fetch(url);
+      const authHeader = await getAuthHeader();
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: authHeader,
+      });
       if (!res.ok) {
         const text = await res.text().catch(() => "Download failed");
         return { data: null, error: { message: text || `HTTP ${res.status}` } };
