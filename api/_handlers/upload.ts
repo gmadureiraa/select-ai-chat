@@ -1,16 +1,19 @@
-// Adapter SV: /api/upload → Vercel Blob direto.
-// SV envia FormData multipart com campo "file". Devolve { url, path }.
+// /api/upload — multipart/form-data → Cloudflare R2.
+// SV/KAI front mandam FormData com campo "file" (e opcional "path"). Devolve
+// { url, path, size, contentType }.
 //
-// 2026-05-18 — Fix bug Gabriel: imagem subia mas vinha quebrada porque o
-// handler antigo lia req inteiro como bytes raw (incluindo boundary + headers
-// MIME do multipart) e salvava no Blob com content-type "multipart/form-data".
-// Browser não renderizava (formato inválido). Agora parseia o multipart de
-// verdade via Web API Request.formData() — extrai só o binary do field "file"
-// + content-type real do arquivo.
+// 2026-05-19 — Migração Vercel Blob → R2. Blob suspenso por estourar quota
+// 100MB free. R2 dá 10GB free + zero egress, mesma infra do biblioteca-viral.
+//
+// 2026-05-18 (histórico) — Fix bug Gabriel: imagem subia mas vinha quebrada
+// porque o handler antigo lia req inteiro como bytes raw (incluindo boundary +
+// headers MIME do multipart) e salvava no storage com content-type
+// "multipart/form-data". Agora parseia multipart de verdade via Web API
+// Request.formData() — extrai só o binary do field "file" + content-type real.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { put } from '@vercel/blob';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { tryAuth } from '../_lib/auth.js';
+import { putObject, sanitizeKey } from '../_lib/r2.js';
 
 export const config = {
   api: {
@@ -26,8 +29,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const auth = await tryAuth(req).catch(() => null);
   if (!auth) return jsonError(res, 401, 'Authentication required');
 
-  const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!blobToken) return jsonError(res, 503, 'Storage not configured');
+  if (!process.env.R2_BUCKET || !process.env.R2_PUBLIC_URL) {
+    return jsonError(res, 503, 'Storage não configurado (R2 env vars ausentes)');
+  }
 
   // Lê body raw em memória pra alimentar o Web Request
   const chunks: Buffer[] = [];
@@ -36,16 +40,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const buffer = Buffer.concat(chunks);
   if (buffer.length === 0) return jsonError(res, 400, 'Empty body');
+  // Vercel function body cap é 4.5MB no Hobby (mesmo com bodyParser: false).
+  // Pra arquivos maiores, mover pra presigned URL R2 (PUT direto). Cap até lá.
   if (buffer.length > 20 * 1024 * 1024) return jsonError(res, 413, 'File too large (>20MB)');
 
-  // Web Request pra parsear multipart corretamente. Header content-type
-  // precisa preservar o `boundary=...` que o browser setou.
   const contentTypeHeader = req.headers['content-type'] ?? 'application/octet-stream';
   const isMultipart = contentTypeHeader.includes('multipart/form-data');
 
   let fileBuffer: Buffer;
   let fileContentType: string;
   let fileName: string;
+  let pathPrefix: string | undefined;
 
   if (isMultipart) {
     try {
@@ -66,6 +71,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         (fileField as any).name ||
         (req.query.filename as string) ||
         `upload-${Date.now()}`;
+      const pathField = form.get('path');
+      if (typeof pathField === 'string' && pathField.trim()) {
+        pathPrefix = pathField.trim();
+      }
     } catch (err: any) {
       console.error('[upload] multipart parse failed:', err);
       return jsonError(res, 400, `Multipart inválido: ${err?.message ?? err}`);
@@ -77,6 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     fileName =
       (req.query.filename as string) ||
       `upload-${Date.now()}.${fileContentType.split('/')[1] ?? 'bin'}`;
+    if (typeof req.query.path === 'string') pathPrefix = req.query.path;
   }
 
   // Sanity check — content-type tem que ser image/* ou video/*
@@ -91,24 +101,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
   }
 
-  // Path: prefix por user pra isolamento
-  const blobPath = `client-files/uploads/${auth.id}/${fileName}`;
+  const cleanFileName = sanitizeKey(fileName);
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const key = pathPrefix
+    ? `${pathPrefix.replace(/^\/+|\/+$/g, '')}/${suffix}-${cleanFileName}`
+    : `client-files/uploads/${auth.id}/${suffix}-${cleanFileName}`;
 
   try {
-    const blob = await put(blobPath, fileBuffer, {
-      access: 'public',
-      contentType: fileContentType,
-      addRandomSuffix: true,
-      token: blobToken,
-    });
+    const r = await putObject(key, fileBuffer, fileContentType);
     return res.status(200).json({
-      url: blob.url,
-      path: blob.pathname,
-      size: fileBuffer.length,
+      url: r.url,
+      path: r.key,
+      size: r.size,
       contentType: fileContentType,
     });
   } catch (err: any) {
-    console.error('[upload] failed:', err);
+    console.error('[upload] R2 put failed:', err);
     return jsonError(res, 500, err?.message ?? 'Upload failed');
   }
 }

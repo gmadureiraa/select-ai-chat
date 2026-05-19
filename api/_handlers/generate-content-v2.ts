@@ -9,7 +9,7 @@ import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { tryAuth } from '../_lib/auth.js';
 import { getPool, queryOne, query } from '../_lib/db.js';
 import { assertClientAccess } from '../_lib/access.js';
-import { put } from '@vercel/blob';
+import { putObject } from '../_lib/r2.js';
 
 // =====================================================
 // VALIDATION SCHEMA
@@ -739,16 +739,16 @@ ${noText ? `\n⛔ CRITICAL - WILL CAUSE IMMEDIATE REJECTION:
 
     if (!imageBase64) return jsonError(res, 500, 'Nenhuma imagem gerada após tentativas');
 
-    // Upload to Vercel Blob
+    // 2026-05-19: migrado de Vercel Blob → R2.
     const buffer = Buffer.from(imageBase64, 'base64');
     const ext = mimeType.split('/')[1] || 'png';
     const path = `client-files/generated/${userId || clientId || 'automation'}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     let publicUrl: string;
     try {
-      const blob = await put(path, buffer, { access: 'public', contentType: mimeType, addRandomSuffix: false });
-      publicUrl = blob.url;
+      const r = await putObject(path, buffer, mimeType);
+      publicUrl = r.url;
     } catch (e) {
-      console.warn('[generate-content-v2] Blob upload failed, returning base64:', e);
+      console.warn('[generate-content-v2] R2 upload failed, returning base64:', e);
       publicUrl = `data:${mimeType};base64,${imageBase64}`;
     }
 

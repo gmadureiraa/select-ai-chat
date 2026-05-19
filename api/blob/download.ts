@@ -1,6 +1,6 @@
-// Proxy de download: busca da Vercel Blob URL e retorna bytes
+// Proxy de download: pega URL pública R2 (ou key) e retorna bytes.
+// 2026-05-19: migrado de Vercel Blob (suspenso) pra R2.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { head } from "@vercel/blob";
 import { applyCors, handlePreflight } from "../_lib/cors.js";
 
 function errorMessage(error: unknown): string {
@@ -10,14 +10,24 @@ function errorMessage(error: unknown): string {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
   applyCors(res, req);
-  if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "GET")
+    return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const path = (req.query.path as string) || "";
     if (!path) return res.status(400).json({ error: "path required" });
 
-    const blob = await head(path);
-    const upstream = await fetch(blob.url);
+    const publicBase = (process.env.R2_PUBLIC_URL ?? "").replace(/\/$/, "");
+    if (!publicBase) {
+      return res.status(503).json({ error: "R2_PUBLIC_URL não configurado" });
+    }
+
+    // Se já é URL completa, usa direto. Senão monta com publicBase.
+    const url = path.startsWith("http")
+      ? path
+      : `${publicBase}/${path.replace(/^\/+/, "")}`;
+
+    const upstream = await fetch(url);
     if (!upstream.ok) {
       return res.status(upstream.status).send(await upstream.text());
     }

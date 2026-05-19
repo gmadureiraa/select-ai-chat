@@ -5,7 +5,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight } from '../_lib/cors.js';
 import { verifyAuth } from '../_lib/auth.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
-import { put } from '@vercel/blob';
+import { putObject } from '../_lib/r2.js';
 import { assertClientAccess, assertWorkspaceAccess } from '../_lib/access.js';
 
 const CLICKUP_API = 'https://api.clickup.com/api/v2';
@@ -181,12 +181,9 @@ async function uploadAttachmentToBlob(
     const fileName = `clickup/${taskId}/${Date.now()}_${attachment.title || 'file'}.${ext}`;
     const contentType = r.headers.get('content-type') || 'application/octet-stream';
 
-    const blob = await put(fileName, buffer, {
-      access: 'public',
-      contentType,
-      addRandomSuffix: false,
-    });
-    return blob.url || null;
+    // 2026-05-19: migrado de Vercel Blob → R2.
+    const r2 = await putObject(fileName, buffer, contentType);
+    return r2.url || null;
   } catch (err) {
     console.error(`Attachment upload failed: ${errorMessage(err)}`);
     return null;

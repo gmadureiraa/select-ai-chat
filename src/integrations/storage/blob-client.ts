@@ -1,39 +1,35 @@
 /**
- * Vercel Blob storage wrapper.
+ * Storage wrapper (Cloudflare R2 desde 2026-05-19).
  *
- * Migration target: replaces `supabase.storage.*` calls.
+ * Migration target: replaces `supabase.storage.*` calls + Vercel Blob (que
+ * foi suspenso em 19/05 por estourar quota 100MB free).
  *
  * Architecture
  * ------------
- * This is a Vite (browser) app, so all server-only Vercel Blob operations
- * (`put`, `del`, `list`, signed URLs) are proxied through API endpoints
- * that another agent will implement on the server side. The endpoints
- * expected are:
+ * Vite (browser) app — operações server-only proxiadas via API endpoints:
  *
- *   POST /api/blob/upload-token  — returns a client upload token
- *                                  (consumes @vercel/blob `handleUpload`)
- *   POST /api/blob/delete         — body: { paths: string[] }
- *   POST /api/blob/list           — body: { prefix?: string }
- *   POST /api/blob/signed-url     — body: { path: string; expiresIn: number }
- *   GET  /api/blob/download?path  — streams the blob bytes
+ *   POST /api/upload               — multipart/form-data com campo `file`
+ *                                    e (opcional) `path` pro prefixo
+ *   POST /api/blob/delete          — body: { paths: string[] }
+ *   POST /api/blob/list            — body: { prefix?: string }
+ *   POST /api/blob/signed-url      — body: { path: string; expiresIn: number }
+ *   GET  /api/blob/download?path   — streams the blob bytes
  *
- * Buckets are simulated as path prefixes ("<bucket>/<path>").
+ * Buckets continuam simulados como prefixos ("<bucket>/<path>") — útil pra
+ * código legado que ainda usa o pattern Supabase.
  *
  * Required env (server-side):
- *   BLOB_READ_WRITE_TOKEN   — Vercel Blob token (set on Vercel dashboard)
+ *   R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET / R2_PUBLIC_URL
  *
  * Public URLs
  * -----------
- * When uploading with `access: 'public'` Vercel Blob returns a permanent URL
- * of the form `https://<store-id>.public.blob.vercel-storage.com/<pathname>`.
- * We persist the returned URL whenever possible. Where legacy code stores
- * just a path, `getPublicUrl()` returns the path as-is and assumes the
- * caller will have a full URL stored in the database.
+ * R2 com "Public Access" habilitado devolve URL `https://pub-XXX.r2.dev/<key>`.
+ * Persistir a `url` retornada por `upload()` é o caminho recomendado — sem
+ * expiração, sem proxy.
  */
 
-import { upload as clientUpload } from "@vercel/blob/client";
-
 const BLOB_API_BASE = "/api/blob";
+const UPLOAD_ENDPOINT = "/api/upload";
 
 // -- types -----------------------------------------------------------------
 
@@ -116,35 +112,49 @@ class BlobBucket {
   constructor(private readonly bucket: string) {}
 
   /**
-   * Upload a file using the browser-safe client upload flow.
-   * Requires a server-side endpoint at /api/blob/upload-token that calls
-   * `handleUpload` from `@vercel/blob/client`.
+   * Upload via POST multipart/form-data pro endpoint /api/upload (R2 server-side).
+   * 2026-05-19: trocado o flow client upload do Vercel Blob (que precisava
+   * de upload-token + ia direto pro Blob suspenso) por multipart simples.
    */
   async upload(
     path: string,
     file: Blob | File,
-    options: UploadOptions = {}
+    _options: UploadOptions = {}
   ): Promise<UploadResult> {
-    const fullPath = joinPath(this.bucket, path);
+    const form = new FormData();
+    // Nome: se o file tem nome próprio (File), usa esse; senão deriva do path.
+    const fileName =
+      (file as File).name ||
+      path.split("/").pop() ||
+      `upload-${Date.now()}`;
+    form.append("file", file, fileName);
+    // Mantém o bucket+path como prefixo no R2 — preserva Supabase-like semantics
+    // (callers passam `data.path` pra getPublicUrl que re-prefixa).
+    const fullPathPrefix = joinPath(this.bucket, path)
+      .split("/")
+      .slice(0, -1)
+      .join("/");
+    if (fullPathPrefix) {
+      form.append("path", fullPathPrefix);
+    }
+
     try {
-      const blob = await clientUpload(fullPath, file, {
-        access: "public",
-        handleUploadUrl: `${BLOB_API_BASE}/upload-token`,
-        contentType: options.contentType,
-        // Vercel Blob always adds a random suffix unless explicitly disabled
-        // server-side. We mirror Supabase semantics by NOT adding a suffix —
-        // callers already supply unique names (timestamps/UUIDs).
-        clientPayload: JSON.stringify({
-          bucket: this.bucket,
-          upsert: options.upsert ?? false,
-          cacheControl: options.cacheControl,
-        }),
+      const res = await fetch(UPLOAD_ENDPOINT, {
+        method: "POST",
+        body: form,
+        credentials: "include",
       });
-      // Return path WITHOUT the bucket prefix to match Supabase semantics —
-      // callers immediately pass `data.path` to getPublicUrl/createSignedUrl
-      // which already re-prefix.
+      if (!res.ok) {
+        const text = await res.text().catch(() => "Upload failed");
+        return { data: null, error: { message: text || `HTTP ${res.status}` } };
+      }
+      const json = (await res.json()) as {
+        url: string;
+        path: string;
+      };
       return {
-        data: { path, url: blob.url },
+        // path retornado sem bucket prefix (Supabase-like)
+        data: { path, url: json.url },
         error: null,
       };
     } catch (err) {
@@ -201,9 +211,14 @@ class BlobBucket {
       return { data: { publicUrl: path } };
     }
 
+    // 2026-05-19: padrão agora é R2 publicBase via VITE_R2_PUBLIC_URL.
+    // VITE_BLOB_PUBLIC_HOST mantido como fallback retrocompat pra paths antigos
+    // que ainda apontam pro Vercel Blob (esses vão 404 mas pelo menos não
+    // crashea).
     const host =
+      (import.meta.env.VITE_R2_PUBLIC_URL as string | undefined) ??
       (import.meta.env.VITE_BLOB_PUBLIC_HOST as string | undefined) ??
-      "https://blob.vercel-storage.com";
+      "https://placeholder.invalid";
     const fullPath = joinPath(this.bucket, path);
     return { data: { publicUrl: `${host.replace(/\/$/, "")}/${fullPath}` } };
   }

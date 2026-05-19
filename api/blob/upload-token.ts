@@ -1,58 +1,15 @@
-// Issues client tokens for direct browser uploads to Vercel Blob.
-// Used by @vercel/blob/client `upload()`.
+// DEPRECATED 2026-05-19 — upload-token era pro flow client-side do Vercel Blob
+// (`@vercel/blob/client.upload`). Migramos pra Cloudflare R2 + upload server-side
+// via /api/upload (multipart). Esse endpoint continua respondendo só pra não
+// quebrar caches antigos do bundle browser que ainda apontam pra cá.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
-import { tryAuth } from "../_lib/auth.js";
 import { applyCors, handlePreflight } from "../_lib/cors.js";
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "upload-token failed";
-}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
   applyCors(res, req);
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  try {
-    // Authenticate via Neon Auth JWT
-    const user = await tryAuth(req);
-    if (!user) return res.status(401).json({ error: "Unauthenticated" });
-
-    const body = req.body as HandleUploadBody;
-    const json = await handleUpload({
-      body,
-      request: req as unknown as Request,
-      onBeforeGenerateToken: async (pathname, clientPayload) => {
-        // clientPayload pode trazer { bucket, contentType }
-        let parsed: { bucket?: string; contentType?: string } = {};
-        try {
-          if (clientPayload) parsed = JSON.parse(clientPayload);
-        } catch {
-          parsed = {};
-        }
-
-        return {
-          allowedContentTypes: parsed.contentType
-            ? [parsed.contentType]
-            : ["image/*", "video/*", "application/pdf", "application/*"],
-          tokenPayload: JSON.stringify({
-            userId: user.id,
-            bucket: parsed.bucket || "client-files",
-            pathname,
-          }),
-        };
-      },
-      onUploadCompleted: async () => {
-        // Hook opcional pra registrar upload no DB
-      },
-    });
-
-    return res.status(200).json(json);
-  } catch (err) {
-    console.error("[blob/upload-token] error:", err);
-    return res.status(500).json({ error: errorMessage(err) });
-  }
+  return res.status(410).json({
+    error: "Endpoint descontinuado. Use POST /api/upload (multipart/form-data).",
+    redirect: "/api/upload",
+  });
 }

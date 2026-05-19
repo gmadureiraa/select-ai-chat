@@ -5,7 +5,7 @@ import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
 import { assertClientAccess } from '../_lib/access.js';
 import latePostHandler from './late-post.js';
-import { put } from '@vercel/blob';
+import { putObject } from '../_lib/r2.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 interface SlideInput {
@@ -36,9 +36,9 @@ function errorMessage(error: unknown): string {
 }
 
 export default authedPost(async ({ user, body, req, res }) => {
-  const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!blobToken) {
-    throw new Error('BLOB_READ_WRITE_TOKEN not configured for storage');
+  // 2026-05-19: migrado de Vercel Blob → R2 (Blob suspenso por quota).
+  if (!process.env.R2_BUCKET || !process.env.R2_PUBLIC_URL) {
+    throw new Error('R2 storage não configurado');
   }
 
   const {
@@ -100,14 +100,8 @@ export default authedPost(async ({ user, body, req, res }) => {
 
     const blobPath = `viral-carousel-renders/${clientId}/${carouselId}/${ts}-slide-${String(slide.order).padStart(2, '0')}.png`;
     try {
-      const blob = await put(blobPath, decoded.bytes, {
-        access: 'public',
-        contentType: decoded.mime,
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        token: blobToken,
-      });
-      mediaUrls.push(blob.url);
+      const r = await putObject(blobPath, decoded.bytes, decoded.mime);
+      mediaUrls.push(r.url);
     } catch (upErr: unknown) {
       console.error(`[publish-viral-carousel] upload slide ${slide.order} failed:`, upErr);
       throw new Error(`Falha no upload do slide ${slide.order}: ${errorMessage(upErr)}`);

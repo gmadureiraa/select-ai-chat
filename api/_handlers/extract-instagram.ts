@@ -2,7 +2,7 @@
 // Storage migrated 2026-05-08 → Vercel Blob (era Supabase Storage legacy).
 import { z } from 'zod';
 import { authedPost } from '../_lib/handler.js';
-import { put } from '@vercel/blob';
+import { putObject } from '../_lib/r2.js';
 import { assertClientAccess } from '../_lib/access.js';
 import { rateLimit, getRateLimitKey } from '../_lib/shared/rate-limit.js';
 
@@ -92,9 +92,9 @@ export default authedPost(async ({ body, user, req, res }) => {
   const uploadedPaths: string[] = [];
   const uploadedUrls: string[] = [];
   if (uploadToStorage && clientId) {
-    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!blobToken) {
-      console.warn('[extract-instagram] BLOB_READ_WRITE_TOKEN missing; skip upload');
+    // 2026-05-19: storage agora é R2 (Blob suspenso).
+    if (!process.env.R2_BUCKET || !process.env.R2_PUBLIC_URL) {
+      console.warn('[extract-instagram] R2 env missing; skip upload');
     } else {
       for (let i = 0; i < uniqueImages.length; i++) {
         const imageUrl = uniqueImages[i];
@@ -106,15 +106,10 @@ export default authedPost(async ({ body, user, req, res }) => {
           const extension = contentType.split('/')[1]?.split(';')[0] || 'jpg';
           const ts = Date.now();
           const blobPath = `instagram-sync/${clientId}/${ts}-${i}.${extension}`;
-          const blob = await put(blobPath, Buffer.from(arrayBuffer), {
-            access: 'public',
-            contentType,
-            addRandomSuffix: false,
-            allowOverwrite: true,
-            token: blobToken,
-          });
-          uploadedPaths.push(blobPath);
-          uploadedUrls.push(blob.url);
+          // 2026-05-19: migrado de Vercel Blob → R2.
+          const r = await putObject(blobPath, Buffer.from(arrayBuffer), contentType);
+          uploadedPaths.push(r.key);
+          uploadedUrls.push(r.url);
         } catch (e) {
           console.warn(`Error processing image ${i}:`, e);
         }

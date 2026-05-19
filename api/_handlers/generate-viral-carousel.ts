@@ -12,7 +12,7 @@ import { tryAuth } from '../_lib/auth.js';
 import { assertClientAccess } from '../_lib/access.js';
 import { isValidCronCall } from '../_lib/cron-auth.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
-import { put } from '@vercel/blob';
+import { putObject } from '../_lib/r2.js';
 import { logAIUsage, estimateTokens } from '../_lib/shared/ai-usage.js';
 import {
   getClientContextServer,
@@ -309,12 +309,9 @@ async function cacheCoverImage(sourceUrl: string, clientId: string): Promise<str
     const path = `viral-covers/${clientId}/${Date.now()}-${Math.random()
       .toString(36)
       .slice(2, 8)}.${ext}`;
-    const blob = await put(path, buf, {
-      access: 'public',
-      contentType: ct,
-      addRandomSuffix: false,
-    });
-    return blob.url;
+    // 2026-05-19: migrado de Vercel Blob → R2.
+    const r = await putObject(path, buf, ct);
+    return r.url;
   } catch (err) {
     console.warn('[generate-viral-carousel] cover cache failed:', err);
     return sourceUrl;

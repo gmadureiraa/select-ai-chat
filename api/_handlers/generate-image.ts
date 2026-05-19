@@ -1,7 +1,7 @@
 // New handler — image generation via Gemini image models with optional reference images.
 // Replaces the (never-existed) Supabase generate-image function. Uploads result to Vercel Blob.
 import { authedPost } from '../_lib/handler.js';
-import { put } from '@vercel/blob';
+import { putObject } from '../_lib/r2.js';
 import { logAIUsage, estimateTokens } from '../_lib/shared/ai-usage.js';
 import { assertClientAccess } from '../_lib/access.js';
 import { rateLimit, getRateLimitKey } from '../_lib/shared/rate-limit.js';
@@ -168,16 +168,16 @@ ${prompt}
     throw new Error('Nenhuma imagem retornada pelo modelo');
   }
 
-  // Upload to Vercel Blob (public)
+  // 2026-05-19: migrado de Vercel Blob → Cloudflare R2.
   const buffer = Buffer.from(imageBase64, 'base64');
   const ext = mimeType.split('/')[1] || 'png';
   const path = `client-files/generated/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   let publicUrl = '';
   try {
-    const blob = await put(path, buffer, { access: 'public', contentType: mimeType, addRandomSuffix: false });
-    publicUrl = blob.url;
+    const r = await putObject(path, buffer, mimeType);
+    publicUrl = r.url;
   } catch (e) {
-    console.warn('[generate-image] Blob upload failed, returning base64 fallback:', e);
+    console.warn('[generate-image] R2 upload failed, returning base64 fallback:', e);
     publicUrl = `data:${mimeType};base64,${imageBase64}`;
   }
 
