@@ -114,7 +114,15 @@ export function AvatarUpload({
     onUpload(null);
   };
 
-  const displayUrl = previewUrl || currentUrl;
+  // 2026-05-19 P0 fix: URLs antigas apontando pro Vercel Blob (suspenso em
+  // 18/05) ficam pendentes eternamente quando o img tenta carregar — Radix
+  // Avatar fica em loop de loading state, travando o menu na aba Perfil.
+  // Detecta legacy Blob URL e força fallback.
+  const isLegacyBlob =
+    !!currentUrl &&
+    (currentUrl.includes("vercel-storage.com") ||
+      currentUrl.includes("blob.vercel-storage"));
+  const displayUrl = previewUrl || (isLegacyBlob ? null : currentUrl);
 
   return (
     <div className="flex flex-col items-center gap-3">

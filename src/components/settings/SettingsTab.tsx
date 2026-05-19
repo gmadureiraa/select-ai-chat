@@ -101,13 +101,20 @@ export function SettingsTab() {
   
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
   
-  // Sync URL changes to state (for back/forward navigation)
+  // Sync URL changes to state (for back/forward navigation).
+  // 2026-05-19 P0 fix: adicionado guard de igualdade — antes setState
+  // redundante cascateava com effect pai do Kai.tsx que tem searchParams
+  // nas deps, travando o menu na aba Perfil.
   useEffect(() => {
     const section = searchParams.get("section");
-    if (section && validSections.includes(section as SettingsSection)) {
+    if (
+      section &&
+      validSections.includes(section as SettingsSection) &&
+      section !== activeSection
+    ) {
       setActiveSection(section as SettingsSection);
     }
-  }, [searchParams]);
+  }, [searchParams, activeSection]);
   
   // Handle section change - update both state and URL
   const handleSectionChange = (section: SettingsSection) => {
@@ -132,12 +139,14 @@ export function SettingsTab() {
     enabled: !!user?.id,
   });
 
-  // Reset editedName when profile loads
+  // Reset editedName when profile loads.
+  // 2026-05-19 P0 fix: adicionado editedName nas deps (era padrão de
+  // exhaustive-deps quebrado que disparava re-renders em loop).
   useEffect(() => {
     if (profile?.full_name && editedName === null) {
       setEditedName(profile.full_name);
     }
-  }, [profile?.full_name]);
+  }, [profile?.full_name, editedName]);
 
   // Update profile mutation
   const updateProfile = useMutation({
