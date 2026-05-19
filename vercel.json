@@ -75,6 +75,10 @@
       "destination": "/api/blob/:path*"
     },
     {
+      "source": "/api/upload",
+      "destination": "/api/upload"
+    },
+    {
       "source": "/api/router",
       "destination": "/api/router"
     },
@@ -94,6 +98,10 @@
       "includeFiles": "api/_handlers/**"
     },
     "api/blob/**/*.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "api/upload.ts": {
       "maxDuration": 60,
       "memory": 1024
     }
