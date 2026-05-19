@@ -5,14 +5,14 @@ import { verifyAuth, tryAuth, type AuthUser } from './auth.js';
 
 export interface HandlerCtx {
   user: AuthUser;
-  body: any;
+  body: Record<string, unknown>;
   req: VercelRequest;
   res: VercelResponse;
 }
 
 export interface AnonHandlerCtx {
   user: AuthUser | null;
-  body: any;
+  body: Record<string, unknown>;
   req: VercelRequest;
   res: VercelResponse;
 }
@@ -38,6 +38,33 @@ function inferErrorStatus(msg: string): number | null {
   return null;
 }
 
+function parseBody(raw: unknown): Record<string, unknown> {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  }
+  return {};
+}
+
+function errorMessage(error: unknown, fallback = 'Internal error'): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function errorStatus(error: unknown, message: string): number {
+  if (error && typeof error === 'object') {
+    const value =
+      (error as { statusCode?: unknown }).statusCode ??
+      (error as { status?: unknown }).status;
+    if (typeof value === 'number') return value;
+  }
+  return inferErrorStatus(message) || 500;
+}
+
 /**
  * Wrap a handler that requires authentication. Auto-handles:
  *   - CORS preflight
@@ -50,27 +77,27 @@ function inferErrorStatus(msg: string): number | null {
 export function authedPost(fn: Handler<HandlerCtx>) {
   return async (req: VercelRequest, res: VercelResponse) => {
     if (handlePreflight(req, res)) return;
-    applyCors(res);
+    applyCors(res, req);
     if (req.method !== 'POST') {
       return jsonError(res, 405, 'Method not allowed');
     }
     let user: AuthUser;
     try {
       user = await verifyAuth(req);
-    } catch (e: any) {
-      return jsonError(res, 401, e.message || 'Authentication required');
+    } catch (err) {
+      return jsonError(res, 401, errorMessage(err, 'Authentication required'));
     }
     try {
-      const body = req.body && typeof req.body === 'object' ? req.body : (req.body ? JSON.parse(req.body) : {});
+      const body = parseBody(req.body);
       const result = await fn({ user, body, req, res });
       if (!res.writableEnded) {
         res.status(200).json(result ?? { ok: true });
       }
-    } catch (e: any) {
-      console.error('[handler] error:', e);
+    } catch (err) {
+      console.error('[handler] error:', err);
       if (!res.writableEnded) {
-        const msg = e?.message || 'Internal error';
-        const status = e?.statusCode || e?.status || inferErrorStatus(msg) || 500;
+        const msg = errorMessage(err);
+        const status = errorStatus(err, msg);
         res.status(status).json({ error: msg });
       }
     }
@@ -83,22 +110,22 @@ export function authedPost(fn: Handler<HandlerCtx>) {
 export function anonPost(fn: Handler<AnonHandlerCtx>) {
   return async (req: VercelRequest, res: VercelResponse) => {
     if (handlePreflight(req, res)) return;
-    applyCors(res);
+    applyCors(res, req);
     if (req.method !== 'POST') {
       return jsonError(res, 405, 'Method not allowed');
     }
     const user = await tryAuth(req);
     try {
-      const body = req.body && typeof req.body === 'object' ? req.body : (req.body ? JSON.parse(req.body) : {});
+      const body = parseBody(req.body);
       const result = await fn({ user, body, req, res });
       if (!res.writableEnded) {
         res.status(200).json(result ?? { ok: true });
       }
-    } catch (e: any) {
-      console.error('[handler] error:', e);
+    } catch (err) {
+      console.error('[handler] error:', err);
       if (!res.writableEnded) {
-        const msg = e?.message || 'Internal error';
-        const status = e?.statusCode || e?.status || inferErrorStatus(msg) || 500;
+        const msg = errorMessage(err);
+        const status = errorStatus(err, msg);
         res.status(status).json({ error: msg });
       }
     }

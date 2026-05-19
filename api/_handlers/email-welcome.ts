@@ -12,7 +12,7 @@ import { applyCors, handlePreflight } from '../_lib/cors.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   // No-op silencioso — só pra evitar 404 em fire-and-forget legado.
   return res.status(200).json({ ok: true, noop: true });
 }

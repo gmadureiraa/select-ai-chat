@@ -11,7 +11,7 @@ import { getPool } from '../_lib/db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
 
   const auth = await tryAuth(req).catch(() => null);
   if (!auth) return jsonError(res, 401, 'Authentication required');

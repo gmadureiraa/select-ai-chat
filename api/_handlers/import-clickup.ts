@@ -6,6 +6,7 @@ import { applyCors, handlePreflight } from '../_lib/cors.js';
 import { verifyAuth } from '../_lib/auth.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
 import { put } from '@vercel/blob';
+import { assertClientAccess, assertWorkspaceAccess } from '../_lib/access.js';
 
 const CLICKUP_API = 'https://api.clickup.com/api/v2';
 
@@ -23,13 +24,78 @@ interface ClickUpTask {
   folder?: { name: string };
 }
 
-async function clickupFetch(path: string, token: string) {
+interface ClickUpAttachment {
+  id?: string;
+  url: string;
+  title?: string;
+  extension?: string;
+}
+
+interface ClickUpList {
+  id: string;
+  name: string;
+}
+
+interface ClickUpFolder {
+  name: string;
+  lists?: ClickUpList[];
+}
+
+interface ClickUpSpace {
+  id: string;
+  name: string;
+}
+
+interface ClickUpTeam {
+  id: string;
+  name: string;
+}
+
+interface ClickUpMapping {
+  list_id: string;
+  client_id: string;
+  space_name: string;
+  folder_name: string;
+}
+
+interface ImportClickUpBody {
+  action?: string;
+  workspace_id?: string;
+  mappings?: ClickUpMapping[];
+  since_date?: string;
+  fetch_attachments?: boolean;
+  limit?: number;
+}
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error || 'Unknown error');
+}
+
+function errorStatus(error: unknown, fallback = 403): number {
+  if (!isRecord(error)) return fallback;
+  const status = error.statusCode ?? error.status;
+  return typeof status === 'number' ? status : fallback;
+}
+
+function parseBody(raw: unknown): ImportClickUpBody {
+  if (isRecord(raw)) return raw as ImportClickUpBody;
+  if (typeof raw === 'string' && raw.trim()) return JSON.parse(raw) as ImportClickUpBody;
+  return {};
+}
+
+async function clickupFetch<T = JsonRecord>(path: string, token: string): Promise<T> {
   const r = await fetch(`${CLICKUP_API}${path}`, { headers: { Authorization: token } });
   if (!r.ok) {
     const text = await r.text();
     throw new Error(`ClickUp API ${path} failed (${r.status}): ${text}`);
   }
-  return r.json();
+  return await r.json() as T;
 }
 
 function inferPlatform(tags: string[], listName: string, folderName: string): string | null {
@@ -102,7 +168,7 @@ function mapStatusToColumnType(status: string): string {
 }
 
 async function uploadAttachmentToBlob(
-  attachment: { url: string; title: string; extension: string },
+  attachment: ClickUpAttachment,
   taskId: string,
   token: string
 ): Promise<string | null> {
@@ -121,15 +187,15 @@ async function uploadAttachmentToBlob(
       addRandomSuffix: false,
     });
     return blob.url || null;
-  } catch (e: any) {
-    console.error(`Attachment upload failed: ${e.message}`);
+  } catch (err) {
+    console.error(`Attachment upload failed: ${errorMessage(err)}`);
     return null;
   }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
 
   // Token: prefer per-request header (user-provided), fall back to env
   const userToken =
@@ -149,48 +215,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let user;
   try {
     user = await verifyAuth(req);
-  } catch (e: any) {
-    return res.status(401).json({ error: e.message || 'Authentication required' });
+  } catch (err) {
+    return res.status(401).json({ error: errorMessage(err) || 'Authentication required' });
   }
 
   try {
     const url = new URL(req.url || '/', `https://${req.headers.host || 'localhost'}`);
     // action may come from query param OR body
     const queryAction = url.searchParams.get('action');
-    const body =
-      req.body && typeof req.body === 'object'
-        ? req.body
-        : req.body
-          ? JSON.parse(req.body)
-          : {};
+    const body = parseBody(req.body);
     const action = queryAction || body.action;
 
     const pool = getPool();
 
     // ─────── ACTION: discover ───────
     if (action === 'discover') {
-      const teamsRes = await clickupFetch('/team', CLICKUP_TOKEN);
+      const teamsRes = await clickupFetch<{ teams?: ClickUpTeam[] }>('/team', CLICKUP_TOKEN);
       const teams = teamsRes.teams || [];
 
-      const result: any[] = [];
+      const result: Array<{
+        team_id: string;
+        team_name: string;
+        spaces: Array<{
+          id: string;
+          name: string;
+          lists: Array<{ id: string; name: string; folder: string | null }>;
+        }>;
+      }> = [];
       for (const team of teams) {
-        const spacesRes = await clickupFetch(
+        const spacesRes = await clickupFetch<{ spaces?: ClickUpSpace[] }>(
           `/team/${team.id}/space?archived=false`,
           CLICKUP_TOKEN
         );
         const spaces = spacesRes.spaces || [];
-        const spaceData: any[] = [];
+        const spaceData: Array<{
+          id: string;
+          name: string;
+          lists: Array<{ id: string; name: string; folder: string | null }>;
+        }> = [];
 
         for (const space of spaces) {
-          const lists: any[] = [];
-          const folderlessRes = await clickupFetch(
+          const lists: Array<{ id: string; name: string; folder: string | null }> = [];
+          const folderlessRes = await clickupFetch<{ lists?: ClickUpList[] }>(
             `/space/${space.id}/list?archived=false`,
             CLICKUP_TOKEN
           );
           for (const list of folderlessRes.lists || []) {
             lists.push({ id: list.id, name: list.name, folder: null });
           }
-          const foldersRes = await clickupFetch(
+          const foldersRes = await clickupFetch<{ folders?: ClickUpFolder[] }>(
             `/space/${space.id}/folder?archived=false`,
             CLICKUP_TOKEN
           );
@@ -215,7 +288,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'workspace_id and mappings required' });
       }
 
-      const columns = await query<any>(
+      // SEC 2026-05-18 audit P0: bloqueia cross-tenant write. Antes user
+      // autenticado em workspace A podia POST { workspace_id: B } e injetar
+      // planning_items + ler kanban_columns/planning_items existentes do B.
+      try {
+        await assertWorkspaceAccess(user.id, workspace_id);
+        // Cada mapping aponta pra um client_id. Validar todos antes de bater na ClickUp.
+        const uniqueClientIds = Array.from(
+          new Set(
+            (mappings as Array<{ client_id?: string }>)
+              .map((m) => m.client_id)
+              .filter((id): id is string => !!id)
+          )
+        );
+        for (const cid of uniqueClientIds) {
+          const { workspaceId: clientWorkspaceId } = await assertClientAccess(user.id, cid);
+          if (clientWorkspaceId !== workspace_id) {
+            return res.status(403).json({
+              error: 'Cliente não pertence ao workspace alvo',
+              client_id: cid,
+            });
+          }
+        }
+      } catch (err) {
+        return res.status(errorStatus(err)).json({ error: errorMessage(err) || 'Acesso negado' });
+      }
+
+      const columns = await query<{ id: string; column_type: string | null }>(
         `SELECT id, column_type FROM kanban_columns WHERE workspace_id = $1`,
         [workspace_id]
       );
@@ -231,28 +330,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let attachmentsUploaded = 0;
       const errors: string[] = [];
 
-      const existingItems = await query<any>(
+      const existingItems = await query<{ metadata: unknown }>(
         `SELECT metadata FROM planning_items WHERE workspace_id = $1 AND metadata IS NOT NULL`,
         [workspace_id]
       );
       const existingTaskIds = new Set<string>();
       for (const item of existingItems) {
-        const meta = item.metadata as any;
-        if (meta?.clickup_task_id) existingTaskIds.add(meta.clickup_task_id);
+        const meta = isRecord(item.metadata) ? item.metadata : {};
+        if (typeof meta.clickup_task_id === 'string') existingTaskIds.add(meta.clickup_task_id);
       }
 
-      for (const mapping of mappings as Array<{
-        list_id: string;
-        client_id: string;
-        space_name: string;
-        folder_name: string;
-      }>) {
+      for (const mapping of mappings) {
         let page = 0;
         let hasMore = true;
 
         while (hasMore) {
           try {
-            const tasksRes = await clickupFetch(
+            const tasksRes = await clickupFetch<{ tasks?: ClickUpTask[] }>(
               `/list/${mapping.list_id}/task?archived=false&page=${page}&order_by=due_date&date_updated_gt=${sinceTs}&include_closed=true&subtasks=true`,
               CLICKUP_TOKEN
             );
@@ -279,10 +373,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const statusColumnType = mapStatusToColumnType(task.status.status);
                 const columnId = columnMap.get(statusColumnType) || columnMap.get('idea') || null;
 
-                let mediaUrls: string[] = [];
+                const mediaUrls: string[] = [];
                 if (fetch_attachments) {
                   try {
-                    const taskDetail = await clickupFetch(`/task/${task.id}`, CLICKUP_TOKEN);
+                    const taskDetail = await clickupFetch<{ attachments?: ClickUpAttachment[] }>(`/task/${task.id}`, CLICKUP_TOKEN);
                     const attachments = taskDetail.attachments || [];
                     for (const att of attachments.slice(0, 5)) {
                       const publicUrl = await uploadAttachmentToBlob(att, task.id, CLICKUP_TOKEN);
@@ -332,18 +426,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   );
                   imported++;
                   existingTaskIds.add(task.id);
-                } catch (insertErr: any) {
-                  errors.push(`Task "${task.name}": ${insertErr.message}`);
+                } catch (insertErr) {
+                  errors.push(`Task "${task.name}": ${errorMessage(insertErr)}`);
                 }
-              } catch (e: any) {
-                errors.push(`Task "${task.name}": ${e.message}`);
+              } catch (err) {
+                errors.push(`Task "${task.name}": ${errorMessage(err)}`);
               }
             }
 
             if (tasks.length < 100) hasMore = false;
             else page++;
-          } catch (e: any) {
-            errors.push(`List ${mapping.list_id}: ${e.message}`);
+          } catch (err) {
+            errors.push(`List ${mapping.list_id}: ${errorMessage(err)}`);
             hasMore = false;
           }
         }
@@ -361,13 +455,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'fetch-attachments') {
       const { workspace_id, limit = 20 } = body;
 
-      const items = await query<any>(
+      if (!workspace_id) {
+        return res.status(400).json({ error: 'workspace_id required' });
+      }
+      // SEC 2026-05-18 audit P0: idem import — fetch-attachments lia
+      // planning_items.metadata e media_urls de qualquer workspace.
+      try {
+        await assertWorkspaceAccess(user.id, workspace_id);
+      } catch (err) {
+        return res.status(errorStatus(err)).json({ error: errorMessage(err) || 'Acesso negado' });
+      }
+
+      const items = await query<{ id: string; metadata: unknown; media_urls: unknown }>(
         `SELECT id, metadata, media_urls FROM planning_items
           WHERE workspace_id = $1 AND metadata IS NOT NULL LIMIT $2`,
         [workspace_id, limit]
       );
 
-      const itemsToProcess = items.filter((item: any) => {
+      const itemsToProcess = items.filter((item) => {
         const urls = item.media_urls;
         return !urls || (Array.isArray(urls) && urls.length === 0);
       });
@@ -376,11 +481,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const errors: string[] = [];
 
       for (const item of itemsToProcess) {
-        const meta = item.metadata as any;
-        if (!meta?.clickup_task_id) continue;
+        const meta = isRecord(item.metadata) ? item.metadata : {};
+        if (typeof meta.clickup_task_id !== 'string') continue;
 
         try {
-          const taskDetail = await clickupFetch(`/task/${meta.clickup_task_id}`, CLICKUP_TOKEN);
+          const taskDetail = await clickupFetch<{ attachments?: ClickUpAttachment[] }>(`/task/${meta.clickup_task_id}`, CLICKUP_TOKEN);
           const attachments = taskDetail.attachments || [];
           if (attachments.length === 0) continue;
 
@@ -391,14 +496,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
 
           if (mediaUrls.length > 0) {
-            await pool.query(`UPDATE planning_items SET media_urls = $1 WHERE id = $2`, [
+            await pool.query(`UPDATE planning_items SET media_urls = $1 WHERE id = $2 AND workspace_id = $3`, [
               mediaUrls,
               item.id,
+              workspace_id,
             ]);
             updated++;
           }
-        } catch (e: any) {
-          errors.push(`Item ${item.id}: ${e.message}`);
+        } catch (err) {
+          errors.push(`Item ${item.id}: ${errorMessage(err)}`);
         }
       }
 
@@ -409,8 +515,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error:
         'Unknown action. Use ?action=discover, ?action=import, or ?action=fetch-attachments',
     });
-  } catch (e: any) {
-    console.error('import-clickup error:', e);
-    return res.status(500).json({ error: e.message });
+  } catch (err) {
+    console.error('import-clickup error:', err);
+    return res.status(500).json({ error: errorMessage(err) });
   }
 }

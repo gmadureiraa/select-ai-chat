@@ -58,8 +58,8 @@ export default authedPost(async ({ body, user }) => {
 
   // Verifica acesso — item precisa estar em workspace que o user é membro,
   // ou user é super_admin.
-  const access = await queryOne<{ ok: boolean }>(
-    `SELECT TRUE AS ok
+  const access = await queryOne<{ workspace_id: string }>(
+    `SELECT pi.workspace_id
        FROM planning_items pi
        LEFT JOIN workspace_members wm
          ON wm.workspace_id = pi.workspace_id AND wm.user_id = $2
@@ -71,23 +71,27 @@ export default authedPost(async ({ body, user }) => {
       LIMIT 1`,
     [data.id, user.id],
   );
-  if (!access?.ok) {
+  if (!access) {
     throw new Error('Item não encontrado ou acesso negado');
   }
 
   // Sec2: se vai mover pra coluna nova, valida que coluna é do mesmo workspace.
   if (data.column_id) {
-    const wsRow = await queryOne<{ workspace_id: string }>(
-      `SELECT workspace_id FROM planning_items WHERE id = $1 LIMIT 1`,
-      [data.id],
+    await assertColumnInWorkspace(data.column_id, access.workspace_id);
+  }
+
+  if (data.client_id) {
+    const client = await queryOne<{ id: string }>(
+      `SELECT id FROM clients WHERE id = $1 AND workspace_id = $2 LIMIT 1`,
+      [data.client_id, access.workspace_id],
     );
-    if (wsRow?.workspace_id) {
-      await assertColumnInWorkspace(data.column_id, wsRow.workspace_id);
+    if (!client) {
+      throw new Error('client_id não pertence ao workspace do item');
     }
   }
 
   const updates: string[] = [];
-  const params: any[] = [];
+  const params: unknown[] = [];
   for (const [key, value] of Object.entries(data)) {
     if (key === 'id') continue;
     if (value === undefined) continue;

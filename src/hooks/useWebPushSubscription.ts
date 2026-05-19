@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { apiInvoke } from '../lib/apiInvoke';
+import { logger } from "@/lib/logger";
 
 interface WebPushState {
   isSupported: boolean;
@@ -53,7 +54,7 @@ export function useWebPushSubscription() {
           permission,
         });
       } catch (error) {
-        console.error("[useWebPushSubscription] Error checking status:", error);
+        logger.error("Error checking status", { feature: "useWebPushSubscription", err: error });
         setState({
           isSupported: true,
           isSubscribed: false,
@@ -69,7 +70,7 @@ export function useWebPushSubscription() {
   // Subscribe to push notifications
   const subscribe = useCallback(async (): Promise<boolean> => {
     if (!user || !workspace) {
-      console.error("[useWebPushSubscription] No user or workspace");
+      logger.error("No user or workspace", { feature: "useWebPushSubscription" });
       return false;
     }
 
@@ -89,7 +90,7 @@ export function useWebPushSubscription() {
       );
 
       if (keyError || !keyData?.publicKey) {
-        console.error("[useWebPushSubscription] Error getting VAPID key:", keyError);
+        logger.error("Error getting VAPID key", { feature: "useWebPushSubscription", err: keyError });
         setState((prev) => ({ ...prev, isLoading: false }));
         return false;
       }
@@ -139,7 +140,7 @@ export function useWebPushSubscription() {
         );
 
       if (saveError) {
-        console.error("[useWebPushSubscription] Error saving subscription:", saveError);
+        logger.error("Error saving subscription", { feature: "useWebPushSubscription", err: saveError, userId: user.id });
         throw saveError;
       }
 
@@ -154,7 +155,7 @@ export function useWebPushSubscription() {
 
       return true;
     } catch (error) {
-      console.error("[useWebPushSubscription] Error subscribing:", error);
+      logger.error("Error subscribing", { feature: "useWebPushSubscription", err: error });
       setState((prev) => ({ ...prev, isLoading: false }));
       return false;
     }
@@ -191,7 +192,7 @@ export function useWebPushSubscription() {
 
       return true;
     } catch (error) {
-      console.error("[useWebPushSubscription] Error unsubscribing:", error);
+      logger.error("Error unsubscribing", { feature: "useWebPushSubscription", err: error });
       setState((prev) => ({ ...prev, isLoading: false }));
       return false;
     }

@@ -9,7 +9,7 @@ const REQUIRED_ENV = ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET'];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
 
   const frontendUrl = process.env.FRONTEND_URL || 'https://kai.kaleidos.com.br';
 

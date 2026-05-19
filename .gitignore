@@ -38,3 +38,8 @@ lhci-report/
 
 # Eval runs — relatório local
 evals/last-run.json
+
+# Local audit/seed scratch scripts. Keep client-specific DB probes out of commits.
+_check-*.mjs
+_schema-check.mjs
+_seed-*.mjs

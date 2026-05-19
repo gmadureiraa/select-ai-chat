@@ -3,6 +3,7 @@
 // Publisher 2026-05-17 → Late.ai como único provider (Postiz arquivado).
 import { authedPost } from '../_lib/handler.js';
 import { getPool, queryOne } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
 import latePostHandler from './late-post.js';
 import { put } from '@vercel/blob';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -11,6 +12,10 @@ interface SlideInput {
   order: number;
   dataUrl: string; // "data:image/png;base64,..."
 }
+type LatePayload = {
+  error?: string;
+  [key: string]: unknown;
+};
 
 const MAX_SLIDES = 10;
 const MAX_DATAURL_BYTES = 8 * 1024 * 1024;
@@ -24,6 +29,10 @@ function dataUrlToBytes(dataUrl: string): { bytes: Buffer; mime: string } | null
   } catch {
     return null;
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'unknown';
 }
 
 export default authedPost(async ({ user, body, req, res }) => {
@@ -58,17 +67,19 @@ export default authedPost(async ({ user, body, req, res }) => {
     throw new Error(`Caption excede ${MAX_CAPTION} chars`);
   }
 
-  // Verify user has access to this client (workspace membership)
-  const access = await queryOne<{ ok: boolean }>(
-    `SELECT TRUE AS ok
-       FROM clients c
-       JOIN workspace_members wm ON wm.workspace_id = c.workspace_id
-      WHERE c.id = $1 AND wm.user_id = $2
+  const { workspaceId } = await assertClientAccess(user.id, clientId);
+
+  const carousel = await queryOne<{ planning_item_id: string | null }>(
+    `SELECT planning_item_id
+       FROM viral_carousels
+      WHERE id = $1
+        AND client_id = $2
+        AND workspace_id = $3
       LIMIT 1`,
-    [clientId, user.id]
+    [carouselId, clientId, workspaceId],
   );
-  if (!access) {
-    throw new Error('Acesso negado a esse cliente');
+  if (!carousel) {
+    throw new Error('Carrossel não encontrado ou fora do cliente/workspace');
   }
 
   const sortedSlides = [...slides].sort((a, b) => a.order - b.order);
@@ -97,9 +108,9 @@ export default authedPost(async ({ user, body, req, res }) => {
         token: blobToken,
       });
       mediaUrls.push(blob.url);
-    } catch (upErr: any) {
+    } catch (upErr: unknown) {
       console.error(`[publish-viral-carousel] upload slide ${slide.order} failed:`, upErr);
-      throw new Error(`Falha no upload do slide ${slide.order}: ${upErr?.message ?? 'unknown'}`);
+      throw new Error(`Falha no upload do slide ${slide.order}: ${errorMessage(upErr)}`);
     }
   }
 
@@ -110,13 +121,20 @@ export default authedPost(async ({ user, body, req, res }) => {
   // não atualiza o planning_item correspondente quando o user publica direto
   // pelo botão "Publicar/Agendar" do preview do SV, deixando o card no Kanban
   // travado em status='scheduled' mesmo após postagem confirmada na Late.
-  let resolvedPlanningItemId = planningItemId;
-  if (!resolvedPlanningItemId) {
-    const linked = await queryOne<{ planning_item_id: string | null }>(
-      `SELECT planning_item_id FROM viral_carousels WHERE id = $1 LIMIT 1`,
-      [carouselId],
-    ).catch(() => null);
-    if (linked?.planning_item_id) resolvedPlanningItemId = linked.planning_item_id;
+  const resolvedPlanningItemId = planningItemId || carousel.planning_item_id || undefined;
+  if (resolvedPlanningItemId) {
+    const planningItem = await queryOne<{ id: string }>(
+      `SELECT id
+         FROM planning_items
+        WHERE id = $1
+          AND client_id = $2
+          AND workspace_id = $3
+        LIMIT 1`,
+      [resolvedPlanningItemId, clientId, workspaceId],
+    );
+    if (!planningItem) {
+      throw new Error('planningItemId não pertence ao mesmo cliente/workspace do carrossel');
+    }
   }
 
   // Call late-post handler in-process via a captured pseudo response.
@@ -132,7 +150,7 @@ export default authedPost(async ({ user, body, req, res }) => {
 
   const publishHandler = latePostHandler;
 
-  let latePayload: any = null;
+  let latePayload: LatePayload | null = null;
   let lateStatus = 200;
   const mockRes = {
     statusCode: 200,
@@ -143,8 +161,10 @@ export default authedPost(async ({ user, body, req, res }) => {
       lateStatus = code;
       return this;
     },
-    json(payload: any) {
-      latePayload = payload;
+    json(payload: unknown) {
+      latePayload = payload && typeof payload === 'object'
+        ? payload as LatePayload
+        : { error: String(payload) };
       this.writableEnded = true;
       return this;
     },
@@ -152,16 +172,16 @@ export default authedPost(async ({ user, body, req, res }) => {
       this.writableEnded = true;
       return this;
     },
-  } as any as VercelResponse;
+  } as unknown as VercelResponse;
 
   const mockReq = {
     method: 'POST',
     headers: req.headers,
     body: lateBody,
     query: {},
-  } as any as VercelRequest;
+  } as unknown as VercelRequest;
 
-  await (publishHandler as any)(mockReq, mockRes);
+  await (publishHandler as unknown as (mockReq: VercelRequest, mockRes: VercelResponse) => Promise<void>)(mockReq, mockRes);
 
   if (lateStatus >= 400 || !latePayload) {
     console.error(`[publish-viral-carousel] late-post failed:`, lateStatus, latePayload);
@@ -174,21 +194,28 @@ export default authedPost(async ({ user, body, req, res }) => {
   }
 
   // Update carousel state
-  await getPool().query(
+  const updateResult = await getPool().query(
     `UPDATE viral_carousels
         SET status = $1,
             published_at = $2,
             scheduled_for = $3,
             last_publish_media_urls = $4::jsonb
-      WHERE id = $5`,
+      WHERE id = $5
+        AND client_id = $6
+        AND workspace_id = $7`,
     [
       scheduledFor ? 'scheduled' : 'published',
       scheduledFor ? null : new Date().toISOString(),
       scheduledFor ?? null,
       JSON.stringify(mediaUrls),
       carouselId,
+      clientId,
+      workspaceId,
     ]
   );
+  if (updateResult.rowCount !== 1) {
+    throw new Error('Falha ao atualizar carrossel publicado');
+  }
 
   return {
     ok: true,

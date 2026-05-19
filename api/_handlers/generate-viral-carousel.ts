@@ -21,6 +21,7 @@ import {
   type ClientContext,
 } from '../_lib/shared/client-context.js';
 import { checkTokens, debitTokens, VIRAL_TOKEN_COSTS } from '../_lib/shared/tokens.js';
+import { rateLimit, getRateLimitKey } from '../_lib/shared/rate-limit.js';
 
 const TARGET_SLIDES_DEFAULT = 8;
 
@@ -63,6 +64,13 @@ interface RequestBody {
   visualTemplate?: string;
 }
 
+// 2026-05-18 — Lista canônica DEVE espelhar TemplateId em
+// `src/components/kai/viral-sv-original/components/app/templates/types.ts`.
+// Bug encontrado durante revisão amanhã (urgente): faltavam `serif-duelo`,
+// `madureira-dark` e `defiverso-cripto-dark` — exatamente os 3 templates
+// ATIVOS no allowlist client-side. Quando o user gerava um carrossel pra
+// Madureira ou Defiverso pelo /api manual/automation, caía em fallback
+// silencioso pro `twitter` e o style_meta.visual_template virava errado.
 const VALID_VISUAL_TEMPLATES = new Set([
   'manifesto',
   'futurista',
@@ -72,10 +80,13 @@ const VALID_VISUAL_TEMPLATES = new Set([
   'blank',
   'bohdan',
   'paper-mono',
+  'serif-duelo',
   'madureira',
   'madureira-reflection',
+  'madureira-dark',
   'dsec-dark',
   'defiverso-carrossel',
+  'defiverso-cripto-dark',
 ]);
 
 function normalizeVisualTemplate(raw: unknown): string {
@@ -330,7 +341,7 @@ async function resolveDraftColumnId(workspaceId: string): Promise<string | null>
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
 
   try {
@@ -415,6 +426,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!userId) {
       return jsonError(res, 401, 'Sem user_id pra persistir');
+    }
+
+    // Rate limit per-user (defesa-em-profundidade além do workspace token bucket).
+    // Carrossel é caro: Gemini Pro + N image searches. Cap 10/min por user real.
+    if (authedUserId && !isCron && !isInternalCall) {
+      const rlKey = getRateLimitKey(req, 'gen-viral-carousel', authedUserId);
+      const rl = await rateLimit({ key: rlKey, limit: 10, windowMs: 60_000 });
+      if (!rl.allowed) {
+        res.setHeader('Retry-After', String(rl.retryAfterSec));
+        return jsonError(res, 429, `Rate limit excedido (10/min). Tente em ${rl.retryAfterSec}s.`);
+      }
     }
 
     // Token check (Fase F — 2026-05-08).

@@ -8,6 +8,7 @@ import {
   DragOverlay,
   PointerSensor,
   KeyboardSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCorners,
@@ -134,8 +135,15 @@ export const KanbanView = forwardRef<KanbanViewHandle, KanbanViewProps>(function
     return () => window.removeEventListener('resize', updateHeight);
   }, []);
 
+  // Sensores separados pra desktop vs mobile:
+  // - PointerSensor com distance: 6 funciona bem com mouse, mas em touch device
+  //   ativa drag ao tentar scrollar horizontal (snap-x). Resultado: card "gruda"
+  //   no dedo quando user só quer trocar de coluna.
+  // - TouchSensor com delay: 200ms exige hold antes do drag começar, deixando
+  //   o scroll horizontal livre. Tolerance 8 evita drag acidental em swipes longos.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 

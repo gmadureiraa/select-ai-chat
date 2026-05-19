@@ -264,12 +264,15 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         }
       }}
     >
-      {/* Checkbox de seleção em massa — visível em hover ou quando há seleção */}
+      {/* Checkbox de seleção em massa — visível em hover (desktop) ou sempre quando
+          mobile pra ser touch-friendly (sem hover = sem revelar). */}
       {onCardClick && (
         <div
           className={cn(
             "absolute top-2 left-2 z-10 transition-opacity",
-            (isSelected || hasSelection) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            (isSelected || hasSelection)
+              ? "opacity-100"
+              : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
           )}
           onClick={(e) => {
             e.stopPropagation();
@@ -446,7 +449,10 @@ export const PlanningItemCard = memo(function PlanningItemCard({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                  // Mobile (sem hover) precisa ver o menu pra abrir; desktop só
+                  // revela em hover pra não poluir o card. h-7 w-7 em mobile pra
+                  // ficar mais perto do mínimo de 44px tap target.
+                  className="h-7 w-7 sm:h-6 sm:w-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   aria-label="Ações do item"
                   aria-haspopup="menu"
                 >

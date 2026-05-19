@@ -250,14 +250,15 @@ export function RichContentEditor({
                 btn.action();
               }}
               title={btn.title}
+              aria-label={btn.title}
               type="button"
             >
-              <btn.icon className="h-3.5 w-3.5" />
+              <btn.icon className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           ))}
-          
-          <div className="w-px h-4 bg-border mx-1" />
-          
+
+          <div className="w-px h-4 bg-border mx-1" aria-hidden="true" />
+
           <Button
             variant="ghost"
             size="icon"
@@ -268,12 +269,13 @@ export function RichContentEditor({
             }}
             disabled={isUploading}
             title="Inserir imagem"
+            aria-label={isUploading ? "Enviando imagem" : "Inserir imagem"}
             type="button"
           >
             {isUploading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
             ) : (
-              <Image className="h-3.5 w-3.5" />
+              <Image className="h-3.5 w-3.5" aria-hidden="true" />
             )}
           </Button>
         </div>

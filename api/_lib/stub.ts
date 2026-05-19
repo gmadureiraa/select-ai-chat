@@ -6,7 +6,7 @@ import { applyCors, handlePreflight } from './cors.js';
 export function notImplemented(name: string) {
   return async function (req: VercelRequest, res: VercelResponse) {
     if (handlePreflight(req, res)) return;
-    applyCors(res);
+    applyCors(res, req);
     res.status(501).json({
       error: 'Not Implemented',
       message: `Edge function "${name}" not yet migrated to Vercel Functions.`,

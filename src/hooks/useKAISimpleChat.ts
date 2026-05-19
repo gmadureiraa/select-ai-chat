@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { streamSSEToCallback } from "@/lib/parseOpenAIStream";
 import { toast } from "sonner";
 import type { KAIActionCard, KAIApprovalRequest } from "@/types/kai-stream";
+import { logger } from "@/lib/logger";
 
 export interface SimpleMessage {
   id: string;
@@ -78,7 +79,7 @@ export function useKAISimpleChat({
         .order("created_at", { ascending: true });
 
       if (error) {
-        console.error("[useKAISimpleChat] Error loading messages:", error);
+        logger.error("Error loading messages", { feature: "useKAISimpleChat", err: error });
         return;
       }
 
@@ -92,7 +93,7 @@ export function useKAISimpleChat({
         })));
       }
     } catch (error) {
-      console.error("[useKAISimpleChat] Error loading messages:", error);
+      logger.error("Error loading messages", { feature: "useKAISimpleChat", err: error });
     } finally {
       isLoadingMessagesRef.current = false;
     }
@@ -114,10 +115,10 @@ export function useKAISimpleChat({
         });
 
       if (error) {
-        console.error("[useKAISimpleChat] Error saving message:", error);
+        logger.error("Error saving message", { feature: "useKAISimpleChat", err: error });
       }
     } catch (error) {
-      console.error("[useKAISimpleChat] Error saving message:", error);
+      logger.error("Error saving message", { feature: "useKAISimpleChat", err: error });
     }
   }, []);
 
@@ -143,7 +144,7 @@ export function useKAISimpleChat({
         .single();
 
       if (error) {
-        console.error("[useKAISimpleChat] Error creating conversation:", error);
+        logger.error("Error creating conversation", { feature: "useKAISimpleChat", err: error, clientId });
         return null;
       }
 
@@ -152,7 +153,7 @@ export function useKAISimpleChat({
       onConversationCreated?.(newId);
       return newId;
     } catch (error) {
-      console.error("[useKAISimpleChat] Error creating conversation:", error);
+      logger.error("Error creating conversation", { feature: "useKAISimpleChat", err: error, clientId });
       return null;
     }
   }, [clientId, onConversationCreated]);
@@ -260,7 +261,7 @@ export function useKAISimpleChat({
           }
         }
       } catch (err) {
-        console.warn("[useKAISimpleChat] failed to serialize uiState:", err);
+        logger.warn("failed to serialize uiState", { feature: "useKAISimpleChat", err });
       }
 
       // Migrated 2026-05-07: Supabase edge function -> Vercel Function /api/kai-simple-chat
@@ -374,7 +375,7 @@ export function useKAISimpleChat({
             setPendingApproval(req);
           },
           onError: (errorMsg) => {
-            console.error("[KAI] stream error:", errorMsg);
+            logger.error("stream error", { feature: "KAI", err: errorMsg });
             toast.error(errorMsg);
           },
         });
@@ -387,7 +388,7 @@ export function useKAISimpleChat({
         );
         if (!wasPublishing) throw streamErr;
 
-        console.warn("[KAI] stream caiu durante publicação — reconciliando status no banco…");
+        logger.warn("stream caiu durante publicação, reconciliando status no banco", { feature: "KAI" });
         toast.info("Conexão caiu, conferindo se a publicação foi…");
 
         // Espera 3s pro backend terminar e confere o status do item mais recente
@@ -481,7 +482,7 @@ export function useKAISimpleChat({
         return;
       }
 
-      console.error("[useKAISimpleChat] Error:", error);
+      logger.error("send error", { feature: "useKAISimpleChat", err: error });
       
       // Update assistant message with error
       const errorMessage = (error as Error).message === "insufficient_credits"

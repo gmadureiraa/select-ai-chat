@@ -6,9 +6,13 @@ import { head } from "@vercel/blob";
 import { tryAuth } from "../_lib/auth.js";
 import { applyCors, handlePreflight } from "../_lib/cors.js";
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "signed-url failed";
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -29,8 +33,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const proxy = `${proto}://${host}/api/blob/download?path=${encodeURIComponent(path)}`;
       return res.status(200).json({ signedUrl: proxy, expiresAt: null });
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error("[blob/signed-url] error:", err);
-    return res.status(500).json({ error: err.message ?? "signed-url failed" });
+    return res.status(500).json({ error: errorMessage(err) });
   }
 }

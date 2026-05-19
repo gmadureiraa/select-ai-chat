@@ -5,9 +5,13 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { tryAuth } from "../_lib/auth.js";
 import { applyCors, handlePreflight } from "../_lib/cors.js";
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "upload-token failed";
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -26,7 +30,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let parsed: { bucket?: string; contentType?: string } = {};
         try {
           if (clientPayload) parsed = JSON.parse(clientPayload);
-        } catch {}
+        } catch {
+          parsed = {};
+        }
 
         return {
           allowedContentTypes: parsed.contentType
@@ -45,8 +51,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     return res.status(200).json(json);
-  } catch (err: any) {
+  } catch (err) {
     console.error("[blob/upload-token] error:", err);
-    return res.status(500).json({ error: err.message ?? "upload-token failed" });
+    return res.status(500).json({ error: errorMessage(err) });
   }
 }

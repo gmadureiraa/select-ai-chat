@@ -24,9 +24,20 @@ const STATIC_ALLOWED_ORIGINS = new Set<string>([
 ]);
 
 const ALLOWED_HOST_SUFFIXES = [
-  '.vercel.app',
   '.kaleidos.com.br',
 ];
+
+function deploymentHosts(): Set<string> {
+  return new Set(
+    [
+      process.env.VERCEL_URL,
+      process.env.VERCEL_BRANCH_URL,
+      process.env.NEXT_PUBLIC_VERCEL_URL,
+    ]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map((value) => value.replace(/^https?:\/\//, '').replace(/\/$/, '')),
+  );
+}
 
 function isOriginAllowed(origin: string): boolean {
   if (!origin) return false;
@@ -34,6 +45,7 @@ function isOriginAllowed(origin: string): boolean {
   try {
     const url = new URL(origin);
     const host = url.host;
+    if (deploymentHosts().has(host)) return true;
     if (ALLOWED_HOST_SUFFIXES.some((s) => host.endsWith(s))) return true;
   } catch {
     return false;
@@ -73,9 +85,8 @@ export function applyCors(res: VercelResponse, req?: VercelRequest) {
     // Se origin não bate, não seta Allow-Origin — request cross-origin é bloqueada
     // pelo browser. Server-to-server (sem origin) continua passando.
   } else {
-    // Compatibilidade: caller antigo sem req — mantém wildcard SEM credentials.
-    // (Bearer tokens em Authorization header continuam funcionando server-to-server.)
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Sem req não dá pra validar Origin. Não abrimos wildcard aqui; callers HTTP
+    // devem chamar applyCors(res, req) ou handlePreflight(req, res).
   }
 }
 
@@ -95,7 +106,7 @@ export function jsonError(
   res: VercelResponse,
   status: number,
   message: string,
-  extra?: Record<string, any>,
+  extra?: Record<string, unknown>,
   req?: VercelRequest,
 ) {
   applyCors(res, req);

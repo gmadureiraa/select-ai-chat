@@ -185,10 +185,11 @@ export function ImageLightbox({
               onClick={handleZoomOut}
               className="text-white hover:bg-white/20"
               disabled={zoom <= 0.5}
+              aria-label="Diminuir zoom"
             >
               <ZoomOut className="h-5 w-5" />
             </Button>
-            <span className="text-white/80 text-sm min-w-[3rem] text-center">
+            <span className="text-white/80 text-sm min-w-[3rem] text-center" aria-live="polite">
               {Math.round(zoom * 100)}%
             </span>
             <Button
@@ -198,6 +199,7 @@ export function ImageLightbox({
               onClick={handleZoomIn}
               className="text-white hover:bg-white/20"
               disabled={zoom >= 3}
+              aria-label="Aumentar zoom"
             >
               <ZoomIn className="h-5 w-5" />
             </Button>
@@ -208,6 +210,7 @@ export function ImageLightbox({
               onClick={handleDownload}
               className="text-white hover:bg-white/20"
               title="Baixar mídia atual"
+              aria-label="Baixar mídia atual"
             >
               <Download className="h-5 w-5" />
             </Button>
@@ -220,9 +223,10 @@ export function ImageLightbox({
                 className="text-white hover:bg-white/20"
                 disabled={downloadingAll}
                 title="Baixar todas as mídias"
+                aria-label="Baixar todas as mídias"
               >
                 {downloadingAll ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
                 ) : (
                   <FolderDown className="h-5 w-5" />
                 )}
@@ -234,6 +238,7 @@ export function ImageLightbox({
               size="icon"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenChange(false); }}
               className="text-white hover:bg-white/20"
+              aria-label="Fechar visualizador"
             >
               <X className="h-5 w-5" />
             </Button>
@@ -271,6 +276,7 @@ export function ImageLightbox({
               size="icon"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePrev(); }}
               className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 h-12 w-12"
+              aria-label="Mídia anterior"
             >
               <ChevronLeft className="h-8 w-8" />
             </Button>
@@ -280,6 +286,7 @@ export function ImageLightbox({
               size="icon"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleNext(); }}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 h-12 w-12"
+              aria-label="Próxima mídia"
             >
               <ChevronRight className="h-8 w-8" />
             </Button>

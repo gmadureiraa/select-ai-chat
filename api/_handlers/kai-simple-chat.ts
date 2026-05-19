@@ -9,6 +9,7 @@ import { tryAuth } from '../_lib/auth.js';
 import { query, queryOne } from '../_lib/db.js';
 import { assertClientAccess } from '../_lib/access.js';
 import { logAIUsage, estimateTokens } from '../_lib/shared/ai-usage.js';
+import { rateLimit, getRateLimitKey } from '../_lib/shared/rate-limit.js';
 import { generateEmbedding, toVectorLiteral } from '../_lib/shared/embeddings.js';
 import {
   CONTENT_TYPE_MAP,
@@ -1756,7 +1757,7 @@ function setSseHeaders(res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   // Enable CORS on streaming responses too.
-  applyCors(res);
+  applyCors(res, req);
 }
 
 function streamSimpleMessage(res: VercelResponse, content: string) {
@@ -1899,7 +1900,7 @@ async function fetchImageAsBase64(url: string): Promise<{ mimeType: string; data
 // ============================================
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   if (req.method !== 'POST') {
     return jsonError(res, 405, 'Method not allowed');
   }
@@ -1930,6 +1931,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return jsonError(res, 401, 'Não autorizado');
       }
       userId = user.id;
+    }
+
+    // P1 fix (2026-05-18) — rate limit (30 msg/min por user). Sem isso,
+    // um bot/erro de frontend que loop chamando kai-simple-chat virava DDoS
+    // gratuito no nosso budget de Gemini. Internal service auth (bot Telegram,
+    // crons) não conta — eles tem auth próprio e fluxo controlado.
+    if (!body.internalServiceAuth) {
+      const rl = await rateLimit({
+        key: getRateLimitKey(req, 'kai-chat', userId),
+        limit: 30,
+        windowMs: 60_000,
+      });
+      if (!rl.allowed) {
+        res.setHeader('Retry-After', String(rl.retryAfterSec));
+        return jsonError(
+          res,
+          429,
+          `Limite de mensagens excedido (30/min). Tente em ${rl.retryAfterSec}s.`,
+        );
+      }
     }
 
     const shouldStream = body.stream !== false;
@@ -2543,6 +2564,17 @@ adicional. O card de confirmação já injeta isso automaticamente.
       setSseHeaders(res);
       const emit = createKAIEmitter(res);
 
+      // P1 fix (2026-05-18) — propaga client disconnect pro runToolLoop.
+      // Sem isso, fechar a aba do user não parava o consumo de Gemini tokens.
+      const abortCtrl = new AbortController();
+      const onClose = () => {
+        if (!abortCtrl.signal.aborted) {
+          console.log('[kai-simple-chat] client disconnected — aborting tool loop');
+          abortCtrl.abort();
+        }
+      };
+      req.on('close', onClose);
+
       const toolCtx: ToolExecutionContext = {
         clientId,
         userId,
@@ -2565,6 +2597,7 @@ adicional. O card de confirmação já injeta isso automaticamente.
             registry,
             emit,
             ctx: toolCtx,
+            signal: abortCtrl.signal,
           });
         const errorCount = toolTraces.filter((t) => t.status === 'error').length;
         console.log(
@@ -2602,6 +2635,7 @@ adicional. O card de confirmação já injeta isso automaticamente.
         console.error('[kai-simple-chat] runToolLoop error:', err);
         emit.error(err instanceof Error ? err.message : String(err));
       } finally {
+        req.off('close', onClose);
         emit.done();
         if (!res.writableEnded) res.end();
       }

@@ -184,6 +184,7 @@ export function WorkspaceMembersTab() {
             "Um administrador",
           role: invite.role,
           expiresAt: invite.expires_at,
+          inviteId: invite.id,
         },
       });
 

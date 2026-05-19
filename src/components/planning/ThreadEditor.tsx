@@ -205,8 +205,9 @@ export function ThreadEditor({
                           size="icon"
                           className="absolute -top-1 -right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={() => removeImage(tweet.id, url)}
+                          aria-label="Remover imagem"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-3 w-3" aria-hidden="true" />
                         </Button>
                       </div>
                     ))}
@@ -254,8 +255,9 @@ export function ThreadEditor({
                 className="h-7 w-7 text-muted-foreground hover:text-destructive"
                 onClick={() => removeTweet(tweet.id)}
                 disabled={value.length <= 1}
+                aria-label="Remover post da thread"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
           </div>

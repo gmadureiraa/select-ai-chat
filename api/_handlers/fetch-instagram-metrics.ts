@@ -2,11 +2,27 @@
 import { authedPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
 import { assertClientAccess } from '../_lib/access.js';
+import { rateLimit, getRateLimitKey } from '../_lib/shared/rate-limit.js';
 
-export default authedPost(async ({ body, user }) => {
+function withStatus(err: Error, status: number): Error {
+  (err as any).status = status;
+  (err as any).statusCode = status;
+  return err;
+}
+
+export default authedPost(async ({ body, user, req, res }) => {
   const { clientId, username } = body;
   if (!clientId || !username) throw new Error('clientId and username are required');
   await assertClientAccess(user.id, clientId);
+
+  // Rate limit: cap 60/min — chamada de métricas dashboard tende a ser bursty,
+  // mas Apify ainda é pago por run.
+  const rlKey = getRateLimitKey(req, 'fetch-ig-metrics', user.id);
+  const rl = await rateLimit({ key: rlKey, limit: 60, windowMs: 60_000 });
+  if (!rl.allowed) {
+    res.setHeader('Retry-After', String(rl.retryAfterSec));
+    throw withStatus(new Error(`Rate limit excedido (60/min). Tente em ${rl.retryAfterSec}s.`), 429);
+  }
 
   const apifyApiKey = (process.env.APIFY_API_KEY || process.env.APIFY_API_TOKEN || '')
     .replace(/\\n/g, '')

@@ -4,6 +4,13 @@ import { authedPost } from '../_lib/handler.js';
 import { put } from '@vercel/blob';
 import { logAIUsage, estimateTokens } from '../_lib/shared/ai-usage.js';
 import { assertClientAccess } from '../_lib/access.js';
+import { rateLimit, getRateLimitKey } from '../_lib/shared/rate-limit.js';
+
+function withStatus(err: Error, status: number): Error {
+  (err as any).status = status;
+  (err as any).statusCode = status;
+  return err;
+}
 
 interface ReferenceImageInput {
   url?: string;
@@ -46,10 +53,19 @@ function parseDataUrl(input: string): { mime: string; data: string } | null {
   return { mime: m[1], data: m[2] };
 }
 
-export default authedPost(async ({ user, body }) => {
+export default authedPost(async ({ user, body, req, res }) => {
   const { prompt, referenceImages, aspectRatio, noText, clientId, model } = body as GenerateImageBody;
   if (!prompt || typeof prompt !== 'string') throw new Error('prompt é obrigatório');
   if (clientId) await assertClientAccess(user.id, clientId);
+
+  // Rate limit: Imagen é caro (Gemini image preview ~1290 outTok/req).
+  // Cap 20/min por user.
+  const rlKey = getRateLimitKey(req, 'gen-image', user.id);
+  const rl = await rateLimit({ key: rlKey, limit: 20, windowMs: 60_000 });
+  if (!rl.allowed) {
+    res.setHeader('Retry-After', String(rl.retryAfterSec));
+    throw withStatus(new Error(`Rate limit excedido (20/min). Tente em ${rl.retryAfterSec}s.`), 429);
+  }
 
   const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
   if (!apiKey) throw new Error('GOOGLE_AI_STUDIO_API_KEY não configurada');

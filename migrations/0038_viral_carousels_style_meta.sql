@@ -27,7 +27,8 @@ ALTER TABLE public.viral_carousels
 -- 2. Recria view com style construído como JSON merge
 DROP VIEW IF EXISTS public.carousels CASCADE;
 
-CREATE VIEW public.carousels AS
+CREATE VIEW public.carousels
+WITH (security_invoker = true) AS
 SELECT
   vc.id,
   vc.client_id,
@@ -63,7 +64,8 @@ SELECT
   vc.updated_at
 FROM public.viral_carousels vc;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.carousels TO authenticated, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.carousels TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.carousels TO service_role;
 
 -- 3. INSERT trigger: split style → template + style_meta
 CREATE OR REPLACE FUNCTION public.carousels_view_insert()

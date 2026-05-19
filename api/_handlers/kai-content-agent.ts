@@ -49,7 +49,7 @@ interface ContentRequest {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
 
   try {
@@ -249,6 +249,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ content });
     }
 
+    // P1 fix (2026-05-18) — abort se cliente fechar conexão durante streaming.
+    const abortCtrl = new AbortController();
+    const onClose = () => {
+      if (!abortCtrl.signal.aborted) {
+        console.log('[kai-content-agent] client disconnected — aborting Gemini stream');
+        abortCtrl.abort();
+      }
+    };
+    req.on('close', onClose);
+
     // Streaming (SSE)
     const r = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse&key=${apiKey}`,
@@ -262,6 +272,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             maxOutputTokens: modelConfig.maxTokens,
           },
         }),
+        signal: abortCtrl.signal,
       }
     );
     if (!r.ok || !r.body) {
@@ -327,6 +338,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.warn('[kai-content-agent] debit failed (non-blocking):', debitErr);
       }
     }
+    req.off('close', onClose);
   } catch (e: any) {
     console.error('Content agent error:', e);
     if (!res.writableEnded) jsonError(res, 500, e?.message || 'Erro desconhecido');

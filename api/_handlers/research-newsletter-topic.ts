@@ -3,6 +3,40 @@
 // Search Grounding e enriquece com newsletter examples do client_content_library.
 import { authedPost } from '../_lib/handler.js';
 import { query } from '../_lib/db.js';
+import { assertClientAccess } from '../_lib/access.js';
+import { rateLimit, getRateLimitKey } from '../_lib/shared/rate-limit.js';
+
+interface StatusError extends Error {
+  status?: number;
+  statusCode?: number;
+}
+
+type JsonRecord = Record<string, unknown>;
+
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{ text?: string }>;
+    };
+    groundingMetadata?: {
+      groundingChunks?: Array<{
+        web?: { uri?: string };
+      }>;
+    };
+  }>;
+}
+
+interface NewsletterExampleRow {
+  title: string;
+  content: string | null;
+}
+
+function withStatus(err: Error, status: number): StatusError {
+  const statusErr = err as StatusError;
+  statusErr.status = status;
+  statusErr.statusCode = status;
+  return statusErr;
+}
 
 interface ResearchBody {
   topic: string;
@@ -32,7 +66,7 @@ async function callGeminiGrounding(
     process.env.GOOGLE_AI_STUDIO_API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GOOGLE_AI_STUDIO_API_KEY não configurada');
 
-  const requestBody: any = {
+  const requestBody: JsonRecord = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     tools: [{ google_search: {} }],
     generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
@@ -55,7 +89,7 @@ async function callGeminiGrounding(
     throw new Error(`Gemini grounding error ${response.status}: ${errorText.slice(0, 200)}`);
   }
 
-  const result = await response.json();
+  const result = await response.json() as GeminiResponse;
   const content = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   const sources: string[] = [];
   const groundingMetadata = result?.candidates?.[0]?.groundingMetadata;
@@ -67,7 +101,7 @@ async function callGeminiGrounding(
   return { content, sources };
 }
 
-export default authedPost(async ({ body }) => {
+export default authedPost(async ({ body, user, req, res }) => {
   const {
     topic,
     client_id,
@@ -78,6 +112,22 @@ export default authedPost(async ({ body }) => {
 
   if (!topic) throw new Error('topic is required');
 
+  // SEC 2026-05-18 audit P1: handler aceitava `client_id` arbitrário e fazia
+  // SELECT em client_content_library, vazando newsletters favoritas de outros
+  // clientes pra qualquer user autenticado.
+  if (client_id) {
+    await assertClientAccess(user.id, client_id);
+  }
+
+  // Rate limit: cap 10/min — pesquisa dispara N Gemini grounding searches
+  // (preço + métricas + news + queries adicionais).
+  const rlKey = getRateLimitKey(req, 'research-newsletter', user.id);
+  const rl = await rateLimit({ key: rlKey, limit: 10, windowMs: 60_000 });
+  if (!rl.allowed) {
+    res.setHeader('Retry-After', String(rl.retryAfterSec));
+    throw withStatus(new Error(`Rate limit excedido (10/min). Tente em ${rl.retryAfterSec}s.`), 429);
+  }
+
   console.log(`[research] starting for topic "${topic}" (depth: ${depth})`);
 
   // ===================================================
@@ -86,7 +136,7 @@ export default authedPost(async ({ body }) => {
   const newsletterExamples: string[] = [];
   if (include_newsletter_examples && client_id) {
     console.log('[research] fetching newsletter examples');
-    const favorites = await query<any>(
+    const favorites = await query<NewsletterExampleRow>(
       `SELECT title, content
          FROM client_content_library
         WHERE client_id = $1
@@ -104,7 +154,7 @@ export default authedPost(async ({ body }) => {
     console.log(`[research] favorites: ${favorites.length}`);
 
     if (newsletterExamples.length < 2) {
-      const recent = await query<any>(
+      const recent = await query<NewsletterExampleRow>(
         `SELECT title, content
            FROM client_content_library
           WHERE client_id = $1
@@ -246,7 +296,7 @@ Use seu conhecimento geral sobre o tema, mas EVITE citar preços ou métricas es
     metrics: [] as string[],
     news: [] as string[],
   };
-  const pricePattern = /(?:Bitcoin|BTC|Ethereum|ETH)\s*[:\-]?\s*\$?([\d,.]+)/gi;
+  const pricePattern = /(?:Bitcoin|BTC|Ethereum|ETH)\s*[:-]?\s*\$?([\d,.]+)/gi;
   for (const r of researchResults) {
     const matches = r.matchAll(pricePattern);
     for (const m of matches) marketData.prices.push(m[0]);

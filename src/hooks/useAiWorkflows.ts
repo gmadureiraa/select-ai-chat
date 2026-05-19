@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { apiInvoke } from '@/lib/apiInvoke';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
 
 export interface AiWorkflowConfig {
   client_id?: string;
@@ -208,7 +209,7 @@ export function useAiWorkflows() {
 
       if (error) {
         // ai_workflows pode nao existir em workspaces que não rodaram migration 0016
-        console.warn('[useAiWorkflows] error:', error.message);
+        logger.warn('list workflows error', { feature: 'useAiWorkflows', err: error.message, workspaceId });
         return [];
       }
 
@@ -227,7 +228,7 @@ export function useAiWorkflows() {
         .eq('workspace_id', workspaceId);
 
       if (error) {
-        console.warn('[useAiWorkflows agents] error:', error.message);
+        logger.warn('list agents error', { feature: 'useAiWorkflows', err: error.message, workspaceId });
         return [];
       }
       return (data || []) as unknown as AiAgent[];
@@ -252,7 +253,7 @@ export function useAiWorkflows() {
       toast.success(data?.is_active ? 'Workflow ativado' : 'Workflow pausado');
     },
     onError: (error: Error) => {
-      console.error('Error toggling workflow:', error);
+      logger.error('toggle workflow failed', { feature: 'useAiWorkflows', err: error });
       toast.error('Erro ao alterar status do workflow');
     },
   });
@@ -276,7 +277,7 @@ export function useAiWorkflows() {
       toast.success('Workflow atualizado');
     },
     onError: (error: Error) => {
-      console.error('Error updating workflow:', error);
+      logger.error('update workflow failed', { feature: 'useAiWorkflows', err: error });
       toast.error(`Erro ao atualizar workflow: ${error.message}`);
     },
   });
@@ -296,7 +297,7 @@ export function useAiWorkflows() {
       toast.success('Workflow disparado. Veja runs pra acompanhar.');
     },
     onError: (error: Error) => {
-      console.error('Error triggering workflow:', error);
+      logger.error('trigger workflow failed', { feature: 'useAiWorkflows', err: error });
       toast.error(`Erro ao disparar workflow: ${error.message}`);
     },
   });
@@ -322,7 +323,7 @@ export function useAiWorkflows() {
       toast.success('Agent atualizado');
     },
     onError: (error: Error) => {
-      console.error('Error updating agent:', error);
+      logger.error('update agent failed', { feature: 'useAiWorkflows', err: error });
       toast.error(`Erro ao atualizar agent: ${error.message}`);
     },
   });

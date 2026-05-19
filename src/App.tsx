@@ -44,11 +44,10 @@ const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const ExportMadureira = lazyWithRetry(() => import("./pages/ExportMadureira"));
 const NoWorkspacePage = lazyWithRetry(() => import("./pages/NoWorkspacePage"));
 const Offline = lazyWithRetry(() => import("./pages/Offline"));
-const ClientsListPage = lazyWithRetry(() =>
-  import("@/components/clients/ClientsListPage").then((m) => ({
-    default: m.ClientsListPage,
-  })),
-);
+// 2026-05-18 — ClientsListPage NÃO é mais lazy aqui. Foi restaurado como tab
+// inline dentro de Kai (`/kaleidos?tab=clients`), o lazy import dele vive em
+// `pages/Kai.tsx`. Manter o import morto aqui criava um chunk extra (~24kB)
+// baixado em paralelo no entry mesmo sem rota correspondente.
 
 // QueryClient com defaults sãos pra Neon serverless (cold start ~1-2s).
 // - refetchOnWindowFocus: false → evita cascade ao Cmd+Tab (era o gargalo real).

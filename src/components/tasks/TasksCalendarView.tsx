@@ -253,8 +253,9 @@ export function TasksCalendarView({
                       }}
                       className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-muted/50 rounded"
                       title="Nova tarefa neste dia"
+                      aria-label={`Nova tarefa em ${format(day, "d 'de' MMMM", { locale: ptBR })}`}
                     >
-                      <Plus className="h-3 w-3" />
+                      <Plus className="h-3 w-3" aria-hidden="true" />
                     </button>
                   )}
                 </div>

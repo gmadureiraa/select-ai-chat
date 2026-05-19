@@ -61,7 +61,7 @@ function buildLibraryPreviewProfile(profile: UserProfile | null): {
   };
 }
 
-type FilterKey = "all" | "drafts" | "published" | "archived";
+type FilterKey = "all" | "drafts" | "published";
 
 export default function CarouselsPage() {
   const { user, refreshProfile, profile } = useAuth();
@@ -152,7 +152,6 @@ export default function CarouselsPage() {
       all: carousels.length,
       drafts: carousels.filter((c) => c.status !== "published").length,
       published: carousels.filter((c) => c.status === "published").length,
-      archived: 0,
     };
   }, [carousels]);
 
@@ -172,7 +171,6 @@ export default function CarouselsPage() {
     .filter((c) => {
       if (filter === "drafts" && c.status === "published") return false;
       if (filter === "published" && c.status !== "published") return false;
-      if (filter === "archived") return false;
       if (tagFilter && !(c.tags || []).includes(tagFilter)) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -405,7 +403,7 @@ export default function CarouselsPage() {
           <div className="max-w-3xl">
             <h1
               className="sv-display"
-              style={{ fontSize: "clamp(40px, 6vw, 72px)", lineHeight: 0.95, letterSpacing: "-0.02em" }}
+              style={{ fontSize: "clamp(40px, 6vw, 72px)", lineHeight: 0.95, letterSpacing: 0 }}
             >
               Seus <em>carrosséis</em>.
             </h1>
@@ -480,7 +478,6 @@ export default function CarouselsPage() {
                   ["all", "Todos", counts.all],
                   ["drafts", "Em edição", counts.drafts],
                   ["published", "Publicados", counts.published],
-                  ["archived", "Arquivados", counts.archived],
                 ] as const
               ).map(([key, label, n]) => (
                 <button
@@ -811,7 +808,7 @@ function CarouselCard({
             fontStyle: "italic",
             fontSize: "clamp(18px, 2.4vw, 24px)",
             lineHeight: 1.15,
-            letterSpacing: "-0.01em",
+            letterSpacing: 0,
             margin: 0,
             overflow: "hidden",
             display: "-webkit-box",
@@ -862,7 +859,7 @@ function CarouselCard({
             <Copy size={11} /> Duplicar
           </button>
           <Link
-            href={`/app/create/${carousel.id}/edit`}
+            href={`/app/create/${carousel.id}/preview`}
             className="sv-btn-outline"
             style={{ padding: "7px 12px", fontSize: 9.5 }}
           >
@@ -915,7 +912,7 @@ function CarouselCard({
             fontFamily: "var(--sv-display)",
             fontSize: 22,
             lineHeight: 1.05,
-            letterSpacing: "-0.01em",
+            letterSpacing: 0,
             color: "var(--sv-ink)",
           }}
         >

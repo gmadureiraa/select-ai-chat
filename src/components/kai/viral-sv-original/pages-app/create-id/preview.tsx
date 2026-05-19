@@ -116,7 +116,10 @@ export default function PreviewPage(props: {
     }
   }, [id]);
 
-  const slides = snapshot?.slides ?? draft?.slides ?? [];
+  const slides = useMemo(
+    () => snapshot?.slides ?? draft?.slides ?? [],
+    [snapshot?.slides, draft?.slides],
+  );
   const templateId: TemplateId =
     snapshot?.visualTemplate ?? draft?.visualTemplate ?? "manifesto";
   const accentOverride = snapshot?.accentOverride ?? draft?.accentOverride;
@@ -159,9 +162,7 @@ export default function PreviewPage(props: {
   // 2026-05-09 — Zernio scheduling REMOVIDO do KAI 2.0. Os endpoints
   // `/api/zernio/*` foram removidos (Zernio era SaaS standalone).
   // 2026-05-18 rev2 — Metricool também REMOVIDO. KAI 2.0 publica via Late/Zernio
-  // (handler `publish-viral-carousel` → `late-post`). Variáveis mantêm prefixo
-  // `metricool*` por inércia (todo: rename pra `latePublish*` num refactor),
-  // mas o publisher real é Late.ai.
+  // (handler `publish-viral-carousel` → `late-post`).
   const isAdmin = isAdminEmail(profile?.email ?? user?.email);
   // Late publish — fluxo unificado do KAI 2.0. Captura PNGs dos slides →
   // upload pro Vercel Blob via publish-viral-carousel → late-post cria o
@@ -169,11 +170,11 @@ export default function PreviewPage(props: {
   // no planning_item (quando linkado) e last_publish_media_urls no carrossel.
   // Disponível pra qualquer plano pago + admin enquanto cliente tiver conta
   // Late conectada (Settings → Integrações).
-  const canPublishMetricool = isAdmin || profile?.plan === "pro" || profile?.plan === "business";
-  const [metricoolPublishing, setMetricoolPublishing] = useState(false);
-  const [metricoolPostId, setMetricoolPostId] = useState<string | null>(null);
-  const [metricoolMode, setMetricoolMode] = useState<"now" | "schedule">("now");
-  const [metricoolScheduledLocal, setMetricoolScheduledLocal] = useState<string>(() => {
+  const canPublishLate = isAdmin || profile?.plan === "pro" || profile?.plan === "business";
+  const [latePublishing, setLatePublishing] = useState(false);
+  const [latePostId, setLatePostId] = useState<string | null>(null);
+  const [latePublishMode, setLatePublishMode] = useState<"now" | "schedule">("now");
+  const [lateScheduledLocal, setLateScheduledLocal] = useState<string>(() => {
     const d = new Date(Date.now() + 60 * 60 * 1000); // +1h default
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -543,7 +544,7 @@ export default function PreviewPage(props: {
    *  - "Conta instagram não conectada" → conectar no Settings → Integrações
    *  - "Credenciais do instagram expiradas" → reconectar conta Late
    */
-  async function handleMetricoolPublish(mode: "now" | "schedule") {
+  async function handleLatePublish(mode: "now" | "schedule") {
     if (!draft || slides.length === 0) {
       toast.error("Carrossel ainda carregando.");
       return;
@@ -556,12 +557,12 @@ export default function PreviewPage(props: {
       toast.error("Instagram suporta no máximo 10 slides por carrossel.");
       return;
     }
-    if (mode === "schedule" && !metricoolScheduledLocal) {
+    if (mode === "schedule" && !lateScheduledLocal) {
       toast.error("Defina data/hora pra agendar.");
       return;
     }
-    if (metricoolPublishing) return;
-    setMetricoolPublishing(true);
+    if (latePublishing) return;
+    setLatePublishing(true);
     try {
       // Captura PNGs reais via mesmo pipeline do export ZIP.
       toast.info("Capturando slides...");
@@ -587,7 +588,7 @@ export default function PreviewPage(props: {
       // ISO local datetime → ISO 8601 com segundos. (legado Metricool usava
       // publicationDate.dateTime + timezone; Late/Zernio aceita ISO 8601 puro).
       const scheduledFor =
-        mode === "schedule" ? `${metricoolScheduledLocal}:00` : undefined;
+        mode === "schedule" ? `${lateScheduledLocal}:00` : undefined;
 
       const { data, error } = await apiInvoke<{
         ok: boolean;
@@ -619,11 +620,11 @@ export default function PreviewPage(props: {
         data?.metricoolPost?.postId ??
         data?.postId ??
         null;
-      if (postId) setMetricoolPostId(postId);
+      if (postId) setLatePostId(postId);
 
       toast.success(
         mode === "schedule"
-          ? `Agendado pra ${new Date(metricoolScheduledLocal).toLocaleString("pt-BR")} na Late.`
+          ? `Agendado pra ${new Date(lateScheduledLocal).toLocaleString("pt-BR")} na Late.`
           : "Publicação enviada à Late.",
         {
           description: postId ? `Post ID: ${postId.slice(0, 12)}` : undefined,
@@ -640,7 +641,7 @@ export default function PreviewPage(props: {
         duration: 8000,
       });
     } finally {
-      setMetricoolPublishing(false);
+      setLatePublishing(false);
     }
   }
 
@@ -1077,7 +1078,7 @@ export default function PreviewPage(props: {
               auto) DELETADO. Era dead code: canScheduleZernio/canPlanInCalendar
               eram hard-coded false porque /api/zernio/* foi removido.
               2026-05-18 — KAI 2.0 publica via Late/Zernio (handler late-post);
-              o card de publicação abaixo (variáveis nomeadas metricool* por
+              o card de publicação abaixo (fluxo agora nomeado late* por
               inércia legacy) é a UI canônica. */}
 
           {/* Salvar na biblioteca do cliente (KAI-only) — só aparece quando
@@ -1417,7 +1418,7 @@ export default function PreviewPage(props: {
                 marginBottom: 14,
               }}
             >
-              {canPublishMetricool && clientId
+              {canPublishLate && clientId
                 ? "Publica direto no Instagram via Late/Zernio. Cliente precisa estar conectado em Settings → Integrações."
                 : "Exporta os PNGs, copia a legenda e sobe direto no Instagram. Pra publicação automática, ative Late no plano Pro."}
             </p>
@@ -1439,7 +1440,7 @@ export default function PreviewPage(props: {
             </button>
 
             {/* Late publish flow — só pra plano Pro+ com clientId. */}
-            {canPublishMetricool && clientId && draft?.id && (
+            {canPublishLate && clientId && draft?.id && (
               <div
                 style={{
                   marginTop: 12,
@@ -1471,17 +1472,17 @@ export default function PreviewPage(props: {
                     <button
                       key={m}
                       type="button"
-                      onClick={() => setMetricoolMode(m)}
-                      disabled={metricoolPublishing}
+                      onClick={() => setLatePublishMode(m)}
+                      disabled={latePublishing}
                       style={{
                         padding: "7px 8px",
                         border: "1.5px solid var(--sv-ink)",
                         background:
-                          metricoolMode === m
+                          latePublishMode === m
                             ? "var(--sv-ink)"
                             : "transparent",
                         color:
-                          metricoolMode === m
+                          latePublishMode === m
                             ? "var(--sv-paper)"
                             : "var(--sv-ink)",
                         fontFamily: "var(--sv-mono)",
@@ -1489,7 +1490,7 @@ export default function PreviewPage(props: {
                         letterSpacing: "0.14em",
                         textTransform: "uppercase",
                         fontWeight: 700,
-                        cursor: metricoolPublishing ? "wait" : "pointer",
+                        cursor: latePublishing ? "wait" : "pointer",
                       }}
                     >
                       {m === "now" ? "Agora" : "Agendar"}
@@ -1497,12 +1498,12 @@ export default function PreviewPage(props: {
                   ))}
                 </div>
 
-                {metricoolMode === "schedule" && (
+                {latePublishMode === "schedule" && (
                   <input
                     type="datetime-local"
-                    value={metricoolScheduledLocal}
-                    onChange={(e) => setMetricoolScheduledLocal(e.target.value)}
-                    disabled={metricoolPublishing}
+                    value={lateScheduledLocal}
+                    onChange={(e) => setLateScheduledLocal(e.target.value)}
+                    disabled={latePublishing}
                     style={{
                       width: "100%",
                       padding: "8px 10px",
@@ -1517,9 +1518,9 @@ export default function PreviewPage(props: {
 
                 <button
                   type="button"
-                  onClick={() => void handleMetricoolPublish(metricoolMode)}
+                  onClick={() => void handleLatePublish(latePublishMode)}
                   disabled={
-                    metricoolPublishing ||
+                    latePublishing ||
                     !caption.trim() ||
                     slides.length === 0 ||
                     isExporting
@@ -1528,22 +1529,22 @@ export default function PreviewPage(props: {
                   style={{
                     width: "100%",
                     opacity:
-                      metricoolPublishing ||
+                      latePublishing ||
                       !caption.trim() ||
                       slides.length === 0
                         ? 0.5
                         : 1,
-                    cursor: metricoolPublishing ? "wait" : "pointer",
+                    cursor: latePublishing ? "wait" : "pointer",
                   }}
                 >
-                  {metricoolPublishing
+                  {latePublishing
                     ? "Publicando..."
-                    : metricoolMode === "now"
+                    : latePublishMode === "now"
                       ? "Publicar agora"
                       : "Agendar publicação"}
                 </button>
 
-                {metricoolPostId && (
+                {latePostId && (
                   <div
                     className="mt-2"
                     style={{
@@ -1554,7 +1555,7 @@ export default function PreviewPage(props: {
                       color: "var(--sv-muted)",
                     }}
                   >
-                    ● Enviado · Late post ID {metricoolPostId.slice(0, 12)}
+                    ● Enviado · Late post ID {latePostId.slice(0, 12)}
                   </div>
                 )}
               </div>

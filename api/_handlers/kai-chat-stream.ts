@@ -26,7 +26,7 @@ function normalizeModel(input?: string): string {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
 
   try {
@@ -96,9 +96,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Streaming SSE
+    // P1 fix (2026-05-18) — abort se cliente desconectar mid-stream.
+    const abortCtrl = new AbortController();
+    const onClose = () => {
+      if (!abortCtrl.signal.aborted) abortCtrl.abort();
+    };
+    req.on('close', onClose);
+
     const r = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse&key=${apiKey}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqBody) }
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reqBody),
+        signal: abortCtrl.signal,
+      }
     );
     if (!r.ok || !r.body) {
       if (r.status === 429) return jsonError(res, 429, 'Rate limit excedido. Tente novamente.');
@@ -154,6 +166,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         { client_id: clientId || null, streaming: true }
       );
     }
+    req.off('close', onClose);
   } catch (e: any) {
     console.error('[kai-chat-stream] error:', e);
     if (!res.writableEnded) jsonError(res, 500, e?.message || 'Erro desconhecido');

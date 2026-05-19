@@ -95,6 +95,16 @@ export interface CreatePlanningItemInput {
   metadata?: Record<string, unknown>;
 }
 
+function postgresErrorCode(error: unknown): string | undefined {
+  return error && typeof error === 'object' && 'code' in error
+    ? String((error as { code?: unknown }).code || '')
+    : undefined;
+}
+
+function hasNumericLikes(value: unknown): boolean {
+  return !!value && typeof value === 'object' && typeof (value as { likes?: unknown }).likes === 'number';
+}
+
 export function usePlanningItems(filters: PlanningFilters = {}) {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspaceContext();
@@ -141,7 +151,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       if (!workspaceId) return [];
 
       const pageSize = 1000;
-      const allData: Record<string, any>[] = [];
+      const allData: Array<Record<string, unknown>> = [];
 
       // Fallback: se PostgREST schema cache ainda estiver stale (FKs recém-aplicadas),
       // fazer query SEM embed. Front lida com clients/columns separadamente via
@@ -174,14 +184,14 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       for (let from = 0; ; from += pageSize) {
         let { data, error } = await buildQuery(true).range(from, from + pageSize - 1);
         // PGRST200: relationship not found → schema cache stale, retry sem embed.
-        if (error && (error as any)?.code === 'PGRST200') {
+        if (postgresErrorCode(error) === 'PGRST200') {
           console.warn('[usePlanningItems] embed query failed (schema cache stale), retrying without embed');
           const fallback = await buildQuery(false).range(from, from + pageSize - 1);
           data = fallback.data;
           error = fallback.error;
         }
         if (error) throw error;
-        allData.push(...(data || []));
+        allData.push(...((data || []) as Array<Record<string, unknown>>));
         if (!data || data.length < pageSize) break;
       }
 
@@ -200,14 +210,14 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       // pq metrics vive em metadata.jsonb (custo SQL maior pra pouca redução).
       if (filters.metrics === 'with') {
         mapped = mapped.filter(it => {
-          const m = (it.metadata as any)?.metrics;
-          return m && typeof m === 'object' && typeof m.likes === 'number';
+          const m = it.metadata.metrics;
+          return hasNumericLikes(m);
         });
       } else if (filters.metrics === 'without') {
         mapped = mapped.filter(it => {
           if (it.status !== 'published') return false;
-          const m = (it.metadata as any)?.metrics;
-          return !m || typeof m.likes !== 'number';
+          const m = it.metadata.metrics;
+          return !hasNumericLikes(m);
         });
       }
 
@@ -267,7 +277,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
           description: input.description ?? null,
           content: input.content ?? null,
           platform: input.platform ?? null,
-          content_type: input.content_type || 'social_post',
+          content_type: input.content_type || 'static_image',
           due_date: input.due_date ?? null,
           scheduled_at: input.scheduled_at ?? null,
           status: input.status || 'idea',
@@ -311,7 +321,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
         description: input.description ?? null,
         content: input.content ?? null,
         platform: (input.platform ?? null) as PlanningPlatform | null,
-        content_type: input.content_type ?? 'social_post',
+        content_type: input.content_type ?? 'static_image',
         due_date: input.due_date ?? null,
         scheduled_at: input.scheduled_at ?? null,
         published_at: null,

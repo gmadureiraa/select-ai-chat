@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { apiInvoke } from "@/lib/apiInvoke";
 import { trackEvent } from "@/lib/analytics";
+import { logger } from "@/lib/logger";
 
 /**
  * Estrutura completa de dados coletada pelo wizard de onboarding (5 steps).
@@ -195,12 +196,12 @@ export function useClientOnboarding() {
             .from("client_preferences")
             .insert(prefsRows as any);
           if (prefsErr) {
-            console.warn("[useClientOnboarding] preferences error:", prefsErr);
+            logger.warn("preferences error", { feature: "useClientOnboarding", err: prefsErr, clientId });
             warnings.push("Algumas preferências não foram salvas");
           }
         }
       } catch (err) {
-        console.warn("[useClientOnboarding] preferences failed:", err);
+        logger.warn("preferences failed", { feature: "useClientOnboarding", err, clientId });
         warnings.push("Falha ao salvar preferências");
       }
 
@@ -212,7 +213,7 @@ export function useClientOnboarding() {
             body: { url: data.website, clientId },
           });
         } catch (err) {
-          console.warn("[useClientOnboarding] scrape-website failed:", err);
+          logger.warn("scrape-website failed", { feature: "useClientOnboarding", err, clientId });
           // não bloqueia — site pode ser re-scrapeado depois pela UI de edição
           warnings.push("Website não pôde ser analisado agora");
         }
@@ -255,14 +256,11 @@ export function useClientOnboarding() {
             .from("client_reference_library")
             .insert(refRows as any);
           if (refErr) {
-            console.warn(
-              "[useClientOnboarding] reference_library error:",
-              refErr
-            );
+            logger.warn("reference_library error", { feature: "useClientOnboarding", err: refErr, clientId });
             warnings.push("Algumas referências não foram salvas");
           }
         } catch (err) {
-          console.warn("[useClientOnboarding] reference_library failed:", err);
+          logger.warn("reference_library failed", { feature: "useClientOnboarding", err, clientId });
           warnings.push("Falha ao salvar referências");
         }
       }
@@ -280,10 +278,7 @@ export function useClientOnboarding() {
               .upload(fileName, file);
 
             if (uploadErr) {
-              console.warn(
-                `[useClientOnboarding] upload failed for ${file.name}:`,
-                uploadErr
-              );
+              logger.warn("upload failed", { feature: "useClientOnboarding", err: uploadErr, fileName: file.name });
               warnings.push(`Falha ao enviar ${file.name}`);
               continue;
             }
@@ -298,17 +293,11 @@ export function useClientOnboarding() {
               } as any);
 
             if (docErr) {
-              console.warn(
-                `[useClientOnboarding] doc record failed for ${file.name}:`,
-                docErr
-              );
+              logger.warn("doc record failed", { feature: "useClientOnboarding", err: docErr, fileName: file.name });
               warnings.push(`Metadado de ${file.name} não foi salvo`);
             }
           } catch (err) {
-            console.warn(
-              `[useClientOnboarding] file loop error for ${file.name}:`,
-              err
-            );
+            logger.warn("file loop error", { feature: "useClientOnboarding", err, fileName: file.name });
             warnings.push(`Erro inesperado em ${file.name}`);
           }
         }
@@ -328,10 +317,7 @@ export function useClientOnboarding() {
         apiInvoke("import-client-social-content", {
           body: { clientId, postsPerPlatform: 30 },
         }).catch((err) => {
-          console.warn(
-            "[useClientOnboarding] import-client-social-content (bg) failed:",
-            err,
-          );
+          logger.warn("import-client-social-content (bg) failed", { feature: "useClientOnboarding", err, clientId });
         });
       }
 
@@ -364,7 +350,7 @@ export function useClientOnboarding() {
       });
     },
     onError: (error) => {
-      console.error("[useClientOnboarding] mutation error:", error);
+      logger.error("mutation error", { feature: "useClientOnboarding", err: error });
       toast({
         title: "Erro ao criar cliente",
         description: error.message || "Tente novamente.",

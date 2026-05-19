@@ -13,6 +13,7 @@ import { useKAIExecuteAction } from "@/hooks/useKAIExecuteAction";
 import { useKAIConversations } from "@/hooks/useKAIConversations";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadAndGetSignedUrl } from "@/lib/storage";
+import { logger } from "@/lib/logger";
 import {
   GlobalKAIContext,
   type GlobalKAIChatMode,
@@ -159,7 +160,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
           })));
         }
       } catch (error) {
-        console.error("Error fetching workspace data:", error);
+        logger.error("Error fetching workspace data", { feature: "GlobalKAI", err: error, workspaceId });
       }
     };
 
@@ -208,7 +209,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
           })) as ReferenceLibraryItem[]);
         }
       } catch (error) {
-        console.error("Error fetching libraries:", error);
+        logger.error("Error fetching libraries", { feature: "GlobalKAI", err: error, clientId: selectedClientId });
       }
     };
 
@@ -327,7 +328,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
           const uploadPromises = imageFiles.map(async (file) => {
             const { signedUrl, error } = await uploadAndGetSignedUrl(file, "chat-images");
             if (error) {
-              console.error("[GlobalKAI] Upload error:", error);
+              logger.error("Upload error", { feature: "GlobalKAI", err: error, fileName: file.name });
               return null;
             }
             return signedUrl;
@@ -338,7 +339,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
 
       await simpleChat.sendMessage(text, citations, imageUrls.length > 0 ? imageUrls : undefined);
     } catch (error) {
-      console.error("kAI chat error:", error);
+      logger.error("kAI chat error", { feature: "GlobalKAI", err: error, clientId: selectedClientId });
       toast.error("Erro ao processar mensagem");
     } finally {
       setActionStatus("idle");
@@ -363,7 +364,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
       setActiveConversationId(null);
       toast.success("Conversa apagada");
     } catch (error) {
-      console.error("Error deleting conversation:", error);
+      logger.error("Error deleting conversation", { feature: "GlobalKAI", err: error, conversationId: activeConversationId });
       toast.error("Erro ao apagar conversa");
     }
   }, [activeConversationId, deleteConversation, simpleChat, setActiveConversationId]);
@@ -419,7 +420,7 @@ export function GlobalKAIProvider({ children }: GlobalKAIProviderProps) {
         toast.error(result.message || "Erro ao executar ação");
       }
     } catch (error) {
-      console.error("[GlobalKAI] Action execution error:", error);
+      logger.error("Action execution error", { feature: "GlobalKAI", err: error, actionType: pendingAction?.type });
       toast.error("Erro ao executar ação");
     } finally {
       setPendingAction(null);

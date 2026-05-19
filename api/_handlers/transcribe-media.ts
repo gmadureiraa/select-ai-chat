@@ -4,6 +4,13 @@ import { anonPost } from '../_lib/handler.js';
 import { queryOne } from '../_lib/db.js';
 import { logAIUsage } from '../_lib/shared/ai-usage.js';
 import { assertClientAccess } from '../_lib/access.js';
+import { rateLimit, getRateLimitKey } from '../_lib/shared/rate-limit.js';
+
+function withStatus(err: Error, status: number): Error {
+  (err as any).status = status;
+  (err as any).statusCode = status;
+  return err;
+}
 
 const MAX_SIZE = 25 * 1024 * 1024; // 25MB Whisper cap
 const VALID_EXTENSIONS = ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm'];
@@ -14,7 +21,7 @@ function base64ToBuffer(base64: string): Buffer {
   return Buffer.from(base64Data, 'base64');
 }
 
-export default anonPost(async ({ body, user }) => {
+export default anonPost(async ({ body, user, req, res }) => {
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
   if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY não configurada');
 
@@ -29,6 +36,14 @@ export default anonPost(async ({ body, user }) => {
 
   if (!url && !base64) throw new Error('URL ou base64 é obrigatório');
   if (user && clientId) await assertClientAccess(user.id, clientId);
+
+  // Rate limit: Whisper é pago por minuto de áudio. Cap 15/min por user/ip.
+  const rlKey = getRateLimitKey(req, 'transcribe-media', user?.id ?? userId ?? null);
+  const rl = await rateLimit({ key: rlKey, limit: 15, windowMs: 60_000 });
+  if (!rl.allowed) {
+    res.setHeader('Retry-After', String(rl.retryAfterSec));
+    throw withStatus(new Error(`Rate limit excedido (15/min). Tente em ${rl.retryAfterSec}s.`), 429);
+  }
 
   let audioBuffer: Buffer;
   let resolvedContentType: string;

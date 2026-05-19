@@ -69,7 +69,7 @@ const MADUREIRA_CLIENT = '14bf8576-7104-48ca-962d-014308e45a4e';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
 
   // Auth: CRON_SECRET (debug only)

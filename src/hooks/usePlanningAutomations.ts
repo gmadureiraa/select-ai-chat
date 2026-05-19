@@ -144,7 +144,7 @@ export function usePlanningAutomations() {
           target_column_id: input.target_column_id,
           platform: input.platform,
           platforms: input.platforms || null,
-          content_type: input.content_type || 'social_post',
+          content_type: input.content_type || 'static_image',
           auto_generate_content: input.auto_generate_content || false,
           prompt_template: input.prompt_template,
           auto_publish: input.auto_publish || false,
@@ -154,7 +154,7 @@ export function usePlanningAutomations() {
           image_style: input.image_style || 'photographic',
           image_reference_ids: input.image_reference_ids || null,
           created_by: user?.id,
-        } as any)
+        } as never)
         .select()
         .single();
       

@@ -224,11 +224,23 @@ export function ColumnsCustomizeDialog({ open, onOpenChange, columns }: ColumnsC
                   )}
                   {isEditing && (
                     <>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCommitEdit}>
-                        <Check className="h-3 w-3 text-emerald-500" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={handleCommitEdit}
+                        aria-label="Confirmar edição"
+                      >
+                        <Check className="h-3 w-3 text-emerald-500" aria-hidden="true" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCancelEdit}>
-                        <X className="h-3 w-3" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={handleCancelEdit}
+                        aria-label="Cancelar edição"
+                      >
+                        <X className="h-3 w-3" aria-hidden="true" />
                       </Button>
                     </>
                   )}

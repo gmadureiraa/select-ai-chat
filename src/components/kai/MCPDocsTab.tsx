@@ -531,7 +531,7 @@ export function MCPDocsTab() {
           <a
             href="https://modelcontextprotocol.io/docs"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition"
           >
             Documentação oficial do MCP
@@ -540,7 +540,7 @@ export function MCPDocsTab() {
           <a
             href="https://github.com/fiberplane/mcp-lite"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition"
           >
             mcp-lite (lib usada no servidor)

@@ -32,6 +32,7 @@ import { useLateConnection, LatePlatform } from '@/hooks/useLateConnection';
 import { usePlanningViralIntegration } from '@/hooks/usePlanningViralIntegration';
 import { useClientSuggestion } from '@/hooks/useClientSuggestion';
 import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 import { MediaUploader, MediaItem } from './MediaUploader';
 import { RichContentEditor } from './RichContentEditor';
 import { ThreadEditor, ThreadTweet } from './ThreadEditor';
@@ -143,13 +144,13 @@ export function PlanningItemDialog({
           .single();
 
         if (error) {
-          console.error('Error fetching fresh item:', error);
+          logger.error('Error fetching fresh item', { feature: 'PlanningItemDialog', err: error, itemId: item.id });
           setFreshItem(null);
         } else {
           setFreshItem(data as PlanningItem);
         }
       } catch (err) {
-        console.error('Error fetching fresh item:', err);
+        logger.error('Error fetching fresh item', { feature: 'PlanningItemDialog', err, itemId: item.id });
         setFreshItem(null);
       } finally {
         setIsFetchingItem(false);
@@ -339,10 +340,12 @@ export function PlanningItemDialog({
         metaContentType &&
         topLevelContentType !== metaContentType
       ) {
-        console.warn(
-          '[PlanningItemDialog] content_type mismatch top-level vs metadata',
-          { id: effectiveItem.id, topLevel: topLevelContentType, metadata: metaContentType },
-        );
+        logger.warn('content_type mismatch top-level vs metadata', {
+          feature: 'PlanningItemDialog',
+          itemId: effectiveItem.id,
+          topLevel: topLevelContentType,
+          metadata: metaContentType,
+        });
       }
       setContentType(candidate);
 
@@ -548,7 +551,7 @@ export function PlanningItemDialog({
           }
           toast.success(`Agendado em ${publishablePlatforms.length} plataforma(s) para ${format(finalScheduledAt, "dd/MM 'às' HH:mm")}`);
         } catch (scheduleError) {
-          console.warn('Late API scheduling failed, keeping local schedule:', scheduleError);
+          logger.warn('Late API scheduling failed, keeping local schedule', { feature: 'PlanningItemDialog', err: scheduleError });
           toast.info("Salvo! Será publicado automaticamente no horário agendado.");
         } finally {
           setIsSchedulingToLate(false);
@@ -636,7 +639,7 @@ export function PlanningItemDialog({
           return;
         }
       } catch (saveError) {
-        console.error('Error saving before publish:', saveError);
+        logger.error('Error saving before publish', { feature: 'PlanningItemDialog', err: saveError });
         toast.error('Erro ao salvar card antes de publicar');
         return;
       }
@@ -667,7 +670,7 @@ export function PlanningItemDialog({
           );
           successPlatforms.push(targetPlatform);
         } catch (err) {
-          console.error(`[PlanningItemDialog] Failed to ${willSchedule ? 'schedule' : 'publish'} to ${targetPlatform}:`, err);
+          logger.error('Failed to publish/schedule', { feature: 'PlanningItemDialog', err, targetPlatform, mode: willSchedule ? 'schedule' : 'publish' });
           failedPlatforms.push(targetPlatform);
         }
       }

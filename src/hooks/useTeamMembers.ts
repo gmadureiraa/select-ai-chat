@@ -16,6 +16,16 @@ export interface WorkspaceInvite {
   accepted_at: string | null;
 }
 
+interface AddWorkspaceMemberResult {
+  status?: string;
+  invite_id?: string;
+  [key: string]: unknown;
+}
+
+function asAddWorkspaceMemberResult(value: unknown): AddWorkspaceMemberResult {
+  return value && typeof value === "object" ? value as AddWorkspaceMemberResult : {};
+}
+
 export const useTeamMembers = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -87,13 +97,6 @@ export const useTeamMembers = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get inviter profile
-      const { data: inviterProfile } = await supabase
-        .from("profiles")
-        .select("full_name, email")
-        .eq("id", user.id)
-        .single();
-
       // Use RPC to add member directly if user exists, or create invite if not
       const { data: result, error } = await supabase.rpc("add_workspace_member_or_invite", {
         p_workspace_id: workspace.id,
@@ -107,17 +110,20 @@ export const useTeamMembers = () => {
         throw error;
       }
 
-      const status = (result as any)?.status;
+      const resultObj = asAddWorkspaceMemberResult(result);
+      const status = resultObj.status;
 
       // If user was added directly as member, no email needed
       if (status === "member_added") {
-        return { status: "member_added", ...(typeof result === 'object' && result !== null ? result : {}) };
+        return { status: "member_added", ...resultObj };
       }
 
       // If already a member, throw friendly error
       if (status === "already_member") {
         throw new Error("Este usuário já é membro do workspace");
       }
+
+      let emailSent = false;
 
       // User doesn't exist yet - send invite email
       if (status === "invite_created") {
@@ -126,7 +132,10 @@ export const useTeamMembers = () => {
           // email template — RPC only returns invite_id, but the email needs
           // the expiration date to render the "expira em…" badge.
           let expiresAt: string | null = null;
-          const inviteId = (result as any)?.invite_id;
+          const inviteId = resultObj.invite_id;
+          if (!inviteId) {
+            throw new Error("Invite created without invite_id");
+          }
           if (inviteId) {
             const { data: inviteRow } = await supabase
               .from("workspace_invites")
@@ -141,19 +150,20 @@ export const useTeamMembers = () => {
               email: email.toLowerCase(),
               workspaceName: workspace.name,
               workspaceSlug: workspace.slug,
-              inviterName: inviterProfile?.full_name || inviterProfile?.email || "Um administrador",
               role,
               expiresAt,
               clientNames: clientNames || [],
+              inviteId,
             },
           });
+          emailSent = true;
         } catch (emailError) {
           console.error("Error sending invite email:", emailError);
           // Don't throw - invite was created successfully, just log the email error
         }
       }
 
-      return { status: "invite_created", ...(typeof result === 'object' && result !== null ? result : {}) };
+      return { status: "invite_created", ...resultObj, email_sent: emailSent };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["team-members", workspace?.id] });
@@ -161,11 +171,16 @@ export const useTeamMembers = () => {
       queryClient.invalidateQueries({ queryKey: ["invite-clients"] });
       queryClient.invalidateQueries({ queryKey: ["all-member-client-access", workspace?.id] });
       
-      const status = (data as any)?.status;
+      const status = data?.status;
       if (status === "member_added") {
         toast({
           title: "Membro adicionado",
           description: "O usuário foi adicionado ao workspace com sucesso.",
+        });
+      } else if (data?.email_sent === false) {
+        toast({
+          title: "Convite criado",
+          description: "O convite foi criado, mas o email não foi enviado automaticamente.",
         });
       } else {
         toast({

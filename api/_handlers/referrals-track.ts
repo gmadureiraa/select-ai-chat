@@ -14,6 +14,6 @@ import { applyCors, handlePreflight } from '../_lib/cors.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   return res.status(200).json({ ok: true, noop: true, reason: 'KAI does not yet implement SV-style referrals' });
 }

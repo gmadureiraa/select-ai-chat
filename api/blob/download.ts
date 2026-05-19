@@ -3,9 +3,13 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { head } from "@vercel/blob";
 import { applyCors, handlePreflight } from "../_lib/cors.js";
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "download failed";
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   try {
@@ -26,8 +30,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const buf = Buffer.from(await upstream.arrayBuffer());
     return res.status(200).send(buf);
-  } catch (err: any) {
+  } catch (err) {
     console.error("[blob/download] error:", err);
-    return res.status(500).json({ error: err.message ?? "download failed" });
+    return res.status(500).json({ error: errorMessage(err) });
   }
 }

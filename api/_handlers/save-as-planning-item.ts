@@ -37,6 +37,7 @@ const BodySchema = z.object({
     })
     .optional(),
 });
+type PlanningItemRow = { id: string };
 
 export default authedPost(async ({ user, body, res }) => {
   const parsed = BodySchema.safeParse(body);
@@ -52,7 +53,40 @@ export default authedPost(async ({ user, body, res }) => {
   // P0 fix audit 2026-05-16: aceitava (client_id, workspace_id) arbitrários
   // e inseria planning_item naquele workspace alheio.
   await assertWorkspaceAccess(user.id, workspace_id);
-  await assertClientAccess(user.id, client_id);
+  const clientAccess = await assertClientAccess(user.id, client_id);
+  if (clientAccess.workspaceId !== workspace_id) {
+    throw new Error('client_id não pertence ao workspace_id informado');
+  }
+
+  if (link_to?.viral_carousel_id) {
+    const linkedCarousel = await queryOne<{ id: string }>(
+      `SELECT id
+         FROM viral_carousels
+        WHERE id = $1
+          AND client_id = $2
+          AND workspace_id = $3
+        LIMIT 1`,
+      [link_to.viral_carousel_id, client_id, workspace_id],
+    );
+    if (!linkedCarousel) {
+      throw new Error('viral_carousel_id não pertence ao cliente/workspace informado');
+    }
+  }
+
+  if (link_to?.viral_reel_id) {
+    const linkedReel = await queryOne<{ id: string }>(
+      `SELECT id
+         FROM viral_reels
+        WHERE id = $1
+          AND client_id = $2
+          AND workspace_id = $3
+        LIMIT 1`,
+      [link_to.viral_reel_id, client_id, workspace_id],
+    );
+    if (!linkedReel) {
+      throw new Error('viral_reel_id não pertence ao cliente/workspace informado');
+    }
+  }
 
   // Default content_type per source
   const defaultType =
@@ -81,7 +115,7 @@ export default authedPost(async ({ user, body, res }) => {
     [workspace_id]
   );
 
-  const item = await insertRow<any>('planning_items', {
+  const item = await insertRow<PlanningItemRow>('planning_items', {
     workspace_id,
     client_id,
     column_id: firstColumn?.id ?? null,
@@ -98,18 +132,30 @@ export default authedPost(async ({ user, body, res }) => {
 
   // If linked to a viral_carousel, set the FK on viral_carousels
   if (link_to?.viral_carousel_id) {
-    await query(
-      `UPDATE viral_carousels SET planning_item_id = $1 WHERE id = $2`,
-      [item.id, link_to.viral_carousel_id]
+    const updated = await query<{ id: string }>(
+      `UPDATE viral_carousels
+          SET planning_item_id = $1
+        WHERE id = $2
+          AND client_id = $3
+          AND workspace_id = $4
+        RETURNING id`,
+      [item.id, link_to.viral_carousel_id, client_id, workspace_id]
     );
+    if (updated.length !== 1) throw new Error('Falha ao vincular carrossel ao planejamento');
   }
 
   // If linked to a viral_reel, set the FK on viral_reels
   if (link_to?.viral_reel_id) {
-    await query(
-      `UPDATE viral_reels SET planning_item_id = $1 WHERE id = $2`,
-      [item.id, link_to.viral_reel_id]
+    const updated = await query<{ id: string }>(
+      `UPDATE viral_reels
+          SET planning_item_id = $1
+        WHERE id = $2
+          AND client_id = $3
+          AND workspace_id = $4
+        RETURNING id`,
+      [item.id, link_to.viral_reel_id, client_id, workspace_id]
     );
+    if (updated.length !== 1) throw new Error('Falha ao vincular reel ao planejamento');
   }
 
   return { ok: true, planning_item: item };

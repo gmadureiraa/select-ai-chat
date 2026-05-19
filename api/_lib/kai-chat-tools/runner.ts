@@ -42,6 +42,15 @@ export interface RunToolLoopOptions {
   ctx: ToolExecutionContext;
   maxIterations?: number;
   temperature?: number;
+  /**
+   * Sinal de abort propagado pelo caller. Quando o cliente desconecta
+   * (`req.on('close')` no handler), passe um AbortSignal aqui e o loop:
+   *   - Cancela o fetch pro Gemini em andamento (via AbortController interno).
+   *   - Não inicia próximas iterações.
+   * Sem isso, fechar a aba do user não para o consumo de tokens — Gemini
+   * continua streamando até o final mesmo sem ninguém lendo.
+   */
+  signal?: AbortSignal;
 }
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -87,6 +96,7 @@ export async function runToolLoop(
     ctx,
     maxIterations = 8,
     temperature = 0.7,
+    signal,
   } = opts;
 
   const workingContents: GeminiContent[] = [...contents];
@@ -100,6 +110,11 @@ export async function runToolLoop(
   const toolDeclarations = registry.getDeclarations();
 
   for (let iter = 0; iter < maxIterations; iter++) {
+    // P1 fix (2026-05-18) — short-circuit se o cliente desconectou.
+    if (signal?.aborted) {
+      console.log(`[runToolLoop] abort signal received at iter ${iter} — stopping`);
+      break;
+    }
     const activeModel =
       shouldUseOrchestrator(executedTools.length, orchestratorModel) && orchestratorModel
         ? orchestratorModel
@@ -149,6 +164,11 @@ export async function runToolLoop(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      // P1 fix (2026-05-18) — repassa abort pro fetch. Quando o cliente
+      // desconecta, o stream do Gemini é cancelado e paramos de pagar input
+      // tokens novos. Sem isso, fetchador continua até final do streaming
+      // mesmo sem ninguém escutando.
+      signal,
     });
 
     if (!response.ok) {
@@ -191,9 +211,16 @@ export async function runToolLoop(
             traceStatus = 'approval';
           }
         } catch (err) {
+          // P1 fix (2026-05-18) — não re-jogar. registry.execute já wrap em
+          // try/catch (retorna ok:false), então chegar aqui é caso patológico
+          // (ex: stream broken, OOM no handler). Re-throw matava o loop INTEIRO
+          // → outras tools na mesma batch nem rodavam + LLM não recebia
+          // functionResponse pra recuperar. Agora convertemos pra result.error
+          // e continuamos — LLM vê o erro e pode tentar outra abordagem.
           traceStatus = 'error';
           traceError = err instanceof Error ? err.message : String(err);
-          throw err;
+          console.error(`[runToolLoop] tool "${call.name}" hard-throw:`, err);
+          result = { ok: false, error: traceError };
         } finally {
           const duration = Date.now() - toolT0;
           toolLatencyMs += duration;

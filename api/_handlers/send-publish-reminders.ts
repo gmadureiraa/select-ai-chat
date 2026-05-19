@@ -8,7 +8,7 @@ import { assertCronAuth } from '../_lib/cron-auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   // Vercel cron envia GET; aceitar GET e POST.
   if (req.method !== 'POST' && req.method !== 'GET') {
     return jsonError(res, 405, 'Method not allowed');

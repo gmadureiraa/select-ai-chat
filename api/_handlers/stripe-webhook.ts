@@ -161,7 +161,7 @@ async function upsertSubscription(
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
 
   const stripeKey = process.env.STRIPE_SECRET_KEY;

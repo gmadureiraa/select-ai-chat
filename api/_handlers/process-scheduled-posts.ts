@@ -5,6 +5,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyCors, handlePreflight, jsonError } from '../_lib/cors.js';
 import { getPool, query, queryOne } from '../_lib/db.js';
 import { publishViaLate } from '../_lib/integrations/late.js';
+import type { PlatformOptions } from '../_lib/integrations/late.js';
 import { normalizePublicationError } from '../_lib/publication-errors.js';
 import { assertCronAuth } from '../_lib/cron-auth.js';
 
@@ -105,7 +106,7 @@ async function resolveActorUserId(item: ScheduledItem): Promise<string | null> {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   if (req.method !== 'POST' && req.method !== 'GET') {
     return jsonError(res, 405, 'Method not allowed');
   }
@@ -412,6 +413,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
+        // 2026-05-18 fix gaps content_type:
+        //   - Repassa platform_options gravado pelo PlanningItemDialog (firstComment,
+        //     shareToFeed, custom title TikTok/YouTube, format pdf-document LinkedIn).
+        //     Antes o cron descartava esses opts e Late publicava com defaults.
+        //   - publishViaLate agora infere contentType IG/FB pelos mediaItems quando
+        //     não vem explícito — então mesmo sem platform_options, IG carousel
+        //     com 2+ imagens vai pra Late com contentType='carousel' correto.
+        const platformOptions = isRecord(metadata?.platform_options)
+          ? (metadata.platform_options as PlatformOptions)
+          : undefined;
+
         const result = await publishViaLate({
           clientId: item.client_id!,
           platform: item.platform,
@@ -419,6 +431,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           mediaUrls: mediaUrlsArr,
           threadItems: threadTweets,
           planningItemId: item.id,
+          platformOptions,
           // publishNow=true equivale a scheduledFor undefined no shim
         }) as unknown as Record<string, unknown>;
 

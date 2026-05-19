@@ -2,6 +2,13 @@
 import { anonPost } from '../_lib/handler.js';
 import { getPool } from '../_lib/db.js';
 import { assertClientAccess } from '../_lib/access.js';
+import { rateLimit, getRateLimitKey } from '../_lib/shared/rate-limit.js';
+
+function withStatus(err: Error, status: number): Error {
+  (err as any).status = status;
+  (err as any).statusCode = status;
+  return err;
+}
 
 const MAX_IMAGES_PER_REQUEST = 1;
 const MODEL = 'gemini-2.5-flash';
@@ -83,7 +90,7 @@ Você receberá ${imageUrls.length} imagens (páginas ${startIndex + 1} a ${star
   return { transcription, inputTokens, outputTokens };
 }
 
-export default anonPost(async ({ body, user }) => {
+export default anonPost(async ({ body, user, req, res }) => {
   const { imageUrls, userId, clientId } = body;
   const startIndex = Number(body?.startIndex ?? 0);
   if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) throw new Error('imageUrls array is required');
@@ -91,6 +98,15 @@ export default anonPost(async ({ body, user }) => {
   if (imageUrls.length > MAX_IMAGES_PER_REQUEST) throw new Error(`Maximum ${MAX_IMAGES_PER_REQUEST} images allowed per request`);
   // Defesa: se o user logou e mandou clientId, garantir acesso. Anônimo passa direto.
   if (user && clientId) await assertClientAccess(user.id, clientId);
+
+  // Rate limit: cap 15/min — Gemini Vision por imagem custa ~258 tokens entrada.
+  const rlKey = getRateLimitKey(req, 'transcribe-images', user?.id ?? userId ?? null);
+  const rl = await rateLimit({ key: rlKey, limit: 15, windowMs: 60_000 });
+  if (!rl.allowed) {
+    res.setHeader('Retry-After', String(rl.retryAfterSec));
+    throw withStatus(new Error(`Rate limit excedido (15/min). Tente em ${rl.retryAfterSec}s.`), 429);
+  }
+
   const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
   if (!apiKey) throw new Error('GOOGLE_AI_STUDIO_API_KEY not configured');
 

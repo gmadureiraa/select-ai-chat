@@ -17,7 +17,7 @@ function getOrigin(req: VercelRequest): string {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
 
   if (!assertCronAuth(req, res)) return;
 

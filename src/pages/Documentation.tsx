@@ -880,8 +880,13 @@ export default function Documentation({ embedded = false }: { embedded?: boolean
       <header className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-md sticky top-0 z-50">
         <div className="h-full px-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+              aria-label="Voltar"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             </Button>
             <h1 className="font-semibold">Documentação</h1>
           </div>

@@ -49,6 +49,7 @@ import { selectModelForFormat } from '../_lib/shared/prompt-builder.js';
 import { buildForbiddenPhrasesSection, UNIVERSAL_OUTPUT_RULES } from '../_lib/shared/quality-rules.js';
 import { getFormatRules } from '../_lib/shared/format-rules.js';
 import { logAIUsage, estimateTokens } from '../_lib/shared/ai-usage.js';
+import { rateLimit, getRateLimitKey } from '../_lib/shared/rate-limit.js';
 
 // =====================================================
 // TYPES
@@ -276,7 +277,7 @@ function parseDataUrl(input: string): { mime: string; data: string } | null {
 // =====================================================
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   if (req.method !== 'POST') return jsonError(res, 405, 'Method not allowed');
 
   try {
@@ -313,6 +314,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           [c.workspace_id]
         );
         userId = ws?.owner_id || null;
+      }
+    }
+
+    // Rate limit per user (30/min) — defesa contra abuso de geração IA.
+    // Cron e calls sem user passam livre (sem userId resolvido = sem cap).
+    if (userId) {
+      const rlKey = getRateLimitKey(req, 'gen-content-v2', userId);
+      const rl = await rateLimit({ key: rlKey, limit: 30, windowMs: 60_000 });
+      if (!rl.allowed) {
+        res.setHeader('Retry-After', String(rl.retryAfterSec));
+        return jsonError(res, 429, `Rate limit excedido (30/min). Tente em ${rl.retryAfterSec}s.`);
       }
     }
 

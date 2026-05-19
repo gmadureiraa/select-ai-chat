@@ -167,11 +167,14 @@ function CalendarCard({
                 </span>
               )}
               {item.status === 'failed' && onRetry && (
-                <button 
+                <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); onRetry(); }}
                   className="shrink-0 hover:scale-110 transition-transform"
+                  aria-label="Tentar publicar novamente"
+                  title="Tentar publicar novamente"
                 >
-                  <RefreshCw className="h-3 w-3 text-red-500" />
+                  <RefreshCw className="h-3 w-3 text-red-500" aria-hidden="true" />
                 </button>
               )}
               {item.status === 'published' && <CheckCircle2 className="h-3 w-3 shrink-0 text-green-500" />}

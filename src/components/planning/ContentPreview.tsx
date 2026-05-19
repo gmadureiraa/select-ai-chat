@@ -294,8 +294,9 @@ function CarouselPreview({
             size="icon"
             className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full opacity-80"
             onClick={goPrev}
+            aria-label="Slide anterior"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
         )}
         {currentSlide < slides.length - 1 && (
@@ -304,8 +305,9 @@ function CarouselPreview({
             size="icon"
             className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full opacity-80"
             onClick={goNext}
+            aria-label="Próximo slide"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
         )}
         

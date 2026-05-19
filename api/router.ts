@@ -8,9 +8,15 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { handlerLoaders } from "./handler-manifest.js";
 import { applyCors, handlePreflight } from "./_lib/cors.js";
 
-const handlerCache = new Map<string, Function>();
+type ApiHandler = (req: VercelRequest, res: VercelResponse) => unknown | Promise<unknown>;
 
-async function loadHandler(slug: string): Promise<Function | null> {
+const handlerCache = new Map<string, ApiHandler>();
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Internal error";
+}
+
+async function loadHandler(slug: string): Promise<ApiHandler | null> {
   if (!/^[a-z0-9_/-]+$/i.test(slug)) return null;
   if (handlerCache.has(slug)) return handlerCache.get(slug)!;
 
@@ -30,7 +36,7 @@ async function loadHandler(slug: string): Promise<Function | null> {
 
 export default async function router(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
 
   // O slug vem do query param `slug` (do rewrite) ou do path /api/<slug>
   let slug = "";
@@ -61,10 +67,10 @@ export default async function router(req: VercelRequest, res: VercelResponse) {
 
   try {
     return await handler(req, res);
-  } catch (err: any) {
+  } catch (err) {
     console.error(`[router] handler '${slug}' threw:`, err);
     if (!res.headersSent) {
-      return res.status(500).json({ error: err.message ?? "Internal error" });
+      return res.status(500).json({ error: errorMessage(err) });
     }
   }
 }

@@ -294,7 +294,7 @@ async function upsertTweet(
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handlePreflight(req, res)) return;
-  applyCors(res);
+  applyCors(res, req);
   if (req.method !== 'POST' && req.method !== 'GET') {
     return jsonError(res, 405, 'Method not allowed');
   }

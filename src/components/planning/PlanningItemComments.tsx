@@ -73,11 +73,12 @@ export function PlanningItemComments({ planningItemId, clientId }: PlanningItemC
             disabled={isAdding}
           />
         </div>
-        <Button 
-          type="button" 
-          size="icon" 
-          disabled={!newComment.trim() || isAdding} 
+        <Button
+          type="button"
+          size="icon"
+          disabled={!newComment.trim() || isAdding}
           className="shrink-0"
+          aria-label={isAdding ? "Enviando comentário" : "Enviar comentário"}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -87,9 +88,9 @@ export function PlanningItemComments({ planningItemId, clientId }: PlanningItemC
           }}
         >
           {isAdding ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : (
-            <Send className="h-4 w-4" />
+            <Send className="h-4 w-4" aria-hidden="true" />
           )}
         </Button>
       </div>
@@ -129,8 +130,9 @@ function CommentItem({
               size="icon"
               className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={onDelete}
+              aria-label="Apagar comentário"
             >
-              <Trash2 className="h-3 w-3 text-destructive" />
+              <Trash2 className="h-3 w-3 text-destructive" aria-hidden="true" />
             </Button>
           )}
         </div>
