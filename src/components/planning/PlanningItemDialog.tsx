@@ -119,6 +119,14 @@ export function PlanningItemDialog({
   const [showImageModal, setShowImageModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // 2026-05-19: refs do auto-save ao fechar dialog.
+  // - skipAutoSaveRef: marca quando o submit explícito já vai salvar (evita
+  //   double-save).
+  // - initialSnapshotRef: snapshot do form após hidratação inicial pra detectar
+  //   mudanças (isDirty).
+  const skipAutoSaveRef = useRef(false);
+  const initialSnapshotRef = useRef<string>('');
+  const isAutoSavingRef = useRef(false);
   
   const [freshItem, setFreshItem] = useState<PlanningItem | null>(null);
   const [isFetchingItem, setIsFetchingItem] = useState(false);
@@ -419,7 +427,131 @@ export function PlanningItemDialog({
       setLabels([]);
       setLabelInput('');
     }
+    // 2026-05-19: marca skipAutoSave OFF e captura snapshot inicial após
+    // hidratação. Snapshot serve pra detectar isDirty no auto-save ao fechar.
+    skipAutoSaveRef.current = false;
+    // Snapshot é capturado depois que os setStates rodam (próximo tick).
+    queueMicrotask(() => {
+      initialSnapshotRef.current = JSON.stringify({
+        title, content, contentType, selectedPlatforms, scheduledAt,
+        scheduledTime, mediaUrls: mediaItems.map(m => m.url), labels, priority,
+        selectedClientId, assignedTo, columnId, autoPublish, threadTweets,
+        platformOptions, recurrenceConfig,
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveItem, item, defaultColumnId, defaultDate, defaultClientId, defaultTitle, defaultContent, columns, open]);
+
+  // 2026-05-19: salva o card automaticamente quando user fecha o dialog
+  // (ESC, click fora, X), em vez de descartar. Gabriel pediu — perdia trabalho
+  // com clicks fora sem querer.
+  // Regras:
+  //   - Submit explícito (handleSubmit) seta skipAutoSaveRef.current=true antes
+  //     de fechar → pula o auto-save.
+  //   - readOnly: só fecha.
+  //   - Item NOVO + tudo vazio: descarta (não cria lixo no kanban).
+  //   - !isDirty: só fecha (nada a salvar).
+  //   - isDirty: faz PATCH/INSERT silencioso SEM validar plataforma/format
+  //     (rascunho), depois fecha.
+  const autoSaveAndClose = async () => {
+    // Submit explícito já tá salvando — pula
+    if (skipAutoSaveRef.current) {
+      skipAutoSaveRef.current = false;
+      onOpenChange(false);
+      return;
+    }
+    if (readOnly || isFetchingItem || isAutoSavingRef.current) {
+      onOpenChange(false);
+      return;
+    }
+    // Card NOVO sem nada digitado — descarta.
+    if (
+      !item &&
+      !title.trim() &&
+      !content.trim() &&
+      mediaItems.length === 0
+    ) {
+      onOpenChange(false);
+      return;
+    }
+    const currentSnapshot = JSON.stringify({
+      title, content, contentType, selectedPlatforms, scheduledAt,
+      scheduledTime, mediaUrls: mediaItems.map(m => m.url), labels, priority,
+      selectedClientId, assignedTo, columnId, autoPublish, threadTweets,
+      platformOptions, recurrenceConfig,
+    });
+    if (currentSnapshot === initialSnapshotRef.current) {
+      onOpenChange(false);
+      return;
+    }
+    isAutoSavingRef.current = true;
+    try {
+      // Payload mínimo — só o que foi tocado. SEM auto-schedule pro Late.
+      let finalContent = content;
+      if (isTwitterThread) {
+        finalContent = threadTweets.map(t => t.text).join('\n\n---\n\n');
+      }
+      let finalScheduledAt: Date | undefined;
+      if (scheduledAt) {
+        const [h, m] = scheduledTime.split(':').map(Number);
+        finalScheduledAt = setMinutes(setHours(scheduledAt, h), m);
+      }
+      const existingMetadata = (effectiveItem?.metadata as Record<string, unknown>) || {};
+      const draftMetadata: Record<string, unknown> = {
+        ...existingMetadata,
+        content_type: contentType || undefined,
+        target_platforms: selectedPlatforms,
+        platform_options: platformOptions,
+        auto_publish: autoPublish,
+      };
+      if (isTwitterThread) draftMetadata.thread_tweets = threadTweets;
+
+      const resolvedPlatform: PlanningPlatform | null =
+        selectedPlatforms.length > 0
+          ? (selectedPlatforms[0] as PlanningPlatform)
+          : null;
+
+      const draftPayload: CreatePlanningItemInput & Record<string, any> = {
+        title: title.trim() || 'Sem título',
+        content: finalContent.trim() || undefined,
+        client_id: selectedClientId || undefined,
+        column_id: columnId || undefined,
+        platform: resolvedPlatform || undefined,
+        priority,
+        due_date: finalScheduledAt ? format(finalScheduledAt, 'yyyy-MM-dd') : undefined,
+        scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
+        media_urls: mediaItems.map(m => m.url),
+        assigned_to: assignedTo || undefined,
+        content_type: contentType || undefined,
+        labels,
+        metadata: draftMetadata,
+        recurrence_type: recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null,
+        recurrence_days: recurrenceConfig.days.length > 0 ? recurrenceConfig.days : null,
+        recurrence_time: recurrenceConfig.time || null,
+        recurrence_end_date: recurrenceConfig.endDate || null,
+        is_recurrence_template: recurrenceConfig.type !== 'none',
+      };
+
+      if (item && onUpdate) {
+        await onUpdate(item.id, draftPayload);
+        toast.success('Alterações salvas', { duration: 1500 });
+      } else if (!item && onSave && title.trim()) {
+        await onSave(draftPayload);
+        toast.success('Rascunho criado', { duration: 1500 });
+      }
+    } catch (err) {
+      logger.error('Auto-save on close failed', {
+        feature: 'PlanningItemDialog',
+        err,
+      });
+      toast.error('Erro ao salvar alterações — abre o card de novo e tenta Salvar', {
+        duration: 4000,
+      });
+    } finally {
+      isAutoSavingRef.current = false;
+      onOpenChange(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -576,6 +708,8 @@ export function PlanningItemDialog({
         }
       }
 
+      // 2026-05-19: submit explícito — pula auto-save no close.
+      skipAutoSaveRef.current = true;
       onOpenChange(false);
     } finally {
       setIsSubmitting(false);
@@ -739,7 +873,7 @@ export function PlanningItemDialog({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => { if (o) onOpenChange(true); else void autoSaveAndClose(); }}>
       <DialogContent 
         className={cn(
           "max-h-[90vh] overflow-hidden p-0",
