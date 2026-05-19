@@ -173,9 +173,17 @@ const POOLS: Record<TemplateId, string[]> = {
   // madureira-dark: imagem opcional só na capa, reaproveita pool Paper Mono
   // (fotos editoriais B&W documentais combinam com dark + Fraunces).
   "madureira-dark": PAPER_MONO,
+  // madureira-minimal (2026-05-19): polaroid preto + frame branco + Fraunces
+  // italic. Reaproveita pool Paper Mono (B&W documental) — combina com o
+  // filter: grayscale(1) hardcoded no template.
+  "madureira-minimal": PAPER_MONO,
   // defiverso-cripto-dark: foto full-bleed B&W nos slides internos.
   // Reusa pool Paper Mono (B&W) pra default; user pode trocar no editor.
   "defiverso-cripto-dark": PAPER_MONO,
+  // defiverso-imagebg (2026-05-19): imagem-fundo full-bleed cobrindo capa e
+  // slides internos. Pool editorial neutro pra capa + B&W documental nos
+  // inner — reaproveita PAPER_MONO (mesma vibe do cripto-dark v2).
+  "defiverso-imagebg": PAPER_MONO,
 };
 
 /**

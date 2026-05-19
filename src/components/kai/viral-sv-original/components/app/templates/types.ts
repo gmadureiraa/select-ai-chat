@@ -20,7 +20,9 @@ export type TemplateId =
   | "madureira-dark"
   | "dsec-dark"
   | "defiverso-carrossel"
-  | "defiverso-cripto-dark";
+  | "defiverso-cripto-dark"
+  | "defiverso-imagebg"
+  | "madureira-minimal";
 
 export type SlideVariantName =
   | "cover"

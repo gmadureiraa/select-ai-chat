@@ -210,13 +210,16 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
             </div>
           </div>
 
-          {/* Main content — variantes adaptam tweet screenshot */}
+          {/* Main content — centralizado verticalmente (2026-05-19).
+              Header fica no topo (flexShrink: 0), conteúdo ocupa o resto
+              com justify-center: texto curto fica no meio, texto longo
+              ainda flui sem estourar (overflow hidden + minHeight 0). */}
           <div
             style={{
               flex: "1 1 0",
               display: "flex",
               flexDirection: "column",
-              justifyContent: "flex-start",
+              justifyContent: "center",
               gap: 28,
               overflow: "hidden",
               minHeight: 0,

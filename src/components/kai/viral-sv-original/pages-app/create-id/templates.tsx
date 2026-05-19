@@ -71,10 +71,12 @@ const TEMPLATE_ORDER: TemplateId[] = [
   "serif-duelo",       // idem
   "madureira",         // idem
   "madureira-reflection", // idem
-  "madureira-dark",    // ⭐ formato ativo
+  "madureira-dark",    // ⭐ formato ativo anterior
+  "madureira-minimal", // ⭐ formato ativo (2026-05-19) polaroid B&W
   // Defiverso (Gabriel 2026-05-18: SÓ Twitter + defiverso-cripto-dark)
   "defiverso-carrossel",  // mantido pra retrocompat
-  "defiverso-cripto-dark", // ⭐ formato ativo
+  "defiverso-cripto-dark", // mantido pra retrocompat
+  "defiverso-imagebg",     // ⭐ formato ativo (2026-05-19)
 ];
 
 const TEMPLATE_DESC: Record<TemplateId, string> = {
@@ -90,9 +92,11 @@ const TEMPLATE_DESC: Record<TemplateId, string> = {
   madureira: "Futurista simples · capa IA dominante · navy + accent verde · slides com quadrado 1:1",
   "madureira-reflection": "Texto-puro · 7 layouts DS (capa emoji/type, curva, barras, bullets, reflexão, CTA) · Geist + Fraunces italic accent · zero imagem",
   "madureira-dark": "Dark · Fraunces italic 55pt capa (com emoji/imagem opcional) + Geist 35pt body · centralizado vertical · heart + N/total footer",
+  "madureira-minimal": "Polaroid B&W · preto puro + frame branco · Fraunces italic 56 + Geist 21/35 · 3 modos (capa emoji / texto puro / imagem) · pager discreto",
   "dsec-dark": "(deprecated — DSEC usa twitter genérico agora)",
   "defiverso-carrossel": "Defiverso · verde profundo + cream · bullets c/ dado destacado · CTA ManyChat (👽) [v1 newsletter-repurpose]",
   "defiverso-cripto-dark": "Defiverso v2 · dark + foto B&W full-bleed · título multi-cor (laranja/verde) · alien CTA handwritten",
+  "defiverso-imagebg": "Defiverso v3 · imagem-fundo full-bleed + frame cream + Aston Serif 72 + setinha ▶ + alien CTA",
 };
 
 /**
@@ -115,9 +119,12 @@ const TEMPLATE_CLIENT_ALLOWLIST: Partial<Record<TemplateId, string[]>> = {
   madureira: [],
   'madureira-reflection': [],
   'madureira-dark': ['madureira'],
-  // Defiverso — formato ativo: defiverso-cripto-dark (dark + coins + alien).
+  'madureira-minimal': ['madureira'],
+  // Defiverso — formato ativo: defiverso-imagebg (imagem-fundo + Aston Serif).
+  // defiverso-cripto-dark mantido pra retrocompat de carrosseis JÁ salvos.
   'defiverso-carrossel': [],
-  'defiverso-cripto-dark': ['defiverso'],
+  'defiverso-cripto-dark': [],
+  'defiverso-imagebg': ['defiverso'],
   // 'dsec-dark' nem aparece no TEMPLATE_ORDER.
 };
 
@@ -308,7 +315,12 @@ export default function TemplatesPage(props: {
           //    (admin incluído) — separação por cliente é semântica, não
           //    permissão.
           isTemplateAvailableForClient(tplId, client?.name),
-        ).map((tplId) => {
+        )
+          // 2026-05-19 — Skip IDs que foram arquivados (não estão mais em
+          // TEMPLATES_META). Retrocompat: carrosseis salvos com esse ID
+          // ainda renderizam (fallback pra Twitter no TemplateRenderer).
+          .filter((tplId) => TEMPLATES_META.some((m) => m.id === tplId))
+          .map((tplId) => {
           const meta = TEMPLATES_META.find((m) => m.id === tplId)!;
           const isOn = selected === tplId;
           const comingSoon = Boolean(COMING_SOON[tplId]);

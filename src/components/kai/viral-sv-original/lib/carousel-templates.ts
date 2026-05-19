@@ -35,8 +35,11 @@ export type DesignTemplateId =
   | "defiverso-carrossel"
   | "defiverso-cripto-dark";
 
-/** Template default quando nada é especificado. */
-export const DEFAULT_DESIGN_TEMPLATE: DesignTemplateId = "manifesto";
+/** Template default quando nada é especificado.
+ * 2026-05-19: trocado de "manifesto" (arquivado) pra "twitter" (template ativo
+ * único pra todos os clientes que não têm allowlist específica). IDs antigos
+ * salvos no DB continuam funcionando via fallback no TemplateRenderer. */
+export const DEFAULT_DESIGN_TEMPLATE: DesignTemplateId = "twitter";
 
 export type CreationMode = "quick" | "guided";
 

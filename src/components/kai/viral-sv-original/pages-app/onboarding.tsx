@@ -224,7 +224,8 @@ export default function OnboardingPage() {
   // imageStyleId aceita "photo" | "illus" | "iso3d" | "custom" (quando o
   // usuario subiu referencias proprias, os presets ficam ocultos).
   const [imageStyleId, setImageStyleId] = useState<string>("photo");
-  const [designId, setDesignId] = useState<DesignTemplateId>("manifesto");
+  // 2026-05-19: default trocado de "manifesto" (arquivado) pra "twitter".
+  const [designId, setDesignId] = useState<DesignTemplateId>("twitter");
   // Upload de referencias visuais proprias (0-3). Se houver, roda
   // /api/brand-aesthetic e guarda a description inline.
   const [brandImageRefs, setBrandImageRefs] = useState<string[]>([]);

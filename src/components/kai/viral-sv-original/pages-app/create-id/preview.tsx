@@ -120,8 +120,9 @@ export default function PreviewPage(props: {
     () => snapshot?.slides ?? draft?.slides ?? [],
     [snapshot?.slides, draft?.slides],
   );
+  // 2026-05-19: default trocado de "manifesto" (arquivado) pra "twitter".
   const templateId: TemplateId =
-    snapshot?.visualTemplate ?? draft?.visualTemplate ?? "manifesto";
+    snapshot?.visualTemplate ?? draft?.visualTemplate ?? "twitter";
   const accentOverride = snapshot?.accentOverride ?? draft?.accentOverride;
   const displayFontOverride = snapshot?.displayFont ?? draft?.displayFont;
   const textScaleOverride =

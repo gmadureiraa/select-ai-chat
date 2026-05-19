@@ -1,20 +1,8 @@
 
 import { forwardRef } from "react";
-import TemplateManifesto from "./template-manifesto";
-import TemplateFuturista from "./template-futurista";
-import TemplateAutoral from "./template-autoral";
 import TemplateTwitter from "./template-twitter";
-import TemplateAmbitious from "./template-ambitious";
-import TemplateBlank from "./template-blank";
-import TemplateBohdan from "./template-bohdan";
-import TemplatePaperMono from "./template-paper-mono";
-import TemplateSerifDuelo from "./template-serif-duelo";
-import TemplateMadureira from "./template-madureira";
-import TemplateMadureiraReflection from "./template-madureira-reflection";
-import TemplateMadureiraDark from "./template-madureira-dark";
-import TemplateDsecDark from "./template-dsec-dark";
-import TemplateDefiversoCarrossel from "./template-defiverso-carrossel";
-import TemplateDefiversoCriptoDark from "./template-defiverso-cripto-dark";
+import TemplateDefiversoImageBG from "./template-defiverso-imagebg";
+import TemplateMadureiraMinimal from "./template-madureira-minimal";
 import type { SlideProps, TemplateId, TemplateMeta } from "./types";
 
 export type { SlideProps, TemplateId, TemplateMeta } from "./types";
@@ -22,155 +10,76 @@ export type { SlideProps, TemplateId, TemplateMeta } from "./types";
 /**
  * Orchestrator — escolhe o template certo baseado em `templateId`.
  * Repassa ref e todas as props de `SlideProps` pro componente alvo.
+ *
+ * 2026-05-19 — Limpeza: TODOS os templates foram arquivados em `_archive/`
+ * (ver _archive/README.md / git log). Só Twitter + defiverso-imagebg ativos.
+ * IDs antigos caem no default e renderizam como Twitter (retrocompat de
+ * carrosseis salvos).
+ *
+ * TODO recovery (qual cliente usava cada template arquivado):
+ *  - manifesto        → genérico (capa editorial cinemático)
+ *  - futurista        → genérico (tech-lean, legado)
+ *  - autoral          → genérico (zine, legado)
+ *  - ambitious        → genérico (motivacional foto moody)
+ *  - blank            → genérico (editorial educativo, Playfair)
+ *  - bohdan           → genérico (design-forward B&W lime)
+ *  - paper-mono       → MADUREIRA (tobi.the.og confessional)
+ *  - serif-duelo      → MADUREIRA (tinnaloaiza auditoria)
+ *  - madureira        → MADUREIRA (capa IA dominante navy/verde)
+ *  - madureira-reflection → MADUREIRA (texto-puro 7 layouts)
+ *  - madureira-dark   → MADUREIRA (Fraunces 55 + Geist 35) ⭐ ativo recente
+ *  - dsec-dark        → DSEC (deprecated antes da limpeza)
+ *  - defiverso-carrossel    → DEFIVERSO (verde profundo + cream)
+ *  - defiverso-cripto-dark  → DEFIVERSO (dark + alien CTA) ⭐ ativo recente
+ *
+ * Templates ATIVOS:
+ *  - twitter            → genérico (tweet screenshot, default)
+ *  - defiverso-imagebg  → DEFIVERSO ⭐ NOVO (2026-05-19) — imagem-fundo
+ *    full-bleed + Aston Serif 72 + frame cream + alien CTA
+ *  - madureira-minimal  → MADUREIRA ⭐ NOVO (2026-05-19) — preto puro +
+ *    frame branco polaroid + Fraunces italic 56 + Geist 21/35 +
+ *    3 modos (capa emoji / texto puro / imagem)
  */
 export const TemplateRenderer = forwardRef<
   HTMLDivElement,
   SlideProps & { templateId: TemplateId }
 >(function TemplateRenderer({ templateId, ...rest }, ref) {
   switch (templateId) {
-    case "manifesto":
-      return <TemplateManifesto ref={ref} {...rest} />;
-    case "futurista":
-      return <TemplateFuturista ref={ref} {...rest} />;
-    case "autoral":
-      return <TemplateAutoral ref={ref} {...rest} />;
+    case "defiverso-imagebg":
+      return <TemplateDefiversoImageBG ref={ref} {...rest} />;
+    case "madureira-minimal":
+      return <TemplateMadureiraMinimal ref={ref} {...rest} />;
     case "twitter":
-      return <TemplateTwitter ref={ref} {...rest} />;
-    case "ambitious":
-      return <TemplateAmbitious ref={ref} {...rest} />;
-    case "blank":
-      return <TemplateBlank ref={ref} {...rest} />;
-    case "bohdan":
-      return <TemplateBohdan ref={ref} {...rest} />;
-    case "paper-mono":
-      return <TemplatePaperMono ref={ref} {...rest} />;
-    case "serif-duelo":
-      return <TemplateSerifDuelo ref={ref} {...rest} />;
-    case "madureira":
-      return <TemplateMadureira ref={ref} {...rest} />;
-    case "madureira-reflection":
-      return <TemplateMadureiraReflection ref={ref} {...rest} />;
-    case "madureira-dark":
-      return <TemplateMadureiraDark ref={ref} {...rest} />;
-    case "dsec-dark":
-      return <TemplateDsecDark ref={ref} {...rest} />;
-    case "defiverso-carrossel":
-      return <TemplateDefiversoCarrossel ref={ref} {...rest} />;
-    case "defiverso-cripto-dark":
-      return <TemplateDefiversoCriptoDark ref={ref} {...rest} />;
     default:
+      // Todos os IDs antigos caem aqui (retrocompat).
       return <TemplateTwitter ref={ref} {...rest} />;
   }
 });
 
-/** Metadados pra picker de template na UI (nome, kicker, paleta de preview). */
+/**
+ * Metadados pra picker de template na UI. Twitter (genérico) +
+ * defiverso-imagebg (Defiverso) aparecem pra novos carrosseis. Os antigos
+ * continuam funcionando porque `TemplateRenderer` faz fallback pra Twitter.
+ */
 export const TEMPLATES_META: TemplateMeta[] = [
   {
-    id: "manifesto",
-    name: "Manifesto",
-    kicker: "Nº 01 · EDITORIAL",
-    palette: ["#0A0A0A", "#7CF067", "#F7F5EF"],
-  },
-  {
-    id: "futurista",
-    name: "Futurista",
-    kicker: "Nº 02 · TECH",
-    palette: ["#0B0F1E", "#00F0A0", "#FFFFFF"],
-  },
-  {
-    id: "autoral",
-    name: "Autoral",
-    kicker: "Nº 03 · ZINE",
-    palette: ["#F7F5EF", "#D262B2", "#0A0A0A"],
-  },
-  {
     id: "twitter",
-    name: "Twitter v2",
-    kicker: "Nº 04 · SCREENSHOT",
+    name: "Twitter",
+    kicker: "Nº 01 · SCREENSHOT",
     palette: ["#FFFFFF", "#1D9BF0", "#0A0A0A"],
   },
   {
-    id: "ambitious",
-    name: "Ambição",
-    kicker: "Nº 05 · MOTIVACIONAL",
-    palette: ["#0A0A0A", "#EACB7C", "#F5F5F5"],
+    id: "defiverso-imagebg",
+    name: "Defiverso ImageBG",
+    kicker: "Nº 02 · CRIPTO BR",
+    palette: ["#0A0908", "#7CF067", "#FFFFFF"],
   },
   {
-    id: "blank",
-    name: "Editorial",
-    kicker: "Nº 06 · EDITORIAL MIX",
-    palette: ["#F9F9F9", "#222222", "#111111"],
-  },
-  {
-    id: "bohdan",
-    name: "Bohdan",
-    kicker: "Nº 07 · DESIGN-FORWARD",
-    palette: ["#0E0E0E", "#C8FF3D", "#FAFAF7"],
-  },
-  {
-    id: "paper-mono",
-    name: "Paper Mono",
-    kicker: "Nº 08 · CONFESSIONAL",
-    palette: ["#ECE9DD", "#0E0E10", "#1A1A1A"],
-  },
-  {
-    id: "serif-duelo",
-    name: "Serif Duelo",
-    kicker: "Nº 08b · AUDITORIA",
-    palette: ["#EFE6CB", "#5DAA5C", "#E55A3D"],
-  },
-  {
-    id: "madureira",
-    name: "Madureira",
-    kicker: "Nº 09 · CAPA IA",
-    palette: ["#0B0F1E", "#00F0A0", "#FFFFFF"],
-  },
-  {
-    id: "madureira-reflection",
-    name: "Madureira Reflexão",
-    kicker: "Nº 10 · TEXTO-PURO",
-    palette: ["#000000", "#f4f1ea", "#e63a1f"],
-  },
-  {
-    id: "madureira-dark",
-    name: "Madureira Dark",
-    kicker: "Nº 10b · FRAUNCES + GEIST",
-    palette: ["#0A0A0A", "#FFFFFF", "#FF3D2E"],
-  },
-  {
-    id: "dsec-dark",
-    name: "DSEC Dark",
-    kicker: "Nº 11 · TECH B2B",
-    palette: ["#0A0A0B", "#F7931A", "#00FF88"],
-  },
-  {
-    id: "defiverso-carrossel",
-    name: "Defiverso IG",
-    kicker: "Nº 12 · CRIPTO BR",
-    palette: ["#0E3B2E", "#F5D547", "#7CF067"],
-  },
-  {
-    id: "defiverso-cripto-dark",
-    name: "Defiverso Cripto Dark",
-    kicker: "Nº 12b · CRIPTO V2",
-    palette: ["#0A0A0A", "#FF7A28", "#7CF067"],
+    id: "madureira-minimal",
+    name: "Madureira Minimal",
+    kicker: "Nº 03 · POLAROID B&W",
+    palette: ["#000000", "#FFFFFF", "#FFFFFF"],
   },
 ];
 
-export {
-  TemplateManifesto,
-  TemplateFuturista,
-  TemplateAutoral,
-  TemplateTwitter,
-  TemplateAmbitious,
-  TemplateBlank,
-  TemplateBohdan,
-  TemplatePaperMono,
-  TemplateSerifDuelo,
-  TemplateMadureira,
-  TemplateMadureiraReflection,
-  TemplateMadureiraDark,
-  TemplateDsecDark,
-  TemplateDefiversoCarrossel,
-  TemplateDefiversoCriptoDark,
-};
+export { TemplateTwitter, TemplateDefiversoImageBG, TemplateMadureiraMinimal };
