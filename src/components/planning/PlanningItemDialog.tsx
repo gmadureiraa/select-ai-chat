@@ -1030,7 +1030,7 @@ export function PlanningItemDialog({
 
               {/* Platforms */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Publicar em</Label>
+                <Label className="text-xs text-muted-foreground">Plataforma</Label>
                 <div className="grid grid-cols-2 gap-1">
                   {ALL_PUBLISH_PLATFORMS.map((p) => {
                     const status = getPlatformStatus(p.value as any);
@@ -1109,6 +1109,34 @@ export function PlanningItemDialog({
                     </div>
                   );
                 })()}
+
+                {/* 2026-05-19: toggle opt-in autopublicar movido pra logo abaixo
+                    das plataformas (era no bloco de data). Aparece sempre que
+                    tiver plataforma publicável — adapta texto conforme tem
+                    data marcada ou não. */}
+                {publishablePlatforms.length > 0 && (
+                  <div className="flex items-start gap-2 rounded-md border border-border/50 bg-muted/30 px-2.5 py-2 mt-1.5">
+                    <input
+                      type="checkbox"
+                      id="auto-publish-toggle"
+                      checked={autoPublish}
+                      onChange={(e) => setAutoPublish(e.target.checked)}
+                      className="mt-0.5 h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
+                    />
+                    <label htmlFor="auto-publish-toggle" className="flex-1 cursor-pointer">
+                      <div className="text-[11px] font-medium text-foreground">
+                        Publicar automaticamente via Late/Zernio
+                      </div>
+                      <div className="text-[10px] text-muted-foreground leading-relaxed">
+                        {autoPublish && scheduledAt
+                          ? `✓ Será publicado em ${publishablePlatforms.length} plataforma(s) às ${scheduledTime}`
+                          : autoPublish && !scheduledAt
+                            ? 'Marca data e hora abaixo pra agendar no Late.'
+                            : 'Marca pra agendar no Late. Desmarcado = só salva o card (sem postar nada).'}
+                      </div>
+                    </label>
+                  </div>
+                )}
               </div>
 
               {/* Per-platform options (Stories, Reels, Trial Reels, etc.) */}
@@ -1151,29 +1179,6 @@ export function PlanningItemDialog({
                     />
                   </div>
                 </div>
-                {/* 2026-05-19: toggle opt-in autopublicar. Antes era automático,
-                    gerava agendamentos sem querer. Agora user precisa MARCAR. */}
-                {scheduledAt && publishablePlatforms.length > 0 && (
-                  <div className="flex items-start gap-2 rounded-md border border-border/50 bg-muted/30 px-2.5 py-2">
-                    <input
-                      type="checkbox"
-                      id="auto-publish-toggle"
-                      checked={autoPublish}
-                      onChange={(e) => setAutoPublish(e.target.checked)}
-                      className="mt-0.5 h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
-                    />
-                    <label htmlFor="auto-publish-toggle" className="flex-1 cursor-pointer">
-                      <div className="text-[11px] font-medium text-foreground">
-                        Publicar automaticamente via Late/Zernio
-                      </div>
-                      <div className="text-[10px] text-muted-foreground leading-relaxed">
-                        {autoPublish
-                          ? `✓ Será publicado em ${publishablePlatforms.length} plataforma(s) às ${scheduledTime}`
-                          : 'Marca pra agendar no Late. Desmarcado = só salva o card (sem postar nada).'}
-                      </div>
-                    </label>
-                  </div>
-                )}
                 {scheduledAt && publishablePlatforms.length === 0 && (
                   <p className="text-[10px] text-amber-600 dark:text-amber-400">
                     ⚠️ Nenhuma plataforma selecionada com autopublish disponível (precisa conectar conta no Late/Zernio).
