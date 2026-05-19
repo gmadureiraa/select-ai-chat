@@ -75,6 +75,12 @@ export function buildSVPreviewProfile(
     cleanHandle(fallbackProfile?.instagram_handle ?? null);
   const handle = clientHandle || fallbackHandle;
   const tagsAsMap = client?.tags as { [key: string]: unknown } | null | undefined;
+  // TODO(2026-05-19): se Gabriel limpar `client.avatar_url` explicitamente
+  // (set null/empty), o fallback ainda pega logo antigo de
+  // tags.logo_url/avatar_url/profile_image_url e a foto "volta" no template.
+  // Considerar respeitar null intencional vs. "nunca foi setado" — talvez
+  // distinguir avatar_url=null (clear explícito) de avatar_url=undefined.
+  // Não alterar agora pra não quebrar clientes legados que só têm logo em tags.
   const logoFromTags = firstString(
     tagsAsMap?.logo_url,
     tagsAsMap?.avatar_url,

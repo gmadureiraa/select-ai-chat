@@ -73,20 +73,22 @@
     <!-- Fonts — consolidados em UMA requisição combinada pra cortar 5 round trips
          pro Google Fonts (eram ~150-250ms render-blocking cada em 4G).
          Inter é a UI principal do KAI. As outras (Plus Jakarta, Instrument Serif,
-         JetBrains Mono, DM Serif, Playfair, Outfit, Source Sans 3, Literata, Geist Mono)
-         são usadas só dentro do viral-sv-original (templates de carrossel) — mas
-         como o CSS é load uma vez e o browser cacheia, vale unificar.
+         JetBrains Mono, DM Serif, Playfair, Outfit, Source Sans 3, Literata,
+         Geist, Geist Mono, Fraunces) são usadas só dentro do viral-sv-original
+         (templates de carrossel) — mas como o CSS é load uma vez e o browser
+         cacheia, vale unificar. Fraunces + Geist (sans) adicionados 2026-05-19
+         pro template madureira-minimal.
          display=swap pra texto aparecer instantâneo com fallback. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
       rel="preload"
       as="style"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=DM+Serif+Display&family=Playfair+Display:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&family=Literata:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Geist:wght@400;500;700&family=Geist+Mono:wght@400;500;600;700&family=Fraunces:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=DM+Serif+Display&family=Playfair+Display:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&family=Literata:wght@400;500;600;700&display=swap"
     />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=DM+Serif+Display&family=Playfair+Display:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&family=Literata:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Geist:wght@400;500;700&family=Geist+Mono:wght@400;500;600;700&family=Fraunces:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=DM+Serif+Display&family=Playfair+Display:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600;700&family=Literata:wght@400;500;600;700&display=swap"
     />
 
     <!-- DNS prefetch + preconnect pra endpoints críticos (Neon + Vercel Blob) -->

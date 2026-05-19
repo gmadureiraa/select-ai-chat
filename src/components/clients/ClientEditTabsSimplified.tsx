@@ -70,6 +70,13 @@ function getUrlSection(value: string | null): ClientEditSection {
 export function ClientEditTabsSimplified({ client, onClose }: ClientEditTabsSimplifiedProps) {
   const [name, setName] = useState(client.name);
   const [description, setDescription] = useState(client.description || "");
+  // TODO(2026-05-19): quando AvatarUpload seta novo `avatarUrl`, o
+  // `tags.logo_url` antigo continua salvo e `buildSVPreviewProfile` cai nele
+  // quando `client.avatar_url` está vazio. Avaliar limpar `tags.logo_url`
+  // (e `tags.avatar_url` / `tags.profile_image_url`) no auto-save abaixo
+  // sempre que `avatarUrl` mudar. Risco: clientes que tinham só logo nos tags
+  // (sem avatar_url) perderiam a foto se o user "limpar" o avatar — precisa
+  // confirmar comportamento esperado com Gabriel antes.
   const [avatarUrl, setAvatarUrl] = useState<string | null>(client.avatar_url || null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [hasChanges, setHasChanges] = useState(false);

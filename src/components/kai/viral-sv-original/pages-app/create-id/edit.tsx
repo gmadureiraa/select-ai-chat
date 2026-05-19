@@ -27,6 +27,29 @@ import type {
 } from "@sv/lib/create/types";
 import { useSVClient } from "../../MainApp";
 import { apiInvoke } from "@/lib/apiInvoke";
+import {
+  extractToken,
+  setToken,
+  extractLabels,
+  setLabels,
+} from "./utils-tokens";
+
+/**
+ * Emojis sugeridos pro picker do template madureira-minimal (capa).
+ * Inclui um "custom" placeholder (input livre) no UI.
+ */
+const MADUREIRA_EMOJI_PRESETS = [
+  "🚨",
+  "⚡",
+  "💡",
+  "👀",
+  "🔥",
+  "✨",
+  "🚀",
+  "💸",
+  "📊",
+  "❤️",
+];
 
 /**
  * Tela 03 — Editor. 3 colunas (variantes/layers · canvas · branding) no
@@ -229,6 +252,41 @@ function fontsForTemplate(templateId: string | null | undefined): typeof FONT_OP
   const ids = FONTS_PER_TEMPLATE[templateId || ""] || [];
   if (ids.length === 0) return [];
   return FONT_OPTS.filter((f) => ids.includes(f.id));
+}
+
+/**
+ * Helpers do template "defiverso-imagebg" (props-hack temporário).
+ *
+ * Enquanto o template não tem props dedicadas (backgroundDarken/titleColor),
+ * a UI do editor reutiliza:
+ *  - `bgColor` no formato "darken:NN" (0-100) → overlay preto rgba(0,0,0,NN/100)
+ *  - `accentOverride` na cor do título principal
+ *
+ * Esses helpers padronizam a leitura do state pra UI.
+ */
+function parseDarkenValue(bgColor: string | undefined | null): number {
+  if (!bgColor) return 0;
+  const m = bgColor.match(/^darken:(\d+)$/);
+  if (!m) return 0;
+  const n = Number(m[1]);
+  return Math.max(0, Math.min(100, isNaN(n) ? 0 : n));
+}
+
+function colorPickerActive(
+  accent: string | undefined | null,
+  target: "white" | "green" | "black",
+): boolean {
+  // "Branco" = accent vazio/undefined OU literalmente "white"/"#ffffff"
+  if (target === "white") {
+    if (!accent) return true;
+    const a = accent.trim().toLowerCase();
+    return a === "white" || a === "#ffffff" || a === "#fff";
+  }
+  if (!accent) return false;
+  const a = accent.trim().toLowerCase();
+  if (target === "green") return a === "#7cf067";
+  if (target === "black") return a === "#0a0908";
+  return false;
 }
 
 /**
@@ -1386,6 +1444,239 @@ export default function EditPage(props: {
           </button>
         )}
       </div>
+
+      {/* ============================================================
+          Painel "Estilo Defiverso" — só aparece quando templateId é
+          "defiverso-imagebg". Controla 3 coisas via props-hack (até o
+          template ganhar props dedicadas):
+            1. Cor do título → `accentOverride` global (white/verde/preto)
+            2. Escurecer fundo → `bgColor = "darken:NN"` por slide
+            3. Imagem de fundo → `imageUrl` por slide (upload + URL paste)
+          Editor Madureira-Minimal (em paralelo) deve ficar em outro
+          bloco condicional pra não conflitar com esse.
+          ============================================================ */}
+      {templateId === "defiverso-imagebg" && (
+        <>
+          <div
+            style={{
+              height: 1,
+              background: "var(--sv-ink)",
+              opacity: 0.15,
+              margin: "6px 0 2px",
+            }}
+          />
+          <h4
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9.5,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+              fontWeight: 700,
+            }}
+          >
+            Estilo Defiverso
+          </h4>
+
+          {/* 1. Color pills — cor do título principal */}
+          <div className="flex flex-col gap-1.5">
+            <span
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 8.5,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "var(--sv-muted)",
+                fontWeight: 700,
+              }}
+            >
+              Cor do título
+            </span>
+            <div className="flex gap-1.5 flex-wrap">
+              {(
+                [
+                  { id: "white" as const, label: "Branco", hex: "#FFFFFF" },
+                  { id: "green" as const, label: "Verde", hex: "#7CF067" },
+                  { id: "black" as const, label: "Preto", hex: "#0A0908" },
+                ]
+              ).map((opt) => {
+                const on = colorPickerActive(
+                  accentTouched ? accent : undefined,
+                  opt.id,
+                );
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      if (opt.id === "white") {
+                        // Branco = default do template. Limpa o override
+                        // pra não poluir o draft com accent global.
+                        setAccent("#FFFFFF");
+                        setAccentTouched(false);
+                      } else {
+                        setAccent(opt.hex);
+                        setAccentTouched(true);
+                      }
+                    }}
+                    aria-pressed={on}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 10px",
+                      border: on
+                        ? "1.5px solid var(--sv-green, #7CF067)"
+                        : "1.5px solid var(--sv-ink)",
+                      background: "#0A0908",
+                      color: "var(--sv-paper)",
+                      cursor: "pointer",
+                      fontFamily: "var(--sv-mono)",
+                      fontSize: 9,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      fontWeight: 700,
+                      boxShadow: on
+                        ? "0 0 0 2px var(--sv-paper) inset, 0 0 0 3px var(--sv-green, #7CF067)"
+                        : "none",
+                    }}
+                  >
+                    <span
+                      aria-hidden
+                      style={{
+                        display: "inline-block",
+                        width: 10,
+                        height: 10,
+                        background: opt.hex,
+                        border: "1px solid rgba(255,255,255,0.4)",
+                        borderRadius: "50%",
+                      }}
+                    />
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2. Slider — escurecer fundo (overlay preto sobre a imagem) */}
+          <div className="flex flex-col gap-1.5">
+            <span
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 8.5,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "var(--sv-muted)",
+                fontWeight: 700,
+              }}
+            >
+              Escurecer fundo
+            </span>
+            <div className="flex items-center gap-2.5">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={parseDarkenValue(active?.bgColor)}
+                onChange={(e) => {
+                  const v = Math.max(
+                    0,
+                    Math.min(100, parseInt(e.target.value, 10) || 0),
+                  );
+                  if (active == null) return;
+                  if (v > 0) {
+                    updateSlide(activeIndex, { bgColor: `darken:${v}` });
+                  } else {
+                    updateSlide(activeIndex, { bgColor: undefined });
+                  }
+                }}
+                style={{ flex: 1, accentColor: "var(--sv-ink)" }}
+                aria-label="Escurecer fundo (overlay preto)"
+              />
+              <span
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  minWidth: 42,
+                  textAlign: "right",
+                }}
+              >
+                {parseDarkenValue(active?.bgColor)}%
+              </span>
+            </div>
+          </div>
+
+          {/* 3. Imagem de fundo — upload (reusa handleUploadImage) + URL paste */}
+          <div className="flex flex-col gap-1.5">
+            <span
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 8.5,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "var(--sv-muted)",
+                fontWeight: 700,
+              }}
+            >
+              Imagem de fundo
+            </span>
+            <div className="flex gap-1.5 items-center">
+              <button
+                type="button"
+                onClick={() => triggerUploadFor(activeIndex)}
+                className="sv-btn sv-btn-outline"
+                style={{
+                  padding: "7px 11px",
+                  fontSize: 9.5,
+                  whiteSpace: "nowrap",
+                }}
+                title="Faz upload de uma imagem do seu computador (mesmo pipeline do upload de slide)"
+              >
+                📷 Upload
+              </button>
+              <input
+                type="text"
+                value={active?.imageUrl ?? ""}
+                onChange={(e) =>
+                  updateSlide(activeIndex, {
+                    imageUrl: e.target.value || "",
+                    imageFailed: false,
+                  })
+                }
+                placeholder="Cole uma URL"
+                className="sv-input"
+                style={{
+                  flex: 1,
+                  padding: "7px 10px",
+                  fontSize: 11,
+                  fontFamily: "var(--sv-mono)",
+                }}
+                aria-label="URL da imagem de fundo"
+              />
+            </div>
+          </div>
+
+          {/* Dica de uso */}
+          <div
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 8.5,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+              padding: "6px 8px",
+              border: "1px dashed var(--sv-ink)",
+              background: "var(--sv-soft)",
+              lineHeight: 1.5,
+            }}
+          >
+            Dica: use **palavra** no texto pra grifar
+          </div>
+        </>
+      )}
     </div>
   );
 
@@ -1659,6 +1950,430 @@ export default function EditPage(props: {
           />
         </div>
       </div>
+
+      {/* ─── Madureira Minimal — editor de tokens inline ──────────────────
+          Só renderiza quando o template ativo é `madureira-minimal`. Permite
+          editar emoji da capa, decoração SVG (notes/eyes/none) e modo
+          "duas imagens" (lado a lado) sem o user precisar digitar os tokens
+          `[emoji:X] [deco:X] [img2:URL]` na mão.
+          Os 3 controles operam sobre `active.body` via helpers em
+          utils-tokens.ts e disparam `updateSlide(activeIndex, { body })`. */}
+      {templateId === "madureira-minimal" && active && (() => {
+        const body = active.body ?? "";
+        const currentEmoji = extractToken(body, "emoji");
+        const currentDeco = (extractToken(body, "deco") || "none") as
+          | "notes"
+          | "eyes"
+          | "none";
+        const currentImg2 = extractToken(body, "img2");
+        const isDualMode = !!currentImg2;
+        const { label1, label2 } = extractLabels(body);
+
+        const writeToken = (
+          token: "emoji" | "deco" | "img2",
+          value: string | null,
+        ) => {
+          updateSlide(activeIndex, {
+            body: setToken(body, token, value),
+          });
+        };
+
+        return (
+          <div
+            className="grid gap-3 w-full"
+            style={{
+              maxWidth: 620,
+              padding: "12px 14px",
+              border: "1.5px solid var(--sv-ink)",
+              background: "var(--sv-paper)",
+              boxShadow: "3px 3px 0 0 var(--sv-ink)",
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <h4
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 9.5,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "var(--sv-ink)",
+                  fontWeight: 700,
+                  margin: 0,
+                }}
+              >
+                Madureira · controles do slide
+              </h4>
+              <span
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 8,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "var(--sv-muted)",
+                  fontWeight: 700,
+                }}
+              >
+                Slide {activeIndex + 1}
+              </span>
+            </div>
+
+            {/* ─── Picker de emoji ─────────────────────────────────── */}
+            <div className="flex flex-col gap-1.5">
+              <label
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 8.5,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "var(--sv-muted)",
+                  fontWeight: 700,
+                }}
+              >
+                Emoji da capa
+              </label>
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {MADUREIRA_EMOJI_PRESETS.map((e) => {
+                  const on = currentEmoji === e;
+                  return (
+                    <button
+                      key={e}
+                      type="button"
+                      onClick={() => writeToken("emoji", on ? null : e)}
+                      title={on ? "Click pra remover" : `Usar ${e}`}
+                      aria-pressed={on}
+                      aria-label={`Emoji ${e}`}
+                      style={{
+                        width: 34,
+                        height: 34,
+                        fontSize: 18,
+                        lineHeight: 1,
+                        border: on
+                          ? "2px solid var(--sv-green, #7CF067)"
+                          : "1.5px solid var(--sv-ink)",
+                        background: on ? "var(--sv-ink)" : "var(--sv-white)",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: on ? "2px 2px 0 0 var(--sv-ink)" : "none",
+                        padding: 0,
+                      }}
+                    >
+                      {e}
+                    </button>
+                  );
+                })}
+                <input
+                  type="text"
+                  value={
+                    currentEmoji &&
+                    !MADUREIRA_EMOJI_PRESETS.includes(currentEmoji)
+                      ? currentEmoji
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value.trim();
+                    writeToken("emoji", v || null);
+                  }}
+                  placeholder="custom"
+                  maxLength={4}
+                  className="sv-input"
+                  style={{
+                    width: 70,
+                    height: 34,
+                    padding: "0 8px",
+                    fontFamily: "var(--sv-mono)",
+                    fontSize: 14,
+                    textAlign: "center",
+                  }}
+                  aria-label="Emoji custom"
+                />
+                {currentEmoji && (
+                  <button
+                    type="button"
+                    onClick={() => writeToken("emoji", null)}
+                    className="sv-btn sv-btn-outline"
+                    style={{
+                      padding: "0 10px",
+                      height: 34,
+                      fontSize: 9.5,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                    }}
+                    title="Remover emoji"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* ─── Picker de decoração ─────────────────────────────── */}
+            <div className="flex flex-col gap-1.5">
+              <label
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 8.5,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "var(--sv-muted)",
+                  fontWeight: 700,
+                }}
+              >
+                Decoração (texto puro)
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {(
+                  [
+                    {
+                      id: "none" as const,
+                      label: "None",
+                      preview: (
+                        <span
+                          style={{
+                            width: 18,
+                            height: 18,
+                            border: "1.5px dashed var(--sv-ink)",
+                          }}
+                        />
+                      ),
+                    },
+                    {
+                      id: "notes" as const,
+                      label: "Notes",
+                      preview: (
+                        <svg width={18} height={18} viewBox="0 0 18 18" aria-hidden>
+                          <rect
+                            x={2}
+                            y={3}
+                            width={6}
+                            height={7}
+                            fill="#FFFFFF"
+                            stroke="#000"
+                            strokeWidth={1}
+                            transform="rotate(-8 5 6)"
+                          />
+                          <rect
+                            x={9}
+                            y={6}
+                            width={6}
+                            height={7}
+                            fill="#FFFFFF"
+                            stroke="#000"
+                            strokeWidth={1}
+                            transform="rotate(7 12 9)"
+                          />
+                        </svg>
+                      ),
+                    },
+                    {
+                      id: "eyes" as const,
+                      label: "Eyes",
+                      preview: (
+                        <span style={{ fontSize: 14, lineHeight: 1 }}>👀</span>
+                      ),
+                    },
+                  ]
+                ).map((d) => {
+                  const on = currentDeco === d.id;
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() =>
+                        writeToken("deco", d.id === "none" ? null : d.id)
+                      }
+                      aria-pressed={on}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 10px",
+                        border: on
+                          ? "2px solid var(--sv-green, #7CF067)"
+                          : "1.5px solid var(--sv-ink)",
+                        background: on ? "var(--sv-ink)" : "var(--sv-white)",
+                        color: on ? "var(--sv-paper)" : "var(--sv-ink)",
+                        cursor: "pointer",
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 9.5,
+                        fontWeight: 700,
+                        letterSpacing: "0.14em",
+                        textTransform: "uppercase",
+                        boxShadow: on ? "2px 2px 0 0 var(--sv-ink)" : "none",
+                      }}
+                    >
+                      {d.preview}
+                      {d.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ─── Toggle modo duas imagens ─────────────────────────── */}
+            <div className="flex flex-col gap-1.5">
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 9.5,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "var(--sv-ink)",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isDualMode}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      // Ativa com placeholder vazio — user preenche depois.
+                      writeToken("img2", "https://");
+                    } else {
+                      // Desliga: remove img2 e labels.
+                      const b1 = setToken(body, "img2", null);
+                      const b2 = setLabels(b1, "", "");
+                      updateSlide(activeIndex, { body: b2 });
+                    }
+                  }}
+                  style={{
+                    width: 16,
+                    height: 16,
+                    accentColor: "var(--sv-ink)",
+                    cursor: "pointer",
+                  }}
+                />
+                Modo duas imagens (lado a lado)
+              </label>
+              {isDualMode && (
+                <div
+                  className="grid gap-2"
+                  style={{
+                    gridTemplateColumns: "1fr 1fr",
+                    paddingLeft: 24,
+                  }}
+                >
+                  <div className="flex flex-col gap-1">
+                    <span
+                      style={{
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 8,
+                        letterSpacing: "0.16em",
+                        textTransform: "uppercase",
+                        color: "var(--sv-muted)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      Imagem 1 (URL — usa imagem do slide)
+                    </span>
+                    <input
+                      type="text"
+                      value={active.imageUrl ?? ""}
+                      onChange={(e) =>
+                        updateSlide(activeIndex, {
+                          imageUrl: e.target.value,
+                          imageFailed: false,
+                        })
+                      }
+                      placeholder="https://..."
+                      className="sv-input"
+                      style={{
+                        width: "100%",
+                        padding: "6px 8px",
+                        fontSize: 11,
+                        fontFamily: "var(--sv-mono)",
+                      }}
+                    />
+                    <input
+                      type="text"
+                      value={label1}
+                      onChange={(e) =>
+                        updateSlide(activeIndex, {
+                          body: setLabels(body, e.target.value, label2),
+                        })
+                      }
+                      placeholder="Label 1 (opcional)"
+                      className="sv-input"
+                      style={{
+                        width: "100%",
+                        padding: "6px 8px",
+                        fontSize: 11,
+                        fontFamily: "var(--sv-sans)",
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span
+                      style={{
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 8,
+                        letterSpacing: "0.16em",
+                        textTransform: "uppercase",
+                        color: "var(--sv-muted)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      Imagem 2 (URL)
+                    </span>
+                    <input
+                      type="text"
+                      value={currentImg2 ?? ""}
+                      onChange={(e) =>
+                        writeToken("img2", e.target.value || null)
+                      }
+                      placeholder="https://..."
+                      className="sv-input"
+                      style={{
+                        width: "100%",
+                        padding: "6px 8px",
+                        fontSize: 11,
+                        fontFamily: "var(--sv-mono)",
+                      }}
+                    />
+                    <input
+                      type="text"
+                      value={label2}
+                      onChange={(e) =>
+                        updateSlide(activeIndex, {
+                          body: setLabels(body, label1, e.target.value),
+                        })
+                      }
+                      placeholder="Label 2 (opcional)"
+                      className="sv-input"
+                      style={{
+                        width: "100%",
+                        padding: "6px 8px",
+                        fontSize: 11,
+                        fontFamily: "var(--sv-sans)",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <p
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 8.5,
+                letterSpacing: "0.08em",
+                color: "var(--sv-muted)",
+                margin: 0,
+                lineHeight: 1.4,
+              }}
+            >
+              Os controles escrevem tokens inline no corpo do slide
+              (<code>[emoji:…]</code>, <code>[deco:…]</code>,{" "}
+              <code>[img2:…]</code>). Editáveis também direto no textarea acima.
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Thumbs horizontais com drag-and-drop */}
       <div

@@ -21,7 +21,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@sv/lib/auth-context";
 import { useKaiContext } from "@sv/lib/use-kai-context";
-import type { UserProfile } from "@sv/lib/auth-context";
+import { useClients } from "@/hooks/useClients";
+import { buildSVPreviewProfile } from "@sv/lib/client-profile";
 import { supabase } from "@sv/lib/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CarouselListSkeleton } from "@sv/components/app/carousel-skeleton";
@@ -41,25 +42,14 @@ import posthog from "posthog-js";
 
 const LIBRARY_SLIDE_PREVIEW_SCALE = 0.22;
 
-function buildLibraryPreviewProfile(profile: UserProfile | null): {
-  name: string;
-  handle: string;
-  photoUrl: string;
-} {
-  if (!profile) {
-    return { name: "Seu nome", handle: "@seuhandle", photoUrl: "" };
-  }
-  const handle = profile.twitter_handle
-    ? `@${profile.twitter_handle}`
-    : profile.instagram_handle
-      ? `@${profile.instagram_handle}`
-      : "@seuhandle";
-  return {
-    name: profile.name || "Seu nome",
-    handle,
-    photoUrl: profile.avatar_url || "",
-  };
-}
+// Bug 2026-05-19: usava `buildLibraryPreviewProfile(profile)` que sempre
+// puxava avatar/handle do USER LOGADO no KAI — fazia os cards da biblioteca
+// mostrarem foto do operador da agência em vez do cliente alvo do carrossel.
+// Trocado por `buildSVPreviewProfile(client, profile)` que prioriza
+// `client.avatar_url → tags.logo_url → profile.avatar_url` e mesmo flow pro
+// handle/nome. Page filtra por `kaiCtx.clientId`, então o cliente ativo da
+// sidebar é o dono de todos os carrosseis listados (carrosseis órfãos com
+// client_id IS NULL caem no fallback `profile`).
 
 type FilterKey = "all" | "drafts" | "published";
 
@@ -67,7 +57,18 @@ export default function CarouselsPage() {
   const { user, refreshProfile, profile } = useAuth();
   const kaiCtx = useKaiContext();
   const router = useRouter();
-  const previewProfile = useMemo(() => buildLibraryPreviewProfile(profile), [profile]);
+  const { clients } = useClients();
+  // Resolve cliente ativo da sidebar — `fetchUserCarousels` filtra por
+  // `kaiCtx.clientId` (linha 132), então todo card listado pertence a esse
+  // cliente (ou é órfão com client_id IS NULL, daí cai no fallback profile).
+  const activeClient = useMemo(
+    () => clients.find((c) => c.id === kaiCtx.clientId) ?? null,
+    [clients, kaiCtx.clientId],
+  );
+  const previewProfile = useMemo(
+    () => buildSVPreviewProfile(activeClient, profile),
+    [activeClient, profile],
+  );
   const [carousels, setCarousels] = useState<SavedCarousel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<FilterKey>("all");
