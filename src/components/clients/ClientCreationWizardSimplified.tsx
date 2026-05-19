@@ -127,18 +127,20 @@ export function ClientCreationWizardSimplified({ onComplete, onCancel }: ClientC
       // valida assertClientAccess + Zod). P0 fix audit 2026-05-17.
       for (const file of files) {
         const fileName = `${clientId}/${Date.now()}_${file.name}`;
-        const { error: uploadError } = await blobStorage
+        const { data: uploaded, error: uploadError } = await blobStorage
           .from("client-files")
           .upload(fileName, file);
 
-        if (!uploadError) {
+        if (!uploadError && uploaded) {
           try {
             await apiInvoke("client-document-create", {
               body: {
                 client_id: clientId,
                 name: file.name,
                 file_type: file.type || "application/octet-stream",
-                file_path: fileName,
+                // 2026-05-19: persistir path REAL do server (com sufixo único),
+                // não o fileName original sem sufixo.
+                file_path: uploaded.path,
               },
             });
           } catch (err) {

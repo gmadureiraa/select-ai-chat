@@ -69,21 +69,18 @@ export function RichContentEditor({
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `${clientId || 'content'}/${fileName}`;
 
-      const { error: uploadError } = await blobStorage
+      const { data: uploaded, error: uploadError } = await blobStorage
         .from('client-files')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
+      if (!uploaded?.url) throw new Error('Upload sem URL');
 
-      const { data } = blobStorage
-        .from('client-files')
-        .getPublicUrl(filePath);
-
-      // Insert image markdown at cursor
+      // Insert image markdown at cursor — usa URL real do server (key tem sufixo).
       const textarea = textareaRef.current;
       if (textarea) {
         const start = textarea.selectionStart;
-        const imageMarkdown = `\n![${file.name}](${data.publicUrl})\n`;
+        const imageMarkdown = `\n![${file.name}](${uploaded.url})\n`;
         const newText = value.substring(0, start) + imageMarkdown + value.substring(start);
         onChange(newText);
       }

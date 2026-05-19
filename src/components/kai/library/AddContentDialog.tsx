@@ -59,15 +59,15 @@ export function AddContentDialog({ open, onOpenChange, clientId, defaultContentT
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${clientId}/covers/${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await blobStorage
+
+      const { data: uploaded, error: uploadError } = await blobStorage
         .from('client-files')
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
-
-      const { data } = blobStorage.from('client-files').getPublicUrl(fileName);
-      setThumbnailUrl(data.publicUrl);
+      if (!uploaded?.url) throw new Error('Upload sem URL');
+      // 2026-05-19: usar url retornada pelo server (key tem sufixo único).
+      setThumbnailUrl(uploaded.url);
       toast.success("Capa carregada!");
     } catch (error) {
       console.error("Error uploading cover:", error);

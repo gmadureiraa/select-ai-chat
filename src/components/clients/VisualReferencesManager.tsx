@@ -119,15 +119,17 @@ export const VisualReferencesManager = ({
       const fileExt = file.name.split(".").pop();
       const filePath = `visual-references/${clientId}/${Date.now()}.${fileExt}`;
 
-      const { error: uploadError } = await blobStorage
+      const { data: uploaded, error: uploadError } = await blobStorage
         .from("client-files")
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
+      if (!uploaded) throw new Error("Upload sem retorno");
 
-      // Store the path, not a URL - the path will be used to generate signed URLs on demand
+      // 2026-05-19: persistir path REAL do server (com sufixo único), não o
+      // filePath original. Server adiciona ${Date.now()}-${rnd}- na key real.
       await createReference.mutateAsync({
-        image_url: filePath, // Store path instead of URL
+        image_url: uploaded.url, // armazena URL completa (mais robusto que path)
         title: title || file.name,
         description: description || undefined,
         reference_type: selectedType,

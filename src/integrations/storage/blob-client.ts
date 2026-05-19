@@ -182,9 +182,17 @@ class BlobBucket {
         url: string;
         path: string;
       };
+      // 2026-05-19 fix: server adiciona sufixo `${Date.now()}-${rnd}-` na key,
+      // então o `path` original do caller NÃO bate com a key real no R2.
+      // Resultado: getPublicUrl(data.path) reconstruía URL 404 → preview
+      // quebrado. Agora retornamos o path real do server (sem bucket prefix,
+      // mantendo semântica Supabase-like).
+      const bucketPrefix = `${this.bucket}/`;
+      const serverPath = json.path.startsWith(bucketPrefix)
+        ? json.path.slice(bucketPrefix.length)
+        : json.path;
       return {
-        // path retornado sem bucket prefix (Supabase-like)
-        data: { path, url: json.url },
+        data: { path: serverPath, url: json.url },
         error: null,
       };
     } catch (err) {

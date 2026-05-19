@@ -68,18 +68,17 @@ export function VisualReferenceUploader({ clientId, open, onOpenChange }: Visual
     setIsUploading(true);
 
     try {
-      // Upload to Supabase Storage
+      // Upload to R2 (Cloudflare). 2026-05-19: usar URL retornada pelo server
+      // direto, não reconstruir via getPublicUrl(fileName original) — server
+      // adiciona sufixo único na key, fileName sem sufixo retorna 404.
       const fileName = `visual-refs/${clientId}/${Date.now()}-${selectedFile.name}`;
-      const { error: uploadError } = await blobStorage
+      const { data: uploaded, error: uploadError } = await blobStorage
         .from("client-files")
         .upload(fileName, selectedFile);
 
       if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = blobStorage
-        .from("client-files")
-        .getPublicUrl(fileName);
+      if (!uploaded?.url) throw new Error("Upload sem URL");
+      const publicUrl = uploaded.url;
 
       // Create the visual reference record
       await createReference.mutateAsync({
