@@ -46,7 +46,9 @@ const BodySchema = z.object({
   content_library_id: z.string().uuid().nullable().optional(),
 });
 
-const JSONB_KEYS = new Set(['labels', 'media_urls', 'metadata', 'recurrence_days']);
+// 2026-05-19 fix: recurrence_days é text[] (não jsonb).
+const JSONB_KEYS = new Set(['labels', 'media_urls', 'metadata']);
+const TEXT_ARRAY_KEYS = new Set(['recurrence_days']);
 
 export default authedPost(async ({ body, user }) => {
   const parsed = BodySchema.safeParse(body ?? {});
@@ -95,9 +97,17 @@ export default authedPost(async ({ body, user }) => {
   for (const [key, value] of Object.entries(data)) {
     if (key === 'id') continue;
     if (value === undefined) continue;
-    params.push(JSONB_KEYS.has(key) ? JSON.stringify(value) : value);
-    const cast = JSONB_KEYS.has(key) ? '::jsonb' : '';
-    updates.push(`"${key}" = $${params.length}${cast}`);
+    if (JSONB_KEYS.has(key)) {
+      params.push(JSON.stringify(value));
+      updates.push(`"${key}" = $${params.length}::jsonb`);
+    } else if (TEXT_ARRAY_KEYS.has(key)) {
+      const arr = value === null ? null : (Array.isArray(value) ? value.map(String) : [String(value)]);
+      params.push(arr);
+      updates.push(`"${key}" = $${params.length}::text[]`);
+    } else {
+      params.push(value);
+      updates.push(`"${key}" = $${params.length}`);
+    }
   }
 
   if (updates.length === 0) {

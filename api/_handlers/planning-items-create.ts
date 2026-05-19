@@ -85,7 +85,10 @@ export default authedPost(async ({ body, user }) => {
   }
 
   // Monta INSERT dinâmico (suporta restore com id preservado)
-  const JSONB_KEYS = new Set(['labels', 'media_urls', 'metadata', 'recurrence_days']);
+  // 2026-05-19 fix: recurrence_days é text[] (não jsonb) — tirar da lista evita
+  // "column recurrence_days is of type text[] but expression is of type jsonb".
+  const JSONB_KEYS = new Set(['labels', 'media_urls', 'metadata']);
+  const TEXT_ARRAY_KEYS = new Set(['recurrence_days']);
   const cols: string[] = [];
   const params: any[] = [];
   const placeholders: string[] = [];
@@ -128,9 +131,19 @@ export default authedPost(async ({ body, user }) => {
   for (const [key, value] of fields) {
     if (value === undefined) continue;
     cols.push(`"${key}"`);
-    params.push(JSONB_KEYS.has(key) ? JSON.stringify(value) : value);
-    const cast = JSONB_KEYS.has(key) ? '::jsonb' : '';
-    placeholders.push(`$${params.length}${cast}`);
+    if (JSONB_KEYS.has(key)) {
+      params.push(JSON.stringify(value));
+      placeholders.push(`$${params.length}::jsonb`);
+    } else if (TEXT_ARRAY_KEYS.has(key)) {
+      // recurrence_days é text[] — passa array JS direto (postgres aceita) ou
+      // converte string CSV se vier nesse formato. NULL fica NULL.
+      const arr = value === null ? null : (Array.isArray(value) ? value.map(String) : [String(value)]);
+      params.push(arr);
+      placeholders.push(`$${params.length}::text[]`);
+    } else {
+      params.push(value);
+      placeholders.push(`$${params.length}`);
+    }
   }
 
   const r = await pool.query(
