@@ -44,7 +44,35 @@ interface AgentRow {
 }
 
 /**
- * Resolve se um cron expression dispara HOJE no horário próximo de `now`.
+ * Resolve DOW (0=Sun..6=Sat) e DOM (1..31) na timezone America/Sao_Paulo.
+ *
+ * BUG ANTERIOR: usávamos `now.getUTCDay()` / `getUTCDate()`. Cron Vercel
+ * dispara em UTC mas os nomes dos workflows (segunda/terça/sábado/dia-1)
+ * referenciam o dia BRT. Se o cron dispara antes das 03:00 UTC (BRT meia-noite
+ * → 02:59), getUTCDay já avançou pro próximo dia enquanto BRT ainda é o dia
+ * anterior. Resultado: workflows terça/quarta/sábado nunca rodaram desde 08/05.
+ *
+ * Fix: usa Intl.DateTimeFormat com timeZone='America/Sao_Paulo' pra extrair o
+ * weekday e o day-of-month na timezone Brasil — fonte canônica do nome
+ * "madureira-...-terca".
+ */
+function getBrazilDateParts(now: Date): { dow: number; dom: number } {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'short',
+    day: 'numeric',
+  });
+  const parts = fmt.formatToParts(now);
+  const weekdayShort = parts.find((p) => p.type === 'weekday')?.value ?? 'Sun';
+  const day = Number(parts.find((p) => p.type === 'day')?.value ?? '0');
+  const dowMap: Record<string, number> = {
+    Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+  };
+  return { dow: dowMap[weekdayShort] ?? 0, dom: day };
+}
+
+/**
+ * Resolve se um cron expression dispara HOJE em America/Sao_Paulo.
  * Implementação simples — só considera dia-da-semana e dia-do-mês.
  * (Hora exata fica pra Vercel cron/scheduler decidir QUANDO chamar.)
  */
@@ -52,8 +80,7 @@ function isDueToday(cron: string, now: Date): boolean {
   const parts = cron.trim().split(/\s+/);
   if (parts.length < 5) return false;
   const [, , dom, , dow] = parts;
-  const today = now.getUTCDay();
-  const todayMonth = now.getUTCDate();
+  const { dow: today, dom: todayMonth } = getBrazilDateParts(now);
 
   if (dow !== '*') {
     const days = dow.split(',').flatMap((d) => {
@@ -149,7 +176,7 @@ function buildPrompt(workflow: WorkflowRow, agent: AgentRow): string {
         }
         return `CARROSSEL Instagram, ${cfg.slides_min ?? 8}-${cfg.slides_max ?? 12} slides. Capa ${cfg.capa_format ?? 'F1'}. Slide 02 OBRIGATÓRIO com cena Kaleidos real (eu/a gente/na Kaleidos/cliente real). 3+ dados específicos. Caption 100-800 chars com pilar + dado + CTA orgânico, ZERO hashtag. Estrutura content: { capa_format, cena_kaleidos, dados_concretos: [...], slides: [{ index, type, text }] }.`;
       case 'linkedin':
-        return `POST LinkedIn ${cfg.rotation_by_weekday?.[new Date().getUTCDay()] ?? 'curto'}. Primeira linha ≤200 chars (LI corta após 3 linhas). Cena Kaleidos OBRIGATÓRIA. ≥1 dado numérico real (R$/%/clientes/meses). Zero hashtag, zero emoji em rajada. CTA = pergunta específica OU convite reflexão (NÃO "comenta aí"). Use o campo "caption" como o post completo (LinkedIn não tem texto separado de caption).`;
+        return `POST LinkedIn ${cfg.rotation_by_weekday?.[getBrazilDateParts(new Date()).dow] ?? 'curto'}. Primeira linha ≤200 chars (LI corta após 3 linhas). Cena Kaleidos OBRIGATÓRIA. ≥1 dado numérico real (R$/%/clientes/meses). Zero hashtag, zero emoji em rajada. CTA = pergunta específica OU convite reflexão (NÃO "comenta aí"). Use o campo "caption" como o post completo (LinkedIn não tem texto separado de caption).`;
       case 'twitter':
         if (workflow.config?.content_type === 'thread') {
           return `THREAD X em PT-BR rigoroso (nunca inglês). ${cfg.tweets_min ?? 12}-${cfg.tweets_max ?? 18} tweets. Tweet 1: hook completo passa nos 3 testes + cena Kaleidos OU número. Tweets 2-12: 1 ideia/tweet com prova. Penúltimo tweet: takeaway forte. Último tweet: CTA orgânico. Zero hashtag, zero "🧵 Thread". Estrutura content: { tweets: ["tweet 1", "tweet 2", ...] }. Use também caption = todos os tweets concatenados separados por "\\n\\n---\\n\\n".`;
