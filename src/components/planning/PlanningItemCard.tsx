@@ -361,8 +361,42 @@ export const PlanningItemCard = memo(function PlanningItemCard({
       )}
 
       <div className="p-3.5">
-        {/* Row 1: Platform badges + content type */}
+        {/* Row 1: Status pill + Formato + Plataformas (2026-05-19: Gabriel pediu
+            os 3 sempre proeminentes no topo do card). Status com cor que reflete
+            a etapa (idea/draft/review/scheduled/published/failed). */}
         <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+          {/* Status pill (sempre visível). Compact = sem texto longo, só label curto */}
+          {show.status && (
+            <div
+              className={cn(
+                'flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-semibold',
+                item.status === 'published' && 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-400',
+                item.status === 'scheduled' && 'bg-blue-500/15 border-blue-500/40 text-blue-700 dark:text-blue-400',
+                item.status === 'publishing' && 'bg-violet-500/15 border-violet-500/40 text-violet-700 dark:text-violet-400 animate-pulse',
+                item.status === 'failed' && 'bg-destructive/15 border-destructive/40 text-destructive',
+                item.status === 'review' && 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-400',
+                item.status === 'approved' && 'bg-teal-500/15 border-teal-500/40 text-teal-700 dark:text-teal-400',
+                item.status === 'pending_approval' && 'bg-orange-500/15 border-orange-500/40 text-orange-700 dark:text-orange-400',
+                (item.status === 'idea' || !item.status) && 'bg-muted/60 border-border/40 text-muted-foreground',
+                (item.status === 'draft' || item.status === 'todo') && 'bg-slate-500/15 border-slate-500/40 text-slate-700 dark:text-slate-400',
+              )}
+              title={`Status: ${item.status}`}
+            >
+              {{
+                idea: 'Ideia',
+                pending_approval: 'Aprovar',
+                draft: 'Rascunho',
+                review: 'Revisão',
+                approved: 'Pronto',
+                scheduled: 'Agendado',
+                publishing: 'Publicando',
+                published: 'Publicado',
+                failed: 'Falhou',
+                todo: 'Tarefa',
+              }[item.status as string] || item.status || 'Ideia'}
+            </div>
+          )}
+
           {/* Content type badge */}
           {show.format && contentTypeLabel && (
             <div

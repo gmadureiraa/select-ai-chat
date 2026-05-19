@@ -26,6 +26,8 @@ export interface ViewSettings {
   };
 }
 
+// 2026-05-19: defaults mais informativos por padrão.
+// assigneeName: false → true (Gabriel pediu nome do responsável sempre visível).
 const defaultSettings: ViewSettings = {
   colorBy: 'status',
   showWeekends: true,
@@ -36,7 +38,7 @@ const defaultSettings: ViewSettings = {
     status: true,
     priority: true,
     assignee: true,
-    assigneeName: false,
+    assigneeName: true,
     labels: true,
     dueDate: true,
     autoPublish: true,
@@ -62,12 +64,34 @@ const fieldLabels: Record<keyof ViewSettings['visibleFields'], string> = {
   format: 'Formato',
 };
 
+// 2026-05-19: bumped pra v2 — força reset pros users com config antiga (sem
+// assigneeName=true + sem status proeminente). Cleanup do key antigo na primeira
+// montagem evita esquecer chave morta.
+const STORAGE_KEY = 'planning-view-settings-v2';
+const LEGACY_KEY = 'planning-view-settings';
+
 export function useViewSettings() {
   const [settings, setSettings] = useState<ViewSettings>(() => {
-    const stored = localStorage.getItem('planning-view-settings');
+    if (typeof window === 'undefined') return defaultSettings;
+    // Limpa legacy se existir (one-shot migration).
+    try {
+      if (localStorage.getItem(LEGACY_KEY)) {
+        localStorage.removeItem(LEGACY_KEY);
+      }
+    } catch {
+      // ignore
+    }
+    const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        return { ...defaultSettings, ...JSON.parse(stored) };
+        return {
+          ...defaultSettings,
+          ...JSON.parse(stored),
+          visibleFields: {
+            ...defaultSettings.visibleFields,
+            ...(JSON.parse(stored).visibleFields || {}),
+          },
+        };
       } catch {
         return defaultSettings;
       }
@@ -76,7 +100,7 @@ export function useViewSettings() {
   });
 
   useEffect(() => {
-    localStorage.setItem('planning-view-settings', JSON.stringify(settings));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
 
   return { settings, setSettings };
