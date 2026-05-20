@@ -139,6 +139,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'kanban-columns-delete': () => import('./_handlers/kanban-columns-delete.js'),
   'kanban-columns-init': () => import('./_handlers/kanban-columns-init.js'),
   'planning-items-create': () => import('./_handlers/planning-items-create.js'),
+  'planning-items-get': () => import('./_handlers/planning-items-get.js'),
   'planning-items-update': () => import('./_handlers/planning-items-update.js'),
   'planning-items-reorder': () => import('./_handlers/planning-items-reorder.js'),
   'planning-comments-create': () => import('./_handlers/planning-comments-create.js'),

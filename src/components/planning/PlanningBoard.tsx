@@ -9,6 +9,7 @@ import { TabHeader } from '@/components/kai/TabHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { usePlanningItems, type PlanningFilters, type PlanningItem } from '@/hooks/usePlanningItems';
+import { apiInvoke } from '@/lib/apiInvoke';
 import { usePlanningRealtime } from '@/hooks/usePlanningRealtime';
 import { usePlanningKeyboardShortcuts, getShortcutHint } from '@/hooks/usePlanningKeyboardShortcuts';
 import { PlanningFilters as FiltersComponent, type PlanningFiltersHandle } from './PlanningFilters';
@@ -176,18 +177,49 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
       return;
     }
     if (handledOpenItemRef.current === openItemId) return;
-    if (items.length === 0) return;
 
-    const itemToOpen = items.find(item => item.id === openItemId);
-    if (!itemToOpen) return;
+    const clearParam = () => {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('openItem');
+      setSearchParams(newParams, { replace: true });
+    };
 
+    // 1. Card está na lista filtrada atual → abre direto.
+    const inList = items.find((item) => item.id === openItemId);
+    if (inList) {
+      handledOpenItemRef.current = openItemId;
+      setEditingItem(inList);
+      setDialogOpen(true);
+      clearParam();
+      return;
+    }
+
+    // 2. Ainda carregando a lista → espera (NÃO marca handled, re-roda quando
+    //    isLoading virar false / items chegarem).
+    if (isLoading) return;
+
+    // 3. Lista carregada mas o card não está nela (é de outro cliente/status,
+    //    fora do filtro atual). Busca o card por id e abre — assim QUALQUER link
+    //    com ?openItem=<id> abre o card certo, independente do filtro.
+    //    2026-05-20 (Gabriel): "links de planning deveriam abrir o card correto".
     handledOpenItemRef.current = openItemId;
-    setEditingItem(itemToOpen);
-    setDialogOpen(true);
-    const newParams = new URLSearchParams(searchParams);
-    newParams.delete('openItem');
-    setSearchParams(newParams, { replace: true });
-  }, [searchParams, items, setSearchParams]);
+    (async () => {
+      try {
+        const { data, error } = await apiInvoke<{ item: PlanningItem }>(
+          'planning-items-get',
+          { body: { id: openItemId } },
+        );
+        if (!error && data?.item) {
+          setEditingItem(data.item);
+          setDialogOpen(true);
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        clearParam();
+      }
+    })();
+  }, [searchParams, items, isLoading, setSearchParams]);
 
   const handleFiltersChange = (newFilters: PlanningFilters) => {
     if (isViewer && viewerClientIds.length > 0 && newFilters.clientId) {
