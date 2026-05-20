@@ -196,18 +196,8 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
               </div>
             </div>
 
-            {/* Counter topo-direita */}
-            <div
-              style={{
-                fontSize: 26,
-                color: muted,
-                fontWeight: 600,
-                letterSpacing: "-0.01em",
-                alignSelf: "flex-start",
-              }}
-            >
-              {slideNumber}/{totalSlides}
-            </div>
+            {/* 2026-05-20: paginação removida do template Twitter (Gabriel).
+                Mantém só header foto+nome+@. */}
           </div>
 
           {/* Main content — centralizado verticalmente (2026-05-19).

@@ -54,8 +54,11 @@ const BLACK = "#0A0908";
 const WHITE = "#FFFFFF";
 const GREEN_ACCENT = "#7CF067";
 
+// 2026-05-20: Gabriel escolheu Anton (Google) como aproximação da "Aston" —
+// sans bold condensada uppercase, igual ao título do Defiverso real
+// ("7 PESSOAS QUE O MUNDO ACREDITA"). Carrega via index.html.
 const DEFAULT_DISPLAY =
-  '"Aston Serif", "Antic Slab", "Playfair Display", "Cormorant Garamond", "Times New Roman", serif';
+  '"Anton", "Archivo Black", "Oswald", "Impact", sans-serif';
 const BODY_STACK =
   '"Poppins", "SVInter", "Inter", "Helvetica Neue", system-ui, sans-serif';
 const HAND_STACK =
@@ -669,30 +672,33 @@ function DefiversoWordmark({
   color: string;
   fontSize: number;
 }) {
+  // 2026-05-20: wordmark refinado (Gabriel: "DEFIVERSO no topo está ruim").
+  // Mais discreto — bolinha menor sem glow forte, letterspacing reduzido,
+  // peso 600, leve transparência pra parecer marca d'água elegante.
   return (
     <div
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 12,
-        fontFamily: MONO_STACK,
-        fontSize,
-        letterSpacing: "0.32em",
+        gap: 8,
+        fontFamily: BODY_STACK,
+        fontSize: Math.round(fontSize * 0.78),
+        letterSpacing: "0.18em",
         textTransform: "uppercase",
-        fontWeight: 700,
+        fontWeight: 600,
         color,
+        opacity: 0.92,
       }}
     >
       <span
         style={{
-          width: 14,
-          height: 14,
+          width: 8,
+          height: 8,
           borderRadius: "50%",
           background: GREEN_ACCENT,
-          boxShadow: `0 0 12px ${GREEN_ACCENT}`,
         }}
       />
-      DEFIVERSO
+      defiverso
     </div>
   );
 }

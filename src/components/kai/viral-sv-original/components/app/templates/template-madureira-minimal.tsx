@@ -600,7 +600,8 @@ function CtaSlide({
   FS_TITLE: number;
   FS_BODY: number;
 }) {
-  const ctaHead = heading || "comenta aí";
+  // 2026-05-20: Gabriel escreve a CTA — sem default "comenta aí" forçado.
+  const ctaHead = heading || "";
   return (
     <div
       style={{
@@ -616,7 +617,7 @@ function CtaSlide({
         zIndex: 2,
       }}
     >
-      {showTitle && (
+      {showTitle && ctaHead && (
         <h2
           style={{
             fontFamily: displayStack,
