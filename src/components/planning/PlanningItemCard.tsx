@@ -243,11 +243,19 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
         isDragging && "opacity-50 shadow-lg rotate-1",
         isFailed && "border-destructive/30 hover:border-destructive/50",
-        isPublished && "border-emerald-500/20 hover:border-emerald-500/30",
+        // 2026-05-19: published = verde escuro destacado (Gabriel pediu —
+        // concluído tem que saltar aos olhos, estilo ClickUp "done").
+        isPublished && "border-emerald-600/40 bg-emerald-50/60 dark:bg-emerald-950/30 hover:border-emerald-600/60",
         isSelected && "ring-2 ring-primary border-primary/60",
         isFocused && !isSelected && "ring-2 ring-primary/40",
       )}
-      style={accentColor ? { borderLeft: `4px solid ${accentColor}` } : undefined}
+      style={
+        isPublished
+          ? { borderLeft: "4px solid hsl(150 60% 32%)" }
+          : accentColor
+            ? { borderLeft: `4px solid ${accentColor}` }
+            : undefined
+      }
       role="button"
       tabIndex={0}
       aria-pressed={isSelected || undefined}

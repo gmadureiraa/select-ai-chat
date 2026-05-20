@@ -110,33 +110,74 @@ const platformIcons: Record<string, string> = {
   other: '📱',
 };
 
-function CalendarCard({ 
-  item, 
-  onEdit, 
+// 2026-05-19: Gabriel pediu TEXTO da rede social em vez de emoji (clareza
+// estilo ClickUp). Label curto por plataforma.
+const platformLabels: Record<string, string> = {
+  instagram: 'Instagram',
+  twitter: 'Twitter/X',
+  linkedin: 'LinkedIn',
+  youtube: 'YouTube',
+  newsletter: 'Newsletter',
+  blog: 'Blog',
+  tiktok: 'TikTok',
+  threads: 'Threads',
+  facebook: 'Facebook',
+  whatsapp: 'WhatsApp',
+  other: 'Outro',
+};
+
+// Label PT-BR de cada status pra pill visível no card.
+const statusLabels: Record<string, string> = {
+  idea: 'Ideia',
+  pending_approval: 'Aprovar',
+  draft: 'Rascunho',
+  review: 'Revisão',
+  approved: 'Pronto',
+  scheduled: 'Agendado',
+  publishing: 'Publicando',
+  published: 'Publicado',
+  failed: 'Falhou',
+  todo: 'Tarefa',
+};
+
+function CalendarCard({
+  item,
+  onEdit,
   onRetry,
   onDelete,
   canEdit = true,
   onDragStart,
-  isDragging 
-}: { 
-  item: PlanningItem; 
-  onEdit: () => void; 
+  isDragging,
+  memberMap,
+}: {
+  item: PlanningItem;
+  onEdit: () => void;
   onRetry?: () => void;
   onDelete?: () => void;
   canEdit?: boolean;
   onDragStart?: (e: React.DragEvent, item: PlanningItem) => void;
   isDragging?: boolean;
+  memberMap?: Record<string, { name: string; initials: string }>;
 }) {
   const { canAutoPublish } = useClientPlatformStatus(item.client_id);
   const platform = item.platform as SupportedPlatform | null;
   const isAutoPublish = canAutoPublish(platform);
   const config = statusConfig[item.status] || statusConfig.idea;
-  
+  // 2026-05-19: card "Publicado" ganha visual verde escuro destacado (Gabriel
+  // pediu — concluído deve saltar aos olhos, estilo ClickUp "done").
+  const isPublished = item.status === 'published';
+
   const effectiveDate = item.scheduled_at || item.published_at;
   const scheduledTime = effectiveDate ? format(parseISO(effectiveDate), 'HH:mm') : null;
   const scheduledDate = effectiveDate ? parseISO(effectiveDate) : null;
   const daysUntil = scheduledDate ? differenceInDays(scheduledDate, new Date()) : null;
-  
+
+  // Responsável (assigned_to → memberMap)
+  const assignee = item.assigned_to ? memberMap?.[item.assigned_to] : null;
+  // Texto da rede social + formato (em vez de só emoji)
+  const platformText = item.platform ? (platformLabels[item.platform] || item.platform) : null;
+  const statusText = statusLabels[item.status] || item.status;
+
   return (
     <HoverCard openDelay={200} closeDelay={100}>
       <HoverCardTrigger asChild>
@@ -146,23 +187,31 @@ function CalendarCard({
           className={cn(
             "group/card relative px-2.5 py-2 rounded-md border-l-[3px] border transition-all duration-200",
             "hover:shadow-md hover:scale-[1.01]",
-            config.bg, config.text, config.border,
+            isPublished
+              ? "bg-emerald-900/90 text-emerald-50 border-emerald-700 border-l-emerald-400"
+              : cn(config.bg, config.text, config.border),
             isDragging && "opacity-50 scale-95",
             canEdit && "cursor-grab active:cursor-grabbing"
           )}
           onClick={(e) => { e.stopPropagation(); if (canEdit) onEdit(); }}
         >
-          {/* Row 1: Platform + Time */}
+          {/* Row 1: Status pill + Time + actions */}
           <div className="flex items-center justify-between gap-1 mb-1">
-            <div className="flex items-center gap-1.5">
-              <span className={cn("w-2 h-2 rounded-full shrink-0", config.dot)} />
-              {item.platform && (
-                <span className="text-xs shrink-0">{platformIcons[item.platform] || '📱'}</span>
-              )}
-            </div>
+            <span className={cn(
+              "inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0",
+              isPublished
+                ? "bg-emerald-400/20 text-emerald-100"
+                : "bg-black/5 dark:bg-white/10"
+            )}>
+              <span className={cn("w-1.5 h-1.5 rounded-full", isPublished ? "bg-emerald-300" : config.dot)} />
+              {statusText}
+            </span>
             <div className="flex items-center gap-1">
               {scheduledTime && (
-                <span className="text-[10px] bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded-md shrink-0 font-semibold tabular-nums">
+                <span className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded-md shrink-0 font-semibold tabular-nums",
+                  isPublished ? "bg-emerald-400/20 text-emerald-100" : "bg-black/5 dark:bg-white/10"
+                )}>
                   {scheduledTime}
                 </span>
               )}
@@ -177,7 +226,7 @@ function CalendarCard({
                   <RefreshCw className="h-3 w-3 text-red-500" aria-hidden="true" />
                 </button>
               )}
-              {item.status === 'published' && <CheckCircle2 className="h-3 w-3 shrink-0 text-green-500" />}
+              {item.status === 'published' && <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-300" />}
               {isAutoPublish && item.status === 'scheduled' && (
                 <Bot className="h-3 w-3 shrink-0 text-primary/60" />
               )}
@@ -199,12 +248,43 @@ function CalendarCard({
           <span className="text-[11px] font-semibold truncate block leading-snug">
             {item.title}
           </span>
-          
-          {/* Row 3: Client */}
-          {item.clients && (
-            <span className="text-[10px] text-muted-foreground truncate block mt-0.5">
-              {item.clients.name}
-            </span>
+
+          {/* Row 3: Plataforma (texto) + Cliente */}
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {platformText && (
+              <span className={cn(
+                "inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0",
+                isPublished ? "bg-emerald-400/15 text-emerald-100" : "bg-black/5 dark:bg-white/10 text-foreground/70"
+              )}>
+                {platformText}
+              </span>
+            )}
+            {item.clients && (
+              <span className={cn(
+                "text-[10px] truncate",
+                isPublished ? "text-emerald-200/80" : "text-muted-foreground"
+              )}>
+                {item.clients.name}
+              </span>
+            )}
+          </div>
+
+          {/* Row 4: Responsável (avatar + nome, estilo ClickUp) */}
+          {assignee && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className={cn(
+                "w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold shrink-0",
+                isPublished ? "bg-emerald-400/30 text-emerald-50" : "bg-primary/15 text-primary"
+              )}>
+                {assignee.initials}
+              </span>
+              <span className={cn(
+                "text-[9px] truncate",
+                isPublished ? "text-emerald-200/80" : "text-muted-foreground"
+              )}>
+                {assignee.name}
+              </span>
+            </div>
           )}
         </div>
       </HoverCardTrigger>
@@ -308,7 +388,7 @@ export function CalendarView({
   canEdit = true,
   isDeleting = false,
   viewSettings: _viewSettings,
-  memberMap: _memberMap,
+  memberMap,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [mode, setMode] = useState<CalendarMode>('month');
@@ -672,6 +752,7 @@ export function CalendarView({
                         canEdit={canEdit}
                         onDragStart={handleDragStart}
                         isDragging={draggedItem?.id === item.id}
+                        memberMap={memberMap}
                       />
                     );
                   })}
