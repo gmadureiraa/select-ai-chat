@@ -16,14 +16,12 @@ import {
   Home,
   Twitter,
   CheckSquare,
-  MessagesSquare,
 } from "lucide-react";
 import { useDevAccess } from "@/hooks/useDevAccess";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useAuth } from "@/hooks/useAuth";
-import { useInboxUnreadCount } from "@/hooks/useLateInbox";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 import {
@@ -207,10 +205,6 @@ export function KaiSidebar({
 
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || "U";
   const userName = userProfile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Usuário";
-
-  // Contagem de não-lidas no Inbox — usado como badge no NavItem.
-  // Hook com polling 60s próprio. Só roda quando tem cliente selecionado.
-  const { data: inboxUnread = 0 } = useInboxUnreadCount(selectedClientId);
 
   // Handler para mostrar mensagem de permissão
   const showPermissionMessage = () => {
@@ -434,20 +428,8 @@ export function KaiSidebar({
           />
         )}
 
-        {/* ===== ENGAJAMENTO — DMs, comments, mentions ===== */}
-        {(isOwner || canManageTeam) && (
-          <>
-            <SidebarSectionHeader title="Engajamento" collapsed={collapsed} />
-            <NavItem
-              icon={<MessagesSquare className="h-4 w-4" strokeWidth={1.5} />}
-              label="Inbox"
-              active={activeTab === "inbox"}
-              onClick={() => onTabChange("inbox")}
-              collapsed={collapsed}
-              badge={inboxUnread}
-            />
-          </>
-        )}
+        {/* 2026-05-20 — Inbox removido do KAI (Gabriel): engajamento/DMs vivem
+            no Late/Zernio direto, não precisa duplicar aqui. */}
 
         {/* ===== ANÁLISE — só performance global agora.
             Hashtags/Concorrentes/Relatórios viraram per-client (Perfil → Viral

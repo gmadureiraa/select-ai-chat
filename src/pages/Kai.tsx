@@ -142,13 +142,8 @@ const ClientsListPage = lazyWithRetry(() =>
 // BillingTab REMOVIDO — KAI 2.0 é uso interno Kaleidos, sem cobrança por workspace.
 // O arquivo src/components/billing/BillingTab.tsx ainda existe mas não é mais
 // importado nem montado em rota nenhuma.
-// 2026-05-18 rev3 — Late Inbox real (substituiu placeholder de migração).
-// DMs + comments + reviews unificado via Late/Zernio Inbox API.
-const LateInboxPanel = lazyWithRetry(() =>
-  import("@/components/kai/late-inbox/LateInboxPanel").then((m) => ({
-    default: m.LateInboxPanel,
-  })),
-);
+// 2026-05-20 — LateInboxPanel removido do KAI (Gabriel). Sem import/rota → fora
+// do bundle. O arquivo segue no repo (deletar manualmente via git rm depois).
 // 2026-05-09 — MetricoolCalendarView e MetricoolSmartLinksManager removidos:
 //   * editorial-calendar foi removido do switch (Calendar live em PlanningBoard)
 //   * smart-links foi removido do switch
@@ -421,8 +416,7 @@ export default function Kai() {
     const toolTabs = [
       "settings", "automations", "assistant", "home", "clients",
       "viral-carrossel",
-      // Metricool: só inbox unificado fica global (push notifications de DMs).
-      "inbox",
+      // 2026-05-20 — "inbox" removido do KAI (Gabriel): engajamento vive no Late.
       // 2026-05-09: removidos workspace-settings, workspace-members,
       // radar-sources-admin (viraram sections em Settings); hashtags,
       // competitors, reports (viraram per-client no Perfil → Viral);
@@ -451,12 +445,7 @@ export default function Kai() {
         // Aliases redirecionam ambos pra "viral-carrossel" no useEffect acima.
         // case "mcp" removido 2026-05-09 — agora é section dentro de Settings
         // (Settings → Sistema → MCP kAI). Tab antigo redireciona via useEffect.
-        case "inbox":
-          return selectedClient ? (
-            <LateInboxPanel clientId={selectedClient.id} />
-          ) : (
-            <ClientRequiredEmpty message="Selecione um cliente pra ver o Inbox unificado." />
-          );
+        // 2026-05-20 — case "inbox" removido (Gabriel). Inbox vive no Late.
         // 'editorial-calendar' case removido — virou sub-tab dentro de Planejamento
         // 'smart-links' case removido — feature mantida no código mas sem rota
         // 'linkinbio' case removido — feature dispensada pelo usuário
