@@ -712,14 +712,16 @@ export default function EditPage(props: {
 
   // Re-calcula imagesPending toda vez que slides muda. Source de verdade pro
   // botão Preview — se algum slide ainda nao tem imagem, bloqueia export.
+  // 2026-05-20: template Twitter é só título (sem imagem). NUNCA fica pendente —
+  // senão o botão trava em "carregando imagens (1/4)" pra sempre.
   useEffect(() => {
-    if (!slides.length) {
+    if (!slides.length || templateId === "twitter") {
       setImagesPending(0);
       return;
     }
     const missing = slides.filter((s) => !s?.imageUrl).length;
     setImagesPending(missing);
-  }, [slides]);
+  }, [slides, templateId]);
 
   // Auto-save debounced. Só envia accent/font/scale se o usuário mexeu —
   // evita sobrescrever com defaults toda vez que o draft hidratar.
@@ -844,7 +846,7 @@ export default function EditPage(props: {
         })
         .join("\n\n");
 
-      const { error } = await apiInvoke<{
+      const { data: saveData, error } = await apiInvoke<{
         ok: boolean;
         planning_item?: { id?: string };
         error?: string;
@@ -878,22 +880,30 @@ export default function EditPage(props: {
         throw new Error(error.message || "Falha ao salvar no calendário.");
       }
 
+      const newItemId = saveData?.planning_item?.id;
+      // Abre o calendário JÁ no card criado (PlanningBoard lê ?openItem=<id> e
+      // abre o dialog). Antes só ia pra aba planning sem abrir o card.
+      const openCalendarCard = () => {
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", "planning");
+          if (targetClient) url.searchParams.set("client", targetClient);
+          if (newItemId) url.searchParams.set("openItem", newItemId);
+          url.hash = "";
+          window.history.pushState({}, "", url.toString());
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        } catch {
+          /* ignore */
+        }
+      };
+
       toast.success("Salvo no calendário pra revisão.", {
-        description: "Abra o preview pra exportar PNG/PDF e publicar.",
+        description: newItemId
+          ? "Clique pra abrir o card."
+          : "Abra o calendário pra revisar.",
         action: {
-          label: "Abrir calendário",
-          onClick: () => {
-            try {
-              const url = new URL(window.location.href);
-              url.searchParams.set("tab", "planning");
-              if (targetClient) url.searchParams.set("client", targetClient);
-              url.hash = "";
-              window.history.pushState({}, "", url.toString());
-              window.dispatchEvent(new PopStateEvent("popstate"));
-            } catch {
-              /* ignore */
-            }
-          },
+          label: "Abrir card",
+          onClick: openCalendarCard,
         },
         duration: 7000,
       });
