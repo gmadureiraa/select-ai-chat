@@ -162,6 +162,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
            FROM planning_items pi
            LEFT JOIN clients c ON c.id = pi.client_id
            WHERE pi.status = 'scheduled'
+             AND COALESCE((pi.metadata->>'auto_publish')::boolean, false) = true
              AND pi.scheduled_at <= $1
              AND pi.external_post_id IS NULL
              AND COALESCE(pi.retry_count, 0) < 3
@@ -183,6 +184,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
              SELECT pi.id
                FROM planning_items pi
               WHERE pi.status = 'scheduled'
+                AND COALESCE((pi.metadata->>'auto_publish')::boolean, false) = true
                 AND pi.scheduled_at <= $1
                 AND pi.external_post_id IS NULL
                 AND COALESCE(pi.retry_count, 0) < 3

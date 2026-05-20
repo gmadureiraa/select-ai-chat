@@ -624,12 +624,28 @@ export function PlanningItemDialog({
       let targetStatus: 'idea' | 'pending_approval' | 'draft' | 'review' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'failed' = 'idea';
       const currentStatus = effectiveItem?.status;
       const shouldAutoSchedule = autoPublish && !!finalScheduledAt && currentStatus !== 'published';
+      // Destrava cards presos em "agendado": se autoPublish está OFF mas o card
+      // hoje está scheduled (foi parar lá pelo bug antigo), rebaixa pra rascunho
+      // e tira da coluna de agendados. Sem isso o card "não volta".
+      const shouldUnschedule = !autoPublish && currentStatus === 'scheduled';
+      // status a setar quando NÃO está auto-agendando; undefined = handler não toca.
+      let nonScheduleStatus: typeof targetStatus | undefined = undefined;
 
       if (shouldAutoSchedule && columns.length > 0) {
         const scheduledColumn = columns.find(c => c.column_type === 'scheduled');
         if (scheduledColumn) {
           targetColumnId = scheduledColumn.id;
           targetStatus = 'scheduled';
+        }
+      } else if (shouldUnschedule) {
+        nonScheduleStatus = 'draft';
+        const draftColumn =
+          columns.find(c => c.column_type === 'draft') ||
+          columns.find(c => c.column_type === 'idea');
+        // Só troca de coluna se o card estiver hoje na coluna de agendados.
+        const currentCol = columns.find(c => c.id === columnId);
+        if (draftColumn && currentCol?.column_type === 'scheduled') {
+          targetColumnId = draftColumn.id;
         }
       }
 
@@ -666,9 +682,9 @@ export function PlanningItemDialog({
         column_id: targetColumnId || undefined,
         platform: resolvedPlatform || undefined,
         priority,
-        // Só seta status quando realmente auto-agendou. undefined = handler não
-        // toca no status (card fica onde está).
-        status: shouldAutoSchedule ? targetStatus : undefined,
+        // Auto-agendou → 'scheduled'. Desagendou (autoPublish off mas estava
+        // scheduled) → 'draft'. Senão undefined = handler não toca no status.
+        status: shouldAutoSchedule ? targetStatus : (shouldUnschedule ? nonScheduleStatus : undefined),
         due_date: finalScheduledAt ? format(finalScheduledAt, 'yyyy-MM-dd') : undefined,
         scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
         media_urls: mediaItems.map(m => m.url),
