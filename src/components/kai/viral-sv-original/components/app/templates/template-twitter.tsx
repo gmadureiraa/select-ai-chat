@@ -96,6 +96,7 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
             borderRadius: 44,
             display: "flex",
             flexDirection: "column",
+            justifyContent: "center",
             padding: "64px 70px 56px",
             fontFamily,
             overflow: "hidden",
@@ -104,7 +105,10 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
             boxSizing: "border-box",
           }}
         >
-          {/* Header: Avatar + Name + @handle */}
+          {/* Header: Avatar + Name + @handle.
+              2026-05-20 (Gabriel): header faz parte do bloco centralizado junto
+              com o texto (antes ficava preso no topo). O container externo
+              centraliza verticalmente; aqui só o espaçamento pro texto. */}
           <div
             style={{
               display: "flex",
@@ -206,7 +210,7 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
               ainda flui sem estourar (overflow hidden + minHeight 0). */}
           <div
             style={{
-              flex: "1 1 0",
+              flex: "0 1 auto",
               display: "flex",
               flexDirection: "column",
               justifyContent: "center",
