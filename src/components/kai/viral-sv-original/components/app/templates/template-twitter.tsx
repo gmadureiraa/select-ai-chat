@@ -120,6 +120,7 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
           >
             <div
               style={{
+                position: "relative",
                 width: 100,
                 height: 100,
                 borderRadius: "50%",
@@ -134,20 +135,27 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
                 flexShrink: 0,
               }}
             >
-              {avatarSrc ? (
+              {/* Inicial sempre renderizada como fallback. A foto cobre por cima
+                  quando carrega; se falhar (onError) ela se esconde e a inicial
+                  reaparece — nunca fica um círculo vazio "bugado". */}
+              <span>{profile.name.charAt(0).toUpperCase()}</span>
+              {avatarSrc && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={avatarSrc}
                   crossOrigin="anonymous"
                   alt={profile.name}
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
                   style={{
+                    position: "absolute",
+                    inset: 0,
                     width: "100%",
                     height: "100%",
                     objectFit: "cover",
                   }}
                 />
-              ) : (
-                profile.name.charAt(0).toUpperCase()
               )}
             </div>
 

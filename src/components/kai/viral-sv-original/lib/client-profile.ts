@@ -90,8 +90,10 @@ export function buildSVPreviewProfile(
   return {
     name: firstString(client?.name, fallbackProfile?.name) || "Seu nome",
     handle: handle ? `@${handle}` : "@seuhandle",
-    photoUrl:
-      firstString(client?.avatar_url, logoFromTags, fallbackProfile?.avatar_url) ||
-      "",
+    // 2026-05-20 fix (Gabriel): NÃO cair no avatar do usuário (Gabriel) quando o
+    // cliente não tem foto — isso colocava a cara do Gabriel em carrosséis de
+    // Alfred/Lucas/Hugo (avatar null). Sem foto do cliente → vazio → o template
+    // mostra a inicial do cliente (neutro/correto). Só client.avatar_url → logo.
+    photoUrl: firstString(client?.avatar_url, logoFromTags) || "",
   };
 }
