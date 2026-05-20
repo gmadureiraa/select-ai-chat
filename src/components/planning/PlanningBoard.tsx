@@ -238,20 +238,31 @@ export function PlanningBoard({ clientId, isEnterprise = false, onClientChange }
     const item = items.find(i => i.id === itemId);
     if (!item) return;
 
-    let updateData: { scheduled_at?: string; due_date?: string };
-    
+    // Helper: troca a DATA preservando o HORÁRIO da âncora original.
+    const withDateOf = (iso: string) => {
+      const o = parseISO(iso);
+      return new Date(
+        newDate.getFullYear(), newDate.getMonth(), newDate.getDate(),
+        o.getHours(), o.getMinutes(), o.getSeconds()
+      ).toISOString();
+    };
+
+    // A coluna do calendário ancora o item por scheduled_at || published_at ||
+    // due_date (nessa ordem). Pra "mover" de fato, precisamos atualizar a MESMA
+    // âncora que posiciona o item — senão o toast dispara mas nada se move.
+    // 2026-05-20 fix Gabriel: item publicado é ancorado por published_at; antes
+    // caía no else e mexia só em due_date (ignorado), então não saía do lugar.
+    let updateData: { scheduled_at?: string; due_date?: string; published_at?: string };
+
     if (item.scheduled_at) {
-      // Preserve the original time, only change the date
-      const originalDate = parseISO(item.scheduled_at);
-      const newDateTime = new Date(
-        newDate.getFullYear(),
-        newDate.getMonth(),
-        newDate.getDate(),
-        originalDate.getHours(),
-        originalDate.getMinutes(),
-        originalDate.getSeconds()
-      );
-      updateData = { scheduled_at: newDateTime.toISOString() };
+      updateData = { scheduled_at: withDateOf(item.scheduled_at) };
+    } else if (item.status === 'published' || item.published_at) {
+      updateData = {
+        published_at: item.published_at ? withDateOf(item.published_at) : (() => {
+          const d = new Date(newDate.getFullYear(), newDate.getMonth(), newDate.getDate(), 12, 0, 0);
+          return d.toISOString();
+        })(),
+      };
     } else {
       // For due_date, use the date string directly to avoid timezone issues
       const year = newDate.getFullYear();
