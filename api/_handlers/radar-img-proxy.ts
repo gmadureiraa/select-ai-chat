@@ -13,6 +13,11 @@ const ALLOWED_HOSTS = [
   "fbcdn.net",
   "instagram.com",
   "ytimg.com", // bonus: YouTube thumbs
+  // 2026-05-20: avatares de cliente migrados pro R2 público (pub-*.r2.dev) NÃO
+  // mandam header CORS; com crossOrigin="anonymous" nos templates o browser
+  // bloqueia. Proxiar via same-origin resolve (o proxy injeta ACAO).
+  "r2.dev",
+  "r2.cloudflarestorage.com",
 ];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

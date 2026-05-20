@@ -35,12 +35,26 @@ function isPublicCorsHost(host: string): boolean {
   );
 }
 
+/**
+ * Hosts que NÃO mandam header CORS (Cloudflare R2 público pub-*.r2.dev). Como
+ * os templates usam crossOrigin="anonymous" (necessário pro export em canvas),
+ * o browser BLOQUEIA esses hosts até pra exibir no editor. Precisam passar pelo
+ * proxy same-origin SEMPRE (editor + export), não só no export.
+ * Bug 2026-05-20: avatares de cliente no R2 sumiam ("CORS policy: No
+ * Access-Control-Allow-Origin header").
+ */
+const NON_CORS_HOSTS = ["r2.dev", "r2.cloudflarestorage.com"];
+
+function isNonCorsHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return NON_CORS_HOSTS.some((suffix) => h === suffix || h.endsWith(`.${suffix}`));
+}
+
 export function resolveImgSrc(
   url: string | undefined,
   exportMode: boolean
 ): string | undefined {
   if (!url) return undefined;
-  if (!exportMode) return url;
   if (url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("/"))
     return url;
   try {
@@ -48,6 +62,14 @@ export function resolveImgSrc(
     if (typeof window !== "undefined" && u.origin === window.location.origin) {
       return url;
     }
+    // R2 público (pub-*.r2.dev) não manda CORS. Com crossOrigin="anonymous" o
+    // browser bloqueia ATÉ pra exibir no editor — então proxia SEMPRE (não só
+    // no export). É same-origin, o proxy injeta ACAO e o canvas não taint.
+    if (isNonCorsHost(u.hostname)) {
+      return `/api/img-proxy?url=${encodeURIComponent(url)}`;
+    }
+    // No editor (não-export) o resto carrega direto (sem precisar de canvas).
+    if (!exportMode) return url;
     // Hosts publicos com CORS — usa URL direta, evita img-proxy que quebra
     // com <img> tag (nao manda Bearer, proxy retorna 401 → canvas tainted).
     if (isPublicCorsHost(u.hostname)) {
