@@ -136,7 +136,7 @@ const statusLabels: Record<string, string> = {
   scheduled: 'Agendado',
   publishing: 'Publicando',
   published: 'Publicado',
-  failed: 'Falhou',
+  failed: 'ERRO',
   todo: 'Tarefa',
 };
 
@@ -166,6 +166,9 @@ function CalendarCard({
   // 2026-05-19: card "Publicado" ganha visual verde escuro destacado (Gabriel
   // pediu — concluído deve saltar aos olhos, estilo ClickUp "done").
   const isPublished = item.status === 'published';
+  // 2026-05-20 (Gabriel): falha de auto-publicação tem que SALTAR aos olhos —
+  // card vermelho forte com "ERRO".
+  const isFailed = item.status === 'failed';
 
   const effectiveDate = item.scheduled_at || item.published_at;
   const scheduledTime = effectiveDate ? format(parseISO(effectiveDate), 'HH:mm') : null;
@@ -191,6 +194,8 @@ function CalendarCard({
             "hover:shadow-md hover:scale-[1.01]",
             isPublished
               ? "bg-emerald-900/90 text-emerald-50 border-emerald-700 border-l-emerald-400"
+              : isFailed
+              ? "bg-red-600 text-white border-red-700 border-l-red-300 ring-2 ring-red-500/50 shadow-lg shadow-red-500/30"
               : cn(config.bg, config.text, config.border),
             isDragging && "opacity-50 scale-95",
             canEdit && "cursor-grab active:cursor-grabbing"
@@ -203,16 +208,19 @@ function CalendarCard({
               "inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0",
               isPublished
                 ? "bg-emerald-400/20 text-emerald-100"
+                : isFailed
+                ? "bg-white/25 text-white"
                 : "bg-black/5 dark:bg-white/10"
             )}>
-              <span className={cn("w-1.5 h-1.5 rounded-full", isPublished ? "bg-emerald-300" : config.dot)} />
+              {isFailed && <AlertCircle className="w-2.5 h-2.5" aria-hidden="true" />}
+              {!isFailed && <span className={cn("w-1.5 h-1.5 rounded-full", isPublished ? "bg-emerald-300" : config.dot)} />}
               {statusText}
             </span>
             <div className="flex items-center gap-1">
               {scheduledTime && (
                 <span className={cn(
                   "text-[10px] px-1.5 py-0.5 rounded-md shrink-0 font-semibold tabular-nums",
-                  isPublished ? "bg-emerald-400/20 text-emerald-100" : "bg-black/5 dark:bg-white/10"
+                  isPublished ? "bg-emerald-400/20 text-emerald-100" : isFailed ? "bg-white/25 text-white" : "bg-black/5 dark:bg-white/10"
                 )}>
                   {scheduledTime}
                 </span>
@@ -256,7 +264,7 @@ function CalendarCard({
             {platformText && (
               <span className={cn(
                 "inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0",
-                isPublished ? "bg-emerald-400/15 text-emerald-100" : "bg-black/5 dark:bg-white/10 text-foreground/70"
+                isPublished ? "bg-emerald-400/15 text-emerald-100" : isFailed ? "bg-white/20 text-white" : "bg-black/5 dark:bg-white/10 text-foreground/70"
               )}>
                 {platformText}
               </span>
@@ -264,7 +272,7 @@ function CalendarCard({
             {item.clients && (
               <span className={cn(
                 "text-[10px] truncate",
-                isPublished ? "text-emerald-200/80" : "text-muted-foreground"
+                isPublished ? "text-emerald-200/80" : isFailed ? "text-red-50/90" : "text-muted-foreground"
               )}>
                 {item.clients.name}
               </span>

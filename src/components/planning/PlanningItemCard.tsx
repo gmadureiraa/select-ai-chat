@@ -248,7 +248,9 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         "hover:border-border hover:shadow-md hover:ring-1 hover:ring-primary/10",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
         isDragging && "opacity-50 shadow-lg rotate-1",
-        isFailed && "border-destructive/30 hover:border-destructive/50",
+        // 2026-05-20 (Gabriel): falha de publicação tem que SALTAR aos olhos —
+        // card vermelho forte com anel.
+        isFailed && "border-red-600 bg-red-50 dark:bg-red-950/40 ring-2 ring-red-500/40 hover:border-red-700",
         // 2026-05-19: published = verde escuro destacado (Gabriel pediu —
         // concluído tem que saltar aos olhos, estilo ClickUp "done").
         isPublished && "border-emerald-600/40 bg-emerald-50/60 dark:bg-emerald-950/30 hover:border-emerald-600/60",
@@ -256,7 +258,9 @@ export const PlanningItemCard = memo(function PlanningItemCard({
         isFocused && !isSelected && "ring-2 ring-primary/40",
       )}
       style={
-        isPublished
+        isFailed
+          ? { borderLeft: "4px solid #dc2626" }
+          : isPublished
           ? { borderLeft: "4px solid hsl(150 60% 32%)" }
           : accentColor
             ? { borderLeft: `4px solid ${accentColor}` }
@@ -410,7 +414,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
                 item.status === 'published' && 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-400',
                 item.status === 'scheduled' && 'bg-blue-500/15 border-blue-500/40 text-blue-700 dark:text-blue-400',
                 item.status === 'publishing' && 'bg-violet-500/15 border-violet-500/40 text-violet-700 dark:text-violet-400 animate-pulse',
-                item.status === 'failed' && 'bg-destructive/15 border-destructive/40 text-destructive',
+                item.status === 'failed' && 'bg-red-600 border-red-700 text-white',
                 item.status === 'review' && 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-400',
                 item.status === 'approved' && 'bg-teal-500/15 border-teal-500/40 text-teal-700 dark:text-teal-400',
                 item.status === 'pending_approval' && 'bg-orange-500/15 border-orange-500/40 text-orange-700 dark:text-orange-400',
@@ -428,7 +432,7 @@ export const PlanningItemCard = memo(function PlanningItemCard({
                 scheduled: 'Agendado',
                 publishing: 'Publicando',
                 published: 'Publicado',
-                failed: 'Falhou',
+                failed: '⚠ ERRO',
                 todo: 'Tarefa',
               }[item.status as string] || item.status || 'Ideia'}
             </div>
