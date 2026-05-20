@@ -28,6 +28,7 @@ import type {
 } from "@sv/lib/create/types";
 import { useSVClient } from "../../MainApp";
 import { apiInvoke } from "@/lib/apiInvoke";
+import { useSocialCredentials } from "@/hooks/useSocialCredentials";
 import {
   extractToken,
   setToken,
@@ -358,6 +359,27 @@ export default function EditPage(props: {
   const { client } = useSVClient();
   const { draft, loading, error } = useDraft(id);
 
+  // 2026-05-20 fix definitivo do "@seuhandle": o objeto `client` do contexto SV
+  // nem sempre traz social_media (chega só com id/name/avatar). Resolver o
+  // handle pelas CREDENCIAIS conectadas (useSocialCredentials lê via backend
+  // service-role, 100% confiável). Prefere instagram → twitter → 1ª conta.
+  const svClientId = (client?.id as string) || kaiCtx?.clientId || "";
+  const { credentials: svCredentials } = useSocialCredentials(svClientId);
+  const credentialHandle = useMemo(() => {
+    if (!svCredentials?.length) return null;
+    const byPlatform = (p: string) => svCredentials.find((c) => c.platform === p);
+    const pick = byPlatform("instagram") || byPlatform("twitter") || svCredentials[0];
+    const raw =
+      ((pick?.metadata?.username as string) || pick?.account_name || "").trim();
+    const clean = raw
+      .replace(/^https?:\/\/(www\.)?/i, "")
+      .replace(/^(instagram|twitter|x)\.com\//i, "")
+      .split(/[/?#]/)[0]
+      .replace(/^@/, "")
+      .trim();
+    return clean || null;
+  }, [svCredentials]);
+
   // Ref do textarea do corpo pra aplicar negrito no range selecionado.
   const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Mesma coisa pro input do título — antes só body tinha B/Cmd+B, agora
@@ -513,19 +535,22 @@ export default function EditPage(props: {
   useEffect(() => {
     const nextProfile = buildSVPreviewProfile(client, profile);
     setKicker(nextProfile.name);
-    setHandle(nextProfile.handle);
-  }, [client, profile]);
+    // credentialHandle (conta conectada) tem prioridade sobre o que vem do
+    // social_media do objeto client (que pode não chegar no contexto SV).
+    setHandle(credentialHandle ? `@${credentialHandle}` : nextProfile.handle);
+  }, [client, profile, credentialHandle]);
 
   const previewProfile = useMemo(
     () => {
       const base = buildSVPreviewProfile(client, profile);
+      const resolvedHandle = credentialHandle ? `@${credentialHandle}` : base.handle;
       return {
         ...base,
         name: kicker || base.name,
-        handle: handle || base.handle,
+        handle: handle || resolvedHandle,
       };
     },
-    [client, profile, kicker, handle]
+    [client, profile, kicker, handle, credentialHandle]
   );
 
   // ─── Auto-fill de imagens faltantes ───────────────────────────────
