@@ -66,6 +66,8 @@ export interface PlanningFilters {
   priority?: PlanningPriority;
   assignedTo?: string;
   search?: string;
+  /** Filtra por formato (content_type). Ex: 'stories', 'whatsapp_group'. */
+  contentType?: string;
   /**
    * Filtra por presença/ausência de métricas em metadata.metrics.
    * 'with'    → só posts publicados que já têm metrics persistidas
@@ -181,6 +183,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
         if (filters.platform) q = q.eq('platform', filters.platform);
         if (filters.status) q = q.eq('status', filters.status);
         if (filters.priority) q = q.eq('priority', filters.priority);
+        if (filters.contentType) q = q.eq('content_type', filters.contentType);
         if (filters.assignedTo) q = q.eq('assigned_to', filters.assignedTo);
         if (filters.search) q = q.ilike('title', `%${filters.search}%`);
         return q;

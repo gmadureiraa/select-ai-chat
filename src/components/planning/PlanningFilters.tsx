@@ -11,6 +11,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
 import type { PlanningFilters as FilterType, PlanningPlatform, PlanningStatus, PlanningPriority } from '@/hooks/usePlanningItems';
+import { CONTENT_TYPE_OPTIONS } from '@/types/contentTypes';
 
 export interface PlanningFiltersHandle {
   /** Foca o campo de busca (usado pelo atalho `/`). */
@@ -102,6 +103,7 @@ export const PlanningFilters = forwardRef<PlanningFiltersHandle, PlanningFilters
     filters.platform,
     filters.status,
     filters.priority,
+    filters.contentType,
     filters.search,
     filters.assignedTo,
     filters.metrics,
@@ -211,6 +213,25 @@ export const PlanningFilters = forwardRef<PlanningFiltersHandle, PlanningFilters
           <SelectItem value="all">Todos</SelectItem>
           {statuses.map(s => (
             <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={filters.contentType || 'all'}
+        onValueChange={(v) => onChange({ ...filters, contentType: v === 'all' ? undefined : v })}
+      >
+        <SelectTrigger className={cn(
+          "h-7 text-xs border-0 bg-transparent hover:bg-muted/50 focus:ring-0 focus:ring-offset-0 rounded-md",
+          filters.contentType && "text-foreground bg-muted/50",
+          inSheet ? "w-full border" : "w-[100px]"
+        )}>
+          <SelectValue placeholder="Formato" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Formato: todos</SelectItem>
+          {CONTENT_TYPE_OPTIONS.map(ct => (
+            <SelectItem key={ct.value} value={ct.value}>{ct.label}</SelectItem>
           ))}
         </SelectContent>
       </Select>

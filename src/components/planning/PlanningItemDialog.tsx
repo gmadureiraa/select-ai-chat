@@ -120,6 +120,25 @@ function scheduledIso(date: Date | undefined, time: string): string | null {
   return setMinutes(setHours(date, hours), minutes).toISOString();
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  idea: 'Ideia',
+  pending_approval: 'Aprovar',
+  draft: 'Rascunho',
+  review: 'Revisão',
+  approved: 'Pronto',
+  scheduled: 'Agendado',
+  publishing: 'Publicando',
+  published: 'Publicado',
+  failed: 'Falhou',
+  todo: 'Tarefa',
+};
+
+// Status oferecidos no seletor manual do dialog. 'publishing'/'failed' ficam de
+// fora (são estados de máquina, setados pelo fluxo de publicação).
+const STATUS_OPTIONS: PlanningItem['status'][] = [
+  'idea', 'pending_approval', 'draft', 'review', 'approved', 'scheduled', 'published',
+];
+
 const priorities: { value: PlanningPriority; label: string }[] = [
   { value: 'low', label: 'Baixa' },
   { value: 'medium', label: 'Média' },
@@ -230,7 +249,11 @@ export function PlanningItemDialog({
   // se o user salvar sem escolher formato.
   const [contentType, setContentType] = useState<ContentTypeKey | ''>('');
   const [priority, setPriority] = useState<PlanningPriority>('medium');
-  
+  // Status do card. Aplicado NA HORA via onUpdate (igual arrastar no Kanban),
+  // isolado do fluxo de save do form. Hidratado de effectiveItem.status.
+  const [status, setStatus] = useState<PlanningItem['status']>('idea');
+  const [isSettingStatus, setIsSettingStatus] = useState(false);
+
   const [scheduledAt, setScheduledAt] = useState<Date | undefined>();
   const [scheduledTime, setScheduledTime] = useState<string>('09:00');
   // 2026-05-19: Gabriel pediu opt-in explícito pra autopublicar. Antes, qualquer
@@ -391,7 +414,8 @@ export function PlanningItemDialog({
       setSelectedClientId(effectiveItem.client_id || '');
       setColumnId(effectiveItem.column_id || '');
       setPriority(effectiveItem.priority);
-      const parsedScheduledAt = effectiveItem.scheduled_at 
+      setStatus(effectiveItem.status || 'idea');
+      const parsedScheduledAt = effectiveItem.scheduled_at
         ? parseISO(effectiveItem.scheduled_at) 
         : effectiveItem.due_date ? parseISO(effectiveItem.due_date) : undefined;
       const parsedScheduledTime = parsedScheduledAt ? format(parsedScheduledAt, 'HH:mm') : '09:00';
@@ -1102,8 +1126,11 @@ export function PlanningItemDialog({
   };
 
   // Marca como JÁ publicado sem tocar no Late. Usado quando o post foi feito
-  // na mão (fora do KAI) e o card só precisa refletir esse estado. Não chama
-  // a API de publicação — só atualiza status + published_at no banco.
+  // na mão (fora do KAI). 2026-05-20 (Gabriel): MANTÉM onde está — não limpa
+  // scheduled_at, não move de coluna, não joga a data pra hoje. Só muda o
+  // status pra published. published_at herda a data planejada (scheduled_at ou
+  // due_date) pra não pular pro dia de hoje no calendário; só cai em "agora"
+  // se o card não tiver nenhuma data.
   const handleMarkAsPublished = async () => {
     const itemId = effectiveItem?.id;
     if (!itemId || !onUpdate) {
@@ -1112,12 +1139,13 @@ export function PlanningItemDialog({
     }
     setIsPublishing(true);
     try {
-      const publishedColumn = columns.find(c => c.column_type === 'published');
+      const dueIso = effectiveItem?.due_date
+        ? new Date(`${effectiveItem.due_date}T12:00:00`).toISOString()
+        : null;
+      const anchor = effectiveItem?.scheduled_at || dueIso || new Date().toISOString();
       await onUpdate(itemId, {
         status: 'published',
-        published_at: new Date().toISOString(),
-        scheduled_at: null,
-        ...(publishedColumn ? { column_id: publishedColumn.id } : {}),
+        published_at: anchor,
       } as Partial<PlanningItem>);
       toast.success('Card marcado como publicado');
       onOpenChange(false);
@@ -1129,8 +1157,37 @@ export function PlanningItemDialog({
     }
   };
 
+  // Muda o status NA HORA (igual arrastar no Kanban), sem passar pelo save do
+  // form. Pra 'published' usa a mesma âncora de data do botão (mantém posição).
+  const handleStatusChange = async (next: PlanningItem['status']) => {
+    const prev = status;
+    setStatus(next);
+    const itemId = effectiveItem?.id;
+    // Card ainda não salvo: status só é aplicado quando o user salvar o card.
+    if (!itemId || !onUpdate) return;
+    setIsSettingStatus(true);
+    try {
+      const patch: Partial<PlanningItem> = { status: next };
+      if (next === 'published') {
+        const dueIso = effectiveItem?.due_date
+          ? new Date(`${effectiveItem.due_date}T12:00:00`).toISOString()
+          : null;
+        patch.published_at =
+          effectiveItem?.scheduled_at || dueIso || new Date().toISOString();
+      }
+      await onUpdate(itemId, patch);
+      toast.success(`Status: ${STATUS_LABELS[next] || next}`, { duration: 1200 });
+    } catch (err) {
+      setStatus(prev);
+      logger.error('Error changing status', { feature: 'PlanningItemDialog', err });
+      toast.error('Erro ao mudar status');
+    } finally {
+      setIsSettingStatus(false);
+    }
+  };
+
   const handleGenerateImage = async (options: ImageGenerationOptions): Promise<string | null> => {
-    const contentForImage = isTwitterThread 
+    const contentForImage = isTwitterThread
       ? threadTweets.map(t => t.text).join('\n\n')
       : content;
     
@@ -1683,6 +1740,28 @@ export function PlanningItemDialog({
                     })}
                   </PopoverContent>
                 </Popover>
+              </div>
+
+              {/* Status — aplicado na hora (não espera o Salvar) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Status
+                </Label>
+                <Select
+                  value={status}
+                  onValueChange={(v) => handleStatusChange(v as PlanningItem['status'])}
+                  disabled={readOnly || isSettingStatus}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue>{STATUS_LABELS[status] || 'Status'}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map(s => (
+                      <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Column */}
