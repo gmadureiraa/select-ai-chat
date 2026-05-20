@@ -270,9 +270,20 @@ export const EnhancedMessageBubble = memo(function EnhancedMessageBubble({
 
           {/* Response Card (for structured responses like cards_created) */}
           {responseCardPayload && (
-            <ResponseCard 
-              payload={responseCardPayload} 
-              onViewPlanning={() => navigate(`?tab=planning`)}
+            <ResponseCard
+              payload={responseCardPayload}
+              onViewPlanning={() => {
+                // Preserva os params atuais (ex: client) e abre o card criado:
+                // PlanningBoard lê ?openItem=<id> e abre o dialog. Antes ia só
+                // pra aba planning sem abrir o card (Gabriel 2026-05-20).
+                const params = new URLSearchParams(window.location.search);
+                params.set("tab", "planning");
+                const cards = responseCardPayload.cards;
+                if (cards && cards.length === 1) {
+                  params.set("openItem", cards[0].id);
+                }
+                navigate(`?${params.toString()}`);
+              }}
             />
           )}
 
