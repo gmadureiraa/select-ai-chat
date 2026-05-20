@@ -51,12 +51,11 @@ export const CONTENT_TYPE_OPTIONS: { value: ContentTypeKey; label: string; categ
   { value: "x_article", label: "Artigo no X", category: "Twitter/X" },
   // Social - LinkedIn
   { value: "linkedin_post", label: "Post LinkedIn", category: "LinkedIn" },
-  // Instagram
+  // Instagram (2026-05-20: removidos viral_carousel — redundante com carousel —
+  // e instagram_post. Tipos seguem no MAP pra resolver cards/dados antigos.)
   { value: "carousel", label: "Carrossel", category: "Instagram" },
-  { value: "viral_carousel", label: "Carrossel Viral (estilo Tweet)", category: "Instagram" },
   { value: "stories", label: "Stories", category: "Instagram" },
   { value: "static_image", label: "Estático Único", category: "Instagram" },
-  { value: "instagram_post", label: "Post Instagram", category: "Instagram" },
   // Video
   { value: "short_video", label: "Vídeo Curto (Reels/TikTok)", category: "Vídeo" },
   { value: "long_video", label: "Vídeo Longo", category: "Vídeo" },
@@ -64,14 +63,9 @@ export const CONTENT_TYPE_OPTIONS: { value: ContentTypeKey; label: string; categ
   { value: "newsletter", label: "Newsletter", category: "Escrita" },
   { value: "blog_post", label: "Blog Post", category: "Escrita" },
   { value: "email_marketing", label: "Email Marketing", category: "Escrita" },
-  // Messaging
+  // Messaging (2026-05-20: só mensagem de grupo no picker; broadcast/status
+  // seguem no MAP.)
   { value: "whatsapp_group", label: "Mensagem de Grupo", category: "WhatsApp" },
-  { value: "whatsapp_broadcast", label: "Broadcast", category: "WhatsApp" },
-  { value: "whatsapp_status", label: "Status", category: "WhatsApp" },
-  // Documents
-  { value: "case_study", label: "Estudo de Caso", category: "Documentos" },
-  { value: "report", label: "Relatório", category: "Documentos" },
-  { value: "document", label: "Documento", category: "Documentos" },
   // Other
   { value: "other", label: "Outro", category: "Outros" },
 ];
