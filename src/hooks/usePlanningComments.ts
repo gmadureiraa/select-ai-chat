@@ -29,17 +29,37 @@ export function usePlanningComments(planningItemId: string | undefined) {
     queryFn: async () => {
       if (!planningItemId) return [];
 
-      const { data, error } = await supabase
+      // 2026-05-20 fix: o embedded join PostgREST
+      // `profiles!planning_item_comments_user_id_fkey` depende do nome EXATO da
+      // FK no Neon Data API. Se a constraint tiver outro nome (ou não estiver
+      // exposta), o PostgREST devolve erro e a lista some silenciosamente.
+      // Desacopla: busca comentários, depois resolve os profiles num 2º query
+      // e mescla no client. Sem dependência de nome de FK.
+      const { data: rows, error } = await supabase
         .from("planning_item_comments")
-        .select(`
-          *,
-          profile:profiles!planning_item_comments_user_id_fkey(full_name, avatar_url, email)
-        `)
+        .select("*")
         .eq("planning_item_id", planningItemId)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      return data as unknown as PlanningComment[];
+      const list = (rows ?? []) as unknown as PlanningComment[];
+      if (list.length === 0) return list;
+
+      const userIds = [...new Set(list.map((c) => c.user_id).filter(Boolean))];
+      let profileMap: Record<string, PlanningComment["profile"]> = {};
+      if (userIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url, email")
+          .in("id", userIds);
+        profileMap = Object.fromEntries(
+          (profs ?? []).map((p: any) => [
+            p.id,
+            { full_name: p.full_name, avatar_url: p.avatar_url, email: p.email },
+          ]),
+        );
+      }
+      return list.map((c) => ({ ...c, profile: profileMap[c.user_id] }));
     },
     enabled: !!planningItemId,
     staleTime: 15_000,

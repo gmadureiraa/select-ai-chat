@@ -614,14 +614,18 @@ export function PlanningItemDialog({
         finalScheduledAt = setMinutes(setHours(scheduledAt, hours), minutes);
       }
 
-      // IMPORTANT: If scheduling is set AND item was NOT already published,
-      // auto-move to "scheduled" column. NUNCA rebaixar status de 'published'
-      // pra 'scheduled' só pq o user reabriu o dialog (item já saiu).
+      // 2026-05-20 fix (Gabriel): só vai pra "agendado" automaticamente quando
+      // autoPublish=true. Antes, QUALQUER data preenchida forçava status→
+      // scheduled + move pra coluna scheduled — e como a data continuava
+      // setada, o card "voltava" pra agendado a cada save (lock). Agora a data
+      // sem autoPublish é só um alvo de planejamento (due_date), não agenda.
+      // NUNCA rebaixar status de 'published'.
       let targetColumnId = columnId;
       let targetStatus: 'idea' | 'pending_approval' | 'draft' | 'review' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'failed' = 'idea';
       const currentStatus = effectiveItem?.status;
+      const shouldAutoSchedule = autoPublish && !!finalScheduledAt && currentStatus !== 'published';
 
-      if (finalScheduledAt && columns.length > 0 && currentStatus !== 'published') {
+      if (shouldAutoSchedule && columns.length > 0) {
         const scheduledColumn = columns.find(c => c.column_type === 'scheduled');
         if (scheduledColumn) {
           targetColumnId = scheduledColumn.id;
@@ -662,8 +666,9 @@ export function PlanningItemDialog({
         column_id: targetColumnId || undefined,
         platform: resolvedPlatform || undefined,
         priority,
-        // Só seta status se realmente mudou (agendou). undefined = handler não toca.
-        status: finalScheduledAt && currentStatus !== 'published' ? targetStatus : undefined,
+        // Só seta status quando realmente auto-agendou. undefined = handler não
+        // toca no status (card fica onde está).
+        status: shouldAutoSchedule ? targetStatus : undefined,
         due_date: finalScheduledAt ? format(finalScheduledAt, 'yyyy-MM-dd') : undefined,
         scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
         media_urls: mediaItems.map(m => m.url),
