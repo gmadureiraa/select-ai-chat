@@ -117,7 +117,7 @@
     },
     {
       "path": "/api/process-scheduled-posts",
-      "schedule": "0 0-1,9-23 * * *"
+      "schedule": "0 21 * * *"
     },
     {
       "path": "/api/process-push-queue",
