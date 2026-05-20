@@ -68,13 +68,32 @@ export function buildSVPreviewProfile(
   client: ClientLike | null | undefined,
   fallbackProfile: UserProfileLike | null | undefined,
 ): SVPreviewProfile {
+  // 2026-05-20 fix (handle "@seuhandle" no Defiverso): o Data API pode devolver
+  // jsonb (social_media/tags) como STRING no browser. Se vier string, faz
+  // JSON.parse antes de acessar as chaves — senão social.instagram é undefined
+  // e o handle cai no fallback "@seuhandle".
+  const asObject = (v: unknown): SocialMap | null => {
+    if (!v) return null;
+    if (typeof v === "string") {
+      try {
+        const parsed = JSON.parse(v);
+        return parsed && typeof parsed === "object" ? (parsed as SocialMap) : null;
+      } catch {
+        return null;
+      }
+    }
+    return typeof v === "object" ? (v as SocialMap) : null;
+  };
+  const socialMap = asObject(client?.social_media);
+  const tagsMap = asObject(client?.tags);
+
   const clientHandle =
-    handleFromSocial(client?.social_media) || handleFromSocial(client?.tags);
+    handleFromSocial(socialMap) || handleFromSocial(tagsMap);
   const fallbackHandle =
     cleanHandle(fallbackProfile?.twitter_handle ?? null) ||
     cleanHandle(fallbackProfile?.instagram_handle ?? null);
   const handle = clientHandle || fallbackHandle;
-  const tagsAsMap = client?.tags as { [key: string]: unknown } | null | undefined;
+  const tagsAsMap = tagsMap as { [key: string]: unknown } | null | undefined;
   // TODO(2026-05-19): se Gabriel limpar `client.avatar_url` explicitamente
   // (set null/empty), o fallback ainda pega logo antigo de
   // tags.logo_url/avatar_url/profile_image_url e a foto "volta" no template.
