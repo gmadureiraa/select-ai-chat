@@ -163,7 +163,17 @@ export function useViralAccess(): ViralAccess {
 
       const sub = subRes.data as any;
       const plan = sub?.subscription_plans;
-      const features = (plan?.features as Record<string, boolean>) || {};
+      // `features` no banco é ARRAY de strings (ex: ["tudo_canvas",
+      // "planning_kanban"]), não objeto {viral_carousel: true}. Normaliza
+      // pra Set<string> aceitando os dois formatos pra não quebrar de novo.
+      const featureSet = new Set<string>(
+        Array.isArray(plan?.features)
+          ? (plan.features as string[])
+          : Object.keys((plan?.features as Record<string, boolean>) || {}).filter(
+              (k) => (plan.features as Record<string, boolean>)[k]
+            )
+      );
+      const hasFeature = (key: string) => featureSet.has(key);
       const role = ((memberRes.data?.role as ViralRole) || "viewer") as ViralRole;
 
       if (isSuperAdmin) {
@@ -193,23 +203,24 @@ export function useViralAccess(): ViralAccess {
       const tokensRemaining = Math.max(0, monthlyQuota - tokensUsed);
       const tokensExhausted = tokensUsed >= monthlyQuota;
 
-      const canUseSequencia = !!features.viral_carousel && canCreate;
-      const canUseReels = !!features.viral_reels && canCreate;
-      // Radar: leitura permitida pra qualquer plano pago (Starter+); free só com flag explícita.
-      // Mas pra agir (criar brief, salvar), também precisa canCreate.
-      const canUseRadar = (!!features.viral_radar || planType !== "free") && canCreate;
+      // Viral apps liberados pra qualquer plano pago (não-free) + quem
+      // pode criar (owner/admin/member). Flag explícita ainda libera no free.
+      const isPaid = planType !== "free";
+      const canUseSequencia = (hasFeature("viral_carousel") || isPaid) && canCreate;
+      const canUseReels = (hasFeature("viral_reels") || isPaid) && canCreate;
+      const canUseRadar = (hasFeature("viral_radar") || isPaid) && canCreate;
 
-      const reasonSequencia = !features.viral_carousel
+      const reasonSequencia = !hasFeature("viral_carousel") && !isPaid
         ? "upgrade_plan"
         : !canCreate
         ? "role_viewer"
         : undefined;
-      const reasonReels = !features.viral_reels
+      const reasonReels = !hasFeature("viral_reels") && !isPaid
         ? "upgrade_plan"
         : !canCreate
         ? "role_viewer"
         : undefined;
-      const reasonRadar = !features.viral_radar && planType === "free"
+      const reasonRadar = !hasFeature("viral_radar") && !isPaid
         ? "upgrade_plan"
         : !canCreate
         ? "role_viewer"

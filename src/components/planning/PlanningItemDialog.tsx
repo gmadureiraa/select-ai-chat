@@ -878,6 +878,31 @@ export function PlanningItemDialog({
     }
   };
 
+  // Marca como JÁ publicado sem tocar no Late. Usado quando o post foi feito
+  // na mão (fora do KAI) e o card só precisa refletir esse estado. Não chama
+  // a API de publicação — só atualiza status + published_at no banco.
+  const handleMarkAsPublished = async () => {
+    const itemId = effectiveItem?.id;
+    if (!itemId || !onUpdate) {
+      toast.error('Salve o card antes de marcar como publicado');
+      return;
+    }
+    setIsPublishing(true);
+    try {
+      await onUpdate(itemId, {
+        status: 'published',
+        published_at: new Date().toISOString(),
+      } as Partial<PlanningItem>);
+      toast.success('Card marcado como publicado');
+      onOpenChange(false);
+    } catch (err) {
+      logger.error('Error marking as published', { feature: 'PlanningItemDialog', err });
+      toast.error('Erro ao marcar como publicado');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   const handleGenerateImage = async (options: ImageGenerationOptions): Promise<string | null> => {
     const contentForImage = isTwitterThread 
       ? threadTweets.map(t => t.text).join('\n\n')
@@ -1633,6 +1658,26 @@ export function PlanningItemDialog({
               <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
                 {readOnly ? 'Fechar' : 'Cancelar'}
               </Button>
+              {/* "Marcar como publicado" — pra posts feitos na mão (fora do KAI).
+                  Só aparece em card existente que ainda não está publicado.
+                  Não dispara o Late, só atualiza status no banco. */}
+              {!readOnly && onUpdate && effectiveItem?.id && effectiveItem?.status !== 'published' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleMarkAsPublished}
+                  disabled={isPublishing || isSubmitting}
+                  className="gap-1.5 border-emerald-600/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-600/10"
+                >
+                  {isPublishing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  )}
+                  Marcar como publicado
+                </Button>
+              )}
               {!readOnly && canPublishNow && (() => {
                 // Label dinâmico: "Agendar" se tiver data futura (>1min),
                 // caso contrário "Publicar" (publica agora).
