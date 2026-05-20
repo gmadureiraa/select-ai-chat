@@ -277,6 +277,18 @@ function fontsForTemplate(templateId: string | null | undefined): typeof FONT_OP
   return FONT_OPTS.filter((f) => ids.includes(f.id));
 }
 
+// Templates ATIVOS (registrados em templates/index.tsx). Qualquer outro
+// (manifesto/futurista/autoral/etc — arquivados) cai pra "twitter".
+const ACTIVE_TEMPLATES = new Set<string>([
+  "twitter",
+  "defiverso-imagebg",
+  "madureira-minimal",
+]);
+
+function normalizeTemplate(t: string | null | undefined): TemplateId {
+  return (t && ACTIVE_TEMPLATES.has(t) ? t : "twitter") as TemplateId;
+}
+
 /**
  * Helpers do template "defiverso-imagebg" (props-hack temporário).
  *
@@ -447,8 +459,13 @@ export default function EditPage(props: {
   const [title, setTitle] = useState("");
   const [slides, setSlides] = useState<CreateSlide[]>([]);
   const [slideStyle, setSlideStyle] = useState<"white" | "dark">("white");
+  // 2026-05-20 fix: default era "manifesto" (ARQUIVADO) — mostrava seletor de
+  // fonte (manifesto tem fontes) mas renderizava como twitter (fallback) E
+  // disparava auto-fill de imagens (travava em "carregando imagens"). Default
+  // agora é "twitter". normalizeTemplate joga qualquer template não-ativo
+  // (manifesto/futurista/etc) pra twitter.
   const [templateId, setTemplateId] = useState<TemplateId>(
-    initialTemplate ?? "manifesto"
+    normalizeTemplate(initialTemplate)
   );
   const [activeIndex, setActiveIndex] = useState(0);
   const [kicker, setKicker] = useState("");
@@ -506,7 +523,7 @@ export default function EditPage(props: {
     setSlides(draft.slides.length ? draft.slides : []);
     setSlideStyle(draft.style === "dark" ? "dark" : "white");
     if (!initialTemplate && draft.visualTemplate) {
-      setTemplateId(draft.visualTemplate);
+      setTemplateId(normalizeTemplate(draft.visualTemplate));
     }
     if (draft.accentOverride) {
       setAccent(draft.accentOverride);
@@ -571,6 +588,12 @@ export default function EditPage(props: {
   useEffect(() => {
     if (!draft?.id) return;
     if (!slides.length) return;
+    // 2026-05-20: template Twitter é só título (sem imagem). Não roda auto-fill
+    // — era o que travava em "carregando imagens (6/7)" infinitamente.
+    if (templateId === "twitter") {
+      setImagesPending(0);
+      return;
+    }
     const key = `${draft.id}::${templateId}`;
     if (autoFillStartedRef.current === key) return;
     autoFillStartedRef.current = key;
@@ -1930,6 +1953,8 @@ export default function EditPage(props: {
             style={{ width: "100%", fontFamily: "var(--sv-display)", fontSize: 15, padding: "8px 10px" }}
           />
         </div>
+        {/* 2026-05-20: template Twitter é só TÍTULO — esconde o campo Corpo. */}
+        {templateId !== "twitter" && (
         <div>
           <div className="flex items-center justify-between mb-1">
             <label
@@ -2001,6 +2026,7 @@ export default function EditPage(props: {
             style={{ width: "100%", minHeight: 72, fontSize: 12.5, padding: "8px 10px" }}
           />
         </div>
+        )}
       </div>
 
       {/* ─── Madureira Minimal — editor de tokens inline ──────────────────

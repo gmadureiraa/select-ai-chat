@@ -227,6 +227,8 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
               minHeight: 0,
             }}
           >
+            {/* 2026-05-20 (Gabriel): template Twitter = só TÍTULO. Removido o
+                parágrafo de corpo — o tweet exibe apenas o heading. */}
             {showTitle && (
               <h2
                 style={{
@@ -240,21 +242,6 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
               >
                 {renderRichText(heading)}
               </h2>
-            )}
-            {showBody && (
-              <p
-                style={{
-                  fontSize: FS_BODY,
-                  lineHeight: 1.4,
-                  color: fg,
-                  margin: 0,
-                  whiteSpace: "pre-line",
-                  fontWeight: 400,
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                {renderRichText(body)}
-              </p>
             )}
 
             {showBg && imageUrl && (
