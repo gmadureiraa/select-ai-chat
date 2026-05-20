@@ -33,6 +33,9 @@ const BodySchema = z.object({
   due_date: z.string().nullable().optional(),
   published_at: z.string().nullable().optional(),
   assigned_to: z.string().uuid().nullable().optional(),
+  // Multi-responsável (migration 0051). assigned_to continua como "primary"
+  // (= assignees[0]) pra retrocompat. Ver sync abaixo.
+  assignees: z.array(z.string().uuid()).optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
   position: z.number().int().min(0).optional(),
   labels: z.array(z.unknown()).optional(),
@@ -89,9 +92,21 @@ export default authedPost(async ({ body, user }) => {
   // "column recurrence_days is of type text[] but expression is of type jsonb".
   const JSONB_KEYS = new Set(['labels', 'media_urls', 'metadata']);
   const TEXT_ARRAY_KEYS = new Set(['recurrence_days']);
+  const UUID_ARRAY_KEYS = new Set(['assignees']);
   const cols: string[] = [];
   const params: any[] = [];
   const placeholders: string[] = [];
+
+  // 2026-05-19 (migration 0051): sync assignees[] <-> assigned_to (primary).
+  // - Caller multi-responsável manda assignees → derivamos assigned_to = assignees[0].
+  // - Caller legacy manda só assigned_to → derivamos assignees = [assigned_to].
+  let assignees = data.assignees;
+  let assignedTo = data.assigned_to;
+  if (assignees !== undefined) {
+    assignedTo = assignees[0] ?? null;
+  } else if (assignedTo !== undefined && assignedTo !== null) {
+    assignees = [assignedTo];
+  }
 
   const fields: Array<[string, any]> = [
     ['id', data.id],
@@ -107,7 +122,8 @@ export default authedPost(async ({ body, user }) => {
     ['scheduled_at', data.scheduled_at ?? null],
     ['due_date', data.due_date ?? null],
     ['published_at', data.published_at ?? null],
-    ['assigned_to', data.assigned_to ?? null],
+    ['assigned_to', assignedTo ?? null],
+    ['assignees', assignees ?? undefined],
     ['priority', data.priority ?? 'medium'],
     ['position', data.position ?? 0],
     ['labels', data.labels ?? []],
@@ -140,6 +156,11 @@ export default authedPost(async ({ body, user }) => {
       const arr = value === null ? null : (Array.isArray(value) ? value.map(String) : [String(value)]);
       params.push(arr);
       placeholders.push(`$${params.length}::text[]`);
+    } else if (UUID_ARRAY_KEYS.has(key)) {
+      // assignees é uuid[] — passa array JS de strings (uuid) + cast ::uuid[].
+      const arr = value === null ? null : (Array.isArray(value) ? value.map(String) : [String(value)]);
+      params.push(arr);
+      placeholders.push(`$${params.length}::uuid[]`);
     } else {
       params.push(value);
       placeholders.push(`$${params.length}`);

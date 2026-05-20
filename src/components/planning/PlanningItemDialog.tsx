@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Checkbox } from '@/components/ui/checkbox';
 import { CalendarIcon, Loader2, Wand2, Image, User, Send, Bot, Clock, Twitter, Linkedin, Instagram, Youtube, Facebook, Video, Mail, FileText, AtSign, Check, Flag, CheckCircle2, MessageSquare, XCircle, Layers, ExternalLink, Trash2, Sparkles, Film, Lightbulb, Tag, X } from 'lucide-react';
 import {
   AlertDialog,
@@ -201,7 +202,8 @@ export function PlanningItemDialog({
   const [isSchedulingToLate, setIsSchedulingToLate] = useState(false);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
-  const [assignedTo, setAssignedTo] = useState<string>('');
+  // Multi-responsável (migration 0051). Array de user_ids; primary = assignees[0].
+  const [assignees, setAssignees] = useState<string[]>([]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [referenceInput, setReferenceInput] = useState('');
   const [labels, setLabels] = useState<string[]>([]);
@@ -333,7 +335,11 @@ export function PlanningItemDialog({
         : effectiveItem.due_date ? parseISO(effectiveItem.due_date) : undefined;
       setScheduledAt(parsedScheduledAt);
       setScheduledTime(parsedScheduledAt ? format(parsedScheduledAt, 'HH:mm') : '09:00');
-      setAssignedTo(effectiveItem.assigned_to || '');
+      setAssignees(
+        effectiveItem.assignees && effectiveItem.assignees.length > 0
+          ? effectiveItem.assignees
+          : (effectiveItem.assigned_to ? [effectiveItem.assigned_to] : [])
+      );
 
       const metadata = effectiveItem.metadata as any || {};
       // 2026-05-19: restaura autoPublish do metadata. Cards que já saíram pro Late
@@ -418,7 +424,7 @@ export function PlanningItemDialog({
       setIsSchedulingToLate(false);
       setMediaItems([]);
       setThreadTweets([{ id: 'tweet-1', text: '', media_urls: [] }]);
-      setAssignedTo('');
+      setAssignees([]);
       setSelectedPlatforms([]);
       setReferenceInput('');
       setRecurrenceConfig({ type: 'none', days: [], time: null, endDate: null });
@@ -434,7 +440,7 @@ export function PlanningItemDialog({
       initialSnapshotRef.current = JSON.stringify({
         title, content, contentType, selectedPlatforms, scheduledAt,
         scheduledTime, mediaUrls: mediaItems.map(m => m.url), labels, priority,
-        selectedClientId, assignedTo, columnId, autoPublish, threadTweets,
+        selectedClientId, assignees, columnId, autoPublish, threadTweets,
         platformOptions, recurrenceConfig,
       });
     });
@@ -480,7 +486,7 @@ export function PlanningItemDialog({
     const currentSnapshot = JSON.stringify({
       title, content, contentType, selectedPlatforms, scheduledAt,
       scheduledTime, mediaUrls: mediaItems.map(m => m.url), labels, priority,
-      selectedClientId, assignedTo, columnId, autoPublish, threadTweets,
+      selectedClientId, assignees, columnId, autoPublish, threadTweets,
       platformOptions, recurrenceConfig,
     });
     if (currentSnapshot === initialSnapshotRef.current) {
@@ -525,7 +531,8 @@ export function PlanningItemDialog({
         due_date: finalScheduledAt ? format(finalScheduledAt, 'yyyy-MM-dd') : undefined,
         scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
         media_urls: mediaItems.map(m => m.url),
-        assigned_to: assignedTo || undefined,
+        assignees,
+        assigned_to: assignees[0] ?? null,
         content_type: contentType || undefined,
         labels,
         metadata: draftMetadata,
@@ -660,7 +667,8 @@ export function PlanningItemDialog({
         due_date: finalScheduledAt ? format(finalScheduledAt, 'yyyy-MM-dd') : undefined,
         scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
         media_urls: mediaItems.map(m => m.url),
-        assigned_to: assignedTo || undefined,
+        assignees,
+        assigned_to: assignees[0] ?? null,
         content_type: contentType,
         labels,
         metadata: nextMetadata,
@@ -1350,39 +1358,75 @@ export function PlanningItemDialog({
                   <User className="h-3 w-3" />
                   Responsável
                 </Label>
-                <Select value={assignedTo || 'none'} onValueChange={(val) => setAssignedTo(val === 'none' ? '' : val)}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Nenhum">
-                      {assignedTo ? (
-                        <span className="flex items-center gap-1.5">
-                          <Avatar className="h-4 w-4">
-                            <AvatarFallback className="text-[8px]">
-                              {(members.find(m => m.user_id === assignedTo)?.profile?.full_name?.[0] || '?').toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          {members.find(m => m.user_id === assignedTo)?.profile?.full_name || 'Membro'}
+                {/* Multi-select de responsáveis (migration 0051) — Popover com
+                    checkboxes. assignees[0] = primary pra retrocompat. */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-8 w-full justify-start text-xs font-normal px-2"
+                    >
+                      {assignees.length > 0 ? (
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span className="flex -space-x-1.5 shrink-0">
+                            {assignees.slice(0, 3).map(id => {
+                              const mem = members.find(m => m.user_id === id);
+                              return (
+                                <Avatar key={id} className="h-4 w-4 ring-1 ring-background">
+                                  <AvatarFallback className="text-[8px]">
+                                    {(mem?.profile?.full_name?.[0] || '?').toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                              );
+                            })}
+                          </span>
+                          <span className="truncate">
+                            {assignees.length === 1
+                              ? (members.find(m => m.user_id === assignees[0])?.profile?.full_name || 'Membro')
+                              : `${assignees.length} responsáveis`}
+                          </span>
                         </span>
                       ) : (
                         <span className="text-muted-foreground">Nenhum</span>
                       )}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {members.filter(m => m.user_id).map(member => (
-                      <SelectItem key={member.user_id} value={member.user_id}>
-                        <div className="flex items-center gap-2">
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-1.5" align="start">
+                    {members.filter(m => m.user_id).length === 0 && (
+                      <p className="text-xs text-muted-foreground px-2 py-1.5">Sem membros no workspace</p>
+                    )}
+                    {members.filter(m => m.user_id).map(member => {
+                      const checked = assignees.includes(member.user_id);
+                      const name = member.profile?.full_name || member.profile?.email || 'Membro';
+                      return (
+                        <button
+                          key={member.user_id}
+                          type="button"
+                          onClick={() => {
+                            setAssignees(prev =>
+                              prev.includes(member.user_id)
+                                ? prev.filter(id => id !== member.user_id)
+                                : [...prev, member.user_id]
+                            );
+                          }}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-left",
+                            "hover:bg-accent transition-colors",
+                          )}
+                        >
+                          <Checkbox checked={checked} className="h-4 w-4 pointer-events-none" />
                           <Avatar className="h-5 w-5">
                             <AvatarFallback className="text-[10px]">
-                              {(member.profile?.full_name?.[0] || '?').toUpperCase()}
+                              {(name[0] || '?').toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          {member.profile?.full_name || member.profile?.email || 'Membro'}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                          <span className="truncate flex-1">{name}</span>
+                        </button>
+                      );
+                    })}
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Column */}

@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useClients } from "@/hooks/useClients";
 import {
@@ -110,7 +111,8 @@ export function TaskDialog({
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [dueDate, setDueDate] = useState<Date | undefined>();
-  const [assignedTo, setAssignedTo] = useState<string>("none");
+  // Multi-responsável (migration 0051). Array de user_ids; primary = assignees[0].
+  const [assignees, setAssignees] = useState<string[]>([]);
   const [clientId, setClientId] = useState<string>("none");
   const [labels, setLabels] = useState<TaskLabel[]>([]);
   const [mentionIds, setMentionIds] = useState<string[]>([]);
@@ -125,7 +127,11 @@ export function TaskDialog({
       setStatus(task.status);
       setPriority(task.priority);
       setDueDate(task.due_date ? parseISO(task.due_date) : undefined);
-      setAssignedTo(task.assigned_to || "none");
+      setAssignees(
+        task.assignees && task.assignees.length > 0
+          ? task.assignees
+          : (task.assigned_to ? [task.assigned_to] : [])
+      );
       setClientId(task.client_id || "none");
       setLabels(task.labels || []);
       setMentionIds(((task as any).mentions as string[]) || []);
@@ -135,7 +141,7 @@ export function TaskDialog({
       setStatus(defaultStatus || "todo");
       setPriority("medium");
       setDueDate(defaultDueDate || undefined);
-      setAssignedTo("none");
+      setAssignees([]);
       setClientId(defaultClientId || "none");
       setLabels([]);
       setMentionIds([]);
@@ -170,7 +176,8 @@ export function TaskDialog({
       status,
       priority,
       due_date: dueDate ? format(dueDate, "yyyy-MM-dd") : null,
-      assigned_to: assignedTo === "none" ? null : assignedTo,
+      assignees,
+      assigned_to: assignees[0] ?? null,
       client_id: clientId === "none" ? null : clientId,
       labels,
       mentions: ids,
@@ -189,7 +196,7 @@ export function TaskDialog({
     status,
     priority,
     dueDate,
-    assignedTo,
+    assignees,
     clientId,
     labels,
     task,
@@ -392,29 +399,76 @@ export function TaskDialog({
               </SidebarField>
 
               <SidebarField label="Responsável">
-                <Select value={assignedTo} onValueChange={setAssignedTo}>
-                  <SelectTrigger className="h-8">
-                    <SelectValue placeholder="Ninguém" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sem responsável</SelectItem>
+                {/* Multi-select de responsáveis (migration 0051) — Popover com
+                    checkboxes. assignees[0] = primary pra retrocompat. */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-8 w-full justify-start font-normal px-2"
+                    >
+                      {assignees.length > 0 ? (
+                        <span className="inline-flex items-center gap-1.5 min-w-0">
+                          <span className="flex -space-x-1.5 shrink-0">
+                            {assignees.slice(0, 3).map((id) => {
+                              const m: any = members.find((mm: any) => mm.user_id === id);
+                              const name = m?.profile?.full_name || m?.profile?.email || "Membro";
+                              return (
+                                <Avatar key={id} className="h-4 w-4 ring-1 ring-background">
+                                  <AvatarFallback className="text-[8px] bg-primary/15 text-primary">
+                                    {getInitials(name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                              );
+                            })}
+                          </span>
+                          <span className="truncate text-sm">
+                            {assignees.length === 1
+                              ? ((members.find((m: any) => m.user_id === assignees[0]) as any)?.profile?.full_name || "Membro")
+                              : `${assignees.length} responsáveis`}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Ninguém</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-1.5" align="start">
+                    {members.length === 0 && (
+                      <p className="text-xs text-muted-foreground px-2 py-1.5">Sem membros</p>
+                    )}
                     {members.map((m: any) => {
                       const name = m.profile?.full_name || m.profile?.email || "Membro";
+                      const checked = assignees.includes(m.user_id);
                       return (
-                        <SelectItem key={m.user_id} value={m.user_id}>
-                          <span className="inline-flex items-center gap-2">
-                            <Avatar className="h-4 w-4">
-                              <AvatarFallback className="text-[8px] bg-primary/15 text-primary">
-                                {getInitials(name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            {name}
-                          </span>
-                        </SelectItem>
+                        <button
+                          key={m.user_id}
+                          type="button"
+                          onClick={() => {
+                            setAssignees((prev) =>
+                              prev.includes(m.user_id)
+                                ? prev.filter((id) => id !== m.user_id)
+                                : [...prev, m.user_id]
+                            );
+                          }}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left",
+                            "hover:bg-accent transition-colors",
+                          )}
+                        >
+                          <Checkbox checked={checked} className="h-4 w-4 pointer-events-none" />
+                          <Avatar className="h-5 w-5">
+                            <AvatarFallback className="text-[10px] bg-primary/15 text-primary">
+                              {getInitials(name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="truncate flex-1">{name}</span>
+                        </button>
                       );
                     })}
-                  </SelectContent>
-                </Select>
+                  </PopoverContent>
+                </Popover>
               </SidebarField>
 
               <SidebarField label="Data limite">

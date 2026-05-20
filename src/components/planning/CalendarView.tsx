@@ -172,8 +172,10 @@ function CalendarCard({
   const scheduledDate = effectiveDate ? parseISO(effectiveDate) : null;
   const daysUntil = scheduledDate ? differenceInDays(scheduledDate, new Date()) : null;
 
-  // Responsável (assigned_to → memberMap)
-  const assignee = item.assigned_to ? memberMap?.[item.assigned_to] : null;
+  // Responsáveis (migration 0051) — stack. Fallback pra [assigned_to].
+  const assigneeIds = (item.assignees && item.assignees.length > 0)
+    ? item.assignees
+    : (item.assigned_to ? [item.assigned_to] : []);
   // Texto da rede social + formato (em vez de só emoji)
   const platformText = item.platform ? (platformLabels[item.platform] || item.platform) : null;
   const statusText = statusLabels[item.status] || item.status;
@@ -269,21 +271,41 @@ function CalendarCard({
             )}
           </div>
 
-          {/* Row 4: Responsável (avatar + nome, estilo ClickUp) */}
-          {assignee && (
+          {/* Row 4: Responsáveis (stack de avatares + nome se único, estilo ClickUp) */}
+          {assigneeIds.length > 0 && (
             <div className="flex items-center gap-1.5 mt-1">
-              <span className={cn(
-                "w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold shrink-0",
-                isPublished ? "bg-emerald-400/30 text-emerald-50" : "bg-primary/15 text-primary"
-              )}>
-                {assignee.initials}
+              <span className="flex -space-x-1.5 shrink-0">
+                {assigneeIds.slice(0, 3).map((id) => {
+                  const m = memberMap?.[id];
+                  return (
+                    <span
+                      key={id}
+                      className={cn(
+                        "w-4 h-4 rounded-full ring-1 ring-background flex items-center justify-center text-[8px] font-bold",
+                        isPublished ? "bg-emerald-400/30 text-emerald-50" : "bg-primary/15 text-primary"
+                      )}
+                    >
+                      {m?.initials || '?'}
+                    </span>
+                  );
+                })}
+                {assigneeIds.length > 3 && (
+                  <span className={cn(
+                    "w-4 h-4 rounded-full ring-1 ring-background flex items-center justify-center text-[8px] font-bold",
+                    isPublished ? "bg-emerald-400/30 text-emerald-50" : "bg-primary/15 text-primary"
+                  )}>
+                    +{assigneeIds.length - 3}
+                  </span>
+                )}
               </span>
-              <span className={cn(
-                "text-[9px] truncate",
-                isPublished ? "text-emerald-200/80" : "text-muted-foreground"
-              )}>
-                {assignee.name}
-              </span>
+              {assigneeIds.length === 1 && (
+                <span className={cn(
+                  "text-[9px] truncate",
+                  isPublished ? "text-emerald-200/80" : "text-muted-foreground"
+                )}>
+                  {memberMap?.[assigneeIds[0]]?.name}
+                </span>
+              )}
             </div>
           )}
         </div>

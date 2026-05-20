@@ -232,7 +232,13 @@ export const PlanningItemCard = memo(function PlanningItemCard({
     ? getAccentColor(item, viewSettings.colorBy, primaryPlatform)
     : undefined;
 
-  const assigneeInfo = item.assigned_to ? memberMap?.[item.assigned_to] : undefined;
+  // Multi-responsável (migration 0051) — stack de avatares. Fallback pra
+  // [assigned_to] se assignees vier vazio (rows antigas/cache stale).
+  const assigneeIds = (item.assignees && item.assignees.length > 0)
+    ? item.assignees
+    : (item.assigned_to ? [item.assigned_to] : []);
+  // Primary mantido pra hover/tooltip simples.
+  const assigneeInfo = assigneeIds[0] ? memberMap?.[assigneeIds[0]] : undefined;
 
   const cardInner = (
     <div
@@ -720,17 +726,29 @@ export const PlanningItemCard = memo(function PlanningItemCard({
               />
             )}
 
-            {/* Assignee */}
-            {show.assignee && item.assigned_to && (
+            {/* Assignees — stack de até 3 avatares + "+N" (migration 0051) */}
+            {show.assignee && assigneeIds.length > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center gap-1.5">
-                    <Avatar className="h-5 w-5 border border-border">
-                      <AvatarFallback className="text-[9px] bg-muted">
-                        {assigneeInfo?.initials || '👤'}
-                      </AvatarFallback>
-                    </Avatar>
-                    {show.assigneeName && assigneeInfo?.name && (
+                    <div className="flex -space-x-1.5">
+                      {assigneeIds.slice(0, 3).map((id) => {
+                        const m = memberMap?.[id];
+                        return (
+                          <Avatar key={id} className="h-5 w-5 border border-border ring-1 ring-background">
+                            <AvatarFallback className="text-[9px] bg-muted">
+                              {m?.initials || '👤'}
+                            </AvatarFallback>
+                          </Avatar>
+                        );
+                      })}
+                      {assigneeIds.length > 3 && (
+                        <span className="h-5 w-5 rounded-full border border-border ring-1 ring-background bg-muted text-[9px] font-semibold text-muted-foreground flex items-center justify-center">
+                          +{assigneeIds.length - 3}
+                        </span>
+                      )}
+                    </div>
+                    {show.assigneeName && assigneeIds.length === 1 && assigneeInfo?.name && (
                       <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">
                         {assigneeInfo.name}
                       </span>
@@ -738,7 +756,10 @@ export const PlanningItemCard = memo(function PlanningItemCard({
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  {assigneeInfo?.name || 'Responsável'}
+                  {assigneeIds
+                    .map((id) => memberMap?.[id]?.name)
+                    .filter(Boolean)
+                    .join(', ') || 'Responsável'}
                 </TooltipContent>
               </Tooltip>
             )}

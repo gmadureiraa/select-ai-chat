@@ -12,6 +12,8 @@ const BodySchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
   due_date: z.string().nullable().optional(),
   assigned_to: z.string().uuid().nullable().optional(),
+  // Multi-responsável (migration 0051). assigned_to = "primary" (= assignees[0]).
+  assignees: z.array(z.string().uuid()).optional(),
   labels: z.array(z.string()).optional(),
 });
 
@@ -42,8 +44,20 @@ export default authedPost(async ({ body, user }) => {
     throw new Error('Tarefa não encontrada ou acesso negado');
   }
 
+  // 2026-05-19 (migration 0051): sync assignees[] <-> assigned_to (primary).
+  // Quando assignees vier → assigned_to = assignees[0]. Quando só assigned_to
+  // vier (legacy caller) → assignees = [assigned_to]. Mutamos `data` pra que o
+  // loop abaixo grave ambas as colunas.
+  const dataAny = data as Record<string, unknown>;
+  if (data.assignees !== undefined) {
+    dataAny.assigned_to = data.assignees[0] ?? null;
+  } else if (data.assigned_to !== undefined && data.assigned_to !== null) {
+    dataAny.assignees = [data.assigned_to];
+  }
+
   // 2026-05-19 fix: team_tasks.labels é JSONB (não text[]). Bug paralelo ao
   // team-tasks-create. Schema confirmado via information_schema.
+  // assignees é uuid[] — cast ::uuid[] (NÃO confundir com labels JSONB).
   const updates: string[] = [];
   const params: any[] = [];
   for (const [key, value] of Object.entries(data)) {
@@ -52,6 +66,10 @@ export default authedPost(async ({ body, user }) => {
     if (key === 'labels') {
       params.push(JSON.stringify(value));
       updates.push(`"${key}" = $${params.length}::jsonb`);
+    } else if (key === 'assignees') {
+      const arr = value === null ? null : (Array.isArray(value) ? value.map(String) : [String(value)]);
+      params.push(arr);
+      updates.push(`"${key}" = $${params.length}::uuid[]`);
     } else {
       params.push(value);
       updates.push(`"${key}" = $${params.length}`);
@@ -76,7 +94,7 @@ export default authedPost(async ({ body, user }) => {
   const r = await pool.query(
     `UPDATE team_tasks SET ${updates.join(', ')}
       WHERE id = $${idIdx}
-      RETURNING id, title, description, status, priority, due_date, assigned_to, labels, updated_at`,
+      RETURNING id, title, description, status, priority, due_date, assigned_to, assignees, labels, updated_at`,
     params,
   );
 

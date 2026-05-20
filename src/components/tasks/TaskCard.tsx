@@ -42,7 +42,10 @@ export function TaskCard({
   commentsCount,
   density = "comfortable",
 }: TaskCardProps) {
-  const assignee = task.assigned_to ? memberMap[task.assigned_to] : null;
+  // Multi-responsável (migration 0051) — stack. Fallback pra [assigned_to].
+  const assigneeIds = (task.assignees && task.assignees.length > 0)
+    ? task.assignees
+    : (task.assigned_to ? [task.assigned_to] : []);
   const client = task.client_id ? clientMap[task.client_id] : null;
   const due = task.due_date ? parseISO(task.due_date) : null;
   const overdue = !!due && isPast(due) && !isToday(due) && task.status !== "done";
@@ -166,12 +169,21 @@ export function TaskCard({
             )}
 
             <div className="ml-auto">
-              {assignee ? (
-                <Avatar className="h-5 w-5">
-                  <AvatarFallback className="text-[9px] bg-primary/15 text-primary">
-                    {assignee.initials}
-                  </AvatarFallback>
-                </Avatar>
+              {assigneeIds.length > 0 ? (
+                <div className="flex -space-x-1.5">
+                  {assigneeIds.slice(0, 3).map((id) => (
+                    <Avatar key={id} className="h-5 w-5 ring-1 ring-background">
+                      <AvatarFallback className="text-[9px] bg-primary/15 text-primary">
+                        {memberMap[id]?.initials || '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                  {assigneeIds.length > 3 && (
+                    <span className="h-5 w-5 rounded-full ring-1 ring-background bg-muted text-[9px] font-semibold text-muted-foreground flex items-center justify-center">
+                      +{assigneeIds.length - 3}
+                    </span>
+                  )}
+                </div>
               ) : (
                 <span className="h-5 w-5 rounded-full border border-dashed border-muted-foreground/30 inline-block" />
               )}

@@ -27,6 +27,8 @@ const BodySchema = z.object({
   due_date: z.string().nullable().optional(),
   published_at: z.string().nullable().optional(),
   assigned_to: z.string().uuid().nullable().optional(),
+  // Multi-responsável (migration 0051). assigned_to = "primary" (= assignees[0]).
+  assignees: z.array(z.string().uuid()).optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
   position: z.number().int().min(0).optional(),
   column_id: z.string().uuid().nullable().optional(),
@@ -49,6 +51,8 @@ const BodySchema = z.object({
 // 2026-05-19 fix: recurrence_days é text[] (não jsonb).
 const JSONB_KEYS = new Set(['labels', 'media_urls', 'metadata']);
 const TEXT_ARRAY_KEYS = new Set(['recurrence_days']);
+// 2026-05-19 (migration 0051): assignees é uuid[].
+const UUID_ARRAY_KEYS = new Set(['assignees']);
 
 export default authedPost(async ({ body, user }) => {
   const parsed = BodySchema.safeParse(body ?? {});
@@ -92,6 +96,17 @@ export default authedPost(async ({ body, user }) => {
     }
   }
 
+  // 2026-05-19 (migration 0051): sync assignees[] <-> assigned_to (primary).
+  // Quando assignees vier → assigned_to = assignees[0]. Quando só assigned_to
+  // vier (legacy caller) → assignees = [assigned_to]. Mutamos `data` pra que o
+  // loop abaixo grave ambas as colunas de forma consistente.
+  const dataAny = data as Record<string, unknown>;
+  if (data.assignees !== undefined) {
+    dataAny.assigned_to = data.assignees[0] ?? null;
+  } else if (data.assigned_to !== undefined && data.assigned_to !== null) {
+    dataAny.assignees = [data.assigned_to];
+  }
+
   const updates: string[] = [];
   const params: unknown[] = [];
   for (const [key, value] of Object.entries(data)) {
@@ -104,6 +119,10 @@ export default authedPost(async ({ body, user }) => {
       const arr = value === null ? null : (Array.isArray(value) ? value.map(String) : [String(value)]);
       params.push(arr);
       updates.push(`"${key}" = $${params.length}::text[]`);
+    } else if (UUID_ARRAY_KEYS.has(key)) {
+      const arr = value === null ? null : (Array.isArray(value) ? value.map(String) : [String(value)]);
+      params.push(arr);
+      updates.push(`"${key}" = $${params.length}::uuid[]`);
     } else {
       params.push(value);
       updates.push(`"${key}" = $${params.length}`);

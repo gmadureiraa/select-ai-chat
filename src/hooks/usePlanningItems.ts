@@ -29,6 +29,10 @@ export interface PlanningItem {
   position: number;
   labels: string[];
   assigned_to: string | null;
+  // Multi-responsável (migration 0051). assigned_to = primary (= assignees[0]).
+  // Opcional no tipo pq os types gerados do Supabase ainda não têm a coluna
+  // nova — normalizamos pra [] no map do hook. Consumidores usam `?? []`.
+  assignees?: string[];
   media_urls: string[];
   metadata: Record<string, unknown>;
   external_post_id: string | null;
@@ -91,6 +95,7 @@ export interface CreatePlanningItemInput {
   priority?: PlanningPriority;
   labels?: string[];
   assigned_to?: string;
+  assignees?: string[];
   media_urls?: string[];
   metadata?: Record<string, unknown>;
 }
@@ -200,6 +205,11 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       let mapped = (data || []).map(item => ({
         ...item,
         labels: Array.isArray(item.labels) ? item.labels : [],
+        // assignees[] da migration 0051 — fallback pra [assigned_to] se vier
+        // null/ausente (rows antigas pré-backfill ou schema cache stale).
+        assignees: Array.isArray(item.assignees)
+          ? item.assignees
+          : (item.assigned_to ? [item.assigned_to] : []),
         media_urls: Array.isArray(item.media_urls) ? item.media_urls : [],
         metadata: typeof item.metadata === 'object' && item.metadata !== null ? item.metadata : {},
         priority: (item.priority || 'medium') as PlanningPriority,
@@ -285,6 +295,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
           position: maxPosition,
           labels: input.labels ?? [],
           assigned_to: input.assigned_to ?? null,
+          assignees: input.assignees ?? undefined,
           media_urls: input.media_urls ?? [],
           metadata: input.metadata ?? {},
           recurrence_type: inputWithRecurrence.recurrence_type ?? null,
@@ -329,7 +340,8 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
         priority: (input.priority ?? 'medium') as PlanningPriority,
         position: items.filter(i => i.column_id === targetColumnId).length,
         labels: input.labels ?? [],
-        assigned_to: input.assigned_to ?? null,
+        assigned_to: input.assigned_to ?? (input.assignees?.[0] ?? null),
+        assignees: input.assignees ?? (input.assigned_to ? [input.assigned_to] : []),
         media_urls: input.media_urls ?? [],
         metadata: (input.metadata ?? {}) as Record<string, unknown>,
         external_post_id: null,
@@ -393,6 +405,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       if (updates.client_id !== undefined) updateData.client_id = updates.client_id;
       if (updates.labels !== undefined) updateData.labels = updates.labels as unknown as Json;
       if (updates.assigned_to !== undefined) updateData.assigned_to = updates.assigned_to;
+      if (updates.assignees !== undefined) updateData.assignees = updates.assignees;
       if (updates.media_urls !== undefined) updateData.media_urls = updates.media_urls as unknown as Json;
       if (updates.metadata !== undefined) updateData.metadata = updates.metadata as unknown as Json;
       if (updates.error_message !== undefined) updateData.error_message = updates.error_message;
@@ -471,6 +484,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
           position: snapshot.position,
           labels: snapshot.labels,
           assigned_to: snapshot.assigned_to,
+          assignees: snapshot.assignees,
           media_urls: snapshot.media_urls,
           metadata: snapshot.metadata as Json,
           external_post_id: snapshot.external_post_id,

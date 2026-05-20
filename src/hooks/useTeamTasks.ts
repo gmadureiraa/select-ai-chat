@@ -24,6 +24,10 @@ export interface TeamTask {
   priority: TaskPriority;
   due_date: string | null;
   assigned_to: string | null;
+  // Multi-responsável (migration 0051). assigned_to = primary (= assignees[0]).
+  // Opcional pq os types gerados do Supabase ainda não têm a coluna nova;
+  // normalizamos no map do hook. Consumidores usam `?? []`.
+  assignees?: string[];
   created_by: string;
   completed_at: string | null;
   position: number;
@@ -61,6 +65,7 @@ export interface CreateTeamTaskInput {
   priority?: TaskPriority;
   due_date?: string | null;
   assigned_to?: string | null;
+  assignees?: string[];
   client_id?: string | null;
   labels?: TaskLabel[];
   mentions?: string[];
@@ -103,7 +108,14 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
 
       const { data, error } = await q;
       if (error) throw error;
-      return ((data || []) as unknown) as TeamTask[];
+      // Normaliza assignees[] (migration 0051) — fallback pra [assigned_to] se
+      // null/ausente (rows antigas pré-backfill ou schema cache stale).
+      return (((data || []) as any[]).map((t) => ({
+        ...t,
+        assignees: Array.isArray(t.assignees)
+          ? t.assignees
+          : (t.assigned_to ? [t.assigned_to] : []),
+      })) as unknown) as TeamTask[];
     },
     enabled: !!workspaceId,
     // Substitui Supabase Realtime: poll a cada 30s para refletir
@@ -140,6 +152,7 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
           priority: input.priority ?? "medium",
           due_date: input.due_date ?? undefined,
           assigned_to: input.assigned_to ?? undefined,
+          assignees: input.assignees ?? undefined,
           client_id: input.client_id ?? null,
           labels: labelStrings,
         },
@@ -179,6 +192,11 @@ export function useTeamTasks(filters: TeamTaskFilters = {}) {
         body.labels = patch.labels.map((l) =>
           typeof l === "string" ? l : l?.name ?? ""
         ).filter(Boolean);
+      }
+      // Multi-responsável (migration 0051) — uuid[]. Handler sincroniza
+      // assigned_to = assignees[0].
+      if (patch.assignees !== undefined) {
+        body.assignees = patch.assignees;
       }
       const { data, error } = await apiInvoke("team-tasks-update", { body });
       if (error) throw new Error(error.message || "Erro ao atualizar tarefa");

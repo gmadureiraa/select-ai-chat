@@ -569,10 +569,9 @@ function CtaSlide({
   FS_LOGO: number;
   FS_HAND: number;
 }) {
-  const ctaHead = heading || "comenta aí 👇";
-  const ctaBody =
-    body ||
-    "Manda esse pro amigo que ainda **não tá ligado** no que tá rolando no mercado cripto.";
+  // 2026-05-19: Gabriel decide a chamada — sem default "comenta aí" forçado.
+  const ctaHead = heading || "";
+  const ctaBody = body || "";
   return (
     <div
       style={{
@@ -620,7 +619,7 @@ function CtaSlide({
           textAlign: "center",
         }}
       >
-        {showTitle && (
+        {showTitle && ctaHead && (
           <h2
             style={{
               fontFamily: displayStack,
@@ -637,10 +636,7 @@ function CtaSlide({
           </h2>
         )}
 
-        {/* Alien mascote */}
-        <AlienMascot size={220} />
-
-        {showBody && (
+        {showBody && ctaBody && (
           <p
             style={{
               fontFamily: BODY_STACK,
@@ -656,24 +652,6 @@ function CtaSlide({
             {renderRichText(ctaBody, GREEN_ACCENT)}
           </p>
         )}
-      </div>
-
-      {/* "COMENTA AÍ" rotacionado */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 110,
-          right: 90,
-          transform: "rotate(-8deg)",
-          fontFamily: HAND_STACK,
-          fontSize: FS_HAND,
-          color: GREEN_ACCENT,
-          fontWeight: 700,
-          letterSpacing: "0.02em",
-          textShadow: "0 2px 12px rgba(124,240,103,0.25)",
-        }}
-      >
-        COMENTA AÍ
       </div>
     </div>
   );
@@ -745,36 +723,6 @@ function ArrowBadge() {
         />
       </svg>
     </div>
-  );
-}
-
-/** Alien mascote — placeholder simples em SVG (verde alien). */
-function AlienMascot({ size }: { size: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 200 200"
-      fill="none"
-      style={{ flexShrink: 0 }}
-    >
-      {/* Cabeça */}
-      <ellipse cx="100" cy="100" rx="68" ry="80" fill={GREEN_ACCENT} />
-      {/* Olhos */}
-      <ellipse cx="78" cy="100" rx="14" ry="22" fill={BLACK} />
-      <ellipse cx="122" cy="100" rx="14" ry="22" fill={BLACK} />
-      {/* Brilho olhos */}
-      <ellipse cx="82" cy="92" rx="4" ry="6" fill={WHITE} />
-      <ellipse cx="126" cy="92" rx="4" ry="6" fill={WHITE} />
-      {/* Boca */}
-      <path
-        d="M 80 140 Q 100 152, 120 140"
-        stroke={BLACK}
-        strokeWidth="4"
-        fill="none"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }
 
