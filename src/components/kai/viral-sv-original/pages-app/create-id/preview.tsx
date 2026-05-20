@@ -13,6 +13,7 @@ import { useCaption } from "@sv/lib/create/use-caption";
 import { authHeaders } from "@sv/lib/api-auth-headers";
 import { supabase } from "@sv/lib/supabase";
 import { upsertUserCarousel } from "@sv/lib/carousel-storage";
+import { buildSVPreviewProfile } from "@sv/lib/client-profile";
 import CarouselFeedbackPanel from "@sv/components/app/carousel-feedback";
 import FeedbackModal from "@sv/components/app/FeedbackModal";
 // KAI integration: salvar carrossel finalizado na biblioteca de conteúdo do
@@ -60,25 +61,6 @@ function useInjectCaptionShimmerKeyframe() {
  * controles de export PNG/PDF/Clipboard, legenda editável e agendamento stub.
  */
 
-function buildPreviewProfile(profile: {
-  name: string;
-  twitter_handle?: string;
-  instagram_handle?: string;
-  avatar_url?: string;
-} | null) {
-  if (!profile) return { name: "Seu nome", handle: "@seuhandle", photoUrl: "" };
-  const handle = profile.twitter_handle
-    ? `@${profile.twitter_handle}`
-    : profile.instagram_handle
-      ? `@${profile.instagram_handle}`
-      : "@seuhandle";
-  return {
-    name: profile.name || "Seu nome",
-    handle,
-    photoUrl: profile.avatar_url || "",
-  };
-}
-
 export default function PreviewPage(props: {
   params: ({ id: string });
 }) {
@@ -88,6 +70,9 @@ export default function PreviewPage(props: {
   const router = useRouter();
   const { profile, session, user } = useAuth();
   const { draft, loading, error } = useDraft(id);
+  // clientId/client do shell do KAI (Sidebar). Precisa estar ANTES de
+  // previewProfile porque o profile do preview prioriza o avatar do CLIENTE.
+  const { clientId, client } = useSVClient();
 
   // SNAPSHOT DO EDITOR (session): estratégia anti-race. Quando user vem de
   // /edit, o editor grava slides + overrides EXATOS em sessionStorage antes
@@ -131,19 +116,14 @@ export default function PreviewPage(props: {
       : typeof draft?.textScale === "number"
         ? draft.textScale
         : undefined;
+  // 2026-05-20 fix: preview/export usava só o avatar do USUÁRIO
+  // (buildPreviewProfile), ignorando o cliente. Defiverso (e qualquer cliente)
+  // não mostrava a foto. Agora usa buildSVPreviewProfile(client, profile) que
+  // prioriza client.avatar_url → tags.logo_url → profile.avatar_url, igual
+  // edit.tsx e carousels.tsx.
   const previewProfile = useMemo(
-    () =>
-      buildPreviewProfile(
-        profile
-          ? {
-              name: profile.name,
-              twitter_handle: profile.twitter_handle,
-              instagram_handle: profile.instagram_handle,
-              avatar_url: profile.avatar_url,
-            }
-          : null
-      ),
-    [profile]
+    () => buildSVPreviewProfile(client, profile),
+    [client, profile]
   );
 
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -185,7 +165,7 @@ export default function PreviewPage(props: {
   // O carrossel finalizado vira um item em `client_content_library` (destination
   // 'content', porque é conteúdo PRÓPRIO gerado, não inspiração externa).
   // Disponível só quando há clientId selecionado no shell do KAI.
-  const { clientId, client } = useSVClient();
+  // (clientId/client já destructurados no topo do componente.)
   const [savingToLibrary, setSavingToLibrary] = useState(false);
   const [savedLibraryItemId, setSavedLibraryItemId] = useState<string | null>(
     null,
