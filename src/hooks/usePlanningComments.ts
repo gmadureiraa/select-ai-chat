@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { apiInvoke } from "@/lib/apiInvoke";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,42 +23,22 @@ export function usePlanningComments(planningItemId: string | undefined) {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const { data: comments = [], isLoading } = useQuery({
+  const { data: comments = [], isLoading, error: loadError } = useQuery({
     queryKey: ["planning-comments", planningItemId],
     queryFn: async () => {
       if (!planningItemId) return [];
 
-      // 2026-05-20 fix: o embedded join PostgREST
-      // `profiles!planning_item_comments_user_id_fkey` depende do nome EXATO da
-      // FK no Neon Data API. Se a constraint tiver outro nome (ou não estiver
-      // exposta), o PostgREST devolve erro e a lista some silenciosamente.
-      // Desacopla: busca comentários, depois resolve os profiles num 2º query
-      // e mescla no client. Sem dependência de nome de FK.
-      const { data: rows, error } = await supabase
-        .from("planning_item_comments")
-        .select("*")
-        .eq("planning_item_id", planningItemId)
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-      const list = (rows ?? []) as unknown as PlanningComment[];
-      if (list.length === 0) return list;
-
-      const userIds = [...new Set(list.map((c) => c.user_id).filter(Boolean))];
-      let profileMap: Record<string, PlanningComment["profile"]> = {};
-      if (userIds.length > 0) {
-        const { data: profs } = await supabase
-          .from("profiles")
-          .select("id, full_name, avatar_url, email")
-          .in("id", userIds);
-        profileMap = Object.fromEntries(
-          (profs ?? []).map((p: any) => [
-            p.id,
-            { full_name: p.full_name, avatar_url: p.avatar_url, email: p.email },
-          ]),
-        );
+      // 2026-05-20 fix: leitura também passa pelo backend. Antes o create era
+      // server-side, mas o read dependia do Data API/RLS no browser; qualquer
+      // divergência de policy/FK fazia o comentário existir no banco e sumir na UI.
+      const { data, error } = await apiInvoke<{ comments?: PlanningComment[] }>(
+        "planning-comments-list",
+        { body: { planning_item_id: planningItemId } },
+      );
+      if (error) {
+        throw new Error(error.message || "Erro ao carregar comentários");
       }
-      return list.map((c) => ({ ...c, profile: profileMap[c.user_id] }));
+      return data?.comments ?? [];
     },
     enabled: !!planningItemId,
     staleTime: 15_000,
@@ -84,15 +63,25 @@ export function usePlanningComments(planningItemId: string | undefined) {
       });
 
       if (error) throw new Error(error.message || "Erro ao adicionar comentário");
-      return data?.comment ?? data;
+      return (data?.comment ?? data) as PlanningComment;
     },
-    onSuccess: () => {
+    onSuccess: (comment) => {
+      if (comment?.id) {
+        queryClient.setQueryData<PlanningComment[]>(
+          ["planning-comments", planningItemId],
+          (current = []) =>
+            current.some((item) => item.id === comment.id)
+              ? current
+              : [...current, comment],
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["planning-comments", planningItemId] });
       toast({ title: "Comentário adicionado" });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Erro ao adicionar comentário",
+        description: error instanceof Error ? error.message : undefined,
         variant: "destructive"
       });
     }
@@ -120,7 +109,8 @@ export function usePlanningComments(planningItemId: string | undefined) {
   return {
     comments,
     isLoading,
-    addComment: addComment.mutate,
+    loadError: loadError instanceof Error ? loadError.message : null,
+    addComment: addComment.mutateAsync,
     deleteComment: deleteComment.mutate,
     isAdding: addComment.isPending
   };

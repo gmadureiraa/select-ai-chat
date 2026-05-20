@@ -81,6 +81,45 @@ interface PlanningItemDialogProps {
   readOnly?: boolean;
 }
 
+type DialogSnapshot = {
+  title: string;
+  content: string;
+  contentType: ContentTypeKey | '';
+  selectedPlatforms: string[];
+  scheduledAtIso: string | null;
+  mediaUrls: string[];
+  labels: string[];
+  priority: PlanningPriority;
+  selectedClientId: string;
+  assignees: string[];
+  columnId: string;
+  autoPublish: boolean;
+  threadTweets: ThreadTweet[];
+  platformOptions: PlatformOptionsState;
+  recurrenceConfig: RecurrenceConfigType;
+};
+
+type PlanningItemWithRecurrence = PlanningItem & {
+  recurrence_type?: RecurrenceConfigType['type'] | null;
+  recurrence_days?: string[] | null;
+  recurrence_time?: string | null;
+  recurrence_end_date?: string | null;
+};
+
+function jsonKey(value: unknown): string {
+  return JSON.stringify(value ?? null);
+}
+
+function sameValue(a: unknown, b: unknown): boolean {
+  return jsonKey(a) === jsonKey(b);
+}
+
+function scheduledIso(date: Date | undefined, time: string): string | null {
+  if (!date) return null;
+  const [hours = 9, minutes = 0] = time.split(':').map(Number);
+  return setMinutes(setHours(date, hours), minutes).toISOString();
+}
+
 const priorities: { value: PlanningPriority; label: string }[] = [
   { value: 'low', label: 'Baixa' },
   { value: 'medium', label: 'Média' },
@@ -128,7 +167,7 @@ export function PlanningItemDialog({
   // - initialSnapshotRef: snapshot do form após hidratação inicial pra detectar
   //   mudanças (isDirty).
   const skipAutoSaveRef = useRef(false);
-  const initialSnapshotRef = useRef<string>('');
+  const initialSnapshotRef = useRef<DialogSnapshot | null>(null);
   const isAutoSavingRef = useRef(false);
   
   const [freshItem, setFreshItem] = useState<PlanningItem | null>(null);
@@ -245,7 +284,7 @@ export function PlanningItemDialog({
         setSelectedPlatforms([platform]);
       }
     }
-  }, [contentType]);
+  }, [contentType, platform, selectedPlatforms.length]);
 
   const togglePlatform = (p: string) => {
     setSelectedPlatforms(prev =>
@@ -276,13 +315,31 @@ export function PlanningItemDialog({
   };
 
   // Check if any selected platform can auto-publish
-  const publishablePlatforms = selectedPlatforms.filter(p => canAutoPublish(p as any));
+  const publishablePlatforms = selectedPlatforms.filter(p => canAutoPublish(p as PlanningPlatform));
   const canPublishNow = !isMediaUploading && publishablePlatforms.length > 0 && (content.trim() || threadTweets.some(t => t.text.trim()));
 
   const canGenerateContent = title.trim() && contentType && selectedClientId;
   const canGenerateImage = (content.trim() || threadTweets.some(t => t.text.trim())) && selectedClientId;
   const hasReference = referenceInput.trim();
   const isTwitterThread = contentType === 'thread';
+
+  const getCurrentSnapshot = (): DialogSnapshot => ({
+    title,
+    content,
+    contentType,
+    selectedPlatforms,
+    scheduledAtIso: scheduledIso(scheduledAt, scheduledTime),
+    mediaUrls: mediaItems.map(m => m.url),
+    labels,
+    priority,
+    selectedClientId,
+    assignees,
+    columnId,
+    autoPublish,
+    threadTweets,
+    platformOptions,
+    recurrenceConfig,
+  });
 
   const handleGenerateContent = async () => {
     if (!canGenerateContent) return;
@@ -319,13 +376,17 @@ export function PlanningItemDialog({
   useEffect(() => {
     // Use effectiveItem (fresh data if available) instead of stale item prop
     if (effectiveItem) {
-      // Já hidratamos esse id? Não rehidratar — preserva digitação do user
-      // contra o flush tardio do freshItem fetch.
-      if (hydratedItemIdRef.current === effectiveItem.id) return;
+      // Já hidratamos esse id? Só rehidrata se o formulário ainda está igual ao
+      // snapshot inicial. Assim o freshItem tardio corrige dados stale vindos
+      // do board, mas não apaga digitação que o user já começou.
+      if (hydratedItemIdRef.current === effectiveItem.id) {
+        const initial = initialSnapshotRef.current;
+        if (!initial || !sameValue(getCurrentSnapshot(), initial)) return;
+      }
       hydratedItemIdRef.current = effectiveItem.id;
       setTitle(effectiveItem.title);
       // Use content, fallback to description if content is empty (for automation-generated items)
-      const itemContent = effectiveItem.content || (effectiveItem as any).description || '';
+      const itemContent = effectiveItem.content || effectiveItem.description || '';
       setContent(itemContent);
       setSelectedClientId(effectiveItem.client_id || '');
       setColumnId(effectiveItem.column_id || '');
@@ -333,15 +394,16 @@ export function PlanningItemDialog({
       const parsedScheduledAt = effectiveItem.scheduled_at 
         ? parseISO(effectiveItem.scheduled_at) 
         : effectiveItem.due_date ? parseISO(effectiveItem.due_date) : undefined;
+      const parsedScheduledTime = parsedScheduledAt ? format(parsedScheduledAt, 'HH:mm') : '09:00';
       setScheduledAt(parsedScheduledAt);
-      setScheduledTime(parsedScheduledAt ? format(parsedScheduledAt, 'HH:mm') : '09:00');
-      setAssignees(
+      setScheduledTime(parsedScheduledTime);
+      const nextAssignees =
         effectiveItem.assignees && effectiveItem.assignees.length > 0
           ? effectiveItem.assignees
-          : (effectiveItem.assigned_to ? [effectiveItem.assigned_to] : [])
-      );
+          : (effectiveItem.assigned_to ? [effectiveItem.assigned_to] : []);
+      setAssignees(nextAssignees);
 
-      const metadata = effectiveItem.metadata as any || {};
+      const metadata = (effectiveItem.metadata as Record<string, unknown>) || {};
       // 2026-05-19: restaura autoPublish do metadata. Cards que já saíram pro Late
       // (têm external_post_id) começam OFF por segurança (não re-agenda).
       // (Tem que vir DEPOIS da declaração de `metadata` — fix TDZ commit 159cfbad.)
@@ -381,33 +443,59 @@ export function PlanningItemDialog({
       // (mesmo array vazio). Array vazio = user desmarcou tudo de propósito —
       // não pode cair no fallback de item.platform porque isso re-marcava.
       // Só faz fallback pra item.platform se metadata.target_platforms NÃO existir.
+      let nextSelectedPlatforms: string[] = [];
       const hasMetadataPlatforms = Array.isArray(metadata.target_platforms);
       if (hasMetadataPlatforms) {
-        setSelectedPlatforms(metadata.target_platforms as string[]);
+        nextSelectedPlatforms = metadata.target_platforms as string[];
       } else if (effectiveItem.platform) {
-        setSelectedPlatforms([effectiveItem.platform]);
+        nextSelectedPlatforms = [effectiveItem.platform];
       } else {
-        setSelectedPlatforms([]);
+        nextSelectedPlatforms = [];
       }
+      setSelectedPlatforms(nextSelectedPlatforms);
       
-      setRecurrenceConfig({
-        type: (effectiveItem as any).recurrence_type || 'none',
-        days: (effectiveItem as any).recurrence_days || [],
-        time: (effectiveItem as any).recurrence_time || null,
-        endDate: (effectiveItem as any).recurrence_end_date || null,
-      });
-      setLabels(Array.isArray(effectiveItem.labels) ? effectiveItem.labels : []);
+      const recurrenceItem = effectiveItem as PlanningItemWithRecurrence;
+      const nextRecurrenceConfig: RecurrenceConfigType = {
+        type: recurrenceItem.recurrence_type || 'none',
+        days: recurrenceItem.recurrence_days || [],
+        time: recurrenceItem.recurrence_time || null,
+        endDate: recurrenceItem.recurrence_end_date || null,
+      };
+      setRecurrenceConfig(nextRecurrenceConfig);
+      const nextLabels = Array.isArray(effectiveItem.labels) ? effectiveItem.labels : [];
+      setLabels(nextLabels);
       setLabelInput('');
       
       const mediaUrls = effectiveItem.media_urls as string[] || [];
-      setMediaItems(hydratePlanningMediaItems(mediaUrls, metadata));
+      const nextMediaItems = hydratePlanningMediaItems(mediaUrls, metadata);
+      setMediaItems(nextMediaItems);
       
+      let nextThreadTweets: ThreadTweet[];
       if (metadata.thread_tweets) {
-        setThreadTweets(metadata.thread_tweets);
+        nextThreadTweets = metadata.thread_tweets;
       } else {
-        setThreadTweets([{ id: 'tweet-1', text: effectiveItem.content || '', media_urls: [] }]);
+        nextThreadTweets = [{ id: 'tweet-1', text: effectiveItem.content || '', media_urls: [] }];
       }
-      setPlatformOptions((metadata.platform_options as PlatformOptionsState) || {});
+      setThreadTweets(nextThreadTweets);
+      const nextPlatformOptions = (metadata.platform_options as PlatformOptionsState) || {};
+      setPlatformOptions(nextPlatformOptions);
+      initialSnapshotRef.current = {
+        title: effectiveItem.title,
+        content: itemContent,
+        contentType: candidate,
+        selectedPlatforms: nextSelectedPlatforms,
+        scheduledAtIso: scheduledIso(parsedScheduledAt, parsedScheduledTime),
+        mediaUrls: nextMediaItems.map(m => m.url),
+        labels: nextLabels,
+        priority: effectiveItem.priority,
+        selectedClientId: effectiveItem.client_id || '',
+        assignees: nextAssignees,
+        columnId: effectiveItem.column_id || '',
+        autoPublish: persistedAuto,
+        threadTweets: nextThreadTweets,
+        platformOptions: nextPlatformOptions,
+        recurrenceConfig: nextRecurrenceConfig,
+      };
     } else if (!item) {
       // Only reset when there's no item at all (new card)
       setTitle(defaultTitle || '');
@@ -431,19 +519,30 @@ export function PlanningItemDialog({
       setPlatformOptions({});
       setLabels([]);
       setLabelInput('');
+      initialSnapshotRef.current = {
+        title: defaultTitle || '',
+        content: defaultContent || '',
+        contentType: '',
+        selectedPlatforms: [],
+        scheduledAtIso: scheduledIso(defaultDate || undefined, '09:00'),
+        mediaUrls: [],
+        labels: [],
+        priority: 'medium',
+        selectedClientId: defaultClientId || '',
+        assignees: [],
+        columnId: defaultColumnId || columns[0]?.id || '',
+        autoPublish: false,
+        threadTweets: [{ id: 'tweet-1', text: '', media_urls: [] }],
+        platformOptions: {},
+        recurrenceConfig: { type: 'none', days: [], time: null, endDate: null },
+      };
     }
-    // 2026-05-19: marca skipAutoSave OFF e captura snapshot inicial após
-    // hidratação. Snapshot serve pra detectar isDirty no auto-save ao fechar.
+    // 2026-05-19: marca skipAutoSave OFF após hidratação. O snapshot é montado
+    // com os valores locais acima; não usamos state recém-setado, porque React
+    // aplica setState de forma assíncrona.
     skipAutoSaveRef.current = false;
-    // Snapshot é capturado depois que os setStates rodam (próximo tick).
-    queueMicrotask(() => {
-      initialSnapshotRef.current = JSON.stringify({
-        title, content, contentType, selectedPlatforms, scheduledAt,
-        scheduledTime, mediaUrls: mediaItems.map(m => m.url), labels, priority,
-        selectedClientId, assignees, columnId, autoPublish, threadTweets,
-        platformOptions, recurrenceConfig,
-      });
-    });
+    // getCurrentSnapshot usa estado vivo só para proteger digitação durante o
+    // refetch; não deve re-disparar hidratação a cada tecla.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveItem, item, defaultColumnId, defaultDate, defaultClientId, defaultTitle, defaultContent, columns, open]);
 
@@ -483,13 +582,9 @@ export function PlanningItemDialog({
       onOpenChange(false);
       return;
     }
-    const currentSnapshot = JSON.stringify({
-      title, content, contentType, selectedPlatforms, scheduledAt,
-      scheduledTime, mediaUrls: mediaItems.map(m => m.url), labels, priority,
-      selectedClientId, assignees, columnId, autoPublish, threadTweets,
-      platformOptions, recurrenceConfig,
-    });
-    if (currentSnapshot === initialSnapshotRef.current) {
+    const initialSnapshot = initialSnapshotRef.current;
+    const currentSnapshot = getCurrentSnapshot();
+    if (initialSnapshot && sameValue(currentSnapshot, initialSnapshot)) {
       onOpenChange(false);
       return;
     }
@@ -500,53 +595,160 @@ export function PlanningItemDialog({
       if (isTwitterThread) {
         finalContent = threadTweets.map(t => t.text).join('\n\n---\n\n');
       }
-      let finalScheduledAt: Date | undefined;
-      if (scheduledAt) {
-        const [h, m] = scheduledTime.split(':').map(Number);
-        finalScheduledAt = setMinutes(setHours(scheduledAt, h), m);
-      }
-      const existingMetadata = (effectiveItem?.metadata as Record<string, unknown>) || {};
-      const draftMetadata: Record<string, unknown> = {
-        ...existingMetadata,
-        content_type: contentType || undefined,
-        target_platforms: selectedPlatforms,
-        platform_options: platformOptions,
-        auto_publish: autoPublish,
-        media_items: serializePlanningMediaItems(mediaItems),
-      };
-      if (isTwitterThread) draftMetadata.thread_tweets = threadTweets;
+      const finalScheduledAt = currentSnapshot.scheduledAtIso
+        ? new Date(currentSnapshot.scheduledAtIso)
+        : undefined;
 
       const resolvedPlatform: PlanningPlatform | null =
         selectedPlatforms.length > 0
           ? (selectedPlatforms[0] as PlanningPlatform)
           : null;
 
-      const draftPayload: CreatePlanningItemInput & Record<string, any> = {
-        title: title.trim() || 'Sem título',
-        content: finalContent.trim() || undefined,
-        client_id: selectedClientId || undefined,
-        column_id: columnId || undefined,
-        platform: resolvedPlatform || undefined,
-        priority,
-        due_date: finalScheduledAt ? format(finalScheduledAt, 'yyyy-MM-dd') : undefined,
-        scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
-        media_urls: mediaItems.map(m => m.url),
-        assignees,
-        assigned_to: assignees[0] ?? null,
-        content_type: contentType || undefined,
-        labels,
-        metadata: draftMetadata,
-        recurrence_type: recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null,
-        recurrence_days: recurrenceConfig.days.length > 0 ? recurrenceConfig.days : null,
-        recurrence_time: recurrenceConfig.time || null,
-        recurrence_end_date: recurrenceConfig.endDate || null,
-        is_recurrence_template: recurrenceConfig.type !== 'none',
-      };
-
       if (item && onUpdate) {
-        await onUpdate(item.id, draftPayload);
+        const patch: Partial<PlanningItem> & Record<string, unknown> = {};
+        const contentChanged =
+          !initialSnapshot ||
+          !sameValue(currentSnapshot.content, initialSnapshot.content) ||
+          !sameValue(currentSnapshot.threadTweets, initialSnapshot.threadTweets) ||
+          currentSnapshot.contentType !== initialSnapshot.contentType;
+        const platformsChanged =
+          !initialSnapshot ||
+          !sameValue(currentSnapshot.selectedPlatforms, initialSnapshot.selectedPlatforms);
+        const mediaChanged =
+          !initialSnapshot || !sameValue(currentSnapshot.mediaUrls, initialSnapshot.mediaUrls);
+        const metadataChanged =
+          !initialSnapshot ||
+          currentSnapshot.contentType !== initialSnapshot.contentType ||
+          platformsChanged ||
+          !sameValue(currentSnapshot.platformOptions, initialSnapshot.platformOptions) ||
+          currentSnapshot.autoPublish !== initialSnapshot.autoPublish ||
+          mediaChanged ||
+          !sameValue(currentSnapshot.threadTweets, initialSnapshot.threadTweets);
+
+        if (!initialSnapshot || currentSnapshot.title !== initialSnapshot.title) {
+          patch.title = title.trim() || effectiveItem?.title || 'Sem título';
+        }
+        if (contentChanged) patch.content = finalContent.trim() || null;
+        if (!initialSnapshot || currentSnapshot.selectedClientId !== initialSnapshot.selectedClientId) {
+          patch.client_id = selectedClientId || null;
+        }
+        if (!initialSnapshot || currentSnapshot.columnId !== initialSnapshot.columnId) {
+          patch.column_id = columnId || null;
+        }
+        if (platformsChanged) patch.platform = resolvedPlatform;
+        if (!initialSnapshot || currentSnapshot.priority !== initialSnapshot.priority) {
+          patch.priority = priority;
+        }
+        if (!initialSnapshot || currentSnapshot.scheduledAtIso !== initialSnapshot.scheduledAtIso) {
+          patch.due_date = finalScheduledAt ? format(finalScheduledAt, 'yyyy-MM-dd') : null;
+          patch.scheduled_at = finalScheduledAt ? finalScheduledAt.toISOString() : null;
+        }
+        if (mediaChanged) patch.media_urls = mediaItems.map(m => m.url);
+        if (!initialSnapshot || !sameValue(currentSnapshot.assignees, initialSnapshot.assignees)) {
+          patch.assignees = assignees;
+        }
+        if (!initialSnapshot || currentSnapshot.contentType !== initialSnapshot.contentType) {
+          if (contentType) patch.content_type = contentType;
+        }
+        if (!initialSnapshot || !sameValue(currentSnapshot.labels, initialSnapshot.labels)) {
+          patch.labels = labels;
+        }
+        if (!initialSnapshot || !sameValue(currentSnapshot.recurrenceConfig, initialSnapshot.recurrenceConfig)) {
+          patch.recurrence_type = recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null;
+          patch.recurrence_days = recurrenceConfig.days.length > 0 ? recurrenceConfig.days : null;
+          patch.recurrence_time = recurrenceConfig.time || null;
+          patch.recurrence_end_date = recurrenceConfig.endDate || null;
+          patch.is_recurrence_template = recurrenceConfig.type !== 'none';
+        }
+
+        let latestMetadata = (effectiveItem?.metadata as Record<string, unknown>) || {};
+        let latestStatus = effectiveItem?.status;
+        let latestColumnId = effectiveItem?.column_id;
+        if (metadataChanged || currentSnapshot.autoPublish !== initialSnapshot?.autoPublish) {
+          const { data: latest } = await supabase
+            .from('planning_items')
+            .select('metadata,status,column_id')
+            .eq('id', item.id)
+            .single();
+          if (latest) {
+            latestMetadata = (latest.metadata as Record<string, unknown>) || latestMetadata;
+            latestStatus = latest.status as PlanningItem['status'];
+            latestColumnId = latest.column_id;
+          }
+        }
+
+        if (metadataChanged) {
+          const nextMetadata: Record<string, unknown> = { ...latestMetadata };
+          if (!initialSnapshot || currentSnapshot.contentType !== initialSnapshot.contentType) {
+            nextMetadata.content_type = contentType || null;
+          }
+          if (platformsChanged) nextMetadata.target_platforms = selectedPlatforms;
+          if (!initialSnapshot || !sameValue(currentSnapshot.platformOptions, initialSnapshot.platformOptions)) {
+            nextMetadata.platform_options = platformOptions;
+          }
+          if (!initialSnapshot || currentSnapshot.autoPublish !== initialSnapshot.autoPublish) {
+            nextMetadata.auto_publish = autoPublish;
+          }
+          if (mediaChanged) nextMetadata.media_items = serializePlanningMediaItems(mediaItems);
+          if (
+            !initialSnapshot ||
+            !sameValue(currentSnapshot.threadTweets, initialSnapshot.threadTweets) ||
+            currentSnapshot.contentType !== initialSnapshot.contentType
+          ) {
+            if (isTwitterThread) nextMetadata.thread_tweets = threadTweets;
+          }
+          patch.metadata = nextMetadata;
+        }
+
+        if (!autoPublish && latestStatus === 'scheduled') {
+          patch.status = 'draft';
+          const currentCol = columns.find(c => c.id === latestColumnId);
+          const draftColumn =
+            columns.find(c => c.column_type === 'draft') ||
+            columns.find(c => c.column_type === 'idea');
+          if (draftColumn && currentCol?.column_type === 'scheduled') {
+            patch.column_id = draftColumn.id;
+          }
+        }
+
+        if (Object.keys(patch).length === 0) {
+          onOpenChange(false);
+          return;
+        }
+        await onUpdate(item.id, patch);
         toast.success('Alterações salvas', { duration: 1500 });
       } else if (!item && onSave && title.trim()) {
+        const existingMetadata = (effectiveItem?.metadata as Record<string, unknown>) || {};
+        const draftMetadata: Record<string, unknown> = {
+          ...existingMetadata,
+          content_type: contentType || undefined,
+          target_platforms: selectedPlatforms,
+          platform_options: platformOptions,
+          auto_publish: autoPublish,
+          media_items: serializePlanningMediaItems(mediaItems),
+        };
+        if (isTwitterThread) draftMetadata.thread_tweets = threadTweets;
+        const draftPayload: CreatePlanningItemInput & Record<string, unknown> = {
+          title: title.trim() || 'Sem título',
+          content: finalContent.trim() || undefined,
+          client_id: selectedClientId || undefined,
+          column_id: columnId || undefined,
+          platform: resolvedPlatform || undefined,
+          priority,
+          due_date: finalScheduledAt ? format(finalScheduledAt, 'yyyy-MM-dd') : undefined,
+          scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
+          media_urls: mediaItems.map(m => m.url),
+          assignees,
+          assigned_to: assignees[0] ?? undefined,
+          content_type: contentType || undefined,
+          labels,
+          metadata: draftMetadata,
+          recurrence_type: recurrenceConfig.type !== 'none' ? recurrenceConfig.type : null,
+          recurrence_days: recurrenceConfig.days.length > 0 ? recurrenceConfig.days : null,
+          recurrence_time: recurrenceConfig.time || null,
+          recurrence_end_date: recurrenceConfig.endDate || null,
+          is_recurrence_template: recurrenceConfig.type !== 'none',
+        };
         await onSave(draftPayload);
         toast.success('Rascunho criado', { duration: 1500 });
       }
@@ -675,7 +877,7 @@ export function PlanningItemDialog({
         nextMetadata.thread_tweets = threadTweets;
       }
 
-      const data: CreatePlanningItemInput & Record<string, any> = {
+      const data: CreatePlanningItemInput & Record<string, unknown> = {
         title: title.trim(),
         content: finalContent.trim() || undefined,
         client_id: selectedClientId || undefined,
@@ -689,7 +891,7 @@ export function PlanningItemDialog({
         scheduled_at: finalScheduledAt ? finalScheduledAt.toISOString() : undefined,
         media_urls: mediaItems.map(m => m.url),
         assignees,
-        assigned_to: assignees[0] ?? null,
+        assigned_to: assignees[0] ?? undefined,
         content_type: contentType,
         labels,
         metadata: nextMetadata,
@@ -910,9 +1112,12 @@ export function PlanningItemDialog({
     }
     setIsPublishing(true);
     try {
+      const publishedColumn = columns.find(c => c.column_type === 'published');
       await onUpdate(itemId, {
         status: 'published',
         published_at: new Date().toISOString(),
+        scheduled_at: null,
+        ...(publishedColumn ? { column_id: publishedColumn.id } : {}),
       } as Partial<PlanningItem>);
       toast.success('Card marcado como publicado');
       onOpenChange(false);
@@ -996,7 +1201,7 @@ export function PlanningItemDialog({
               {!readOnly &&
                 effectiveItem &&
                 (effectiveItem.status === 'idea' || effectiveItem.status === 'draft') &&
-                !((effectiveItem.metadata as any)?.viral_carousel_id) && (
+                !((effectiveItem.metadata as Record<string, unknown>)?.viral_carousel_id) && (
                   <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Sparkles className="h-3.5 w-3.5 text-primary" />
@@ -1043,9 +1248,14 @@ export function PlanningItemDialog({
 
               {/* Viral Carousel banner — quick jump to Sequência Viral editor */}
               {(() => {
-                const meta = (effectiveItem?.metadata as any) || {};
-                const viralCarouselId: string | undefined = meta.viral_carousel_id;
-                const viralSlides: Array<{ body: string }> | undefined = meta.viral_carousel_slides;
+                const meta = (effectiveItem?.metadata as Record<string, unknown>) || {};
+                const viralCarouselId =
+                  typeof meta.viral_carousel_id === 'string'
+                    ? meta.viral_carousel_id
+                    : undefined;
+                const viralSlides = Array.isArray(meta.viral_carousel_slides)
+                  ? (meta.viral_carousel_slides as Array<{ body: string }>)
+                  : undefined;
                 const isViral = meta.content_type === 'viral_carousel' || !!viralCarouselId;
                 if (!isViral || !selectedClientId) return null;
                 return (
@@ -1245,7 +1455,7 @@ export function PlanningItemDialog({
                 <Label className="text-xs text-muted-foreground">Plataforma</Label>
                 <div className="grid grid-cols-2 gap-1">
                   {ALL_PUBLISH_PLATFORMS.map((p) => {
-                    const status = getPlatformStatus(p.value as any);
+                    const status = getPlatformStatus(p.value as PlanningPlatform);
                     const isConnected = status?.hasApi && status?.isValid;
                     const isSelected = selectedPlatforms.includes(p.value);
                     const IconComponent = platformLucideIcons[p.value];

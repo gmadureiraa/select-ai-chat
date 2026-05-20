@@ -141,6 +141,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'planning-items-update': () => import('./_handlers/planning-items-update.js'),
   'planning-items-reorder': () => import('./_handlers/planning-items-reorder.js'),
   'planning-comments-create': () => import('./_handlers/planning-comments-create.js'),
+  'planning-comments-list': () => import('./_handlers/planning-comments-list.js'),
   'planning-comments-delete': () => import('./_handlers/planning-comments-delete.js'),
   'task-checklist-create': () => import('./_handlers/task-checklist-create.js'),
   'task-checklist-update': () => import('./_handlers/task-checklist-update.js'),

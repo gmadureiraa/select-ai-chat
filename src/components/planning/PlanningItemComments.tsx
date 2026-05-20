@@ -17,16 +17,20 @@ interface PlanningItemCommentsProps {
 
 export function PlanningItemComments({ planningItemId, clientId }: PlanningItemCommentsProps) {
   const [newComment, setNewComment] = useState("");
-  const { comments, isLoading, addComment, deleteComment, isAdding } = usePlanningComments(planningItemId);
+  const { comments, isLoading, loadError, addComment, deleteComment, isAdding } = usePlanningComments(planningItemId);
   const { user } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!newComment.trim() || isAdding) return;
-    
-    addComment(newComment.trim());
-    setNewComment("");
+
+    try {
+      await addComment(newComment.trim());
+      setNewComment("");
+    } catch {
+      // Toast já é emitido pelo hook.
+    }
   };
 
   if (!planningItemId) {
@@ -43,6 +47,10 @@ export function PlanningItemComments({ planningItemId, clientId }: PlanningItemC
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : loadError ? (
+          <div className="flex items-center justify-center h-full text-destructive text-sm text-center px-4">
+            {loadError}
           </div>
         ) : comments.length === 0 ? (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
@@ -79,12 +87,16 @@ export function PlanningItemComments({ planningItemId, clientId }: PlanningItemC
           disabled={!newComment.trim() || isAdding}
           className="shrink-0"
           aria-label={isAdding ? "Enviando comentário" : "Enviar comentário"}
-          onClick={(e) => {
+          onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
             if (!newComment.trim() || isAdding) return;
-            addComment(newComment.trim());
-            setNewComment("");
+            try {
+              await addComment(newComment.trim());
+              setNewComment("");
+            } catch {
+              // Toast já é emitido pelo hook.
+            }
           }}
         >
           {isAdding ? (

@@ -89,8 +89,24 @@ export default authedPost(async ({ body, user }) => {
         );
       }
     }
+    const profileRow = await client.query(
+      `SELECT full_name, avatar_url, email FROM profiles WHERE id = $1`,
+      [user.id],
+    );
+
     await client.query('COMMIT');
-    return { ok: true, comment, id: comment.id };
+    return {
+      ok: true,
+      comment: {
+        ...comment,
+        profile: {
+          full_name: profileRow.rows[0]?.full_name ?? null,
+          avatar_url: profileRow.rows[0]?.avatar_url ?? null,
+          email: profileRow.rows[0]?.email ?? null,
+        },
+      },
+      id: comment.id,
+    };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

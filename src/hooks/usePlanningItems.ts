@@ -398,6 +398,7 @@ export function usePlanningItems(filters: PlanningFilters = {}) {
       if (updates.content_type !== undefined) updateData.content_type = updates.content_type;
       if (updates.due_date !== undefined) updateData.due_date = updates.due_date;
       if (updates.scheduled_at !== undefined) updateData.scheduled_at = updates.scheduled_at;
+      if (updates.published_at !== undefined) updateData.published_at = updates.published_at;
       if (updates.status !== undefined) updateData.status = updates.status;
       if (updates.priority !== undefined) updateData.priority = updates.priority;
       if (updates.position !== undefined) updateData.position = updates.position;
