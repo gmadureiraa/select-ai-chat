@@ -31,12 +31,22 @@ export function useClientPlatformStatus(clientId: string | null | undefined) {
     queryFn: async (): Promise<ClientPlatformStatuses> => {
       if (!clientId) return {};
 
-      const { data: credentials, error } = await supabase
-        .from('client_social_credentials')
-        .select('platform, is_valid, account_name, last_validated_at, validation_error, metadata')
-        .eq('client_id', clientId);
-
-      if (error) throw error;
+      // 2026-05-20 fix: lê via backend (service-role). Antes lia
+      // supabase.from('client_social_credentials') no browser e a RLS do Neon
+      // Data API escondia linhas (mesmo bug que escondia redes do Defiverso),
+      // fazendo o statusMap subcontar contas conectadas / canAutoPublish errado.
+      const { data, error } = await apiInvoke<{
+        credentials: Array<{
+          platform: string;
+          is_valid: boolean | null;
+          account_name: string | null;
+          last_validated_at: string | null;
+          validation_error: string | null;
+          metadata: Record<string, unknown> | null;
+        }>;
+      }>('client-social-status', { body: { client_id: clientId } });
+      if (error) throw new Error(error.message || 'Erro ao carregar status das plataformas');
+      const credentials = data?.credentials ?? [];
 
       const statusMap: ClientPlatformStatuses = {};
 

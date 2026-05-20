@@ -33,7 +33,12 @@ export type DesignTemplateId =
   | "madureira-dark"
   | "dsec-dark"
   | "defiverso-carrossel"
-  | "defiverso-cripto-dark";
+  | "defiverso-cripto-dark"
+  // 2026-05-20: IDs dos templates ATIVOS (renderer). Sem isso, carrossel salvo
+  // com esses templates caía no fallback "twitter" e o writer Gemini não recebia
+  // o style-guide certo.
+  | "defiverso-imagebg"
+  | "madureira-minimal";
 
 /** Template default quando nada é especificado.
  * 2026-05-19: trocado de "manifesto" (arquivado) pra "twitter" (template ativo
@@ -379,6 +384,8 @@ const VALID_TEMPLATE_IDS: readonly DesignTemplateId[] = [
   "madureira-reflection",
   "dsec-dark",
   "defiverso-carrossel",
+  "defiverso-imagebg",
+  "madureira-minimal",
 ];
 
 /** Normaliza qualquer string em um DesignTemplateId válido (default: manifesto). */
