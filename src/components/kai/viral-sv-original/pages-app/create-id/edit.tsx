@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import {
   TEMPLATES_META,
+  TEMPLATE_VARIANTS,
   TemplateRenderer,
   type TemplateId,
 } from "@sv/components/app/templates";
@@ -87,62 +88,83 @@ function useInjectDisplayFonts() {
   }, []);
 }
 
-const VARIANT_OPTS: { id: SlideVariant; label: string; ic: React.ReactNode }[] = [
-  {
-    id: "cover",
-    label: "Capa",
-    ic: <span style={{ width: 22, height: 22, background: "var(--sv-ink)", border: "1.5px solid var(--sv-ink)" }} />,
-  },
-  {
-    id: "solid-brand",
-    label: "Cor da marca",
-    ic: <span style={{ width: 22, height: 22, background: "var(--sv-green)", border: "1.5px solid var(--sv-ink)" }} />,
-  },
-  {
-    id: "full-photo-bottom",
-    label: "Foto cheia",
-    ic: (
-      <span
-        style={{
-          width: 22,
-          height: 22,
-          background: "linear-gradient(var(--sv-paper) 55%, var(--sv-ink) 55%)",
-          border: "1.5px solid var(--sv-ink)",
-        }}
-      />
-    ),
-  },
-  {
-    id: "text-only",
-    label: "Só texto",
-    ic: (
-      <span
-        style={{
-          width: 22,
-          height: 22,
-          background: "var(--sv-ink)",
-          borderTop: "3px solid var(--sv-paper)",
-          borderBottom: "3px solid var(--sv-paper)",
-        }}
-      />
-    ),
-  },
-  {
-    id: "cta",
-    label: "CTA",
-    ic: (
-      <span
-        style={{
-          width: 22,
-          height: 22,
-          background: "var(--sv-ink)",
-          borderLeft: "4px solid var(--sv-green)",
-          border: "1.5px solid var(--sv-ink)",
-        }}
-      />
-    ),
-  },
-];
+/**
+ * Ícones por id de variante. O seletor "Variante do slide" não usa mais uma
+ * lista fixa: ele lê `TEMPLATE_VARIANTS[templateId]` (templates/index.tsx) e
+ * mapeia cada id pro seu ícone aqui. Assim cada template mostra só as variações
+ * que sabe renderizar (defiverso-imagebg / madureira-minimal = capa/página/cta;
+ * twitter = layout único).
+ */
+const VARIANT_ICONS: Record<string, React.ReactNode> = {
+  cover: (
+    <span style={{ width: 22, height: 22, background: "var(--sv-ink)", border: "1.5px solid var(--sv-ink)" }} />
+  ),
+  inner: (
+    <span
+      style={{
+        width: 22,
+        height: 22,
+        background: "var(--sv-paper)",
+        border: "1.5px solid var(--sv-ink)",
+        boxShadow: "inset 0 0 0 3px var(--sv-white)",
+      }}
+    />
+  ),
+  cta: (
+    <span
+      style={{
+        width: 22,
+        height: 22,
+        background: "var(--sv-ink)",
+        borderLeft: "4px solid var(--sv-green)",
+        border: "1.5px solid var(--sv-ink)",
+      }}
+    />
+  ),
+  tweet: (
+    <span
+      style={{
+        width: 22,
+        height: 22,
+        background: "var(--sv-white)",
+        border: "1.5px solid var(--sv-ink)",
+        borderRadius: 6,
+      }}
+    />
+  ),
+  "solid-brand": (
+    <span style={{ width: 22, height: 22, background: "var(--sv-green)", border: "1.5px solid var(--sv-ink)" }} />
+  ),
+  "full-photo-bottom": (
+    <span
+      style={{
+        width: 22,
+        height: 22,
+        background: "linear-gradient(var(--sv-paper) 55%, var(--sv-ink) 55%)",
+        border: "1.5px solid var(--sv-ink)",
+      }}
+    />
+  ),
+  "text-only": (
+    <span
+      style={{
+        width: 22,
+        height: 22,
+        background: "var(--sv-ink)",
+        borderTop: "3px solid var(--sv-paper)",
+        borderBottom: "3px solid var(--sv-paper)",
+      }}
+    />
+  ),
+};
+
+function variantIcon(id: string): React.ReactNode {
+  return (
+    VARIANT_ICONS[id] ?? (
+      <span style={{ width: 22, height: 22, background: "var(--sv-ink)", border: "1.5px solid var(--sv-ink)" }} />
+    )
+  );
+}
 
 const ACCENT_SWATCHES_DEFAULT = [
   "#7CF067",
@@ -1200,9 +1222,13 @@ export default function EditPage(props: {
   const active = slides[activeIndex];
   const selectedMeta = TEMPLATES_META.find((m) => m.id === templateId);
 
-  // Twitter template tem UM UNICO layout (sem variantes). Ocultar o picker
-  // evita user clicar e ver mudanca zero no canvas.
-  const supportsVariants = templateId !== "twitter";
+  // Variantes do TEMPLATE ATIVO (templates/index.tsx → TEMPLATE_VARIANTS).
+  // Cada template expõe só as variações que sabe renderizar. Templates de
+  // layout único (twitter + legados → fallback) têm 1 opção; nesse caso
+  // ocultamos o picker (clicar não muda nada no canvas).
+  const templateVariants = TEMPLATE_VARIANTS[templateId] ?? [];
+  const supportsVariants = templateVariants.length > 1;
+  const variantCols = Math.min(templateVariants.length || 1, 3);
 
   const VariantsCol = (
     <div className="flex flex-col gap-4">
@@ -1222,16 +1248,17 @@ export default function EditPage(props: {
           </h4>
           <div
             className="grid gap-1.5"
-            style={{ gridTemplateColumns: "1fr 1fr 1fr" }}
+            style={{ gridTemplateColumns: `repeat(${variantCols}, 1fr)` }}
           >
-            {VARIANT_OPTS.map((v) => {
+            {templateVariants.map((v) => {
               const on = active?.variant === v.id;
               return (
                 <button
                   key={v.id}
                   type="button"
                   onClick={() =>
-                    active && updateSlide(activeIndex, { variant: v.id })
+                    active &&
+                    updateSlide(activeIndex, { variant: v.id as SlideVariant })
                   }
                   style={{
                     padding: "10px 4px",
@@ -1250,7 +1277,7 @@ export default function EditPage(props: {
                     color: "var(--sv-ink)",
                   }}
                 >
-                  {v.ic}
+                  {variantIcon(v.id)}
                   {v.label}
                 </button>
               );

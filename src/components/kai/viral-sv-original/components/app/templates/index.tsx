@@ -3,9 +3,19 @@ import { forwardRef } from "react";
 import TemplateTwitter from "./template-twitter";
 import TemplateDefiversoImageBG from "./template-defiverso-imagebg";
 import TemplateMadureiraMinimal from "./template-madureira-minimal";
-import type { SlideProps, TemplateId, TemplateMeta } from "./types";
+import type {
+  SlideProps,
+  TemplateId,
+  TemplateMeta,
+  SlideVariantName,
+} from "./types";
 
-export type { SlideProps, TemplateId, TemplateMeta } from "./types";
+export type {
+  SlideProps,
+  TemplateId,
+  TemplateMeta,
+  SlideVariantName,
+} from "./types";
 
 /**
  * Orchestrator — escolhe o template certo baseado em `templateId`.
@@ -61,6 +71,73 @@ export const TemplateRenderer = forwardRef<
  * defiverso-imagebg (Defiverso) aparecem pra novos carrosseis. Os antigos
  * continuam funcionando porque `TemplateRenderer` faz fallback pra Twitter.
  */
+/**
+ * Variações internas de cada template ATIVO. O editor (edit.tsx) lê esse mapa
+ * pra renderizar o seletor "Variante do slide" com APENAS as variações que o
+ * template ativo realmente sabe renderizar — em vez de uma lista genérica fixa.
+ *
+ * Cada `id` precisa existir em `SlideVariantName` (templates/types.ts) e ser
+ * lido pelo template alvo. Hoje:
+ *  - twitter            → layout único (tweet). Sem variantes de layout.
+ *  - defiverso-imagebg  → cover / inner / cta (ver CoverSlide/InnerSlide/CtaSlide)
+ *  - madureira-minimal  → cover / inner / cta
+ *
+ * `inner` é o default das páginas internas (qualquer slide do meio). Os
+ * templates tratam "tudo que não for cover/cta" como inner, então passar
+ * `variant: "inner"` explicitamente força o layout interno mesmo no slide 1
+ * ou no último.
+ */
+export const TEMPLATE_VARIANTS: Record<
+  TemplateId,
+  { id: SlideVariantName; label: string }[]
+> = {
+  twitter: [{ id: "tweet", label: "Tweet" }],
+  "defiverso-imagebg": [
+    { id: "cover", label: "Capa" },
+    { id: "inner", label: "Página" },
+    { id: "cta", label: "CTA" },
+  ],
+  "madureira-minimal": [
+    { id: "cover", label: "Capa" },
+    { id: "inner", label: "Página" },
+    { id: "cta", label: "CTA" },
+  ],
+  // IDs legados (arquivados → fallback Twitter). Layout único.
+  manifesto: [{ id: "tweet", label: "Tweet" }],
+  futurista: [{ id: "tweet", label: "Tweet" }],
+  autoral: [{ id: "tweet", label: "Tweet" }],
+  ambitious: [{ id: "tweet", label: "Tweet" }],
+  blank: [{ id: "tweet", label: "Tweet" }],
+  bohdan: [{ id: "tweet", label: "Tweet" }],
+  "paper-mono": [{ id: "tweet", label: "Tweet" }],
+  "serif-duelo": [{ id: "tweet", label: "Tweet" }],
+  madureira: [{ id: "tweet", label: "Tweet" }],
+  "madureira-reflection": [{ id: "tweet", label: "Tweet" }],
+  "madureira-dark": [{ id: "tweet", label: "Tweet" }],
+  "dsec-dark": [{ id: "tweet", label: "Tweet" }],
+  "defiverso-carrossel": [{ id: "tweet", label: "Tweet" }],
+  "defiverso-cripto-dark": [{ id: "tweet", label: "Tweet" }],
+};
+
+/**
+ * Default de variant por POSIÇÃO no carrossel: slide 1 = capa, último = cta,
+ * meio = inner. Usado quando o template tem variantes (cover/inner/cta) e o
+ * slide ainda não tem variant explícito. Templates de layout único ignoram.
+ */
+export function defaultVariantForPosition(
+  templateId: TemplateId,
+  index: number,
+  total: number,
+): SlideVariantName {
+  const opts = TEMPLATE_VARIANTS[templateId] ?? [];
+  const ids = opts.map((o) => o.id);
+  if (ids.length <= 1) return ids[0] ?? "tweet";
+  if (index === 0 && ids.includes("cover")) return "cover";
+  if (index === total - 1 && ids.includes("cta")) return "cta";
+  if (ids.includes("inner")) return "inner";
+  return ids[0];
+}
+
 export const TEMPLATES_META: TemplateMeta[] = [
   {
     id: "twitter",

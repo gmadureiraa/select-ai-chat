@@ -22,10 +22,17 @@ const VISUAL_TEMPLATE_IDS = [
   "blank",
   "bohdan",
   "paper-mono",
+  "serif-duelo",
   "madureira",
   "madureira-reflection",
+  "madureira-dark",
   "dsec-dark",
   "defiverso-carrossel",
+  "defiverso-cripto-dark",
+  // 2026-05-19 — templates novos: sem isso, o storage descartava a escolha
+  // do user e o preview/export caía no default "twitter".
+  "defiverso-imagebg",
+  "madureira-minimal",
 ] as const;
 
 function normalizeVisualTemplate(raw: unknown): VisualTemplateId | undefined {

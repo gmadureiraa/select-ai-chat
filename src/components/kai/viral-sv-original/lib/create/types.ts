@@ -46,7 +46,10 @@ export type SlideVariant =
   // Novas variantes BrandsDecoded overhaul (2026-04-22)
   | "solid-brand"
   | "text-only"
-  | "full-photo-bottom";
+  | "full-photo-bottom"
+  // Templates novos (2026-05-19): página interna + tweet único
+  | "inner"
+  | "tweet";
 
 export interface PreviewProfile {
   name: string;

@@ -66,7 +66,7 @@ export function TaskCard({
       tabIndex={0}
       aria-label={`Abrir tarefa ${task.title}`}
       className={cn(
-        "group relative cursor-pointer rounded-md border border-border/60 bg-card pl-3 pr-2.5 py-2 overflow-hidden",
+        "group relative cursor-pointer rounded-lg border border-border/60 bg-card pl-4 pr-3 py-3 overflow-hidden",
         "transition-all duration-150 hover:border-primary/40 hover:-translate-y-px hover:shadow-sm",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
         isDone && "opacity-60",
@@ -78,7 +78,7 @@ export function TaskCard({
         aria-hidden
       />
 
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2.5">
         {onToggleDone && (
           <button
             type="button"
@@ -100,21 +100,29 @@ export function TaskCard({
           </button>
         )}
 
-        <div className="flex-1 min-w-0">
-          <p className={cn("text-sm font-medium leading-snug", isDone && "line-through")}>
+        <div className="flex-1 min-w-0 space-y-2">
+          {/* Title — até 2 linhas, line-height confortável */}
+          <p
+            className={cn(
+              "text-sm font-medium leading-relaxed line-clamp-2",
+              isDone && "line-through",
+            )}
+          >
             {task.title}
           </p>
 
           {density === "comfortable" && task.description && (
-            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{task.description}</p>
+            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+              {task.description}
+            </p>
           )}
 
           {labels.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1.5">
+            <div className="flex flex-wrap gap-1.5">
               {labels.slice(0, 4).map((l, i) => (
                 <span
                   key={i}
-                  className="text-[10px] px-1.5 h-4 inline-flex items-center rounded border"
+                  className="text-[10px] px-1.5 h-5 inline-flex items-center rounded border"
                   style={{
                     background: `${l.color}1f`,
                     color: l.color,
@@ -125,50 +133,62 @@ export function TaskCard({
                 </span>
               ))}
               {labels.length > 4 && (
-                <span className="text-[10px] text-muted-foreground">+{labels.length - 4}</span>
+                <span className="text-[10px] text-muted-foreground self-center">
+                  +{labels.length - 4}
+                </span>
               )}
             </div>
           )}
 
-          <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
-            <span className={cn("h-1.5 w-1.5 rounded-full", priorityDot[task.priority])} />
+          {/* Divider — separa título/labels do footer de metadados */}
+          <div className="border-t border-border/30" />
 
-            {client && (
-              <span className="truncate max-w-[100px]" title={client.name}>
-                {client.name}
-              </span>
-            )}
-
-            {due && (
+          {/* Footer: meta à esquerda (prioridade, cliente, data, contadores),
+              avatares à direita. gap maior pra dar respiro. */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 text-[11px] text-muted-foreground min-w-0">
               <span
-                className={cn(
-                  "inline-flex items-center gap-1",
-                  overdue ? "text-destructive" : dueToday ? "text-warning" : "text-muted-foreground",
-                )}
-              >
-                {overdue && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
-                )}
-                <Calendar className="h-3 w-3" />
-                {format(due, "dd MMM", { locale: ptBR })}
-              </span>
-            )}
+                className={cn("h-2 w-2 shrink-0 rounded-full", priorityDot[task.priority])}
+                title={`Prioridade ${task.priority}`}
+              />
 
-            {checklistMeta && checklistMeta.total > 0 && (
-              <span className="inline-flex items-center gap-1" title="Subtarefas">
-                <ListChecks className="h-3 w-3" />
-                {checklistMeta.done}/{checklistMeta.total}
-              </span>
-            )}
+              {client && (
+                <span className="truncate max-w-[110px]" title={client.name}>
+                  {client.name}
+                </span>
+              )}
 
-            {!!commentsCount && commentsCount > 0 && (
-              <span className="inline-flex items-center gap-1" title="Comentários">
-                <MessageSquare className="h-3 w-3" />
-                {commentsCount}
-              </span>
-            )}
+              {due && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 shrink-0",
+                    overdue ? "text-destructive" : dueToday ? "text-warning" : "text-muted-foreground",
+                  )}
+                >
+                  {overdue && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
+                  )}
+                  <Calendar className="h-3 w-3" />
+                  {format(due, "dd MMM", { locale: ptBR })}
+                </span>
+              )}
 
-            <div className="ml-auto">
+              {checklistMeta && checklistMeta.total > 0 && (
+                <span className="inline-flex items-center gap-1 shrink-0" title="Subtarefas">
+                  <ListChecks className="h-3 w-3" />
+                  {checklistMeta.done}/{checklistMeta.total}
+                </span>
+              )}
+
+              {!!commentsCount && commentsCount > 0 && (
+                <span className="inline-flex items-center gap-1 shrink-0" title="Comentários">
+                  <MessageSquare className="h-3 w-3" />
+                  {commentsCount}
+                </span>
+              )}
+            </div>
+
+            <div className="shrink-0">
               {assigneeIds.length > 0 ? (
                 <div className="flex -space-x-1.5">
                   {assigneeIds.slice(0, 3).map((id) => (
