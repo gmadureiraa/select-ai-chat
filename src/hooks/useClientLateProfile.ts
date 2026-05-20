@@ -39,28 +39,22 @@ export function useClientLateProfile(clientId: string | null | undefined) {
         return { profileId: null, profileName: null, createdAt: null, isValid: false };
       }
 
-      const { data: row, error } = await supabase
-        .from("client_social_credentials")
-        .select("account_id, account_name, metadata, is_valid")
-        .eq("client_id", clientId)
-        .eq("platform", "late_profile")
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!row) {
-        return { profileId: null, profileName: null, createdAt: null, isValid: false };
-      }
-
-      const meta = (row.metadata || {}) as Record<string, unknown>;
-      return {
-        profileId:
-          (meta.late_profile_id as string) ||
-          (row.account_id as string) ||
-          null,
-        profileName: (row.account_name as string) || null,
-        createdAt: (meta.late_profile_created_at as string) || null,
-        isValid: Boolean(row.is_valid),
-      };
+      // 2026-05-20 fix: lê via backend (service-role) em vez de supabase.from no
+      // browser. A RLS do Data API escondia a linha late_profile (Defiverso
+      // tinha profile válido mas a UI mostrava "criar profile").
+      const { data, error } = await apiInvoke<{ profile: ClientLateProfile | null }>(
+        "client-social-status",
+        { body: { client_id: clientId } },
+      );
+      if (error) throw new Error(error.message || "Erro ao carregar profile");
+      return (
+        data?.profile ?? {
+          profileId: null,
+          profileName: null,
+          createdAt: null,
+          isValid: false,
+        }
+      );
     },
   });
 

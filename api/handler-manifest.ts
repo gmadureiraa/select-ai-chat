@@ -10,6 +10,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'batch-transcribe-posts': () => import('./_handlers/batch-transcribe-posts.js'),
   'client-add-source': () => import('./_handlers/client-add-source.js'),
   'client-context': () => import('./_handlers/client-context.js'),
+  'client-social-status': () => import('./_handlers/client-social-status.js'),
   'cron-approval-tokens-cleanup': () => import('./_handlers/cron-approval-tokens-cleanup.js'),
   'cron-generate-daily-brief': () => import('./_handlers/cron-generate-daily-brief.js'),
   // 2026-05-18 rev2 — cron-fetch-published-metrics arquivado (dependia de Metricool).

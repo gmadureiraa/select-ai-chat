@@ -45,13 +45,16 @@ export function useSocialCredentials(clientId: string) {
   const { data: credentials, isLoading } = useQuery({
     queryKey: ['social-credentials', clientId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('client_social_credentials')
-        .select('id, client_id, platform, is_valid, last_validated_at, validation_error, account_name, account_id, metadata, created_at, updated_at')
-        .eq('client_id', clientId);
-
-      if (error) throw error;
-      return data as SocialCredential[];
+      // 2026-05-20 fix: lê via backend (service-role). A RLS do Data API no
+      // browser escondia linhas (Defiverso tinha 5 redes válidas mas a UI
+      // mostrava só 2). O handler devolve credentials + profile (profile
+      // ignorado aqui; useClientLateProfile consome).
+      const { data, error } = await apiInvoke<{ credentials: SocialCredential[] }>(
+        'client-social-status',
+        { body: { client_id: clientId } },
+      );
+      if (error) throw new Error(error.message || 'Erro ao carregar credenciais');
+      return (data?.credentials ?? []) as SocialCredential[];
     },
     enabled: !!clientId,
   });
