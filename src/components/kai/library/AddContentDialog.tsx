@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { blobStorage } from "@/integrations/storage/blob-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Plus, Instagram, Youtube, Mail, Linkedin, BookOpen, FileBarChart } from "lucide-react";
+import { Loader2, Plus, Instagram, Youtube, Mail, Linkedin } from "lucide-react";
 import { RichContentEditor } from "./RichContentEditor";
 
 interface AddContentDialogProps {
@@ -21,16 +21,18 @@ interface AddContentDialogProps {
 
 import { CONTENT_TYPE_OPTIONS } from "@/types/contentTypes";
 
-const CONTENT_TYPES = CONTENT_TYPE_OPTIONS.map(opt => ({
-  value: opt.value,
-  label: opt.label,
-  icon: opt.category === 'Instagram' ? Instagram : 
-        opt.category === 'Vídeo' ? Youtube : 
-        opt.category === 'Escrita' ? Mail :
-        opt.category === 'LinkedIn' ? Linkedin : 
-        opt.value === 'case_study' ? BookOpen :
-        opt.value === 'report' ? FileBarChart : Plus
-}));
+// 2026-05-21 — estudos de caso e relatórios saíram da Biblioteca; filtra esses
+// tipos das opções de adicionar conteúdo.
+const CONTENT_TYPES = CONTENT_TYPE_OPTIONS
+  .filter(opt => opt.value !== 'case_study' && opt.value !== 'report')
+  .map(opt => ({
+    value: opt.value,
+    label: opt.label,
+    icon: opt.category === 'Instagram' ? Instagram :
+          opt.category === 'Vídeo' ? Youtube :
+          opt.category === 'Escrita' ? Mail :
+          opt.category === 'LinkedIn' ? Linkedin : Plus
+  }));
 
 export function AddContentDialog({ open, onOpenChange, clientId, defaultContentType }: AddContentDialogProps) {
   const [title, setTitle] = useState("");
