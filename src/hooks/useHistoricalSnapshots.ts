@@ -1,8 +1,8 @@
-// 2026-05-18 rev2 — STUB. metricool-snapshots handler removido junto com Metricool.
-// Histórico vai ser reconstruído via late-analytics quando Wave A entregar.
-// Por enquanto, queryFn retorna snapshots vazios pra não quebrar componentes
-// que ainda importam (5 dashboards). Os componentes mostram "sem histórico" naturalmente.
+// 2026-05-21 — Lê a série histórica real de zernio_daily_snapshots via o
+// handler `historical-snapshots`, alimentado pelo cron diário cron-snapshot-zernio.
+// Substitui o stub vazio que existia desde a remoção do Metricool (18/05).
 import { useQuery } from '@tanstack/react-query';
+import { apiInvoke } from '@/lib/apiInvoke';
 import type { MetricoolNetwork } from '@/hooks/useMetricoolPerformance';
 
 export interface SnapshotData {
@@ -38,23 +38,25 @@ export function useHistoricalSnapshots(
   period: number = 30,
 ) {
   return useQuery({
-    queryKey: ['historical-snapshots-stub', clientId, network, period],
+    queryKey: ['historical-snapshots', clientId, network, period],
     queryFn: async (): Promise<SnapshotResponse> => {
-      const now = new Date();
-      const fromDate = new Date(now.getTime() - period * 86400_000);
-      return {
-        ok: true as const,
-        snapshots: [],
-        source: 'api' as const,
-        range: {
-          from: localDateKey(fromDate),
-          to: localDateKey(now),
-          days: period,
-        },
-        coverage: { snapshotDays: 0, totalDays: period, ratio: 0 },
-      };
+      const { data, error } = await apiInvoke<SnapshotResponse>('historical-snapshots', {
+        body: { clientId, network, period },
+      });
+      if (error || !data) {
+        const now = new Date();
+        const fromDate = new Date(now.getTime() - period * 86400_000);
+        return {
+          ok: true as const,
+          snapshots: [],
+          source: 'api' as const,
+          range: { from: localDateKey(fromDate), to: localDateKey(now), days: period },
+          coverage: { snapshotDays: 0, totalDays: period, ratio: 0 },
+        };
+      }
+      return data;
     },
-    enabled: false, // disabled até Late equivalent entrar (Wave A)
-    staleTime: Infinity,
+    enabled: !!clientId,
+    staleTime: 5 * 60_000,
   });
 }

@@ -68,24 +68,27 @@ export default authedPost(async ({ body, user }) => {
       const engagementRates: number[] = [];
 
       const recentPosts = posts.map((p: any) => {
-        totalImpressions += p.impressions || 0;
-        totalLikes += p.likes || 0;
-        totalComments += p.comments || 0;
-        totalShares += p.shares || 0;
-        totalReach += p.reach || 0;
-        if (p.engagementRate) engagementRates.push(p.engagementRate);
+        // Late API 2026 aninha métricas em `p.analytics`. Fallback pro shape
+        // antigo (campos no topo) por segurança.
+        const a = p.analytics || p;
+        totalImpressions += a.impressions || 0;
+        totalLikes += a.likes || 0;
+        totalComments += a.comments || 0;
+        totalShares += a.shares || 0;
+        totalReach += a.reach || 0;
+        if (a.engagementRate) engagementRates.push(a.engagementRate);
         return {
-          id: p.id || p.externalId,
+          id: p.id || p.externalId || p._id,
           content: (p.content || '').substring(0, 200),
           publishedAt: p.publishedAt,
           url: p.platformPostUrl || '',
           metrics: {
-            impressions: p.impressions || 0,
-            reach: p.reach || 0,
-            likes: p.likes || 0,
-            comments: p.comments || 0,
-            shares: p.shares || 0,
-            engagementRate: p.engagementRate || 0,
+            impressions: a.impressions || 0,
+            reach: a.reach || 0,
+            likes: a.likes || 0,
+            comments: a.comments || 0,
+            shares: a.shares || 0,
+            engagementRate: a.engagementRate || 0,
           },
         };
       }).sort((a: any, b: any) => (b.metrics.engagementRate || 0) - (a.metrics.engagementRate || 0)).slice(0, 10);

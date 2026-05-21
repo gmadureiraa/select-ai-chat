@@ -22,6 +22,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'cron-scrape-threads': () => import('./_handlers/cron-scrape-threads.js'),
   'cron-scrape-tiktok': () => import('./_handlers/cron-scrape-tiktok.js'),
   'cron-scrape-twitter': () => import('./_handlers/cron-scrape-twitter.js'),
+  'cron-snapshot-zernio': () => import('./_handlers/cron-snapshot-zernio.js'),
   'cron-transcribe-recent-posts': () => import('./_handlers/cron-transcribe-recent-posts.js'),
   'delete-account': () => import('./_handlers/delete-account.js'),
   'embed-client-content': () => import('./_handlers/embed-client-content.js'),
@@ -58,6 +59,7 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'generate-performance-insights': () => import('./_handlers/generate-performance-insights.js'),
   // 2026-05-16: 'generate-radar-brief' removido junto com Radar Viral (saiu do KAI).
   'generate-viral-carousel': () => import('./_handlers/generate-viral-carousel.js'),
+  'historical-snapshots': () => import('./_handlers/historical-snapshots.js'),
   'generate-voice-profile': () => import('./_handlers/generate-voice-profile.js'),
   'get-vapid-public-key': () => import('./_handlers/get-vapid-public-key.js'),
   'get-integrations-status': () => import('./_handlers/get-integrations-status.js'),
