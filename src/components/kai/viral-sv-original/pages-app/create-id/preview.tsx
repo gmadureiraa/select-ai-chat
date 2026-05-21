@@ -14,8 +14,6 @@ import { authHeaders } from "@sv/lib/api-auth-headers";
 import { supabase } from "@sv/lib/supabase";
 import { upsertUserCarousel } from "@sv/lib/carousel-storage";
 import { buildSVPreviewProfile } from "@sv/lib/client-profile";
-import CarouselFeedbackPanel from "@sv/components/app/carousel-feedback";
-import FeedbackModal from "@sv/components/app/FeedbackModal";
 // KAI integration: salvar carrossel finalizado na biblioteca de conteúdo do
 // cliente. Usa o handler `save-to-library` (mesmo endpoint do KaiAssistant).
 // `useSVClient` expõe o clientId selecionado no shell do Kai (Sidebar).
@@ -132,14 +130,6 @@ export default function PreviewPage(props: {
   const [captionMissingKey, setCaptionMissingKey] = useState(false);
   const [captionStale, setCaptionStale] = useState(false);
 
-  // Modal de feedback pos-download. Abre 800ms depois de um export zip/pdf
-  // bem-sucedido. Nao trava o download — so aparece depois que o browser
-  // processou o save. Ver components/app/FeedbackModal.tsx.
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  function scheduleFeedbackModal() {
-    setTimeout(() => setFeedbackOpen(true), 800);
-  }
-
   // 2026-05-09 — Zernio scheduling REMOVIDO do KAI 2.0. Os endpoints
   // `/api/zernio/*` foram removidos (Zernio era SaaS standalone).
   // 2026-05-18 rev2 — Metricool também REMOVIDO. KAI 2.0 publica via Late/Zernio
@@ -173,11 +163,9 @@ export default function PreviewPage(props: {
 
   async function handleExportZip() {
     await exportZip(draft?.title || "carrossel");
-    scheduleFeedbackModal();
   }
   async function handleExportPdf() {
     await exportPdf(draft?.title || "carrossel");
-    scheduleFeedbackModal();
   }
 
   // Hash simples dos slides pra detectar quando legenda ficou desatualizada
@@ -1594,37 +1582,6 @@ export default function PreviewPage(props: {
           </div>
         </div>
       </div>
-
-      {/* Feedback do carrossel — aparece só aqui (pos-finalizacao). Antes
-          ficava no editor, mas atrapalhava o foco de edicao. */}
-      {draft && user?.id && (
-        <section
-          className="mt-10"
-          style={{
-            padding: "20px 22px",
-            border: "1.5px solid var(--sv-ink)",
-            boxShadow: "3px 3px 0 0 var(--sv-ink)",
-            background: "var(--sv-white)",
-          }}
-        >
-          <CarouselFeedbackPanel
-            carouselId={draft.id}
-            userId={user.id}
-            supabase={supabase}
-            initial={draft.feedback ?? null}
-          />
-        </section>
-      )}
-
-      {/* Modal de feedback pos-download. Abre 800ms depois do export zip/pdf
-          completar. Manda o texto bruto pra /api/feedback/carousel que
-          classifica e alimenta profile.brand_analysis.__generation_memory. */}
-      <FeedbackModal
-        open={feedbackOpen}
-        onClose={() => setFeedbackOpen(false)}
-        carouselId={draft?.id ?? null}
-        session={session}
-      />
 
       {/* 2026-05-09 — Modais Zernio (ScheduleZernioModal + PlannedPostModal)
           deletados. Endpoints /api/zernio/* removidos do KAI 2.0. */}

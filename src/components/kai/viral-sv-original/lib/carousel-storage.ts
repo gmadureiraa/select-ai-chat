@@ -69,13 +69,6 @@ export type CarouselVariationMeta = {
   style: string;
 };
 
-/** Feedback do cliente por carrossel (persistido em `carousels.style.feedback`). */
-export type CarouselFeedback = {
-  sentiment: "up" | "down" | null;
-  comment: string;
-  updatedAt?: string;
-};
-
 /** Metadados persistidos após upload em `carousel-exports` (API /api/carousel/exports). */
 export type CarouselExportAssets = {
   pngUrls: string[];
@@ -103,8 +96,6 @@ export type SavedCarousel = {
   /** Pares de fonte editorial (`title_font` / `body_font` no JSON style) */
   titleFontId?: string;
   bodyFontId?: string;
-  /** Avaliação e comentário (MVP: JSON em `style.feedback`) */
-  feedback?: CarouselFeedback;
   /** Preferência de pessoas nas fotos (persistido em `style.image_people_mode`) */
   imagePeopleMode?: ImagePeopleMode;
   /** Override da cor de destaque do template visual (persistido em `style.accent_override`). */
@@ -220,19 +211,6 @@ export function rowToSavedCarousel(row: CarouselRow): SavedCarousel {
   const bodyFontId =
     typeof styleObj.body_font === "string" ? styleObj.body_font : undefined;
 
-  let feedback: CarouselFeedback | undefined;
-  const fb = styleObj.feedback;
-  if (fb && typeof fb === "object") {
-    const o = fb as Record<string, unknown>;
-    const s = o.sentiment;
-    const sentiment = s === "up" || s === "down" ? s : null;
-    feedback = {
-      sentiment,
-      comment: typeof o.comment === "string" ? o.comment : "",
-      updatedAt: typeof o.updated_at === "string" ? o.updated_at : undefined,
-    };
-  }
-
   const rawIpm = styleObj.image_people_mode;
   const imagePeopleMode: ImagePeopleMode | undefined =
     typeof rawIpm === "string"
@@ -290,7 +268,6 @@ export function rowToSavedCarousel(row: CarouselRow): SavedCarousel {
     creationMode,
     titleFontId,
     bodyFontId,
-    feedback,
     imagePeopleMode,
     accentOverride,
     displayFont,
@@ -588,9 +565,6 @@ export async function upsertUserCarousel(
       existingRow?.style && typeof existingRow.style === "object"
         ? (existingRow.style as Record<string, unknown>)
         : {};
-    if (prev.feedback) {
-      style.feedback = prev.feedback;
-    }
     const ipm =
       payload.imagePeopleMode ??
       (typeof prev.image_people_mode === "string"
@@ -790,43 +764,3 @@ export async function bumpCarouselUsage(
   }
 }
 
-const MAX_FEEDBACK_COMMENT = 2000;
-
-/** Salva ou atualiza feedback (joia / negativo / comentário) no JSON do carrossel. */
-export async function upsertCarouselFeedback(
-  client: SupabaseClient,
-  userId: string,
-  carouselId: string,
-  patch: { sentiment: "up" | "down" | null; comment: string }
-): Promise<void> {
-  const { data: existing, error: fetchErr } = await client
-    .from("carousels")
-    .select("style")
-    .eq("id", carouselId)
-    .eq("user_id", userId)
-    .single();
-
-  if (fetchErr || !existing) {
-    throw fetchErr ?? new Error("Carrossel não encontrado");
-  }
-
-  const base =
-    existing.style && typeof existing.style === "object"
-      ? { ...(existing.style as Record<string, unknown>) }
-      : {};
-
-  const trimmed = patch.comment.trim().slice(0, MAX_FEEDBACK_COMMENT);
-  base.feedback = {
-    sentiment: patch.sentiment,
-    comment: trimmed,
-    updated_at: new Date().toISOString(),
-  };
-
-  const { error } = await client
-    .from("carousels")
-    .update({ style: base })
-    .eq("id", carouselId)
-    .eq("user_id", userId);
-
-  if (error) throw error;
-}

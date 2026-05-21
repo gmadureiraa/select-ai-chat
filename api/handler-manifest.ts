@@ -29,7 +29,6 @@ export const handlerLoaders: Record<string, () => Promise<{ default?: unknown; h
   'embed-knowledge': () => import('./_handlers/embed-knowledge.js'),
   'email-welcome': () => import('./_handlers/email-welcome.js'),
   'extract-branding': () => import('./_handlers/extract-branding.js'),
-  'feedback-carousel': () => import('./_handlers/feedback-carousel.js'),
   'referrals-track': () => import('./_handlers/referrals-track.js'),
   'extract-docx': () => import('./_handlers/extract-docx.js'),
   'extract-instagram': () => import('./_handlers/extract-instagram.js'),

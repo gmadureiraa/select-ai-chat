@@ -27,7 +27,6 @@ import { supabase } from "@sv/lib/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CarouselListSkeleton } from "@sv/components/app/carousel-skeleton";
 import EditorialSlide from "@sv/components/app/editorial-slide";
-import CarouselFeedbackPanel from "@sv/components/app/carousel-feedback";
 import {
   bumpCarouselUsage,
   deleteUserCarousel,
@@ -639,7 +638,6 @@ export default function CarouselsPage() {
                 previewProfile={previewProfile}
                 userId={user?.id}
                 supabase={supabase}
-                onFeedbackSaved={() => void loadCarousels()}
                 onDelete={() => handleDelete(carousel.id)}
                 onDuplicate={() => handleDuplicate(carousel)}
                 selected={selected.has(carousel.id)}
@@ -688,7 +686,6 @@ function CarouselCard({
   previewProfile,
   userId,
   supabase: sb,
-  onFeedbackSaved,
   onDelete,
   onDuplicate,
   selected,
@@ -702,7 +699,6 @@ function CarouselCard({
   previewProfile: { name: string; handle: string; photoUrl: string };
   userId: string | undefined;
   supabase: SupabaseClient | null;
-  onFeedbackSaved: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
   selected: boolean;
@@ -1010,15 +1006,6 @@ function CarouselCard({
             </button>
           )}
         </div>
-
-        <CarouselFeedbackPanel
-          carouselId={carousel.id}
-          userId={userId}
-          supabase={sb}
-          initial={carousel.feedback ?? null}
-          onSaved={onFeedbackSaved}
-          compact
-        />
 
         {carousel.exportAssets &&
           (carousel.exportAssets.pdfUrl ||
